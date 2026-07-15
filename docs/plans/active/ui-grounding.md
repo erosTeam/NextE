@@ -820,3 +820,12 @@ Primary information: existing sheet content and hierarchy remain unchanged; the 
 Primary action: dragging an existing multi-detent app sheet continuously resizes and reflows its content instead of waiting for the sheet to settle; all sheet actions and dismissal behavior remain unchanged.
 Reuse or deviation: reuse every current `appSheetOptions(...)` call and set the native ArkUI `scrollSizeMode: ScrollSizeMode.CONTINUOUS` once in the shared helper; no custom gesture, animation, layout wrapper, or per-page workaround is introduced.
 Verification: official offline ArkUI reference confirms `FOLLOW_DETENT` updates after dragging and `CONTINUOUS` updates during dragging; V1 decorator inventory, diff check, signed HarmonyOS build, and device interaction QA when an exact target is supplied.
+
+## Active: Reader settings live-preview sheet
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/image_view/view/view_widget.dart` opens `EHRoutes.readSetting` from Reader chrome and `../eros_fe/lib/pages/setting/read_setting_page.dart` owns the settings list; NextE currently mirrors that route in `feature/reader/src/main/ets/pages/ReaderPage.ets` and `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets`.
+Primary information: the current Reader image remains visible behind one native settings sheet, while the sheet shows the same Reader settings rows as Settings > Reader.
+Primary action: tapping the Reader gear opens at `SheetSize.MEDIUM`, settings apply through the existing `ReadModeSettings` writer and update Reader immediately, and the user can adjust the sheet to `SheetSize.LARGE` or dismiss it back to the same reading position; Settings > Reader remains the secondary full-page entry.
+Reuse or deviation: reuse `ReaderSettingsPage` row builders, `ReadModeState`, `ReadModeSettings`, `AppModalScaffold`, and `appSheetOptions`; the Reader gear owns the native sheet host and local visibility state, while entry supplies the shared settings content through `@BuilderParam`. Deviate from eros_fe's pushed page only inside Reader by using `[SheetSize.MEDIUM, SheetSize.LARGE]`, leaving the platform presentation type unchanged.
+Verification: V1 decorator inventory, diff check, signed HarmonyOS build, then phone/tablet device evidence covering initial medium height, large detent, half-height scrolling, a native picker menu, live direction/double-page response, dismissal, and unchanged Settings-tab navigation entry.

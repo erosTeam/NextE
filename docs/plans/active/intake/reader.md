@@ -10,6 +10,47 @@ Purpose:
 
 ## Items
 
+### Reader Settings Live-Preview Sheet
+
+Type: Reader settings presentation improvement
+
+Priority suggestion: P1 / interaction foundation
+
+Status: implemented / pending device acceptance
+
+Source:
+
+- User request, 2026-07-16: replace Reader chrome's pushed settings page with a half-height sheet that
+  can expand to full height, so settings effects can be previewed against the active Reader.
+
+Implementation boundary:
+
+- Keep Settings > Reader as the existing routed page.
+- Reuse the exact same settings-row content and `ReadModeSettings` writers in both hosts.
+- Reader chrome opens a native sheet with `[SheetSize.MEDIUM, SheetSize.LARGE]`; no custom
+  gesture, copied settings state, new preference, or Reader rendering redesign.
+- The Reader gear button itself owns the sheet visibility and `bindSheet` host; entry only supplies
+  the shared settings content through a builder parameter.
+
+Acceptance:
+
+- Phone and tablet layouts both open at the medium detent and can drag to large.
+- The medium sheet scrolls the full settings list without moving or closing the Reader.
+- Direction and double-page changes update the visible Reader immediately; native picker menus remain
+  usable inside both detents.
+- Back/down-dismiss and the close action return to the same gallery and reading position.
+- Settings > Reader still opens the full routed settings page with the same rows.
+
+Evidence, 2026-07-16:
+
+- Signed build, V1 inventory `0 file(s)`, read-progress contracts, and `git diff --check` passed.
+- `192.168.50.237:12345` phone layout: gear opened `SheetPage [0,848][1320,2120]`, drag reached
+  `[0,141][1320,2120]`, and close returned to Reader page `103 / 138`.
+- `192.168.50.103:12345` tablet layout: gear opened the platform floating sheet at
+  `[230,615][1370,1945]`; changing double-page mode updated the visible Reader immediately and the
+  test restored the setting. Dragging did not produce a verified large detent on this platform form,
+  so tablet large-height acceptance remains open.
+
 ### Double-Page Toggle Shifts When The One-Page Step Action Appears
 
 Type: Reader chrome / layout stability bug

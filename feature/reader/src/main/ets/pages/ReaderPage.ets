@@ -42,6 +42,7 @@ import {
   ReaderLocalSourceService,
   ReaderSourceKind,
   ReaderSourceVariant,
+  appSheetOptions,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -156,6 +157,8 @@ class ReaderSpreadResolver {
  */
 @ComponentV2
 export struct ReaderPage {
+  @BuilderParam settingsSheetContent: (dismiss: () => void) => void;
+  @Local settingsSheetShown: boolean = false;
   @Local vm: ReaderViewModel = new ReaderViewModel();
   @Local params: ReaderParams = new ReaderParams();
   // eros_fe opens the reader with chrome HIDDEN (view_state.dart:165 showBar=false); a center tap
@@ -2447,7 +2450,11 @@ export struct ReaderPage {
 
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
-    connectReaderOverlayNavigation().openSettings()
+    this.settingsSheetShown = true
+  }
+
+  private closeReaderSettings(): void {
+    this.settingsSheetShown = false
   }
 
   private spreadPageLabel(key: string, index: number): string {
@@ -2736,6 +2743,19 @@ export struct ReaderPage {
           .onClick(() => {
             this.openReaderSettings()
           })
+          .bindSheet(
+            $$this.settingsSheetShown,
+            this.settingsSheetContent(() => {
+              this.closeReaderSettings()
+            }),
+            appSheetOptions({
+              detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+              showClose: false,
+              onDisappear: () => {
+                this.closeReaderSettings()
+              },
+            }),
+          )
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
               .fontSize(READER_CHROME_ICON_SIZE)

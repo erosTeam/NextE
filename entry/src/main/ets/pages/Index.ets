@@ -1305,7 +1305,11 @@ struct Index {
     } else if (name === 'ReaderOverlayBackdrop') {
       IndexReaderOverlayBackdropRoute()
     } else if (name === 'Reader') {
-      ReaderPage()
+      ReaderPage({
+        settingsSheetContent: (dismiss: () => void) => {
+          this.ReaderSettingsSheet(dismiss)
+        },
+      })
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
     } else if (name === 'ReaderGestureProbe') {
@@ -1313,6 +1317,16 @@ struct Index {
     } else {
       Column() {}
     }
+  }
+
+  @Builder
+  private ReaderSettingsSheet(dismiss: () => void) {
+    ReaderSettingsPage({
+      sheetPresentation: true,
+      closeSheet: () => {
+        dismiss()
+      },
+    })
   }
 
   @Builder

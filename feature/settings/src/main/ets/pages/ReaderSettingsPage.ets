@@ -15,6 +15,7 @@ import {
   connectNavStack,
   NavStackHolder,
   immersiveTitleBar,
+  AppModalScaffold,
 } from 'shared'
 
 /**
@@ -26,6 +27,8 @@ import {
  */
 @ComponentV2
 export struct ReaderSettingsPage {
+  @Param sheetPresentation: boolean = false;
+  @Event closeSheet?: () => void;
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
   @Local spreadLayoutMenuShown: boolean = false;
@@ -330,14 +333,9 @@ export struct ReaderSettingsPage {
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
   }
 
-  build() {
-    HdsNavDestination() {
-      SecondaryListScaffold({
-        scroller: this.scroller,
-        bottomPadding: ThemeConstants.SPACE_XL,
-        alwaysEnableEdgeSpring: true,
-      }) {
-        ListItem() {
+  @Builder
+  private SettingsListItem() {
+    ListItem() {
           Column() {
             GroupedListSection() {
               Column() {
@@ -445,17 +443,41 @@ export struct ReaderSettingsPage {
               })
             }
           }
+    }
+  }
+
+  build() {
+    if (this.sheetPresentation) {
+      AppModalScaffold({
+        title: $r('app.string.settings_reader'),
+        showConfirmAction: false,
+        closeAction: () => {
+          if (this.closeSheet) {
+            this.closeSheet()
+          }
+        },
+      }) {
+        this.SettingsListItem()
+      }
+    } else {
+      HdsNavDestination() {
+        SecondaryListScaffold({
+          scroller: this.scroller,
+          bottomPadding: ThemeConstants.SPACE_XL,
+          alwaysEnableEdgeSpring: true,
+        }) {
+          this.SettingsListItem()
         }
       }
+      .titleBar(immersiveTitleBar(AppStrings.get('settings_reader')))
+      .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
+      .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+      .onReady((context: NavDestinationContext) => {
+        this.refreshFirstSecondaryDestination(context.pathStack)
+      })
+      .onWillShow(() => {
+        this.refreshFirstSecondaryDestination(this.stack)
+      })
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('settings_reader')))
-    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
-    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .onReady((context: NavDestinationContext) => {
-      this.refreshFirstSecondaryDestination(context.pathStack)
-    })
-    .onWillShow(() => {
-      this.refreshFirstSecondaryDestination(this.stack)
-    })
   }
 }

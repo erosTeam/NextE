@@ -31,17 +31,6 @@ export class ReaderOverlayNavigationState {
     this.stack.pushPathByName('Reader', params, true)
   }
 
-  openSettings(): void {
-    if (!this.visible) {
-      return
-    }
-    const paths: string[] = this.stack.getAllPathName()
-    if (paths.length > 0 && paths[paths.length - 1] === 'ReaderSettings') {
-      return
-    }
-    this.stack.pushPathByName('ReaderSettings', null)
-  }
-
   openGestureProbe(): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderGestureProbe', null, false)
