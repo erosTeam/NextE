@@ -10,6 +10,34 @@ Purpose:
 
 ## Items
 
+### Export Progress Dialog Can Be Hidden While Export Keeps Running
+
+Type: downloaded gallery export / modal lifecycle
+
+Priority suggestion: P1 / task-state correctness
+
+Status: implemented candidate / needs device QA
+
+Source:
+
+- User report, 2026-07-15: pressing Back hides the in-progress export dialog, but the export continues
+  in the background, making it appear cancelled even though no cancellation occurred.
+
+Root cause and implementation:
+
+- `DownloadQueuePage` configured its `CustomDialogController` with `autoCancel: false`. ArkUI defines
+  that option as outside-mask cancellation only; Back is an interactive dismissal reported through
+  `onWillDismiss` with `DismissReason.PRESS_BACK`.
+- The export service has no cancellation path and all three export flows already close the dialog from
+  `finally` after the export settles. The dialog now intercepts interactive dismissal by not invoking
+  `DismissDialogAction.dismiss()`, while `finishExport()` retains programmatic close ownership.
+
+Acceptance path:
+
+- Start an export from a completed Gallery or Archiver task, press Back while the loading dialog is
+  visible, and verify the dialog remains visible. After success or failure, verify it closes normally
+  and the existing share/error continuation runs once.
+
 ### Interrupted Downloads Become Directory-Unavailable Errors After Cold Start
 
 Type: download queue recovery / lifecycle

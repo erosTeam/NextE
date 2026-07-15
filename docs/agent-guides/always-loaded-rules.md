@@ -15,6 +15,7 @@
 - [2026-07-08 Reader Progress Control Capability Failure](incidents/2026-07-08-reader-progress-control-capability-failure.md)
 - [2026-07-08 Reader Loading Contract Abuse](incidents/2026-07-08-reader-loading-contract-abuse.md)
 - [2026-07-10 Reader Slider Animation Investigation Failure](incidents/2026-07-10-reader-slider-animation-investigation-failure.md)
+- [2026-07-15 Reader Thumbnail Geometry Verification Failure](incidents/2026-07-15-reader-thumbnail-geometry-verification-failure.md)
 
 ## 硬停: 未知即阻断
 

@@ -10,3 +10,4 @@ export {
   ReaderSessionRequest,
   ReaderSessionRequestGate,
 } from './model/ReaderSessionRequestGate'
+export { ReaderThumbnailGeometry, ReaderThumbnailSize } from './model/ReaderThumbnailGeometry'

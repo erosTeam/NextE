@@ -11,6 +11,7 @@ import {
   BasicDataSource,
   EhGalleryImage,
   EhImageKnifeImage,
+  EH_IMAGE_DOWNSAMPLING_DESIRED_SIZE_ASPECT_FIT,
   EH_IMAGE_PRIORITY_LOW,
   EhSpriteThumbnail,
   ReaderParams,
@@ -47,12 +48,13 @@ import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentatio
 import { ReaderImageLoadPriority } from '../model/ReaderImageLoadPriority'
 import { ReaderImageSourceRequest, ReaderImageSourceRequestGate } from '../model/ReaderImageSourceRequestGate'
 import { ReaderSessionRequest } from '../model/ReaderSessionRequestGate'
+import { ReaderThumbnailGeometry, ReaderThumbnailSize } from '../model/ReaderThumbnailGeometry'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 const READER_CHROME_ACTION_SIZE: number = 44
 const READER_CHROME_ICON_SIZE: number = 22
 const READER_CHROME_TRACK_BG: ResourceColor = '#33FFFFFF'
-const READER_THUMB_STRIP_HEIGHT: number = 84
+const READER_THUMB_STRIP_HEIGHT: number = 140
 const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
 const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
@@ -2681,23 +2683,14 @@ export struct ReaderPage {
   }
 
   private thumbListIndexForPageIndex(index: number): number {
-    if (this.readMode.mode !== ReadMode.RTL) {
-      return index
-    }
-    return this.vm.totalPages() - 1 - index
+    return index
   }
 
   private thumbPageIndexes(): number[] {
     const total: number = this.vm.totalPages()
     const out: number[] = []
-    if (this.readMode.mode === ReadMode.RTL) {
-      for (let i: number = total - 1; i >= 0; i--) {
-        out.push(i)
-      }
-    } else {
-      for (let i: number = 0; i < total; i++) {
-        out.push(i)
-      }
+    for (let i: number = 0; i < total; i++) {
+      out.push(i)
     }
     return out
   }
@@ -2799,8 +2792,6 @@ export struct ReaderPage {
       .width('100%')
       .height(this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0)
       .padding({
-        left: ThemeConstants.SPACE_LG,
-        right: ThemeConstants.SPACE_LG,
         top: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0,
         bottom: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0,
       })
@@ -3011,11 +3002,20 @@ export struct ReaderPage {
           ListItem() {
             this.ReaderThumbItem(index)
           }
+          .margin({
+            left: (this.readMode.mode === ReadMode.RTL
+              ? index === this.vm.totalPages() - 1
+              : index === 0) ? ThemeConstants.SPACE_LG : 0,
+            right: (this.readMode.mode === ReadMode.RTL
+              ? index === 0
+              : index === this.vm.totalPages() - 1) ? ThemeConstants.SPACE_LG : 0,
+          })
         },
         (index: number) => `thumb_${index}_${this.thumbKey(this.vm.imageAt(index))}`,
       )
     }
     .listDirection(Axis.Horizontal)
+    .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .scrollBar(BarState.Off)
     .height(READER_THUMB_STRIP_HEIGHT)
     .width('100%')
@@ -3023,80 +3023,138 @@ export struct ReaderPage {
 
   @Builder
   ReaderThumbItem(index: number) {
+    ReaderThumbTile({
+      index: index,
+      currentIndex: this.vm.currentIndex,
+      image: this.vm.imageAt(index),
+      localImage: this.hasLocalThumb(this.vm.imageAt(index)),
+      renderableOnlineThumb: this.hasRenderableThumb(this.vm.imageAt(index)),
+      onTap: (target: number) => {
+        this.jumpToThumb(target)
+      },
+      onNeedWarm: (target: number, image: EhGalleryImage) => {
+        DiagnosticLogger.info(
+          'reader',
+          'thumb_placeholder_appear',
+          `index ${target} page ${image.page} sUrl ${image.sUrl.length} thumb ${image.thumbUrl.length}`,
+        )
+        this.vm.warmPreviewForIndex(target, 'thumb-strip')
+      },
+    })
+  }
+}
+
+@ComponentV2
+struct ReaderThumbTile {
+  @Require @Param index: number
+  @Require @Param currentIndex: number
+  @Require @Param image: EhGalleryImage
+  @Param localImage: boolean = false
+  @Param renderableOnlineThumb: boolean = false
+  @Event onTap: (index: number) => void = (_index: number) => {}
+  @Event onNeedWarm: (index: number, image: EhGalleryImage) => void =
+    (_index: number, _image: EhGalleryImage) => {}
+  @Local decodedWidth: number = 0
+  @Local decodedHeight: number = 0
+
+  @Monitor('image')
+  onLocalSourceChanged(): void {
+    this.decodedWidth = 0
+    this.decodedHeight = 0
+  }
+
+  private sourceWidth(): number {
+    if (this.localImage) {
+      return this.decodedWidth
+    }
+    return this.image.thumbWidth
+  }
+
+  private sourceHeight(): number {
+    if (this.localImage) {
+      return this.decodedHeight
+    }
+    return this.image.thumbHeight
+  }
+
+  private thumbSize(): ReaderThumbnailSize {
+    return ReaderThumbnailGeometry.fitHeight(this.sourceWidth(), this.sourceHeight())
+  }
+
+  build() {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      this.ReaderThumbImage(index, this.vm.imageAt(index))
-      Text(`${index + 1}`)
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.localImage) {
+          EhImageKnifeImage({
+            src: this.image.imageUrl,
+            widthValue: this.thumbSize().width,
+            heightValue: this.thumbSize().height,
+            objectFit: ImageFit.Contain,
+            radius: ThemeConstants.RADIUS_SM,
+            memoryOnly: true,
+            priority: EH_IMAGE_PRIORITY_LOW,
+            downSampling: EH_IMAGE_DOWNSAMPLING_DESIRED_SIZE_ASPECT_FIT,
+            desiredWidth: 288,
+            desiredHeight: 236,
+            onImageInfo: (width: number, height: number) => {
+              if (width > 0 && height > 0) {
+                this.decodedWidth = width
+                this.decodedHeight = height
+              }
+            },
+          })
+        } else if (this.renderableOnlineThumb) {
+          EhSpriteThumbnail({
+            url: this.image.thumbUrl,
+            thumbWidth: this.image.thumbWidth,
+            thumbHeight: this.image.thumbHeight,
+            offsetX: this.image.thumbOffsetX,
+            spriteWidth: this.image.spriteWidth,
+            spriteHeight: this.image.spriteHeight,
+            displayHeight: ReaderThumbnailGeometry.DISPLAY_HEIGHT,
+            fitHeight: true,
+            radius: ThemeConstants.RADIUS_SM,
+          })
+        } else {
+          Stack() {
+            LoadingProgress()
+              .width(22)
+              .height(22)
+              .color(Color.White)
+          }
+          .width(this.thumbSize().width)
+          .height(this.thumbSize().height)
+          .backgroundColor('#26FFFFFF')
+          .borderRadius(ThemeConstants.RADIUS_SM)
+          .onAppear(() => {
+            this.onNeedWarm(this.index, this.image)
+          })
+        }
+      }
+      .width(this.thumbSize().width)
+      .height(this.thumbSize().height)
+      .border({
+        width: this.index === this.currentIndex ? 2 : 0,
+        color: this.index === this.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
+      })
+      .borderRadius(ThemeConstants.RADIUS_SM)
+      .clip(true)
+
+      Text(`${this.index + 1}`)
         .fontSize(ThemeConstants.FONT_SIZE_META)
-        .fontColor(index === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.White)
+        .fontColor(this.index === this.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.White)
         .fontWeight(FontWeight.Medium)
         .maxLines(1)
         .height(18)
+        .width(this.thumbSize().width)
         .textAlign(TextAlign.Center)
     }
-    .width(76)
+    .width(this.thumbSize().width)
     .height(READER_THUMB_STRIP_HEIGHT)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
-      this.jumpToThumb(index)
+      this.onTap(this.index)
     })
-  }
-
-  @Builder
-  ReaderThumbImage(index: number, image: EhGalleryImage) {
-    Stack({ alignContent: Alignment.Center }) {
-      if (this.hasLocalThumb(image)) {
-        EhImageKnifeImage({
-          src: image.imageUrl,
-          widthValue: 72,
-          heightValue: 58,
-          objectFit: ImageFit.Cover,
-          radius: ThemeConstants.RADIUS_SM,
-          memoryOnly: true,
-          priority: EH_IMAGE_PRIORITY_LOW,
-          desiredWidth: 144,
-          desiredHeight: 116,
-        })
-      } else if (this.hasRenderableThumb(image)) {
-        EhSpriteThumbnail({
-          url: image.thumbUrl,
-          thumbWidth: image.thumbWidth,
-          thumbHeight: image.thumbHeight,
-          offsetX: image.thumbOffsetX,
-          spriteWidth: image.spriteWidth,
-          spriteHeight: image.spriteHeight,
-          displayHeight: 58,
-          fitHeight: true,
-          radius: ThemeConstants.RADIUS_SM,
-        })
-      } else {
-        Stack() {
-          LoadingProgress()
-            .width(22)
-            .height(22)
-            .color(Color.White)
-        }
-        .width(44)
-        .height(58)
-        .backgroundColor('#26FFFFFF')
-        .borderRadius(ThemeConstants.RADIUS_SM)
-        .onAppear(() => {
-          DiagnosticLogger.info(
-            'reader',
-            'thumb_placeholder_appear',
-            `index ${index} page ${image.page} sUrl ${image.sUrl.length} thumb ${image.thumbUrl.length}`,
-          )
-          this.vm.warmPreviewForIndex(index, 'thumb-strip')
-        })
-      }
-    }
-    .height(58)
-    .constraintSize({ minWidth: 42, maxWidth: 72 })
-    .border({
-      width: index === this.vm.currentIndex ? 2 : 0,
-      color: index === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
-    })
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .clip(true)
   }
 }
 

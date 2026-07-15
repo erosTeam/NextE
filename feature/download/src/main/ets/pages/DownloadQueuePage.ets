@@ -70,6 +70,9 @@ export struct DownloadQueuePage {
   private exportLoadingDialogController: CustomDialogController = new CustomDialogController({
     builder: LoadingDialog({ content: $r('app.string.download_export_started') }),
     autoCancel: false,
+    // Export has no cancellation path. Keep the modal visible until finishExport() closes it after
+    // the background work settles; otherwise Back only hides the status while export keeps running.
+    onWillDismiss: (_action: DismissDialogAction) => {},
     alignment: DialogAlignment.Center,
     customStyle: false,
   });
