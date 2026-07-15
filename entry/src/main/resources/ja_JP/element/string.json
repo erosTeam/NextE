@@ -1365,6 +1365,14 @@
       "value": "画像元: %s"
     },
     {
+      "name": "reader_image_info_local_download",
+      "value": "ローカルギャラリーダウンロード"
+    },
+    {
+      "name": "reader_image_info_local_archive",
+      "value": "ローカルアーカイブ"
+    },
+    {
       "name": "reader_image_info_unknown",
       "value": "不明"
     },

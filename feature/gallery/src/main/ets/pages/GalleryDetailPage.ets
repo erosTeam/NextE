@@ -39,7 +39,7 @@ import {
   ThumbnailModeState,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
-  DownloadImageSeed,
+  ReaderLocalSourceService,
   DownloadQueueSettings,
   DownloadQueueState,
   DownloadQueueSignalState,
@@ -48,7 +48,6 @@ import {
   connectDownloadSettings,
   DownloadOriginalMode,
   EhGalleryImage,
-  ImagePipelineService,
   LocalFavSettings,
   LocalBlockService,
   LocalFavState,
@@ -754,34 +753,16 @@ export struct GalleryDetailPage {
   }
 
   private openDownloadedTaskFromDetail(task: DownloadGalleryTask): void {
-    const images: EhGalleryImage[] = []
-    for (let i: number = 0; i < task.imageSeeds.length; i++) {
-      const seed: DownloadImageSeed = task.imageSeeds[i]
-      if (seed.filePath.length === 0 || seed.bytesWritten <= 0) {
-        continue
-      }
-      const image: EhGalleryImage = new EhGalleryImage(seed.page)
-      image.imgkey = seed.imgkey
-      image.sUrl = seed.imagePageUrl
-      image.thumbUrl = seed.thumbUrl
-      image.imageUrl = ImagePipelineService.displayUri(seed.filePath)
-      image.originImageUrl = seed.originImageUrl
-      image.showKey = seed.showKey
-      image.reloadKey = seed.reloadKey
-      images.push(image)
-    }
-    if (images.length === 0) {
+    const params: ReaderParams | null = ReaderLocalSourceService.galleryTaskParams(task, this.resumeIndex())
+    if (params === null) {
       return
     }
-    const index: number = Math.max(0, Math.min(images.length - 1, this.resumeIndex()))
     DiagnosticLogger.info(
       'download',
       'detail_open_local_reader',
-      `gid=${task.gid} images=${images.length} index=${index} firstUriHash=${DiagnosticLogger.ownerHash(images[0].imageUrl)}`,
+      `gid=${task.gid} images=${params.fileCount} index=${params.index} sourceHash=${DiagnosticLogger.ownerHash(params.source.sourceKey)}`,
     )
-    connectReaderOverlayNavigation().open(
-      new ReaderParams(task.gid, task.token, index, images.length, task.displayTitle(), images, 1, images.length),
-    )
+    connectReaderOverlayNavigation().open(params)
   }
 
   private onDownloadChipTap(): void {

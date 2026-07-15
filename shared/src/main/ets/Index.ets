@@ -50,6 +50,11 @@ export {
   EhGalleryCommentTextSpan,
 } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
+export {
+  ReaderSourceDescriptor,
+  ReaderSourceKind,
+  ReaderSourceVariant,
+} from './model/ReaderSource'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
 export {
   EhGalleryArchiverItem,
@@ -165,6 +170,7 @@ export {
   EH_IMAGE_PRIORITY_MEDIUM,
 } from './services/ImagePipelineTypes'
 export { ArchiveImageService } from './services/ArchiveImageService'
+export { ReaderLocalSourceService } from './services/ReaderLocalSourceService'
 export {
   ArchiveBotBalanceResult,
   ArchiveBotResolveResult,

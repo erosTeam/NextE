@@ -1365,6 +1365,14 @@
       "value": "图源：%s"
     },
     {
+      "name": "reader_image_info_local_download",
+      "value": "本地画廊下载"
+    },
+    {
+      "name": "reader_image_info_local_archive",
+      "value": "本地归档"
+    },
+    {
       "name": "reader_image_info_unknown",
       "value": "未知"
     },

@@ -8,6 +8,7 @@ import {
   EhUrlRouter,
   ImagePageRef,
   connectReadMode,
+  ReaderSourceKind,
 } from 'shared'
 import { ReaderSessionRequest, ReaderSessionRequestGate } from '../model/ReaderSessionRequestGate'
 
@@ -100,6 +101,8 @@ export class ReaderViewModel {
   private previewPage: number = -1
   private exhausted: boolean = false
   private cacheKey: string = ''
+  private sourceKey: string = ''
+  private localSource: boolean = false
   private loadedPreviewPages: number[] = []
   private previewImagesByIndex: Map<number, EhGalleryImage> = new Map()
   // Image-page links per preview page (~20/40, gallery-fixed), measured from the first loaded page.
@@ -129,14 +132,18 @@ export class ReaderViewModel {
     seedPerPage: number = 0,
     seedPreviewPages: number[] = [],
     seedImagePageUrl: string = '',
+    sourceKind: string = ReaderSourceKind.ONLINE,
+    sourceKey: string = '',
   ): Promise<ReaderSessionRequest | null> {
-    const request: ReaderSessionRequest = this.sessionRequests.begin(gid, token, isEx)
+    const request: ReaderSessionRequest = this.sessionRequests.begin(gid, token, isEx, sourceKey)
     this.gid = gid
     this.token = token
     this.isEx = isEx
     this.fileCount = fileCount
     this.currentIndex = startIndex
-    this.cacheKey = ReaderViewModel.sessionKey(gid, token, this.isEx)
+    this.sourceKey = sourceKey
+    this.localSource = sourceKind === ReaderSourceKind.GALLERY_DOWNLOAD || sourceKind === ReaderSourceKind.ARCHIVE
+    this.cacheKey = ReaderViewModel.sessionKey(gid, token, this.isEx, sourceKey)
     this.loadingMore = false
     this.jumping = false
     this.error = ''
@@ -151,9 +158,15 @@ export class ReaderViewModel {
     this.exhausted = false
     this.loadedPreviewPages = []
     this.perPage = 0
-    this.applySessionCache(fileCount)
+    if (!this.localSource) {
+      this.applySessionCache(fileCount)
+    }
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
-    this.applySeed(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages)
+    if (this.localSource) {
+      this.applyLocalSeed(seedImages)
+    } else {
+      this.applySeed(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages)
+    }
     const imagePageSeed: EhGalleryImage | null = this.applySeedImagePageUrl(startIndex, seedImagePageUrl)
     if (imagePageSeed !== null) {
       await this.resolveSeedImage(startIndex, imagePageSeed, request)
@@ -177,8 +190,10 @@ export class ReaderViewModel {
     this.currentIndex = total > 0 ? Math.min(startIndex, total - 1) : 0
     // The visible page component checks the stable disk cache before resolving /s/. Pre-resolving the
     // current page here would race that check and issue avoidable HTML requests on a cold reopen.
-    this.precacheFrom(this.currentIndex + 1, request)
-    this.warmPreviewAhead(this.currentIndex, request)
+    if (!this.localSource) {
+      this.precacheFrom(this.currentIndex + 1, request)
+      this.warmPreviewAhead(this.currentIndex, request)
+    }
     this.publishSessionCache()
     return request
   }
@@ -192,15 +207,36 @@ export class ReaderViewModel {
       this.gid === request.gid &&
       this.token === request.token &&
       this.isEx === request.isEx &&
-      this.cacheKey === ReaderViewModel.sessionKey(request.gid, request.token, request.isEx)
+      this.sourceKey === request.sourceKey &&
+      this.cacheKey === ReaderViewModel.sessionKey(request.gid, request.token, request.isEx, request.sourceKey)
   }
 
   private currentSessionRequest(): ReaderSessionRequest {
     return this.sessionRequests.current()
   }
 
-  private static sessionKey(gid: string, token: string, isEx: boolean): string {
-    return `${isEx ? 'ex' : 'eh'}:${gid}:${token}`
+  private static sessionKey(gid: string, token: string, isEx: boolean, sourceKey: string = ''): string {
+    const source: string = sourceKey.length > 0 ? sourceKey : 'online'
+    return `${isEx ? 'ex' : 'eh'}:${gid}:${token}:${source}`
+  }
+
+  private applyLocalSeed(seedImages: EhGalleryImage[]): void {
+    const changedIndexes: number[] = []
+    for (let i: number = 0; i < seedImages.length; i++) {
+      const seed: EhGalleryImage = seedImages[i].copy()
+      const targetIndex: number = seed.page > 0 ? seed.page - 1 : i
+      seed.page = targetIndex + 1
+      this.previewImagesByIndex.set(targetIndex, seed)
+      changedIndexes.push(targetIndex)
+    }
+    this.exhausted = true
+    this.perPage = seedImages.length
+    this.notifyPreviewMapChanged(changedIndexes)
+    DiagnosticLogger.info(
+      'reader',
+      'local_seed_ready',
+      `sourceHash=${DiagnosticLogger.ownerHash(this.sourceKey)} images=${seedImages.length}`,
+    )
   }
 
   private applySessionCache(fileCount: number): void {
@@ -506,6 +542,14 @@ export class ReaderViewModel {
     if (!this.isSessionCurrent(request)) {
       return
     }
+    if (this.localSource) {
+      if (!this.hasPreviewAt(index)) {
+        this.previewFailedIndex = index
+        this.previewError = 'local image unavailable'
+        DiagnosticLogger.warn('reader', 'local_page_unavailable', `index=${index}`)
+      }
+      return
+    }
     DiagnosticLogger.info(
       'reader',
       'ensure_loaded_begin',
@@ -670,7 +714,7 @@ export class ReaderViewModel {
     if (!this.isSessionCurrent(request)) {
       return
     }
-    if (this.loadingMore || this.exhausted) {
+    if (this.localSource || this.loadingMore || this.exhausted) {
       return
     }
     this.loadingMore = true
@@ -718,7 +762,11 @@ export class ReaderViewModel {
       return false
     }
     const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(index)
-    return img !== undefined && img.sUrl.length > 0
+    return img !== undefined && (img.sUrl.length > 0 || (this.localSource && img.imageUrl.length > 0))
+  }
+
+  hasPageAt(index: number): boolean {
+    return this.hasPreviewAt(index)
   }
 
   imageAt(index: number): EhGalleryImage {
@@ -983,7 +1031,7 @@ export class ReaderViewModel {
   }
 
   private precacheFrom(start: number, request: ReaderSessionRequest): void {
-    if (!this.isSessionCurrent(request)) {
+    if (!this.isSessionCurrent(request) || this.localSource) {
       return
     }
     const preloadPages: number = this.preloadPages()
@@ -1011,7 +1059,7 @@ export class ReaderViewModel {
   }
 
   private warmPreviewAhead(index: number, request: ReaderSessionRequest): void {
-    if (!this.isSessionCurrent(request)) {
+    if (!this.isSessionCurrent(request) || this.localSource) {
       return
     }
     const preloadPages: number = this.preloadPages()

@@ -1,6 +1,7 @@
 import { EhGalleryComment } from './EhGalleryComment'
 import { EhGalleryImage } from './EhGalleryImage'
 import { EhGallery } from './EhGallery'
+import { ReaderSourceDescriptor } from './ReaderSource'
 
 /**
  * Typed params pushed onto the NavPathStack by name. Hand-written classes (ArkTS route
@@ -137,6 +138,7 @@ export class ReaderParams {
   seedPreviewPages: number[] = [] // exact loaded preview-page numbers when the seed is sparse
   seedImagePageUrl: string = '' // exact tapped /s/ image-page URL; resolved first for the initial page
   initialChromeVisible: boolean = false // hidden QA paths may start with chrome visible for stable automation
+  source: ReaderSourceDescriptor = new ReaderSourceDescriptor()
 
   constructor(
     gid: string = '',
@@ -150,6 +152,7 @@ export class ReaderParams {
     seedPreviewPages: number[] = [],
     seedImagePageUrl: string = '',
     initialChromeVisible: boolean = false,
+    source: ReaderSourceDescriptor = new ReaderSourceDescriptor(),
   ) {
     this.gid = gid
     this.token = token
@@ -162,6 +165,7 @@ export class ReaderParams {
     this.seedPreviewPages = seedPreviewPages
     this.seedImagePageUrl = seedImagePageUrl
     this.initialChromeVisible = initialChromeVisible
+    this.source = source
   }
 }
 

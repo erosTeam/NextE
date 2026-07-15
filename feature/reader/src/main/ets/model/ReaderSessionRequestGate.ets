@@ -10,12 +10,14 @@ export class ReaderSessionRequest {
   gid: string
   token: string
   isEx: boolean
+  sourceKey: string
 
-  constructor(epoch: number, gid: string, token: string, isEx: boolean) {
+  constructor(epoch: number, gid: string, token: string, isEx: boolean, sourceKey: string = '') {
     this.epoch = epoch
     this.gid = gid
     this.token = token
     this.isEx = isEx
+    this.sourceKey = sourceKey
   }
 }
 
@@ -25,23 +27,26 @@ export class ReaderSessionRequestGate {
   private gid: string = ''
   private token: string = ''
   private isEx: boolean = false
+  private sourceKey: string = ''
 
-  begin(gid: string, token: string, isEx: boolean): ReaderSessionRequest {
+  begin(gid: string, token: string, isEx: boolean, sourceKey: string = ''): ReaderSessionRequest {
     this.epoch = this.epoch + 1
     this.gid = gid
     this.token = token
     this.isEx = isEx
+    this.sourceKey = sourceKey
     return this.current()
   }
 
   current(): ReaderSessionRequest {
-    return new ReaderSessionRequest(this.epoch, this.gid, this.token, this.isEx)
+    return new ReaderSessionRequest(this.epoch, this.gid, this.token, this.isEx, this.sourceKey)
   }
 
   isCurrent(request: ReaderSessionRequest): boolean {
     return request.epoch === this.epoch &&
       request.gid === this.gid &&
       request.token === this.token &&
-      request.isEx === this.isEx
+      request.isEx === this.isEx &&
+      request.sourceKey === this.sourceKey
   }
 }

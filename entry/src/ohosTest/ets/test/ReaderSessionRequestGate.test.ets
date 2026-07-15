@@ -23,5 +23,15 @@ export default function readerSessionRequestGateTest(): void {
       expect(gate.isCurrent(currentRequest)).assertEqual(true)
       done()
     })
+
+    it('separates online and local sources for the same gallery identity', 0, (done: Function) => {
+      const gate: ReaderSessionRequestGate = new ReaderSessionRequestGate()
+      const onlineRequest = gate.begin('gallery-a', 'token-a', false, '')
+      const localRequest = gate.begin('gallery-a', 'token-a', false, 'archive:gallery-a:completed')
+
+      expect(gate.isCurrent(onlineRequest)).assertEqual(false)
+      expect(gate.isCurrent(localRequest)).assertEqual(true)
+      done()
+    })
   })
 }

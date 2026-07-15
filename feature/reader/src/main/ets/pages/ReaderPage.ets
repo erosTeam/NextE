@@ -38,6 +38,9 @@ import {
   ImageBlockRuntimeService,
   ImageBlockSettingsState,
   connectImageBlockSettings,
+  ReaderLocalSourceService,
+  ReaderSourceKind,
+  ReaderSourceVariant,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -275,7 +278,9 @@ export struct ReaderPage {
         }
 
         if (this.readerContentReady()) {
-          this.ReaderCacheWarmers()
+          if (!this.isLocalReaderSource()) {
+            this.ReaderCacheWarmers()
+          }
           if (!this.currentImageBlocked && !this.isContinuousVerticalMode()) {
             this.ReaderTapOverlay()
           }
@@ -349,43 +354,20 @@ export struct ReaderPage {
         this.showChrome = p.initialChromeVisible
         this.readMode.columnMode = connectGalleryReadProgress().getColumnMode(p.gid)
         this.sliderValue = p.index + 1
-        const requestedIndex: number = p.index
         const isEx: boolean = connectSiteMode().isEx
-        this.vm.init(
-          p.gid,
-          p.token,
-          isEx,
-          p.fileCount,
-          p.index,
-          p.seedImages,
-          p.seedLoadedPages,
-          p.seedPerPage,
-          p.seedPreviewPages,
-          p.seedImagePageUrl,
-        )
-          .then((request: ReaderSessionRequest | null) => {
-            if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
+        ReaderLocalSourceService.preferLocal(this.hostContext(), p)
+          .then((prepared: ReaderParams) => {
+            if (!this.isReaderRouteIdentityCurrent(routeEpoch, p.gid, p.token, isEx)) {
               return
             }
-            const total: number = this.vm.totalPages()
-            const loadedTarget: number = total > 0 ? Math.min(requestedIndex, total - 1) : 0
-            const targetIndex: number = loadedTarget
-            this.vm.currentIndex = targetIndex
-            this.sliderValue = targetIndex + 1
-            this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
-            this.verticalVisibleStart = targetIndex
-            this.verticalVisibleEnd = targetIndex
-            this.readerReady = true
-            if (this.isContinuousVerticalMode()) {
-              setTimeout(() => {
-                if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
-                  return
-                }
-                this.listScroller.scrollToIndex(targetIndex)
-              }, 50)
-            } else {
-              this.syncReaderPagerToIndex(targetIndex, false, routeEpoch)
+            this.startReaderSession(prepared, routeEpoch, isEx)
+          })
+          .catch((error: Error) => {
+            if (!this.isReaderRouteIdentityCurrent(routeEpoch, p.gid, p.token, isEx)) {
+              return
             }
+            DiagnosticLogger.warn('reader', 'local_source_prepare_failed', error.message)
+            this.startReaderSession(p, routeEpoch, isEx)
           })
       }
       // Keep the screen awake while reading (eros_fe couples fullscreen + wakelock); window-scoped,
@@ -395,6 +377,50 @@ export struct ReaderPage {
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
+  }
+
+  private startReaderSession(p: ReaderParams, routeEpoch: number, isEx: boolean): void {
+    this.params = p
+    this.showChrome = p.initialChromeVisible
+    this.sliderValue = p.index + 1
+    const requestedIndex: number = p.index
+    this.vm.init(
+      p.gid,
+      p.token,
+      isEx,
+      p.fileCount,
+      p.index,
+      p.seedImages,
+      p.seedLoadedPages,
+      p.seedPerPage,
+      p.seedPreviewPages,
+      p.seedImagePageUrl,
+      p.source.kind,
+      p.source.sourceKey,
+    )
+      .then((request: ReaderSessionRequest | null) => {
+        if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
+          return
+        }
+        const total: number = this.vm.totalPages()
+        const targetIndex: number = total > 0 ? Math.min(requestedIndex, total - 1) : 0
+        this.vm.currentIndex = targetIndex
+        this.sliderValue = targetIndex + 1
+        this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
+        this.verticalVisibleStart = targetIndex
+        this.verticalVisibleEnd = targetIndex
+        this.readerReady = true
+        if (this.isContinuousVerticalMode()) {
+          setTimeout(() => {
+            if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
+              return
+            }
+            this.listScroller.scrollToIndex(targetIndex)
+          }, 50)
+        } else {
+          this.syncReaderPagerToIndex(targetIndex, false, routeEpoch)
+        }
+      })
   }
 
   private requestReaderKeyFocus(): void {
@@ -743,6 +769,38 @@ export struct ReaderPage {
     return port >= 0 ? host.substring(0, port) : host
   }
 
+  private isLocalReaderSource(): boolean {
+    return this.params.source.isLocal()
+  }
+
+  private displayedVariantText(page: number): string {
+    if (this.isLocalReaderSource()) {
+      if (this.params.source.variant === ReaderSourceVariant.ORIGINAL) {
+        return AppStrings.get('reader_image_info_original')
+      }
+      if (this.params.source.variant === ReaderSourceVariant.RESAMPLED) {
+        return AppStrings.get('reader_image_info_resampled')
+      }
+      return AppStrings.get('reader_image_info_unknown')
+    }
+    return this.originalModeForPage(page)
+      ? AppStrings.get('reader_image_info_original')
+      : AppStrings.get('reader_image_info_resampled')
+  }
+
+  private readerSourceText(): string {
+    if (this.params.source.kind === ReaderSourceKind.GALLERY_DOWNLOAD) {
+      return AppStrings.get('reader_image_info_local_download')
+    }
+    if (this.params.source.kind === ReaderSourceKind.ARCHIVE) {
+      const base: string = AppStrings.get('reader_image_info_local_archive')
+      return this.params.source.resolution.length > 0
+        ? `${base} · ${this.params.source.resolution}`
+        : base
+    }
+    return ''
+  }
+
   private requestSourceReload(index: number): void {
     if (!this.vm.hasPreviewAt(index)) {
       return
@@ -761,20 +819,23 @@ export struct ReaderPage {
     const lines: string[] = [
       AppStrings.get('reader_image_info_format').replace('%s', this.imageFileFormatForPage(image.page)),
       AppStrings.get('reader_image_info_size').replace('%s', this.imageFileSizeText(image.page)),
-      AppStrings.get('reader_image_info_current').replace('%s', this.originalModeForPage(image.page)
-        ? AppStrings.get('reader_image_info_original')
-        : AppStrings.get('reader_image_info_resampled')),
-      this.originalAvailableForIndex(index)
-        ? AppStrings.get('reader_image_info_original_available')
-        : AppStrings.get('reader_image_info_original_unavailable'),
+      AppStrings.get('reader_image_info_current').replace('%s', this.displayedVariantText(image.page)),
     ]
+    if (!this.isLocalReaderSource()) {
+      lines.push(this.originalAvailableForIndex(index)
+        ? AppStrings.get('reader_image_info_original_available')
+        : AppStrings.get('reader_image_info_original_unavailable'))
+    }
     const dimensions: string = this.imageMetricsText(image.page)
     if (dimensions.length > 0) {
       lines.push(dimensions)
     }
-    const host: string = this.imageHost(this.currentDisplayUrl(image))
-    if (host.length > 0) {
-      lines.push(AppStrings.get('reader_image_info_source').replace('%s', host))
+    const sourceText: string = this.readerSourceText()
+    const displaySource: string = sourceText.length > 0
+      ? sourceText
+      : this.imageHost(this.currentDisplayUrl(image))
+    if (displaySource.length > 0) {
+      lines.push(AppStrings.get('reader_image_info_source').replace('%s', displaySource))
     }
     this.getUIContext().showAlertDialog({
       title: AppStrings.get('reader_image_info_title').replace('%d', `${image.page}`),
@@ -933,6 +994,9 @@ export struct ReaderPage {
   }
 
   private currentDisplayUrl(image: EhGalleryImage): string {
+    if (this.isLocalReaderSource()) {
+      return image.imageUrl
+    }
     if (this.originalModeForPage(image.page) && image.originImageUrl.length > 0) {
       return image.originImageUrl
     }
@@ -976,6 +1040,9 @@ export struct ReaderPage {
   }
 
   private originalAvailableForIndex(index: number): boolean {
+    if (this.isLocalReaderSource()) {
+      return false
+    }
     if (!this.vm.hasPreviewAt(index)) {
       return false
     }
@@ -1142,6 +1209,9 @@ export struct ReaderPage {
   }
 
   private originalActionEnabled(): boolean {
+    if (this.isLocalReaderSource()) {
+      return false
+    }
     const indexes: number[] = this.hasTwoSpreadActions()
       ? this.spreadVisualIndexes()
       : [this.vm.currentIndex]
@@ -1862,6 +1932,7 @@ export struct ReaderPage {
           if (this.vm.hasPreviewAt(index)) {
             ReaderImagePage({
               image: this.vm.imageAt(index),
+              localSource: this.isLocalReaderSource(),
               imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
               fileCacheKey: this.readerFileCacheKey(
                 this.vm.imageAt(index),
@@ -2060,6 +2131,7 @@ export struct ReaderPage {
           } else {
             ReaderSpreadSurface({
               first: this.vm.imageAt(start),
+              localSource: this.isLocalReaderSource(),
               second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.imageAt(this.spreadSecondIndex(start)) : new EhGalleryImage(),
               firstFileCacheKey: this.readerFileCacheKey(
                 this.vm.imageAt(start),
@@ -2194,6 +2266,7 @@ export struct ReaderPage {
             if (this.vm.hasPreviewAt(index)) {
               ReaderVerticalImage({
                 image: this.vm.imageAt(index),
+                localSource: this.isLocalReaderSource(),
                 imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
                 fileCacheKey: this.readerFileCacheKey(
                   this.vm.imageAt(index),
@@ -2573,6 +2646,10 @@ export struct ReaderPage {
 
   private hasRenderableThumb(img: EhGalleryImage): boolean {
     return img.sUrl.length > 0 && img.thumbUrl.length > 0
+  }
+
+  private hasLocalThumb(img: EhGalleryImage): boolean {
+    return this.isLocalReaderSource() && img.imageUrl.startsWith('file://')
   }
 
   private thumbKey(img: EhGalleryImage): string {
@@ -2967,7 +3044,19 @@ export struct ReaderPage {
   @Builder
   ReaderThumbImage(index: number, image: EhGalleryImage) {
     Stack({ alignContent: Alignment.Center }) {
-      if (this.hasRenderableThumb(image)) {
+      if (this.hasLocalThumb(image)) {
+        EhImageKnifeImage({
+          src: image.imageUrl,
+          widthValue: 72,
+          heightValue: 58,
+          objectFit: ImageFit.Cover,
+          radius: ThemeConstants.RADIUS_SM,
+          memoryOnly: true,
+          priority: EH_IMAGE_PRIORITY_LOW,
+          desiredWidth: 144,
+          desiredHeight: 116,
+        })
+      } else if (this.hasRenderableThumb(image)) {
         EhSpriteThumbnail({
           url: image.thumbUrl,
           thumbWidth: image.thumbWidth,
@@ -3534,6 +3623,7 @@ struct ReaderCacheWarmImage {
 struct ReaderSpreadSurface {
   @Param first: EhGalleryImage = new EhGalleryImage();
   @Param second: EhGalleryImage = new EhGalleryImage();
+  @Param localSource: boolean = false;
   @Param firstFileCacheKey: string = '';
   @Param secondFileCacheKey: string = '';
   @Param hasFirst: boolean = false;
@@ -3966,6 +4056,7 @@ struct ReaderSpreadSurface {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
+        localSource: this.localSource,
         imageKey: this.spreadImageKey(image, preferOriginal),
         fileCacheKey: this.fileCacheKeyForPage(image.page),
         preferOriginal: preferOriginal,
@@ -4165,6 +4256,7 @@ struct ReaderSpreadSurface {
 @ComponentV2
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
@@ -4447,7 +4539,9 @@ struct ReaderSpreadImageLayer {
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    if (!this.localSource) {
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    }
     this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -4458,13 +4552,15 @@ struct ReaderSpreadImageLayer {
     this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.resolve(true)
+    this.resolve(!this.localSource)
   }
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      if (!this.localSource) {
+        ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      }
       this.autoRetryCount++
       this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
@@ -4475,7 +4571,7 @@ struct ReaderSpreadImageLayer {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
       this.failed = false
-      this.resolve(true)
+      this.resolve(!this.localSource)
       return
     }
     this.failed = true
@@ -4573,6 +4669,7 @@ struct ReaderSpreadImageLayer {
 @ComponentV2
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
@@ -4904,7 +5001,9 @@ struct ReaderImagePage {
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    if (!this.localSource) {
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    }
     this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -4915,13 +5014,15 @@ struct ReaderImagePage {
     this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.resolve(true)
+    this.resolve(!this.localSource)
   }
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      if (!this.localSource) {
+        ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      }
       this.autoRetryCount++
       this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
@@ -4932,7 +5033,7 @@ struct ReaderImagePage {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
       this.failed = false
-      this.resolve(true)
+      this.resolve(!this.localSource)
       return
     }
     this.failed = true
@@ -5245,6 +5346,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 @ComponentV2
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
@@ -5565,7 +5667,9 @@ struct ReaderVerticalImage {
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    if (!this.localSource) {
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+    }
     this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -5576,13 +5680,15 @@ struct ReaderVerticalImage {
     this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.resolve(true)
+    this.resolve(!this.localSource)
   }
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      if (!this.localSource) {
+        ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
+      }
       this.autoRetryCount++
       this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
@@ -5593,7 +5699,7 @@ struct ReaderVerticalImage {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
       this.failed = false
-      this.resolve(true)
+      this.resolve(!this.localSource)
       return
     }
     this.failed = true

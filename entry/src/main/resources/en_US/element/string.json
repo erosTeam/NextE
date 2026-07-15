@@ -1365,6 +1365,14 @@
       "value": "Source: %s"
     },
     {
+      "name": "reader_image_info_local_download",
+      "value": "Local gallery download"
+    },
+    {
+      "name": "reader_image_info_local_archive",
+      "value": "Local archive"
+    },
+    {
       "name": "reader_image_info_unknown",
       "value": "Unknown"
     },

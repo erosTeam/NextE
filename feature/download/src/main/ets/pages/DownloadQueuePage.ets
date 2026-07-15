@@ -3,8 +3,7 @@ import {
   SecondaryListScaffold,
   CardEmptyState,
   AppStrings,
-  ArchiveImageService,
-  ImagePipelineService,
+  ReaderLocalSourceService,
   DownloadArchiverTask,
   DownloadArchiverParseSource,
   DownloadExportFile,
@@ -12,8 +11,6 @@ import {
   DownloadExportService,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
-  DownloadImageSeed,
-  EhGalleryImage,
   EhThumbnail,
   GalleryDetailParams,
   ReaderParams,
@@ -911,39 +908,17 @@ export struct DownloadQueuePage {
   }
 
   private openDownloadedTask(task: DownloadGalleryTask): void {
-    const images: EhGalleryImage[] = this.downloadedSeedImages(task)
-    if (images.length === 0) {
+    const index: number = Math.max(0, this.readProgress.getIndex(task.gid))
+    const params: ReaderParams | null = ReaderLocalSourceService.galleryTaskParams(task, index)
+    if (params === null) {
       return
     }
-    const index: number = Math.max(0, Math.min(images.length - 1, this.readProgress.getIndex(task.gid)))
     DiagnosticLogger.info(
       'download',
       'gallery_open_local_reader',
-      `gid=${task.gid} images=${images.length} index=${index} firstUriHash=${DiagnosticLogger.ownerHash(images[0].imageUrl)}`,
+      `gid=${task.gid} images=${params.fileCount} index=${params.index} sourceHash=${DiagnosticLogger.ownerHash(params.source.sourceKey)}`,
     )
-    connectReaderOverlayNavigation().open(
-      new ReaderParams(task.gid, task.token, index, images.length, task.displayTitle(), images, 1, images.length),
-    )
-  }
-
-  private downloadedSeedImages(task: DownloadGalleryTask): EhGalleryImage[] {
-    const images: EhGalleryImage[] = []
-    for (let i: number = 0; i < task.imageSeeds.length; i++) {
-      const seed: DownloadImageSeed = task.imageSeeds[i]
-      if (seed.filePath.length === 0 || seed.bytesWritten <= 0) {
-        continue
-      }
-      const image: EhGalleryImage = new EhGalleryImage(seed.page)
-      image.imgkey = seed.imgkey
-      image.sUrl = seed.imagePageUrl
-      image.thumbUrl = seed.thumbUrl
-      image.imageUrl = ImagePipelineService.displayUri(seed.filePath)
-      image.originImageUrl = seed.originImageUrl
-      image.showKey = seed.showKey
-      image.reloadKey = seed.reloadKey
-      images.push(image)
-    }
-    return images
+    connectReaderOverlayNavigation().open(params)
   }
 
   private async openArchiverTask(task: DownloadArchiverTask): Promise<void> {
@@ -952,16 +927,20 @@ export struct DownloadQueuePage {
     }
     this.openingArchiverTag = task.tag
     try {
-      const images: EhGalleryImage[] = await ArchiveImageService.imagesForTask(this.ctx(), task)
-      const index: number = Math.max(0, Math.min(images.length - 1, this.readProgress.getIndex(task.gid)))
+      const params: ReaderParams | null = await ReaderLocalSourceService.archiveTaskParams(
+        this.ctx(),
+        task,
+        this.readProgress.getIndex(task.gid),
+      )
+      if (params === null) {
+        return
+      }
       DiagnosticLogger.info(
         'download',
         'archiver_open_local_reader',
-        `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} images=${images.length} index=${index} firstUriHash=${images.length > 0 ? DiagnosticLogger.ownerHash(images[0].imageUrl) : ''}`,
+        `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} images=${params.fileCount} index=${params.index} sourceHash=${DiagnosticLogger.ownerHash(params.source.sourceKey)}`,
       )
-      connectReaderOverlayNavigation().open(
-        new ReaderParams(task.gid, '', index, images.length, task.displayTitle(), images, 1, images.length),
-      )
+      connectReaderOverlayNavigation().open(params)
     } catch (error) {
       this.getUIContext().getPromptAction().showToast({ message: (error as Error).message })
     } finally {
