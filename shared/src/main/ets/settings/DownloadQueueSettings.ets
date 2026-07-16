@@ -798,11 +798,7 @@ export class DownloadQueueSettings {
         if (it.imgHeight > 0) {
           refreshed.imgHeight = it.imgHeight
         }
-        if (
-          it.status === DownloadGalleryTaskStatus.COMPLETE &&
-            it.filePath.length > 0 &&
-            DownloadQueueSettings.downloadedFileSize(it.filePath) > 0
-        ) {
+        if (DownloadQueueSettings.isArchiverTaskComplete(it)) {
           refreshed.fileName = it.fileName
           refreshed.filePath = it.filePath
           refreshed.bytesWritten = it.bytesWritten
@@ -833,6 +829,13 @@ export class DownloadQueueSettings {
     DownloadQueueSettings.setArchiverTasks(state, next)
     await DownloadQueueSettings.persistArchiverTask(context, refreshed, evicted)
     return shouldDownload
+  }
+
+  static isArchiverTaskComplete(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.COMPLETE &&
+      task.bytesWritten > 0 &&
+      task.filePath.length > 0 &&
+      DownloadQueueSettings.downloadedFileSize(task.filePath) > 0
   }
 
   static async removeArchiver(

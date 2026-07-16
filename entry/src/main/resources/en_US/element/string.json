@@ -3606,7 +3606,7 @@
     },
     {
       "name": "gallery_archiver_download_confirm",
-      "value": "Request archive download"
+      "value": "Start archive download"
     },
     {
       "name": "gallery_archiver_hath_confirm",
@@ -3618,7 +3618,11 @@
     },
     {
       "name": "gallery_archiver_submit_free_notice",
-      "value": "This submits a free archive request to EH and will not spend GP or Credits."
+      "value": "This starts the archive download and will not spend GP or Credits."
+    },
+    {
+      "name": "gallery_archiver_download_paid_notice",
+      "value": "This starts the archive download and may spend GP or Credits."
     },
     {
       "name": "gallery_archiver_submitted",

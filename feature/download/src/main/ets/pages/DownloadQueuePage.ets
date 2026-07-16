@@ -837,7 +837,7 @@ export struct DownloadQueuePage {
   }
 
   private canReadArchiverTask(task: DownloadArchiverTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.COMPLETE && task.filePath.length > 0 && task.bytesWritten > 0
+    return DownloadQueueSettings.isArchiverTaskComplete(task)
   }
 
   private openArchiverTaskIfComplete(task: DownloadArchiverTask): void {

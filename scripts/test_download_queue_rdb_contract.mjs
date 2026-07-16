@@ -385,7 +385,8 @@ ok('restore validates completed archiver package before keeping read-ready state
     /task\.status = DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.filePath = ''[\s\S]*task\.bytesWritten = 0[\s\S]*archive file missing/.test(settings))
 ok('duplicate archiver submit only suppresses download for a valid completed package',
   /let shouldDownload: boolean = true/.test(settings) &&
-    /it\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*downloadedFileSize\(it\.filePath\) > 0[\s\S]*shouldDownload = false/.test(settings) &&
+    /DownloadQueueSettings\.isArchiverTaskComplete\(it\)[\s\S]*shouldDownload = false/.test(settings) &&
+    /static isArchiverTaskComplete\(task: DownloadArchiverTask\): boolean \{[\s\S]*task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.bytesWritten > 0[\s\S]*downloadedFileSize\(task\.filePath\) > 0/.test(settings) &&
     /it\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*refreshed\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /return shouldDownload/.test(settings))
 const enqueueGalleryBody = settings.match(/static async enqueueGallery[\s\S]*?\n  static async removeGallery/)?.[0] ?? ''

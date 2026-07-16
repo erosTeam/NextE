@@ -3606,7 +3606,7 @@
     },
     {
       "name": "gallery_archiver_download_confirm",
-      "value": "アーカイブダウンロードを要求"
+      "value": "アーカイブのダウンロードを開始"
     },
     {
       "name": "gallery_archiver_hath_confirm",
@@ -3618,7 +3618,11 @@
     },
     {
       "name": "gallery_archiver_submit_free_notice",
-      "value": "EH に無料のアーカイブリクエストを送信します。GP または Credits は消費しません。"
+      "value": "アーカイブのダウンロードを開始します。GP または Credits は消費しません。"
+    },
+    {
+      "name": "gallery_archiver_download_paid_notice",
+      "value": "アーカイブのダウンロードを開始します。GP または Credits を消費する場合があります。"
     },
     {
       "name": "gallery_archiver_submitted",

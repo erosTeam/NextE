@@ -4,6 +4,9 @@ import {
   ThemeConstants,
   DownloadArchiverTask,
   DownloadArchiverParseSource,
+  DownloadGalleryTaskStatus,
+  DownloadQueueState,
+  DownloadQueueSignalState,
   DownloadQueueSettings,
   DownloadSettings,
   DownloadSettingsState,
@@ -20,8 +23,88 @@ import {
   EhErrorText,
   immersiveTitleBar,
   DiagnosticLogger,
+  connectDownloadQueue,
+  connectDownloadQueueSignal,
   connectDownloadSettings,
 } from 'shared'
+import { GalleryDownloadTaskProjection } from '../model/GalleryDownloadTaskProjection'
+
+@ComponentV2
+struct GalleryArchiverTaskStatusText {
+  @Param gid: string = '';
+  @Param dltype: string = '';
+  @Param refreshVersion: number = 0;
+  @Local text: string = ' ';
+  @Local visible: boolean = false;
+  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+
+  aboutToAppear(): void {
+    this.syncStatus()
+  }
+
+  @Monitor('gid', 'dltype', 'refreshVersion')
+  private onSourceChanged(): void {
+    this.syncStatus()
+  }
+
+  private syncStatus(): void {
+    const task: DownloadArchiverTask | null = GalleryDownloadTaskProjection.archiverTask(
+      this.downloadQueue.archiverTasks,
+      this.gid,
+      this.dltype,
+    )
+    this.visible = task !== null
+    this.text = task === null ? ' ' : this.taskStatus(task)
+  }
+
+  private statusTitle(status: string): string {
+    if (status === DownloadGalleryTaskStatus.COMPLETE) {
+      return AppStrings.get('download_status_complete')
+    }
+    if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
+      return AppStrings.get('download_status_downloading')
+    }
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
+      return AppStrings.get('download_status_paused')
+    }
+    if (status === DownloadGalleryTaskStatus.PARTIAL) {
+      return AppStrings.get('download_status_partial')
+    }
+    if (status === DownloadGalleryTaskStatus.ERROR) {
+      return AppStrings.get('download_status_error')
+    }
+    if (status === DownloadGalleryTaskStatus.PREPARING) {
+      return AppStrings.get('download_status_preparing')
+    }
+    if (status === DownloadGalleryTaskStatus.READY) {
+      return AppStrings.get('download_status_ready')
+    }
+    return AppStrings.get('download_status_queued')
+  }
+
+  private taskStatus(task: DownloadArchiverTask): string {
+    const status: string = GalleryDownloadTaskProjection.effectiveArchiverStatus(task)
+    const progress: string = task.progressText()
+    if (progress.length > 0 &&
+      (status === DownloadGalleryTaskStatus.DOWNLOADING ||
+        status === DownloadGalleryTaskStatus.PAUSED ||
+        status === DownloadGalleryTaskStatus.PARTIAL)) {
+      return `${this.statusTitle(status)} · ${progress}`
+    }
+    return this.statusTitle(status)
+  }
+
+  build() {
+    Text(this.text)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(ThemeConstants.BRAND_PRIMARY)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .textAlign(TextAlign.Center)
+      .opacity(this.visible ? 1 : 0)
+  }
+}
 
 /**
  * Archive quote/options page. Grounded in eros_fe ArchiverView: local archive options POST
@@ -40,7 +123,19 @@ export struct GalleryArchiverContent {
   @Local submittingKey: string = '';
   @Local loadedKey: string = '';
   @Local downloadSettings: DownloadSettingsState = connectDownloadSettings();
+  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local downloadQueueSignalState: DownloadQueueSignalState = connectDownloadQueueSignal();
+  @Local downloadQueueTick: number = 0;
   private scroller: Scroller = new Scroller();
+
+  @Monitor('downloadQueueSignalState.version')
+  private onDownloadQueueChanged(): void {
+    this.downloadQueueTick = this.downloadQueueTick + 1
+  }
+
+  private markDownloadQueueDirty(): void {
+    this.downloadQueueTick = this.downloadQueueTick + 1
+  }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -153,6 +248,14 @@ export struct GalleryArchiverContent {
       .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
   }
 
+  private archiverTask(dltype: string): DownloadArchiverTask | null {
+    return GalleryDownloadTaskProjection.archiverTask(
+      this.downloadQueue.archiverTasks,
+      this.params.gid,
+      dltype,
+    )
+  }
+
   @Builder
   private QuoteRow(item: EhGalleryArchiverItem, isHath: boolean) {
     Column({ space: ThemeConstants.SPACE_XS }) {
@@ -180,6 +283,13 @@ export struct GalleryArchiverContent {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.Center)
       .width('100%')
+      if (!isHath) {
+        GalleryArchiverTaskStatusText({
+          gid: this.params.gid,
+          dltype: item.dltype,
+          refreshVersion: this.downloadQueueTick,
+        })
+      }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -193,7 +303,9 @@ export struct GalleryArchiverContent {
     .borderRadius(ThemeConstants.RADIUS_MD)
     .backgroundColor($r('app.color.card_background'))
     .onClick(() => {
-      this.confirmArchiveSubmit(item, isHath)
+      if (isHath || !this.handleExistingArchiverTask(item)) {
+        this.confirmArchiveSubmit(item, isHath)
+      }
     })
   }
 
@@ -267,6 +379,11 @@ export struct GalleryArchiverContent {
         .justifyContent(FlexAlign.Center)
         .width('100%')
       }
+      GalleryArchiverTaskStatusText({
+        gid: this.params.gid,
+        dltype: 'org',
+        refreshVersion: this.downloadQueueTick,
+      })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -288,6 +405,9 @@ export struct GalleryArchiverContent {
     if (this.submittingKey.length > 0) {
       return
     }
+    if (!isHath && this.handleExistingArchiverTask(item)) {
+      return
+    }
     this.getUIContext().showAlertDialog({
       title: isHath ? $r('app.string.gallery_archiver_hath_confirm') : $r('app.string.gallery_archiver_download_confirm'),
       message: this.confirmMessage(item, isHath),
@@ -307,6 +427,9 @@ export struct GalleryArchiverContent {
   private async submitArchive(item: EhGalleryArchiverItem, isHath: boolean): Promise<void> {
     const key: string = this.submitKey(item, isHath)
     if (this.submittingKey.length > 0) {
+      return
+    }
+    if (!isHath && this.handleExistingArchiverTask(item)) {
       return
     }
     this.submittingKey = key
@@ -368,6 +491,7 @@ export struct GalleryArchiverContent {
     task.resolution = item.resolution
     task.url = url
     const shouldDownload: boolean = await DownloadQueueSettings.enqueueArchiver(this.ctx(), task)
+    this.markDownloadQueueDirty()
     if (!shouldDownload) {
       this.showArchiverToast($r('app.string.download_archiver_already_queued'))
       return
@@ -387,6 +511,9 @@ export struct GalleryArchiverContent {
       this.showArchiverToast($r('app.string.gallery_archiver_bot_not_ready'))
       return
     }
+    if (this.handleExistingArchiverTask(this.botArchiveItem())) {
+      return
+    }
     const task: DownloadArchiverTask = new DownloadArchiverTask()
     task.gid = this.params.gid
     task.token = this.params.token
@@ -400,6 +527,7 @@ export struct GalleryArchiverContent {
     task.parseSource = DownloadArchiverParseSource.BOT
     task.url = ''
     const shouldDownload: boolean = await DownloadQueueSettings.enqueueArchiver(this.ctx(), task)
+    this.markDownloadQueueDirty()
     if (!shouldDownload) {
       this.showArchiverToast($r('app.string.download_archiver_already_queued'))
       return
@@ -419,9 +547,35 @@ export struct GalleryArchiverContent {
     })
   }
 
+  private handleExistingArchiverTask(item: EhGalleryArchiverItem): boolean {
+    const task: DownloadArchiverTask | null = this.archiverTask(item.dltype.length > 0 ? item.dltype : 'org')
+    if (task === null) {
+      return false
+    }
+    if (DownloadQueueSettings.isArchiverTaskComplete(task)) {
+      this.showArchiverToast(AppStrings.get('download_status_complete'))
+      return true
+    }
+    if (task.status === DownloadGalleryTaskStatus.DOWNLOADING ||
+      task.status === DownloadGalleryTaskStatus.PREPARING) {
+      this.showArchiverToast($r('app.string.download_archiver_already_queued'))
+      return true
+    }
+    this.showArchiverToast($r('app.string.gallery_archiver_download_started'))
+    DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag).catch((error: Error) => {
+      this.showArchiverToast(EhErrorText.forUser(error))
+      DiagnosticLogger.warn(
+        'download',
+        'archiver_existing_resume_failed',
+        `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} error=${error.message}`,
+      )
+    })
+    return true
+  }
+
   private showArchiverToast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
-      // The submit/open path already completed or failed; toast failure should not change state.
+      // The archive interaction already completed or failed; toast failure should not change state.
     })
   }
 
@@ -433,9 +587,13 @@ export struct GalleryArchiverContent {
     if (item.sizeText.length > 0 || item.priceText.length > 0) {
       parts.push(`${item.sizeText} · ${item.priceText}`.trim())
     }
-    parts.push(AppStrings.get(this.isFreeLocalArchive(item, isHath)
-      ? 'gallery_archiver_submit_free_notice'
-      : 'gallery_archiver_submit_notice'))
+    if (isHath) {
+      parts.push(AppStrings.get('gallery_archiver_submit_notice'))
+    } else {
+      parts.push(AppStrings.get(this.isFreeLocalArchive(item, false)
+        ? 'gallery_archiver_submit_free_notice'
+        : 'gallery_archiver_download_paid_notice'))
+    }
     return parts.join('\n')
   }
 

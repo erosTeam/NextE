@@ -19,6 +19,7 @@
 - [2026-07-15 Comment Vote Visible-State Regression](incidents/2026-07-15-comment-vote-visible-state-regression.md)
 - [2026-07-15 Gallery Comment Preview Text Tap Regression](incidents/2026-07-15-gallery-comment-preview-text-tap-regression.md)
 - [2026-07-15 Reader Thumbnail Geometry Verification Failure](incidents/2026-07-15-reader-thumbnail-geometry-verification-failure.md)
+- [2026-07-16 Active Task Continuity Failure](incidents/2026-07-16-active-task-continuity-failure.md)
 
 ## 硬停: 未知即阻断
 

@@ -3606,7 +3606,7 @@
     },
     {
       "name": "gallery_archiver_download_confirm",
-      "value": "请求归档下载"
+      "value": "开始归档下载"
     },
     {
       "name": "gallery_archiver_hath_confirm",
@@ -3618,7 +3618,11 @@
     },
     {
       "name": "gallery_archiver_submit_free_notice",
-      "value": "这会向 EH 提交免费归档请求，不会消耗 GP 或 Credits。"
+      "value": "将开始归档下载，不会消耗 GP 或 Credits。"
+    },
+    {
+      "name": "gallery_archiver_download_paid_notice",
+      "value": "将开始归档下载，并可能消耗 GP 或 Credits。"
     },
     {
       "name": "gallery_archiver_submitted",

@@ -38,6 +38,7 @@ import {
   connectThumbnailMode,
   ThumbnailModeState,
   DownloadGalleryTask,
+  DownloadArchiverTask,
   DownloadGalleryTaskStatus,
   ReaderLocalSourceService,
   DownloadQueueSettings,
@@ -113,6 +114,7 @@ import { GalleryAddTagsSheet } from '../components/GalleryAddTagsSheet'
 import { GalleryTorrentsContent } from './GalleryTorrentsPage'
 import { GalleryArchiverContent } from './GalleryArchiverPage'
 import { GalleryAllThumbnailsContent } from './GalleryAllThumbnailsPage'
+import { GalleryDownloadTaskProjection } from '../model/GalleryDownloadTaskProjection'
 
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_RATING: string = 'rating'
@@ -162,9 +164,9 @@ export struct GalleryDetailPage {
   @Local downloadQueueTick: number = 0;
   @Local downloadChipHasTask: boolean = false;
   @Local downloadChipStatus: string = DownloadGalleryTaskStatus.QUEUED;
-  @Local downloadChipComplete: boolean = false;
-  @Local downloadChipDownloaded: number = 0;
-  @Local downloadChipExpected: number = 0;
+  @Local archiverChipHasTask: boolean = false;
+  @Local archiverChipStatus: string = DownloadGalleryTaskStatus.QUEUED;
+  @Local downloadMenuShown: boolean = false;
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
@@ -641,115 +643,118 @@ export struct GalleryDetailPage {
     return AppStrings.get('detail_torrents').replace('%s', count)
   }
 
-  private downloadTask(): DownloadGalleryTask | undefined {
+  private currentDownloadGid(): string {
+    return this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
+  }
+
+  private currentDownloadToken(): string {
+    return this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
+  }
+
+  private downloadVariantTask(preferOriginal: boolean): DownloadGalleryTask | null {
     if (this.downloadQueueSignalState.version < 0) {
-      return undefined
+      return null
     }
     if (this.downloadQueueTick < 0) {
-      return undefined
+      return null
     }
-    const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
-    const token: string =
-      this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
-    let best: DownloadGalleryTask | undefined = undefined
-    let bestExact: boolean = false
-    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
-      const task: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
-      if (task.gid !== gid) {
-        continue
-      }
-      const exact: boolean = token.length === 0 || task.token === token
-      if (!exact && bestExact) {
-        continue
-      }
-      if (best === undefined || exact !== bestExact || task.queuedAt > best.queuedAt) {
-        best = task
-        bestExact = exact
-      }
-    }
-    return best
+    return GalleryDownloadTaskProjection.galleryTask(
+      this.downloadQueue.galleryTasks,
+      this.currentDownloadGid(),
+      this.currentDownloadToken(),
+      preferOriginal,
+    )
   }
 
-  private isGalleryQueued(): boolean {
-    return this.downloadTask() !== undefined
+  private downloadTasks(): DownloadGalleryTask[] {
+    return GalleryDownloadTaskProjection.galleryTasks(
+      this.downloadQueue.galleryTasks,
+      this.currentDownloadGid(),
+      this.currentDownloadToken(),
+    )
   }
 
-  private isDownloadChipEnabled(): boolean {
-    return !this.downloadChipHasTask || this.downloadChipComplete
+  private archiverTasks(): DownloadArchiverTask[] {
+    return GalleryDownloadTaskProjection.archiverTasks(
+      this.downloadQueue.archiverTasks,
+      this.currentDownloadGid(),
+    )
   }
 
   private isDownloadTaskComplete(task: DownloadGalleryTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.COMPLETE && task.isDownloadComplete()
+    return GalleryDownloadTaskProjection.effectiveGalleryStatus(task) === DownloadGalleryTaskStatus.COMPLETE
   }
 
-  private effectiveDownloadStatus(task: DownloadGalleryTask): string {
-    if (task.isDownloadComplete()) {
-      return DownloadGalleryTaskStatus.COMPLETE
+  private completeDownloadTask(): DownloadGalleryTask | null {
+    const tasks: DownloadGalleryTask[] = this.downloadTasks()
+    for (let i: number = 0; i < tasks.length; i++) {
+      if (this.isDownloadTaskComplete(tasks[i])) {
+        return tasks[i]
+      }
     }
-    if (task.status === DownloadGalleryTaskStatus.COMPLETE && !task.isDownloadComplete()) {
-      return DownloadGalleryTaskStatus.PARTIAL
-    }
-    return task.status
+    return null
   }
 
   private syncDownloadChipState(reason: string): void {
-    const task: DownloadGalleryTask | undefined = this.downloadTask()
+    const galleryTasks: DownloadGalleryTask[] = this.downloadTasks()
+    const archiverTasks: DownloadArchiverTask[] = this.archiverTasks()
     const oldHasTask: boolean = this.downloadChipHasTask
     const oldStatus: string = this.downloadChipStatus
-    const oldComplete: boolean = this.downloadChipComplete
-    const oldDownloaded: number = this.downloadChipDownloaded
-    const oldExpected: number = this.downloadChipExpected
-    if (task === undefined) {
-      this.downloadChipHasTask = false
-      this.downloadChipStatus = DownloadGalleryTaskStatus.QUEUED
-      this.downloadChipComplete = false
-      this.downloadChipDownloaded = 0
-      this.downloadChipExpected = 0
-    } else {
-      this.downloadChipHasTask = true
-      this.downloadChipStatus = this.effectiveDownloadStatus(task)
-      this.downloadChipComplete = this.isDownloadTaskComplete(task)
-      this.downloadChipDownloaded = task.downloadedCount()
-      this.downloadChipExpected = task.expectedFileCount()
-    }
+    const oldArchiverHasTask: boolean = this.archiverChipHasTask
+    const oldArchiverStatus: string = this.archiverChipStatus
+    this.downloadChipHasTask = galleryTasks.length > 0
+    this.downloadChipStatus = GalleryDownloadTaskProjection.aggregateGalleryStatus(galleryTasks)
+    this.archiverChipHasTask = archiverTasks.length > 0
+    this.archiverChipStatus = GalleryDownloadTaskProjection.aggregateArchiverStatus(archiverTasks)
     if (
       oldHasTask !== this.downloadChipHasTask ||
       oldStatus !== this.downloadChipStatus ||
-      oldComplete !== this.downloadChipComplete ||
-      oldDownloaded !== this.downloadChipDownloaded ||
-      oldExpected !== this.downloadChipExpected
+      oldArchiverHasTask !== this.archiverChipHasTask ||
+      oldArchiverStatus !== this.archiverChipStatus
     ) {
       DiagnosticLogger.info(
         'download',
         'detail_download_chip_sync',
-        `reason=${reason} gid=${this.params.gid} matched=${this.downloadChipHasTask} status=${this.downloadChipStatus} complete=${this.downloadChipComplete} downloaded=${this.downloadChipDownloaded}/${this.downloadChipExpected}`,
+        `reason=${reason} gid=${this.params.gid} galleryTasks=${galleryTasks.length} galleryStatus=${this.downloadChipStatus} archiverTasks=${archiverTasks.length} archiverStatus=${this.archiverChipStatus}`,
       )
     }
   }
 
-  private downloadTitle(): string {
-    if (!this.downloadChipHasTask) {
-      return AppStrings.get('detail_download')
-    }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.COMPLETE) {
+  private statusTitle(status: string): string {
+    if (status === DownloadGalleryTaskStatus.COMPLETE) {
       return AppStrings.get('download_status_complete')
     }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.DOWNLOADING) {
+    if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
       return AppStrings.get('download_status_downloading')
     }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.PAUSED) {
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
       return AppStrings.get('download_status_paused')
     }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.PARTIAL) {
+    if (status === DownloadGalleryTaskStatus.PARTIAL) {
       return AppStrings.get('download_status_partial')
     }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.ERROR) {
+    if (status === DownloadGalleryTaskStatus.ERROR) {
       return AppStrings.get('download_status_error')
     }
-    if (this.downloadChipStatus === DownloadGalleryTaskStatus.READY) {
+    if (status === DownloadGalleryTaskStatus.PREPARING) {
+      return AppStrings.get('download_status_preparing')
+    }
+    if (status === DownloadGalleryTaskStatus.READY) {
       return AppStrings.get('download_status_ready')
     }
     return AppStrings.get('download_status_queued')
+  }
+
+  private downloadTitle(): string {
+    return this.downloadChipHasTask
+      ? this.statusTitle(this.downloadChipStatus)
+      : AppStrings.get('detail_download')
+  }
+
+  private archiverTitle(): string {
+    return this.archiverChipHasTask
+      ? this.statusTitle(this.archiverChipStatus)
+      : AppStrings.get('download_archiver')
   }
 
   private openDownloadedTaskFromDetail(task: DownloadGalleryTask): void {
@@ -766,14 +771,83 @@ export struct GalleryDetailPage {
   }
 
   private onDownloadChipTap(): void {
-    const task: DownloadGalleryTask | undefined = this.downloadTask()
-    if (task !== undefined) {
-      if (this.isDownloadTaskComplete(task)) {
-        this.openDownloadedTaskFromDetail(task)
-      }
+    if (this.downloadTasks().length > 0) {
+      this.downloadMenuShown = true
       return
     }
     this.enqueueGalleryDownloadWithPolicy()
+  }
+
+  private downloadVariantLabel(preferOriginal: boolean): ResourceStr {
+    return preferOriginal
+      ? $r('app.string.download_original_images')
+      : $r('app.string.download_use_regular_short')
+  }
+
+  private downloadVariantStatus(task: DownloadGalleryTask | null): string {
+    if (task === null) {
+      return AppStrings.get('detail_download')
+    }
+    const status: string = GalleryDownloadTaskProjection.effectiveGalleryStatus(task)
+    const progress: string = task.downloadProgressText()
+    if (progress.length > 0 &&
+      (status === DownloadGalleryTaskStatus.DOWNLOADING || status === DownloadGalleryTaskStatus.PARTIAL)) {
+      return `${this.statusTitle(status)} · ${progress}`
+    }
+    return this.statusTitle(status)
+  }
+
+  private downloadVariantIcon(task: DownloadGalleryTask | null): SymbolGlyphModifier {
+    if (task === null) {
+      return new SymbolGlyphModifier($r('sys.symbol.arrow_down_to_line'))
+    }
+    const status: string = GalleryDownloadTaskProjection.effectiveGalleryStatus(task)
+    if (status === DownloadGalleryTaskStatus.COMPLETE) {
+      return new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+    }
+    if (status === DownloadGalleryTaskStatus.ERROR || status === DownloadGalleryTaskStatus.PARTIAL) {
+      return new SymbolGlyphModifier($r('sys.symbol.exclamationmark_circle'))
+    }
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
+      return new SymbolGlyphModifier($r('sys.symbol.play'))
+    }
+    return new SymbolGlyphModifier($r('sys.symbol.clock'))
+  }
+
+  private canUseDownloadVariant(task: DownloadGalleryTask | null): boolean {
+    if (task === null) {
+      return true
+    }
+    const status: string = GalleryDownloadTaskProjection.effectiveGalleryStatus(task)
+    return status !== DownloadGalleryTaskStatus.PREPARING && status !== DownloadGalleryTaskStatus.DOWNLOADING
+  }
+
+  private useDownloadVariant(preferOriginal: boolean): void {
+    const task: DownloadGalleryTask | null = this.downloadVariantTask(preferOriginal)
+    this.downloadMenuShown = false
+    if (task === null) {
+      this.enqueueGalleryDownload(preferOriginal)
+      return
+    }
+    if (this.isDownloadTaskComplete(task)) {
+      this.openDownloadedTaskFromDetail(task)
+      return
+    }
+    if (!this.canUseDownloadVariant(task)) {
+      return
+    }
+    DownloadQueueSettings.downloadGalleryImages(
+      this.ctx(),
+      task.gid,
+      task.token,
+      task.preferOriginal,
+    ).catch((error: Error) => {
+      DiagnosticLogger.warn(
+        'download',
+        'detail_download_variant_resume_failed',
+        `gid=${task.gid} quality=${task.preferOriginal ? 'original' : 'resample'} error=${error.message}`,
+      )
+    })
   }
 
   private currentGalleryForLocalFav(): EhGallery {
@@ -1065,10 +1139,7 @@ export struct GalleryDetailPage {
   }
 
   private canShowDownloadUpgrade(): boolean {
-    const task: DownloadGalleryTask | undefined = this.downloadTask()
-    return task !== undefined &&
-      this.isDownloadTaskComplete(task) &&
-      this.vm.gallery.newerVersions.length > 0
+    return this.completeDownloadTask() !== null && this.vm.gallery.newerVersions.length > 0
   }
 
   private openDownloadUpgradeSheet(): void {
@@ -2598,16 +2669,38 @@ export struct GalleryDetailPage {
   }
 
   @Builder
+  private DownloadVariantMenuItem(preferOriginal: boolean) {
+    MenuItem({
+      content: this.downloadVariantLabel(preferOriginal),
+      labelInfo: this.downloadVariantStatus(this.downloadVariantTask(preferOriginal)),
+      symbolEndIcon: this.downloadVariantIcon(this.downloadVariantTask(preferOriginal)),
+    })
+      .enabled(this.canUseDownloadVariant(this.downloadVariantTask(preferOriginal)))
+      .onClick(() => {
+        this.useDownloadVariant(preferOriginal)
+      })
+  }
+
+  @Builder
+  private DownloadVariantMenu() {
+    Menu() {
+      this.DownloadVariantMenuItem(false)
+      this.DownloadVariantMenuItem(true)
+    }
+    .backgroundColor($r('app.color.card_background'))
+  }
+
+  @Builder
   private DownloadActionChip() {
     Button({ type: ButtonType.Capsule }) {
       Row({ space: ThemeConstants.DETAIL_ACTION_CHIP_GAP }) {
         SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor([this.isDownloadChipEnabled() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+          .fontColor([ThemeConstants.BRAND_PRIMARY])
         Text(this.downloadTitle())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.isDownloadChipEnabled() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary'))
+          .fontColor(ThemeConstants.BRAND_PRIMARY)
           .maxLines(1)
       }
       .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
@@ -2616,9 +2709,14 @@ export struct GalleryDetailPage {
     }
     .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .enabled(this.isDownloadChipEnabled())
     .onClick(() => {
       this.onDownloadChipTap()
+    })
+    .bindMenu(this.downloadMenuShown, this.DownloadVariantMenu, {
+      placement: Placement.BottomRight,
+      onDisappear: () => {
+        this.downloadMenuShown = false
+      },
     })
   }
 
@@ -2645,7 +2743,7 @@ export struct GalleryDetailPage {
                   this.openTorrents()
                 })
             }
-            this.DetailSheetActionChip($r('sys.symbol.doc_zipper'), $r('app.string.download_archiver'), true,
+            this.DetailSheetActionChip($r('sys.symbol.doc_zipper'), this.archiverTitle(), true,
               DETAIL_SHEET_ARCHIVER, () => {
                 this.openArchiver()
               })
