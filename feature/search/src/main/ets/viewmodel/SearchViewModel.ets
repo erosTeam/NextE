@@ -17,6 +17,7 @@ import {
   connectSearchFilter,
   SearchFilterState,
   SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_GALLERY,
   SEARCH_SCOPE_WATCHED,
   DiagnosticLogger,
   EhErrorText,
@@ -63,10 +64,9 @@ export class SearchViewModel {
   private pendingSearchQuery: string = ''
   private suggestTimer: number = -1
   private suggestEpoch: number = 0
-  // Favorite scope (eros_fe SearchType.favorite, search_page_controller.dart:240): when set, submitted
-  // non-empty queries search favorites.php f_search instead of the gallery list. The title-bar search
-  // entry opens a compose/history state; empty favcat browse needs a separate explicit entry.
-  @Trace isFavoriteScope: boolean = false
+  // Request target belongs to this Search page session. Route seeding and filter changes both update
+  // this one value, so a favorites entry can later switch to gallery/watched without a route override.
+  private scope: string = SEARCH_SCOPE_GALLERY
   private favcat: string = 'a'
   private favOrder: string = EhConstants.FAV_ORDER_FAV
   private context: common.UIAbilityContext | null = null
@@ -79,16 +79,15 @@ export class SearchViewModel {
     return this.query.length > 0 && this.query === query.trim()
   }
 
-  /** Switch this VM into favorites scope (favorites.php f_search). favcat 'a' = all favorites. */
-  seedFavoriteScope(favcat: string): void {
-    this.isFavoriteScope = true
+  setScope(scope: string, favcat: string = 'a'): void {
+    this.scope = scope
     this.favcat = favcat.length > 0 ? favcat : 'a'
   }
 
   private buildFavQuery(next: string): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
-      favcat: this.isFavoriteScope ? this.favcat : 'a',
+      favcat: this.favcat,
       next: next,
       prev: '',
       seek: '',
@@ -99,14 +98,10 @@ export class SearchViewModel {
     }
   }
 
-  private effectiveFavoriteScope(): boolean {
-    return this.isFavoriteScope || connectSearchFilter().searchScope === SEARCH_SCOPE_FAVORITE
-  }
-
   // Fetch one page in the active scope: favorites.php (favorite scope) or the gallery list (normal).
   // Both return GalleryList (.gallerys + .nextGid), so all the dataSource/paging plumbing is shared.
   private fetchPage(next: string): Promise<GalleryList> {
-    return this.effectiveFavoriteScope()
+    return this.scope === SEARCH_SCOPE_FAVORITE
       ? EhApiService.getInstance().getFavoritesList(this.buildFavQuery(next))
       : EhApiService.getInstance().getGalleryList(this.buildQuery(next))
   }
@@ -186,7 +181,7 @@ export class SearchViewModel {
     const f: SearchFilterState = connectSearchFilter()
     return {
       isEx: connectSiteMode().isEx,
-      source: f.searchScope === SEARCH_SCOPE_WATCHED ? 'watched' : '',
+      source: this.scope === SEARCH_SCOPE_WATCHED ? 'watched' : '',
       next: next,
       prev: '',
       seek: '',
@@ -510,7 +505,7 @@ export class SearchViewModel {
       return
     }
     const current: EhGallery[] = this.dataSource.getAll()
-    const favoriteScope: boolean = this.effectiveFavoriteScope()
+    const favoriteScope: boolean = this.scope === SEARCH_SCOPE_FAVORITE
     let changed: boolean = false
     if (favoriteScope && favcat.length === 0) {
       for (let index: number = current.length - 1; index >= 0; index--) {

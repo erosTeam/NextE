@@ -2861,8 +2861,16 @@
       "value": "お気に入り"
     },
     {
+      "name": "search_scope_favorite_named",
+      "value": "お気に入り · %s"
+    },
+    {
       "name": "filter_favorite_scope_hint",
       "value": "お気に入り検索はお気に入り一覧を使用します。この範囲ではギャラリー専用フィルターは利用できません。"
+    },
+    {
+      "name": "filter_favorite_folder",
+      "value": "お気に入りフォルダ"
     },
     {
       "name": "filter_category",

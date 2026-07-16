@@ -1,11 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import {
-  connectSearchFilter,
-  SEARCH_SCOPE_FAVORITE,
-  SEARCH_SCOPE_GALLERY,
-  SEARCH_SCOPE_WATCHED,
-} from '../state/SearchFilterState'
+import { connectSearchFilter } from '../state/SearchFilterState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
@@ -13,7 +8,6 @@ const SEARCH_FILTER_PERSIST_DELAY_MS: number = 250
 
 /** Serialized advanced-search filter (the persistable subset of SearchFilterState; not applySeq). */
 export class SearchFilterSnapshot {
-  scope: string = SEARCH_SCOPE_GALLERY // gallery / watched / favorite search target
   cats: number = 0 // selectedCats (SHOW bitmask)
   adv: boolean = false // advancedEnabled; gates advsearch=1 and f_sr/f_sp/f_sto/f_sh/f_sf*
   rating: number = 0 // minRating
@@ -103,7 +97,6 @@ export class SearchFilterSettings {
         return
       }
       const f = connectSearchFilter()
-      f.searchScope = snap.scope
       f.selectedCats = snap.cats
       f.advancedEnabled = snap.adv
       f.minRating = snap.rating
@@ -137,7 +130,6 @@ export class SearchFilterSettings {
   private static serializedCurrent(): string {
     const f = connectSearchFilter()
     const snap: SearchFilterSnapshot = new SearchFilterSnapshot()
-    snap.scope = SearchFilterSettings.sanitizeScope(f.searchScope)
     snap.cats = f.selectedCats
     snap.adv = f.advancedEnabled
     snap.rating = f.minRating
@@ -171,7 +163,6 @@ export class SearchFilterSettings {
   /** Reset persisted search filters to the clean default profile and notify any open Search page. */
   static async reset(context: common.UIAbilityContext): Promise<void> {
     const f = connectSearchFilter()
-    f.searchScope = SEARCH_SCOPE_GALLERY
     f.selectedCats = 0
     f.advancedEnabled = false
     f.minRating = 0
@@ -197,7 +188,6 @@ export class SearchFilterSettings {
       }
       const o = parsed as SearchFilterSnapshot
       const s: SearchFilterSnapshot = new SearchFilterSnapshot()
-      s.scope = SearchFilterSettings.sanitizeScope(o.scope)
       s.cats = typeof o.cats === 'number' && o.cats >= 0 ? o.cats : 0
       s.adv = o.adv === true
       s.rating = typeof o.rating === 'number' && o.rating >= 0 ? o.rating : 0
@@ -216,10 +206,4 @@ export class SearchFilterSettings {
     }
   }
 
-  private static sanitizeScope(scope: string): string {
-    if (scope === SEARCH_SCOPE_WATCHED || scope === SEARCH_SCOPE_FAVORITE) {
-      return scope
-    }
-    return SEARCH_SCOPE_GALLERY
-  }
 }

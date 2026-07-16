@@ -4,6 +4,12 @@ import {
   ThemeConstants,
   SearchFilterState,
   connectSearchFilter,
+  ConciseListRow,
+  EhConstants,
+  Favcat,
+  FavSelectionState,
+  GroupedListSection,
+  connectFavSelection,
   CategorySelector,
   AdvancedSearchControls,
   SearchFilterSettings,
@@ -13,20 +19,23 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
+import { SearchSessionState } from '../state/SearchSessionState'
 
 const SEGMENT_HEIGHT: number = 44
 const SEGMENT_PADDING_V: number = 8
 const FORM_FONT_SIZE: number = ThemeConstants.FONT_SIZE_TITLE
 
 /**
- * Advanced-search filter sheet content (hosted via the search page's bindSheet). Mirrors eros_fe's
- * direct-editing model: scope/category/advanced changes update SearchFilterState immediately and bump
- * applySeq so the search page re-runs the current query. The category grid + advanced controls are the
- * shared CategorySelector / AdvancedSearchControls components (also used by the custom-tab editor).
+ * Search filter sheet content (hosted via the search page's bindSheet). Scope and favorite folder are
+ * page-session state; persisted category/advanced values remain in SearchFilterState. Every change
+ * re-runs the current query through the page monitor. Favorite rows reuse the existing selector-page
+ * information hierarchy, with the trailing count replaced by the native Radio control.
  */
 @ComponentV2
 export struct SearchFilterSheet {
   @Local filter: SearchFilterState = connectSearchFilter();
+  @Local fav: FavSelectionState = connectFavSelection();
+  @Param session: SearchSessionState = new SearchSessionState();
   @Local private scopeItems: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }, { text: '' }]);
   @Event onClose: () => void = () => {};
 
@@ -50,18 +59,14 @@ export struct SearchFilterSheet {
   }
 
   private setScope(scope: string): void {
-    if (this.filter.searchScope === scope) {
-      return
-    }
-    this.filter.searchScope = scope
-    this.bumpApplySeq()
+    this.session.setScope(scope)
   }
 
   private scopeIndex(): number {
-    if (this.filter.searchScope === SEARCH_SCOPE_WATCHED) {
+    if (this.session.scope === SEARCH_SCOPE_WATCHED) {
       return 1
     }
-    if (this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
+    if (this.session.scope === SEARCH_SCOPE_FAVORITE) {
       return 2
     }
     return 0
@@ -78,7 +83,7 @@ export struct SearchFilterSheet {
   }
 
   private resetFilter(): void {
-    this.filter.searchScope = SEARCH_SCOPE_GALLERY
+    this.session.reset()
     this.filter.selectedCats = 0
     this.filter.advancedEnabled = false
     this.filter.minRating = 0
@@ -90,6 +95,79 @@ export struct SearchFilterSheet {
     this.filter.disableUploaderFilter = false
     this.filter.disableTagFilter = false
     this.bumpApplySeq()
+  }
+
+  private favoriteRows(): Favcat[] {
+    const rows: Favcat[] = [new Favcat('a', AppStrings.get('favorites_all'), this.fav.remoteTotalCount())]
+    this.fav.favList.forEach((fc: Favcat) => {
+      if (FavSelectionState.isRemoteSlot(fc.favId)) {
+        rows.push(fc)
+      }
+    })
+    return rows
+  }
+
+  private favoriteColor(favId: string): ResourceColor {
+    const color: string = EhConstants.favCatColor(favId)
+    return color.length > 0 ? color : ThemeConstants.FAV_HEART_DEFAULT
+  }
+
+  @Builder
+  private FavoritePrefix(favId: string) {
+    SymbolGlyph($r('sys.symbol.heart_fill'))
+      .fontSize(24)
+      .fontColor([this.favoriteColor(favId)])
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
+  }
+
+  @Builder
+  private FavoriteRadio(fc: Favcat) {
+    Radio({ value: fc.favId, group: 'nexte_search_favorite_scope' })
+      .checked(this.session.favoriteFavcat === fc.favId)
+      .radioStyle({ checkedBackgroundColor: ThemeConstants.BRAND_PRIMARY })
+      .hitTestBehavior(HitTestMode.None)
+      .margin({ right: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
+  private FavoriteFolderSelector() {
+    Text($r('app.string.filter_favorite_folder'))
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_secondary'))
+    GroupedListSection() {
+      ForEach(
+        this.favoriteRows(),
+        (fc: Favcat, index: number) => {
+          ConciseListRow({
+            title: fc.favTitle,
+            trailingText: '',
+            showChevron: false,
+            prefixBuilderParam: () => {
+              this.FavoritePrefix(fc.favId)
+            },
+            suffixBuilderParam: () => {
+              this.FavoriteRadio(fc)
+            },
+            action: () => {
+              this.session.setFavoriteFavcat(fc.favId)
+            },
+          })
+          if (index < this.favoriteRows().length - 1) {
+            this.rowDivider()
+          }
+        },
+        (fc: Favcat, index: number) =>
+          `search_favcat_${index}_${fc.favId}_${fc.favTitle}`.replace(/[^A-Za-z0-9_]/g, '_'),
+      )
+    }
   }
 
   build() {
@@ -126,13 +204,14 @@ export struct SearchFilterSheet {
           })
             .width('100%')
             .constraintSize({ minHeight: SEGMENT_HEIGHT })
-          if (this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
+          if (this.session.scope === SEARCH_SCOPE_FAVORITE) {
             Text($r('app.string.filter_favorite_scope_hint'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor($r('sys.color.font_secondary'))
               .lineHeight(18)
+            this.FavoriteFolderSelector()
           }
-          if (this.filter.searchScope !== SEARCH_SCOPE_FAVORITE) {
+          if (this.session.scope !== SEARCH_SCOPE_FAVORITE) {
             CategorySelector({
               filter: this.filter,
               onChanged: () => {

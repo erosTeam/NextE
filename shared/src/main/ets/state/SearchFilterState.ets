@@ -7,15 +7,15 @@ export const SEARCH_SCOPE_WATCHED: string = 'watched'
 export const SEARCH_SCOPE_FAVORITE: string = 'favorite'
 
 /**
- * Search scope + advanced filters, shared between the filter sheet (writer) and SearchViewModel
- * (reader). `selectedCats` is the bitmask of categories to SHOW (0 or all = no category filter);
+ * Persisted advanced filters, shared between the filter sheet (writer) and SearchViewModel (reader).
+ * Search scope is intentionally page-session state, because stacked Search routes must not overwrite
+ * each other's endpoint. `selectedCats` is the bitmask of categories to SHOW (0 or all = no category filter);
  * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `advancedEnabled` is the explicit master
  * switch for EH's advsearch block; when false, advanced fields are remembered but not sent. `applySeq`
  * bumps on live filter changes and Reset, so the search page persists and re-runs when appropriate.
  */
 @ObservedV2
 export class SearchFilterState {
-  @Trace searchScope: string = SEARCH_SCOPE_GALLERY
   @Trace selectedCats: number = 0
   @Trace advancedEnabled: boolean = false
   @Trace minRating: number = 0
@@ -41,8 +41,7 @@ export class SearchFilterState {
   isActive(): boolean {
     return (
       this.fCats() > 0 ||
-      (this.advancedEnabled && this.advancedFieldsActive()) ||
-      this.searchScope !== SEARCH_SCOPE_GALLERY
+      (this.advancedEnabled && this.advancedFieldsActive())
     )
   }
 

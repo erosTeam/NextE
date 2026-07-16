@@ -2,7 +2,7 @@ import { describe, expect, it } from '@ohos/hypium'
 import { GalleryListViewModel } from 'home'
 import { SearchViewModel } from 'search'
 import { FavoritesViewModel } from 'user'
-import { EhGallery } from 'shared'
+import { EhGallery, SEARCH_SCOPE_FAVORITE } from 'shared'
 
 class RecordingDataChangeListener implements DataChangeListener {
   changedIndexes: number[] = []
@@ -71,7 +71,7 @@ export default function galleryListMutationTargetedUpdateTest(): void {
 
     it('removes only the affected favorite-scope search row and keeps subsequent updates targeted', 0, (done: Function) => {
       const vm: SearchViewModel = new SearchViewModel()
-      vm.seedFavoriteScope('a')
+      vm.setScope(SEARCH_SCOPE_FAVORITE, 'a')
       vm.dataSource.setData([gallery('one'), gallery('two')])
       vm.itemCount = 2
       const listener: RecordingDataChangeListener = new RecordingDataChangeListener()

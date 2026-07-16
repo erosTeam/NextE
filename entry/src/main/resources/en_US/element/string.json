@@ -2861,8 +2861,16 @@
       "value": "Favorite"
     },
     {
+      "name": "search_scope_favorite_named",
+      "value": "Favorite · %s"
+    },
+    {
       "name": "filter_favorite_scope_hint",
       "value": "Favorite search uses your favorites list. Gallery-only filters are unavailable in this scope."
+    },
+    {
+      "name": "filter_favorite_folder",
+      "value": "Favorite folder"
     },
     {
       "name": "filter_category",

@@ -79,19 +79,12 @@ Implementation:
 
 Validation:
 
-- Contracts:
-  `node scripts/test_search_input_contract.mjs`,
-  `node scripts/test_favorites_search_contract.mjs`,
-  `node scripts/test_search_scope_contract.mjs`,
-  `node scripts/test_search_filter_draft_contract.mjs`,
-  `node scripts/test_search_filter_action_bar_contract.mjs`,
-  `node scripts/test_search_filter_ux_contract.mjs`,
-  `node scripts/test_search_history_contract.mjs`,
-  `node scripts/test_search_tagsuggest_contract.mjs`,
-  `node scripts/test_search_route_session_contract.mjs`,
+- Current durable gates: `node scripts/test_search_history_rdb_contract.mjs`,
+  `node scripts/test_local_favorites_contract.mjs`,
   `node scripts/test_v1_decorator_inventory_contract.mjs`,
-  `python3 scripts/check_i18n_duplicates.py`,
-  `git diff --check`.
+  `python3 scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- The former Search UI/source-shape contracts are retired and no longer exist in `scripts/`; device
+  layout/screenshots and the real user path below are the acceptance evidence for this UI behavior.
 - Build: `scripts/build_hvigor_signed.sh` on macOS signing path.
 - Device evidence on local HarmonyOS simulator `127.0.0.1:5555`:
   `.hvigor/outputs/search-entry-behavior/after_fav_search.jpeg` /
@@ -148,6 +141,44 @@ Acceptance shape:
 - Tag/uploader action-seeded searches still open results-first without keyboard focus.
 - Deterministic contract covers that favorite-scope route without `initialQuery` does not call
   `vm.search('')`, while an explicit user submit still does.
+
+Follow-up implementation candidate, 2026-07-16:
+
+- User report: favorites-origin Search could return no matches because it silently inherited the
+  Favorites tab's current `favcat`; selecting local favorites produced the invalid remote scope
+  `favcat=l`. The filter sheet also appeared unable to switch back to Gallery or Watched because the
+  route-owned `isFavoriteScope` overrode the persisted filter scope in both the title and request path.
+- FE/source grounding: `../eros_fe/lib/pages/tab/view/search_page.dart` switches a Search request to
+  favorite list type without inheriting the active Favorites folder. EH `favorites.php` accepts one
+  `favcat`, so folder filtering is single-select rather than multi-select.
+- Current working change makes scope and favorite folder page-session state, defaults the Favorites
+  entry to `favorite + all`, and removes search scope from the persisted advanced-filter snapshot.
+  Gallery / Watched / Favorite now drive one request-target value, so switching the segment can change
+  the endpoint instead of being overridden by the entry route.
+- The Favorite filter surface reuses `FavoriteSelectorPage` row hierarchy: colored heart + folder
+  title, with the trailing count/current badge replaced by the native ArkUI `Radio`. It lists `全部`
+  plus remote slots `0..9`; local `l` stays out because it is not a `favorites.php` category.
+- The Search title shows `收藏` for all folders and `收藏 · <folder>` for a specific folder, making the
+  active server scope visible outside the sheet.
+- Static evidence: V1 decorator inventory reports `0 file(s)`; i18n parity and `git diff --check`
+  pass; `scripts/build_hvigor_signed.sh` completes with `BUILD SUCCESSFUL`.
+- HarmonyOS device evidence, 2026-07-16, user-selected device shorthand `237` resolved live to
+  `192.168.50.237:12345`: installed the current signed HAP and ran the complete Favorites -> Search
+  path. Search opened in Favorite scope with history/compose content and no inherited folder title.
+- Filter evidence confirms Favorite is the initially selected segment, `全部` is the only checked native
+  `Radio`, and the folder rows mirror the Favorites category page. Selecting `本子` flips `a=false` /
+  `1=true`; closing the sheet changes the title to `收藏 · 本子`.
+- Scope-switch evidence confirms the same sheet can select Gallery (`画廊=true`) and Watched
+  (`订阅=true`); Gallery restores gallery-only advanced filter content instead of remaining pinned to
+  the route's Favorite type. Switching back to Favorite retains the session folder choice.
+- Positive result evidence: after selecting `全部`, submitting `Yor` in Favorite scope returned multiple
+  real favorites, including `[Raiti] Yor helps Anya make friends (Spy X Family)` and
+  `[アヘ丸] 浮浪者につかまるヨルさん①-② [中国翻訳]`; the original empty-result path is no longer
+  reproduced.
+- Evidence root: `.hvigor/outputs/favorites-search-237-20260716/`, especially `05-filter-sheet/`,
+  `06-folder-selected/`, `07-gallery-scope/`, `08-watched-scope/`, `09-folder-title/`, and
+  `10-search-results/`. The Gallery/Watched request-target mapping is source-backed; this device pass
+  verifies their selectable UI/session state but did not capture raw remote request URLs.
 
 ### Favorites List Favcat Colors Require Restart After First Login
 

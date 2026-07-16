@@ -49,7 +49,6 @@ import {
   connectSiteMode,
   connectAuth,
   AuthState,
-  connectFavSelection,
   FavSelectionBridge,
   HomeSourceBridge,
   connectHomeTabAutoHide,
@@ -620,16 +619,15 @@ struct Index {
   }
 
   // Push the ONE shared search page in FAVORITE scope (eros_fe goSearchPage(searchType: favorite),
-  // navigator_util.dart:76-106). The scope + current favcat ride a route param; the search inherits the
-  // last-shown favcat ('a' = all favorites → favorites.php omits favcat → searches all).
+  // navigator_util.dart:76-106). Search defaults to all remote favorites; an explicit folder is chosen
+  // inside the Search filter sheet rather than inherited invisibly from the Favorites tab.
   private openFavoriteSearch(): void {
     if (this.safeMode.restricted()) {
       return
     }
-    const favcat: string = connectFavSelection().selectedFavcat
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
-      this.stack.pushPathByName('Search', new SearchPageParams('favorite', favcat))
+      this.stack.pushPathByName('Search', new SearchPageParams('favorite', 'a'))
     }
   }
 

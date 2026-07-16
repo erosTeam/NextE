@@ -2861,8 +2861,16 @@
       "value": "收藏"
     },
     {
+      "name": "search_scope_favorite_named",
+      "value": "收藏 · %s"
+    },
+    {
       "name": "filter_favorite_scope_hint",
       "value": "收藏搜索使用你的收藏列表，此范围下不提供画廊专用筛选项。"
+    },
+    {
+      "name": "filter_favorite_folder",
+      "value": "收藏夹"
     },
     {
       "name": "filter_category",

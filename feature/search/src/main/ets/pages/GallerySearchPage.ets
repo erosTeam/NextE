@@ -38,6 +38,7 @@ import {
   SearchFilterState,
   connectSearchFilter,
   SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_GALLERY,
   SEARCH_SCOPE_WATCHED,
   connectListMode,
   ListModeState,
@@ -52,6 +53,7 @@ import {
   SearchFilterSettings,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
+  Favcat,
   FavSelectionState,
   connectFavSelection,
   immersiveTitleBarOpts,
@@ -70,6 +72,7 @@ import { ComponentContent, KeyboardAvoidMode, promptAction } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
+import { SearchSessionState } from '../state/SearchSessionState'
 
 const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM
 const SEARCH_HISTORY_CHIP_ANIM_DURATION: number = 180
@@ -86,6 +89,7 @@ const SEARCH_HISTORY_CHIP_ANIM_DURATION: number = 180
 export struct GallerySearchPage {
   @Local vm: SearchViewModel = new SearchViewModel();
   @Local filter: SearchFilterState = connectSearchFilter();
+  @Local session: SearchSessionState = new SearchSessionState();
   @Local listMode: ListModeState = connectListMode();
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
@@ -104,10 +108,6 @@ export struct GallerySearchPage {
   // as tag suggestions. This is the permission-free counterpart to clipboard auto-detection: the
   // user pastes explicitly, sees what will happen, then chooses the navigation action.
   @Local directOpenUrl: string = '';
-  // Favorite scope (eros_fe SearchType.favorite): set from the route param when the favorites title-bar
-  // magnifier pushes here. The filter entry stays visible; favorite-specific limitations belong inside
-  // the sheet, not in a hidden page action.
-  @Local isFavoriteScope: boolean = false;
   @Local fieldState: SearchPageFieldState = new SearchPageFieldState();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
@@ -151,10 +151,17 @@ export struct GallerySearchPage {
   }
 
   private scopeTitle(): ResourceStr {
-    if (this.isFavoriteScope || this.vm.isFavoriteScope || this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
-      return $r('app.string.search_scope_favorite')
+    if (this.session.scope === SEARCH_SCOPE_FAVORITE) {
+      if (this.session.favoriteFavcat === 'a') {
+        return $r('app.string.search_scope_favorite')
+      }
+      const selected: Favcat | undefined = this.favSel.favList.find(
+        (fc: Favcat): boolean => fc.favId === this.session.favoriteFavcat,
+      )
+      const title: string = selected !== undefined ? selected.favTitle : this.session.favoriteFavcat
+      return AppStrings.get('search_scope_favorite_named').replace('%s', title)
     }
-    if (this.filter.searchScope === SEARCH_SCOPE_WATCHED) {
+    if (this.session.scope === SEARCH_SCOPE_WATCHED) {
       return $r('app.string.search_scope_watched')
     }
     return $r('app.string.search_scope_gallery')
@@ -771,10 +778,11 @@ export struct GallerySearchPage {
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
   }
 
-  @Monitor('filter.applySeq')
+  @Monitor('filter.applySeq', 'session.applySeq')
   onFilterApply(): void {
     // Persist live filter edits so they survive a restart (eros_fe keeps the advanced-search profile).
     SearchFilterSettings.persist(this.ctx())
+    this.vm.setScope(this.session.scope, this.session.favoriteFavcat)
     if (this.fieldState.keyword.trim().length > 0) {
       this.vm.reapplyFilters()
     }
@@ -783,6 +791,7 @@ export struct GallerySearchPage {
   @Builder
   FilterSheet() {
     SearchFilterSheet({
+      session: this.session,
       onClose: () => {
         this.showFilter = false
       },
@@ -1249,9 +1258,11 @@ export struct GallerySearchPage {
         const p: SearchPageParams = context.pathInfo.param as SearchPageParams
         this.fieldState.focusOnAppear = p.focusOnAppear
         if (p.searchType === 'favorite') {
-          this.isFavoriteScope = true
-          this.vm.seedFavoriteScope(p.favcat)
+          this.session.seed(SEARCH_SCOPE_FAVORITE, 'a')
+        } else {
+          this.session.seed(SEARCH_SCOPE_GALLERY, 'a')
         }
+        this.vm.setScope(this.session.scope, this.session.favoriteFavcat)
         if (p.initialQuery.length > 0) {
           this.fieldState.keyword = p.initialQuery
           this.fieldState.seedSeq = this.fieldState.seedSeq + 1
@@ -1259,6 +1270,8 @@ export struct GallerySearchPage {
         }
       } else {
         this.fieldState.focusOnAppear = true
+        this.session.seed(SEARCH_SCOPE_GALLERY, 'a')
+        this.vm.setScope(this.session.scope, this.session.favoriteFavcat)
       }
     })
   }
