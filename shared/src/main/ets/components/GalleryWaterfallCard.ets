@@ -137,6 +137,17 @@ export struct GalleryWaterfallCard {
     return indexes
   }
 
+  /**
+   * A reused card receives a new gallery through @Param, but ForEach keeps children whose keys are
+   * unchanged. Pure row/index keys therefore leave Text/onClick closures bound to the previous
+   * gallery's SimpleTag. Re-key only the bounded tag strip when its rendered data changes; the card,
+   * cover, and remaining subtree stay reusable.
+   */
+  private tagRowKey(remainder: number, index: number): string {
+    const labelMode: string = this.tagTranslation.enabled ? 'translated' : 'raw'
+    return `tag_${this.gallery.renderKey()}_${this.tagSig.version}_${labelMode}_${remainder}_${index}`
+  }
+
   @Builder
   private TagChip(t: SimpleTag, u: EhUsertag | undefined) {
     Text(this.tagLabel(t))
@@ -164,7 +175,7 @@ export struct GalleryWaterfallCard {
             this.userTagAtSnapshot(this.gallery.simpleTags[index], this.tagSig.version),
           )
         },
-        (index: number) => `tag_row_${remainder}_${index}`,
+        (index: number) => this.tagRowKey(remainder, index),
       )
     }
     .alignItems(VerticalAlign.Center)
