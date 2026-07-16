@@ -10,6 +10,66 @@ Purpose:
 
 ## Items
 
+### Gallery Detail Action Strip Clips Its Last Action Without Scrolling
+
+Type: interaction / layout regression
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- User report, 2026-07-16, physical device selector `197`, gallery
+  `https://e-hentai.org/g/4009342/b188db9442/`.
+
+Observed behavior:
+
+- The relation/action strip shows Similar, Torrent, Archiver, Rating, and Download actions.
+- The last Download capsule is clipped at the right edge, but a horizontal drag does not move the strip.
+- Device layout evidence resolved `197` to `192.168.50.197:12345`: the Scroll viewport and both
+  containing Rows were measured as `[78,1527][1182,1618]`, while the last button's original bounds
+  reached `[974,1527][1204,1618]`. ArkUI reported the Scroll as non-scrollable and a bounded swipe left
+  all action bounds unchanged.
+
+Static root cause:
+
+- `GalleryDetailPage.relationsRow()` gives the Scroll child rail an exact width derived from the already
+  constrained inner Row. The initial `100%` rail therefore constrains the content measurement to the
+  viewport, hides the real child overflow, and prevents ArkUI from creating a horizontal scroll range.
+
+Implementation:
+
+- `GalleryDetailPage` now applies the viewport width as the action rail's minimum width instead of its
+  exact width. The unconstrained maximum lets the inner capsule Row publish its intrinsic width, while
+  the minimum preserves the existing left/right action-edge alignment when the strip fits.
+
+Expected behavior:
+
+- A short action strip still fills the viewport and follows the configured left/right action edge.
+- A long action strip measures at its intrinsic content width, lets every capsule be brought fully into view, and scrolls
+  horizontally without changing the existing action hierarchy or invoking any EH write action.
+
+Validation path:
+
+- Reopen the reported gallery on device `197`, swipe the strip horizontally, confirm the last Download
+  capsule can be brought fully into view, and verify the action bounds move while the surrounding detail
+  list does not move vertically.
+- Counter-states: shorter Archiver/Download labels even with a Torrent action, a long Download status
+  label, and right-edge action alignment when the complete strip fits inside the viewport.
+
+Verification:
+
+- `git diff --check` passed.
+- `node scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`.
+- Gallery detail context and parser contracts passed; the official signed Hvigor build completed with
+  `BUILD SUCCESSFUL`.
+- On device `192.168.50.197:12345`, the reported gallery's Scroll changed from `scrollable=false` to
+  `scrollable=true`. The same bounded swipe moved all five capsules left by 21 px and brought the last
+  Download capsule into view without vertical list movement.
+- Counter-state gallery `3989982/16600a66e8` produced a shorter strip: Scroll remained non-scrollable,
+  all capsules stayed fully visible, and right-edge alignment ended exactly at the viewport boundary.
+
 ### Gallery Detail Comment Preview Text Does Not Open Full Comments
 
 Type: interaction regression

@@ -360,11 +360,11 @@ export struct GalleryDetailPage {
     return Math.max(0, this.actionStripViewportWidth - this.actionStripContentWidth)
   }
 
-  private actionStripRailWidth(): Length {
+  private actionStripRailMinWidth(): Length {
     if (this.actionStripViewportWidth <= 0) {
       return '100%'
     }
-    return Math.max(this.actionStripViewportWidth, this.actionStripContentWidth)
+    return this.actionStripViewportWidth
   }
 
   private actionStripAnimationDuration(): number {
@@ -2761,7 +2761,10 @@ export struct GalleryDetailPage {
             this.updateActionStripLayoutReady()
           })
         }
-        .width(this.actionStripRailWidth())
+        // A minimum keeps short strips aligned to the selected hand edge while leaving the horizontal
+        // maximum unconstrained. An exact viewport-sized width would shrink the measured child Row,
+        // hide real capsule overflow, and leave Scroll with no draggable range.
+        .constraintSize({ minWidth: this.actionStripRailMinWidth() })
         .justifyContent(FlexAlign.Start)
       }
       .scrollable(ScrollDirection.Horizontal)
