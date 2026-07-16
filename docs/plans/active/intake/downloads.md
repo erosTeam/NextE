@@ -10,6 +10,61 @@ Purpose:
 
 ## Items
 
+### Download Queue Type Switch Does Not Support Horizontal Swipe
+
+Type: download queue navigation / native paging interaction
+
+Priority suggestion: P2 / interaction parity
+
+Status: implemented candidate / needs device QA
+
+Source:
+
+- User request, 2026-07-16: Gallery and Archiver queues can only be switched from the pinned segmented
+  control; the queue body should also support the same left/right paging gesture as tabs.
+
+Grounding:
+
+1. `../eros_fe/lib/pages/tab/view/download_page.dart`, `_DownloadTabState.build()`, pairs the pinned
+   `CupertinoSlidingSegmentedControl` with a `PageView` driven by the same `PageController`.
+2. The primary information remains the active queue's task list or empty state; the pinned selector
+   only communicates whether Gallery or Archiver is active.
+3. Horizontal paging and selector taps are equal-weight primary navigation actions. Existing task-card
+   open, pause, resume, export, and more actions remain unchanged secondary actions.
+4. This lane synchronizes selector taps and horizontal paging in both directions and retains an
+   independent scroll position for each queue. Download execution, task-card layout, and copy are out
+   of scope.
+5. HarmonyOS expresses this with the existing `TabSegmentButtonV2` plus a native `Swiper` and one
+   retained `SecondaryListScaffold` / `Scroller` per queue; no custom gesture layer is introduced.
+
+Acceptance path:
+
+- Open Downloads on Gallery, swipe left, and verify Archiver settles in place and the segmented control
+  selects Archiver. Swipe right and verify Gallery is restored. Tap either segment after a swipe and
+  verify the body animates to the matching queue.
+- Repeat with a populated queue, an empty queue, active search with no matches, and after vertically
+  scrolling each queue; verify task actions remain usable and each queue restores its own scroll offset.
+
+Implementation:
+
+- `DownloadQueuePage` now hosts Gallery and Archiver as two retained pages in a native non-looping
+  `Swiper`. A segmented-control selection drives `SwiperController.changeIndex(...)`; a settled swipe
+  writes the matching `DownloadViewType` back to the shared V2 holder so the pinned selector and title
+  actions stay synchronized.
+- Gallery and Archiver own independent `Scroller` instances. The active one is handed back to `Index`
+  after each settled switch so the HDS root-tab auto-hide binding follows the visible queue without
+  losing either queue's vertical position.
+- Empty/search-empty rendering and group counts now receive an explicit queue type, so the retained
+  off-screen page cannot accidentally render from the visible page's selection state.
+
+Evidence:
+
+- `node scripts/test_v1_decorator_inventory_contract.mjs`: PASS, `0 file(s)`.
+- `git diff --check`: PASS.
+- `scripts/build_hvigor_signed.sh`: PASS, official signed HAP build.
+- Device interaction remains pending because this task did not identify a target device; no install,
+  launch, screenshot, or swipe command was run.
+
 ### Export Progress Dialog Can Be Hidden While Export Keeps Running
 
 Type: downloaded gallery export / modal lifecycle

@@ -1355,7 +1355,9 @@ struct Index {
           if (this.safeMode.restricted()) {
             TabContent() {
               DownloadQueuePage({
-                scroller: this.homeTabScrollers[1],
+                onScrollerReady: (scroller: Scroller) => {
+                  this.setHomeActiveScroller(1, scroller)
+                },
                 onDidScroll: (offset: number, state: ScrollState) => {
                   this.onHomeTabDidScroll(1, offset, state)
                 },
@@ -1396,7 +1398,9 @@ struct Index {
             }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
             TabContent() {
               DownloadQueuePage({
-                scroller: this.homeTabScrollers[3],
+                onScrollerReady: (scroller: Scroller) => {
+                  this.setHomeActiveScroller(3, scroller)
+                },
                 onDidScroll: (offset: number, state: ScrollState) => {
                   this.onHomeTabDidScroll(3, offset, state)
                 },

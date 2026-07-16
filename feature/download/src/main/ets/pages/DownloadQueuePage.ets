@@ -48,8 +48,7 @@ import { DownloadQueueTaskProjection } from '../model/DownloadQueueTaskProjectio
  */
 @ComponentV2
 export struct DownloadQueuePage {
-  // Accepted for the Index tab-scroller handoff (this placeholder doesn't scroll, so it's unused).
-  @Param scroller: Scroller = new Scroller();
+  @Event onScrollerReady?: (scroller: Scroller) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
@@ -65,8 +64,12 @@ export struct DownloadQueuePage {
   @Local actionMenuKey: string = '';
   @Local exportingKey: string = '';
   @Local sortMenuShown: boolean = false;
+  @Local swiperIndex: number = 0;
   @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   private stack: NavPathStack = connectNavStack().stack;
+  private swiperController: SwiperController = new SwiperController();
+  private galleryScroller: Scroller = new Scroller();
+  private archiverScroller: Scroller = new Scroller();
   private exportLoadingDialogController: CustomDialogController = new CustomDialogController({
     builder: LoadingDialog({ content: $r('app.string.download_export_started') }),
     autoCancel: false,
@@ -112,7 +115,49 @@ export struct DownloadQueuePage {
   }
 
   aboutToAppear(): void {
+    this.swiperIndex = this.selectedIndex()
     this.rebuildTaskProjection()
+    this.notifyActiveScroller()
+  }
+
+  @Monitor('downloadView.viewType')
+  private onDownloadViewTypeChanged(): void {
+    const target: number = this.selectedIndex()
+    if (target === this.swiperIndex) {
+      this.notifyActiveScroller()
+      return
+    }
+    this.swiperController.changeIndex(target, true)
+  }
+
+  private selectedIndex(): number {
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER ? 1 : 0
+  }
+
+  private viewTypeForIndex(index: number): string {
+    return index === 1 ? DownloadViewType.ARCHIVER : DownloadViewType.GALLERY
+  }
+
+  private activeScroller(): Scroller {
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? this.archiverScroller
+      : this.galleryScroller
+  }
+
+  private notifyActiveScroller(): void {
+    if (this.onScrollerReady) {
+      this.onScrollerReady(this.activeScroller())
+    }
+  }
+
+  private onSwiperChanged(index: number): void {
+    this.swiperIndex = index
+    const next: string = this.viewTypeForIndex(index)
+    if (this.downloadView.viewType !== next) {
+      this.downloadView.viewType = next
+      DiagnosticLogger.info('download', 'download_type_swipe', `type=${next}`)
+    }
+    this.notifyActiveScroller()
   }
 
   private rebuildTaskProjection(): void {
@@ -135,43 +180,43 @@ export struct DownloadQueuePage {
     }
   }
 
-  private selectedEmptyText(): Resource {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+  private selectedEmptyText(viewType: string): Resource {
+    return viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_empty')
       : $r('app.string.download_gallery_empty')
   }
 
-  private selectedNextStep(): Resource {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+  private selectedNextStep(viewType: string): Resource {
+    return viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_next_step')
       : $r('app.string.download_gallery_next_step')
   }
 
-  private shouldShowEmptyNextStep(): boolean {
-    return !this.hasActiveSearch() || this.selectedVisibleTaskCount() > 0 || this.selectedTaskCount() === 0
+  private shouldShowEmptyNextStep(viewType: string): boolean {
+    return !this.hasActiveSearch() || this.visibleTaskCount(viewType) > 0 || this.taskCount(viewType) === 0
   }
 
   private hasActiveSearch(): boolean {
     return this.normalizedSearchText().length > 0
   }
 
-  private selectedTaskCount(): number {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+  private taskCount(viewType: string): number {
+    return viewType === DownloadViewType.ARCHIVER
       ? this.downloadQueue.archiverTasks.length
       : this.downloadQueue.galleryTasks.length
   }
 
-  private selectedVisibleTaskCount(): number {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+  private visibleTaskCount(viewType: string): number {
+    return viewType === DownloadViewType.ARCHIVER
       ? this.archiverVisibleTaskCount
       : this.galleryVisibleTaskCount
   }
 
-  private selectedEmptyMessage(): Resource {
-    if (this.selectedTaskCount() > 0 && this.hasActiveSearch() && this.selectedVisibleTaskCount() === 0) {
+  private selectedEmptyMessage(viewType: string): Resource {
+    if (this.taskCount(viewType) > 0 && this.hasActiveSearch() && this.visibleTaskCount(viewType) === 0) {
       return $r('app.string.download_search_empty')
     }
-    return this.selectedEmptyText()
+    return this.selectedEmptyText(viewType)
   }
 
   private taskStatusText(status: string, downloadedFiles: number, pageCount: number): string {
@@ -952,11 +997,11 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private EmptyQueueSection() {
+  private EmptyQueueSection(viewType: string) {
     Column() {
-      CardEmptyState({ message: this.selectedEmptyMessage(), expand: false })
-      if (this.shouldShowEmptyNextStep()) {
-        Text(this.selectedNextStep())
+      CardEmptyState({ message: this.selectedEmptyMessage(viewType), expand: false })
+      if (this.shouldShowEmptyNextStep(viewType)) {
+        Text(this.selectedNextStep(viewType))
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor($r('sys.color.font_secondary'))
           .textAlign(TextAlign.Center)
@@ -985,7 +1030,7 @@ export struct DownloadQueuePage {
   private GalleryTaskGroup(group: number) {
     if (this.galleryTasksForGroup(group).length > 0) {
       ListItem() {
-        this.DownloadTaskGroupHeader(group)
+        this.DownloadTaskGroupHeader(group, DownloadViewType.GALLERY)
       }
       .clip(false)
     }
@@ -1013,7 +1058,7 @@ export struct DownloadQueuePage {
   private ArchiverTaskGroup(group: number) {
     if (this.archiverTasksForGroup(group).length > 0) {
       ListItem() {
-        this.DownloadTaskGroupHeader(group)
+        this.DownloadTaskGroupHeader(group, DownloadViewType.ARCHIVER)
       }
       .clip(false)
     }
@@ -1042,20 +1087,20 @@ export struct DownloadQueuePage {
     return $r('app.string.download_group_active')
   }
 
-  private groupVisibleCount(group: number): number {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+  private groupVisibleCount(group: number, viewType: string): number {
+    return viewType === DownloadViewType.ARCHIVER
       ? this.archiverTasksForGroup(group).length
       : this.galleryTasksForGroup(group).length
   }
 
   @Builder
-  private DownloadTaskGroupHeader(group: number) {
+  private DownloadTaskGroupHeader(group: number, viewType: string) {
     Row({ space: ThemeConstants.SPACE_XS }) {
       Text(this.groupTitle(group))
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(ThemeConstants.BRAND_PRIMARY)
         .fontWeight(FontWeight.Medium)
-      Text(`${this.groupVisibleCount(group)}`)
+      Text(`${this.groupVisibleCount(group, viewType)}`)
         .fontSize(ThemeConstants.FONT_SIZE_TINY)
         .fontColor(ThemeConstants.TEXT_ON_BRAND)
         .fontWeight(FontWeight.Medium)
@@ -1650,39 +1695,61 @@ export struct DownloadQueuePage {
     .accessibilityText(label)
   }
 
-  build() {
-    Stack({ alignContent: Alignment.TopEnd }) {
-      Column() {
-        SecondaryListScaffold({
-          scroller: this.scroller,
-          backToTop: this.galleryDetailBackToTop.primaryEnabled(),
-          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
-          onDidScroll: (offset: number, state: ScrollState) => {
-            if (this.onDidScroll) {
-              this.onDidScroll(offset, state)
-            }
-          },
-          onUserScroll: () => {
-            this.galleryDetailBackToTop.selectPrimary()
-          },
-        }) {
-          ListItem() {
-            Column() {
-              Blank()
-            }
-            .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
+  @Builder
+  private QueuePage(viewType: string, scroller: Scroller) {
+    Column() {
+      SecondaryListScaffold({
+        scroller: scroller,
+        backToTop: this.galleryDetailBackToTop.primaryEnabled(),
+        bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+        onDidScroll: (offset: number, state: ScrollState) => {
+          if (viewType === this.downloadView.viewType && this.onDidScroll) {
+            this.onDidScroll(offset, state)
           }
-          if (this.downloadView.viewType === DownloadViewType.GALLERY && this.selectedVisibleTaskCount() > 0) {
-            this.GalleryTaskSection()
-          } else if (this.downloadView.viewType === DownloadViewType.ARCHIVER && this.selectedVisibleTaskCount() > 0) {
-            this.ArchiverTaskSection()
-          } else {
-            ListItem() {
-              this.EmptyQueueSection()
-            }
+        },
+        onUserScroll: () => {
+          if (viewType === this.downloadView.viewType) {
+            this.galleryDetailBackToTop.selectPrimary()
+          }
+        },
+      }) {
+        ListItem() {
+          Column() {
+            Blank()
+          }
+          .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
+        }
+        if (viewType === DownloadViewType.GALLERY && this.visibleTaskCount(viewType) > 0) {
+          this.GalleryTaskSection()
+        } else if (viewType === DownloadViewType.ARCHIVER && this.visibleTaskCount(viewType) > 0) {
+          this.ArchiverTaskSection()
+        } else {
+          ListItem() {
+            this.EmptyQueueSection(viewType)
           }
         }
       }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Swiper(this.swiperController) {
+        this.QueuePage(DownloadViewType.GALLERY, this.galleryScroller)
+        this.QueuePage(DownloadViewType.ARCHIVER, this.archiverScroller)
+      }
+      .index(this.swiperIndex)
+      .cachedCount(1)
+      .nestedScroll(SwiperNestedScrollMode.SELF_ONLY)
+      .indicator(false)
+      .loop(false)
+      .duration(ThemeConstants.ANIM_DURATION)
+      .curve(Curve.EaseOut)
+      .onChange((index: number) => {
+        this.onSwiperChanged(index)
+      })
       .width('100%')
       .height('100%')
       Row()
