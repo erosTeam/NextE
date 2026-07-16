@@ -37,7 +37,7 @@ The agent implemented search-history translation UI and repeatedly claimed or im
 
 - For any toggle or stateful button, first force or observe a known state, capture it, perform one action, then capture the opposite state; repeat once in reverse when feasible.
 - A successful `uitest uiInput click` is not verification. Verification requires visible state, layout text/state, persisted state, logs, or another independent signal tied to that click.
-- Before installing or controlling a device, name the exact target and verify it matches the user-authorized device. Do not use other connected targets.
+- Before installing or controlling a device, name the resolved full target and verify it matches the device selected by the user. A user-provided shorthand is valid when it uniquely resolves from the live connected-target list; do not use other connected targets.
 - When interrupted, answer the immediate question and continue the active verification chain unless the user explicitly says to stop.
 - If evidence is incomplete, report `not verified` or `needs QA`; do not convert partial evidence into a pass.
 - After any code change made in response to an incident, do not summarize it as a fix until at least the required static gates have run; for user-visible behavior, continue to device/user-path validation or explicitly state `untested code change`.

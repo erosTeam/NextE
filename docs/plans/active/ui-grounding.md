@@ -819,7 +819,7 @@ Reference implementation: NextE `shared/src/main/ets/components/AppSheetOptions.
 Primary information: existing sheet content and hierarchy remain unchanged; the content viewport should track the visible sheet height while the user drags between detents.
 Primary action: dragging an existing multi-detent app sheet continuously resizes and reflows its content instead of waiting for the sheet to settle; all sheet actions and dismissal behavior remain unchanged.
 Reuse or deviation: reuse every current `appSheetOptions(...)` call and set the native ArkUI `scrollSizeMode: ScrollSizeMode.CONTINUOUS` once in the shared helper; no custom gesture, animation, layout wrapper, or per-page workaround is introduced.
-Verification: official offline ArkUI reference confirms `FOLLOW_DETENT` updates after dragging and `CONTINUOUS` updates during dragging; V1 decorator inventory, diff check, signed HarmonyOS build, and device interaction QA when an exact target is supplied.
+Verification: official offline ArkUI reference confirms `FOLLOW_DETENT` updates after dragging and `CONTINUOUS` updates during dragging; V1 decorator inventory, diff check, signed HarmonyOS build, and device interaction QA when the user supplies a full target or a shorthand that uniquely resolves from the live connected-target list.
 
 ## Active: Reader settings live-preview sheet
 

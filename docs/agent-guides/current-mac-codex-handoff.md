@@ -116,9 +116,11 @@ Use physical-device QA for hardware/performance/permission/account-state cases t
 
 ### Physical-device target boundary
 
-There is no default physical-device target. For any agent-controlled device action, use only the target
-explicitly named by the user or the current task plan. Never infer a target from a historical handoff,
-lease script, artifact, or another task's evidence.
+There is no default physical-device target. The user or current active plan must select the intended
+device, but an unambiguous shorthand such as `237` is sufficient. Resolve shorthand only from the live
+`hdc list targets -v` output, echo the unique full target, and continue without asking the user to repeat
+it. Historical handoffs, lease records, artifacts, and other tasks are not resolution sources. Follow
+[the device lease and selector procedure](../device-lease.md).
 
 ## Build profile / secret boundary
 
