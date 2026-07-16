@@ -126,57 +126,67 @@ export struct GalleryWaterfallCard {
     return $r('sys.color.font_secondary')
   }
 
-  private tagRowIndexes(remainder: number): number[] {
-    const total: number = Math.min(this.gallery.simpleTags.length, WATERFALL_TAG_LIMIT)
-    const indexes: number[] = []
-    for (let i = 0; i < total; i++) {
-      if (i % 2 === remainder) {
-        indexes.push(i)
-      }
+  private tagAt(index: number): SimpleTag | undefined {
+    if (index < 0 || index >= WATERFALL_TAG_LIMIT || index >= this.gallery.simpleTags.length) {
+      return undefined
     }
-    return indexes
+    return this.gallery.simpleTags[index]
   }
 
-  /**
-   * A reused card receives a new gallery through @Param, but ForEach keeps children whose keys are
-   * unchanged. Pure row/index keys therefore leave Text/onClick closures bound to the previous
-   * gallery's SimpleTag. Re-key only the bounded tag strip when its rendered data changes; the card,
-   * cover, and remaining subtree stay reusable.
-   */
-  private tagRowKey(remainder: number, index: number): string {
-    const labelMode: string = this.tagTranslation.enabled ? 'translated' : 'raw'
-    return `tag_${this.gallery.renderKey()}_${this.tagSig.version}_${labelMode}_${remainder}_${index}`
+  private tagLabelAt(index: number): string {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    return t === undefined ? '' : this.tagLabel(t)
+  }
+
+  private chipBgAt(index: number): ResourceColor {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    if (t === undefined) {
+      return Color.Transparent
+    }
+    return this.chipBg(t, this.userTagAtSnapshot(t, this.tagSig.version))
+  }
+
+  private chipTextAt(index: number): ResourceColor {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    if (t === undefined) {
+      return Color.Transparent
+    }
+    return this.chipText(t, this.userTagAtSnapshot(t, this.tagSig.version))
+  }
+
+  private searchTagAt(index: number): void {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    if (t !== undefined) {
+      this.searchTag(t)
+    }
   }
 
   @Builder
-  private TagChip(t: SimpleTag, u: EhUsertag | undefined) {
-    Text(this.tagLabel(t))
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor(this.chipText(t, u))
-      .backgroundColor(this.chipBg(t, u))
-      .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
-      .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-      .maxLines(1)
-      .textOverflow({ overflow: TextOverflow.Ellipsis })
-      .constraintSize({ maxWidth: 150 })
-      .onClick(() => {
-        this.searchTag(t)
-      })
+  private TagChipAt(index: number) {
+    if (this.tagAt(index) !== undefined) {
+      Text(this.tagLabelAt(index))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(this.chipTextAt(index))
+        .backgroundColor(this.chipBgAt(index))
+        .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
+        .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .constraintSize({ maxWidth: 150 })
+        .onClick(() => {
+          // Resolve through the current @Param instead of capturing the gallery that first built this slot.
+          this.searchTagAt(index)
+        })
+    }
   }
 
   @Builder
   private TagRow(remainder: number) {
     Row({ space: ThemeConstants.SPACE_XS }) {
-      ForEach(
-        this.tagRowIndexes(remainder),
-        (index: number) => {
-          this.TagChip(
-            this.gallery.simpleTags[index],
-            this.userTagAtSnapshot(this.gallery.simpleTags[index], this.tagSig.version),
-          )
-        },
-        (index: number) => this.tagRowKey(remainder, index),
-      )
+      this.TagChipAt(remainder)
+      this.TagChipAt(remainder + 2)
+      this.TagChipAt(remainder + 4)
+      this.TagChipAt(remainder + 6)
     }
     .alignItems(VerticalAlign.Center)
   }
@@ -200,6 +210,9 @@ export struct GalleryWaterfallCard {
       .align(Alignment.Start)
       .width('100%')
       .height(WATERFALL_TAG_STRIP_HEIGHT)
+      // Tags stay unchanged while the card moves through WaterFlow. Cache this bounded subtree as one
+      // drawing group instead of traversing every chip on each scroll frame; reuse invalidates it per item.
+      .renderGroup(true)
     }
   }
 

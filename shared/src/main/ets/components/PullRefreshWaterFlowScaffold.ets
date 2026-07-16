@@ -14,7 +14,7 @@ import { LoadingFooter } from './LoadingFooter'
 import { isUserScrollSource } from '../utils/ScrollUserInput'
 
 const WATER_FLOW_CACHE_ROWS: number = 2
-const WATER_FLOW_MAX_CACHE_ITEMS: number = 16
+const WATER_FLOW_MAX_CACHE_ITEMS: number = 8
 
 /**
  * WaterFlow sibling of PullRefreshGridScaffold for gallery cards: same refresh, paging, safe-area,
@@ -100,8 +100,8 @@ export struct PullRefreshWaterFlowScaffold {
       }
       .columnsGap(this.gap)
       .rowsGap(this.gap)
-      // Keep roughly two upcoming rows ready without forcing ArkUI's maximum cache on narrow screens.
-      // Component reuse and cover prefetching remain independent layers of the browsing pipeline.
+      // Keep roughly two upcoming rows on narrow layouts, capped at eight cards so wide layouts do not
+      // build almost twice as many off-screen cards as portrait. Reuse and cover prefetch stay independent.
       .cachedCount(this.cachedItemCount(), false)
       .enableScrollInteraction(this.scrollEnabled)
       .backToTop(this.backToTop)
