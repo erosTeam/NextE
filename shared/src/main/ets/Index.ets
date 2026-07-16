@@ -662,6 +662,7 @@ export { FavcatListSettings } from './settings/FavcatListSettings'
 export { LocalFavSettings } from './settings/LocalFavSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
+export { ViewedHistoryCursor, ViewedHistoryPage } from './storage/ViewedHistoryRepository'
 export { DownloadSettings } from './settings/DownloadSettings'
 export {
   DownloadDirectoryImportResult,

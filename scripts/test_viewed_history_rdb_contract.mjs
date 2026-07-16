@@ -49,6 +49,17 @@ class HistoryRows {
     return viewedAt
   }
 
+  localDelete(gid, requestedTime, now) {
+    const deletedAt = this.nextViewedAt(requestedTime, now)
+    const previous = this.rows.get(gid)
+    if (previous === undefined) {
+      this.rows.set(gid, { gid, viewedAt: 0, deletedAt, payload: '' })
+    } else if (deletedAt >= effectiveTime(previous)) {
+      previous.deletedAt = deletedAt
+    }
+    return deletedAt
+  }
+
   applyRemote(row) {
     const current = this.rows.get(row.gid)
     if (current === undefined || effectiveTime(row) >= effectiveTime(current)) {
@@ -110,6 +121,16 @@ const readdedAt = stale.localVisit('same', 1, 1)
 ok('a later local revisit advances above the winning tombstone',
   stale.rows.get('same').deletedAt === 0 && readdedAt > 21)
 
+const singleDelete = new HistoryRows()
+singleDelete.localVisit('delete-me', 10, 10)
+const singleDeletedAt = singleDelete.localDelete('delete-me', 11, 11)
+singleDelete.applyRemote({ gid: 'delete-me', viewedAt: singleDeletedAt - 1, deletedAt: 0, payload: 'stale' })
+ok('single-record deletion writes a tombstone that rejects stale remote resurrection',
+  singleDelete.active().length === 0 && singleDelete.rows.get('delete-me').deletedAt === singleDeletedAt)
+const singleRevisitAt = singleDelete.localVisit('delete-me', 1, 1)
+ok('a later local visit can intentionally revive a single deleted record',
+  singleDelete.active()[0].gid === 'delete-me' && singleRevisitAt > singleDeletedAt)
+
 const remoteOverflow = new HistoryRows()
 for (let index = 0; index < 250; index += 1) {
   remoteOverflow.applyRemote({ gid: `remote${index}`, viewedAt: index + 1, deletedAt: 0, payload: 'remote' })
@@ -137,6 +158,8 @@ ok('backup replacement advances past future tombstones and rebases restored rows
 
 const settings = read('shared/src/main/ets/settings/ViewedHistorySettings.ets')
 const repository = read('shared/src/main/ets/storage/ViewedHistoryRepository.ets')
+const state = read('shared/src/main/ets/state/ViewedHistoryState.ets')
+const localDataStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
 const syncService = read('shared/src/main/ets/sync/SyncService.ets')
 const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
@@ -152,9 +175,25 @@ ok('settings serializes history writes and drains them before exports or provide
     /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void>/.test(settings) &&
     /static async flushForSync\(_context: common\.UIAbilityContext\): Promise<void>/.test(settings) &&
     /exportForBackup[\s\S]*flushForSync\(context\)/.test(settings))
-ok('history refresh does not replace a local mutation that raced its storage read',
+ok('startup publishes only a lightweight revision instead of hydrating retained rows into global state',
   /private static mutationRevision: number = 0/.test(settings) &&
-    /refreshFromStorage[\s\S]*revision === ViewedHistorySettings\.mutationRevision/.test(settings))
+    /static async restore[\s\S]*migrateLegacyPreferences[\s\S]*publishChanged/.test(settings) &&
+    !/refreshFromStorage/.test(settings) &&
+    /@Trace revision: number = 0/.test(state) &&
+    !/@Trace items: ViewedGallery\[\]/.test(state))
+ok('history page reads bounded keyset pages with one-row lookahead',
+  /static async loadPage/.test(repository) &&
+    /viewed_at < \? OR \(viewed_at = \? AND gid < \?\)/.test(repository) &&
+    /const queryLimit: number = pageSize \+ 1/.test(repository) &&
+    /page\.hasMore = out\.length > pageSize/.test(repository) &&
+    /static async loadPage[\s\S]*return ViewedHistoryRepository\.loadPage/.test(settings))
+ok('the history cursor query has a matching composite RDB index and schema migration',
+  /LOCAL_DATA_SCHEMA_VERSION: number = 23/.test(localDataStore) &&
+    /idx_viewed_history_cursor/.test(localDataStore) &&
+    /scope_key, viewed_at DESC, gid DESC/.test(localDataStore))
+ok('single-record delete is a serialized tombstone mutation and schedules sync',
+  /static async tombstone[\s\S]*nextViewedAt[\s\S]*SQL_TOMBSTONE_GID[\s\S]*store\.commit/.test(repository) &&
+    /static async remove[\s\S]*enqueueRdbWrite[\s\S]*ViewedHistoryRepository\.tombstone[\s\S]*viewed_history_delete/.test(settings))
 ok('full replacements stay transactional and are reserved for backup, clear, and migration',
   /static async replaceAll[\s\S]*store\.beginTransaction\(\)[\s\S]*nextViewedAt\(store, Date\.now\(\)\)[\s\S]*SQL_TOMBSTONE_SCOPE[\s\S]*snapshotTime[\s\S]*SQL_RESTORE_UPSERT[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)/.test(repository) &&
     /restoreBackup[\s\S]*ViewedHistoryRepository\.replaceAll/.test(settings) &&

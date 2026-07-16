@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 22
+export const LOCAL_DATA_SCHEMA_VERSION: number = 23
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -13,7 +13,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'22\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'23\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -93,6 +93,9 @@ const SQL_CREATE_VIEWED_HISTORY_TABLE: string =
   ')'
 const SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_viewed_history_viewed_at ON viewed_history (viewed_at DESC)'
+const SQL_CREATE_VIEWED_HISTORY_CURSOR_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_viewed_history_cursor ' +
+  'ON viewed_history (scope_key, viewed_at DESC, gid DESC)'
 const SQL_CREATE_LOCAL_FAVORITES_TABLE: string =
   'CREATE TABLE IF NOT EXISTS local_favorites (' +
     'scope_key TEXT, ' +
@@ -587,8 +590,8 @@ export class LocalDataStore {
   }
 
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
-    // v21 did not track two later cache indexes. Bumping to v22 makes every earlier install run this
-    // complete migration once; only a current, intact store may skip the cold-start DDL sweep.
+    // v23 adds the composite viewed-history cursor index. Only a current, intact store may skip the
+    // cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
     if (store.version === LOCAL_DATA_SCHEMA_VERSION &&
       store.rebuilt === relationalStore.RebuildType.NONE) {
       return
@@ -610,6 +613,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_TABLE)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX)
+    await store.executeSql(SQL_CREATE_VIEWED_HISTORY_CURSOR_INDEX)
     await store.executeSql(SQL_CREATE_LOCAL_FAVORITES_TABLE)
     await store.executeSql(SQL_CREATE_LOCAL_FAVORITES_LAST_VIEW_INDEX)
     await store.executeSql(SQL_CREATE_SEARCH_HISTORY_TABLE)

@@ -1,110 +1,63 @@
-import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
   CardEmptyState,
-  ConciseListRow,
+  EhGallery,
   GalleryDetailParams,
-  GroupedListSection,
-  SecondaryListScaffold,
+  GallerySimpleCard,
+  LoadingFooter,
+  NavStackHolder,
+  PageErrorState,
+  PageLoadingState,
+  PullRefreshController,
+  PullRefreshListScaffold,
   ThemeConstants,
-  ViewedGallery,
-  ViewedHistorySettings,
   ViewedHistoryState,
   connectNavStack,
-  NavStackHolder,
   connectViewedHistory,
+  gallerySimpleReuseId,
   immersiveTitleBarOpts,
 } from 'shared'
+import { ViewedHistoryViewModel } from '../viewmodel/ViewedHistoryViewModel'
 
-const HISTORY_PAGE_SIZE: number = 40
-
-/**
- * Recently viewed galleries. eros_fe keeps History as an optional main tab; NextE already records
- * viewed galleries in `ViewedHistorySettings`, so this lane exposes that existing local data through a
- * secondary HDS settings surface before taking on configurable tabs.
- */
+/** RDB-paged, virtualized viewed-history list using the gallery simple-row visual language. */
 @ComponentV2
 export struct ViewedHistoryPage {
+  @Local vm: ViewedHistoryViewModel = new ViewedHistoryViewModel();
   @Local history: ViewedHistoryState = connectViewedHistory();
-  @Local visibleCount: number = HISTORY_PAGE_SIZE;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+  private refreshController: PullRefreshController = new PullRefreshController();
+
+  aboutToAppear(): void {
+    this.vm.setContext(this.ctx())
+    this.vm.loadInitial()
+  }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  private titleFor(item: ViewedGallery): string {
-    if (item.titleJp.length > 0) {
-      return item.titleJp
-    }
-    if (item.title.length > 0) {
-      return item.title
-    }
-    return `#${item.gid}`
+  private titleFor(gallery: EhGallery): string {
+    const title: string = gallery.title()
+    return title.length > 0 ? title : `#${gallery.gid}`
   }
 
-  private subtitleFor(item: ViewedGallery): string {
-    const parts: string[] = []
-    if (item.category.length > 0) {
-      parts.push(item.category)
-    }
-    if (item.fileCount.length > 0) {
-      parts.push(`${item.fileCount}P`)
-    }
-    if (item.uploader.length > 0) {
-      parts.push(item.uploader)
-    }
-    return parts.join(' · ')
-  }
-
-  private timeFor(item: ViewedGallery): string {
-    if (item.time <= 0) {
-      return ''
-    }
-    const d: Date = new Date(item.time)
-    const month: string = `${d.getMonth() + 1}`.padStart(2, '0')
-    const day: string = `${d.getDate()}`.padStart(2, '0')
-    const hour: string = `${d.getHours()}`.padStart(2, '0')
-    const minute: string = `${d.getMinutes()}`.padStart(2, '0')
-    return `${month}-${day} ${hour}:${minute}`
-  }
-
-  private openGallery(item: ViewedGallery): void {
-    if (item.gid.length === 0 || item.token.length === 0) {
+  private openGallery(gallery: EhGallery): void {
+    if (gallery.gid.length === 0 || gallery.token.length === 0) {
       return
     }
     this.stack.pushPathByName(
       'GalleryDetail',
-      new GalleryDetailParams(item.gid, item.token, item.thumbUrl, this.titleFor(item)),
+      new GalleryDetailParams(gallery.gid, gallery.token, gallery.thumbUrl, this.titleFor(gallery)),
     )
   }
 
   private clearHistory(): void {
-    this.visibleCount = HISTORY_PAGE_SIZE
-    ViewedHistorySettings.clear(this.ctx())
-  }
-
-  private visibleItemCount(): number {
-    return Math.min(this.visibleCount, this.history.items.length)
-  }
-
-  private visibleHistoryItems(): ViewedGallery[] {
-    const max: number = this.visibleItemCount()
-    const out: ViewedGallery[] = []
-    for (let i = 0; i < max; i++) {
-      out.push(this.history.items[i])
-    }
-    return out
-  }
-
-  private loadMoreHistory(): void {
-    if (this.visibleCount < this.history.items.length) {
-      this.visibleCount = Math.min(this.visibleCount + HISTORY_PAGE_SIZE, this.history.items.length)
-    }
+    this.vm.clear()
   }
 
   private confirmClearHistory(): void {
@@ -129,59 +82,104 @@ export struct ViewedHistoryPage {
     const clearInner: Record<string, Object> = {
       'label': $r('app.string.history_clear'),
       'icon': $r('sys.symbol.trash'),
-      'isEnabled': this.history.items.length > 0,
+      'isEnabled': this.vm.itemCount > 0,
       'action': () => {
         this.confirmClearHistory()
       },
     }
     const items: Record<string, Object>[] = [{ 'content': clearInner }]
     const menu: Record<string, Object> = { 'value': items, 'maxCount': 1 }
-    const content: Record<string, Object> = {
-      'title': title,
-      'menu': menu,
-    }
+    const content: Record<string, Object> = { 'title': title, 'menu': menu }
     return immersiveTitleBarOpts(content)
   }
 
   @Builder
   private HistoryRows() {
-    if (this.history.items.length === 0) {
+    if (
+      this.vm.itemCount === 0 &&
+      this.vm.errorMessage.length === 0 &&
+      (this.vm.isLoading || !this.vm.loaded)
+    ) {
       ListItem() {
-        CardEmptyState({ message: $r('app.string.history_empty') })
+        Column() {
+          PageLoadingState({ expand: false })
+        }
+        .height(240)
+        .justifyContent(FlexAlign.Center)
+      }
+    } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
+      ListItem() {
+        Column() {
+          PageErrorState({
+            message: this.vm.errorMessage,
+            expand: false,
+            retryAction: () => {
+              this.vm.loadInitial(true)
+            },
+          })
+        }
+        .height(240)
+        .justifyContent(FlexAlign.Center)
+      }
+    } else if (this.vm.itemCount === 0) {
+      ListItem() {
+        CardEmptyState({ message: $r('app.string.history_empty'), expand: false })
       }
     } else {
-      ListItem() {
-        GroupedListSection() {
-          ForEach(
-            this.visibleHistoryItems(),
-            (item: ViewedGallery, index: number) => {
-              ConciseListRow({
-                title: this.titleFor(item),
-                subtitle: this.subtitleFor(item),
-                trailingText: this.timeFor(item),
-                leadingImageUrl: item.thumbUrl,
-                action: () => {
-                  this.openGallery(item)
-                },
-              })
-              if (index < this.visibleItemCount() - 1) {
-                this.rowDivider()
-              }
+      LazyForEach(
+        this.vm.dataSource,
+        (gallery: EhGallery, index: number) => {
+          ListItem() {
+            GallerySimpleCard({ gallery: gallery })
+              .reuse({ reuseId: () => gallerySimpleReuseId(gallery) })
+          }
+          .swipeAction({
+            end: () => {
+              this.DeleteSwipe(gallery.gid)
             },
-            (item: ViewedGallery, index: number) =>
-              `viewed_${index}_${item.gid}_${item.token}_${item.time}`.replace(/[^A-Za-z0-9_]/g, '_'),
-          )
-        }
+          })
+          .onAppear(() => {
+            this.vm.loadMoreIfNearTail(index)
+          })
+          .onClick(() => {
+            this.openGallery(gallery)
+          })
+        },
+        (gallery: EhGallery) =>
+          `viewed_${gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
+      )
+      ListItem() {
+        LoadingFooter({
+          isLoading: this.vm.isLoadingMore || this.vm.isLoading,
+          hasMore: this.vm.hasMore,
+          isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+          onRetry: () => {
+            this.vm.loadMore()
+          },
+        })
       }
     }
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
+  private DeleteSwipe(gid: string) {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([Color.White])
+      }
+      .width(48)
+      .height(40)
+      .backgroundColor(Color.Red)
+      .accessibilityText($r('app.string.common_delete'))
+      .onClick(() => {
+        this.vm.remove(gid)
+      })
+    }
+    .height('100%')
+    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+    .justifyContent(FlexAlign.Center)
   }
 
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
@@ -191,11 +189,21 @@ export struct ViewedHistoryPage {
 
   build() {
     HdsNavDestination() {
-      SecondaryListScaffold({
+      PullRefreshListScaffold({
         scroller: this.scroller,
+        controller: this.refreshController,
+        listSpace: 0,
         bottomPadding: ThemeConstants.SPACE_XL,
+        itemCount: this.vm.itemCount,
+        onRefresh: async () => {
+          await this.vm.loadInitial(true)
+        },
+        onBottomRefresh: async () => {
+          await this.vm.loadMore()
+        },
+        canStartBottomRefresh: () => this.vm.canLoadMore(),
         onReachEnd: () => {
-          this.loadMoreHistory()
+          this.vm.loadMore()
         },
       }) {
         this.HistoryRows()
@@ -209,6 +217,7 @@ export struct ViewedHistoryPage {
     })
     .onWillShow(() => {
       this.refreshFirstSecondaryDestination(this.stack)
+      this.vm.reloadIfChanged(this.history.revision)
     })
   }
 }
