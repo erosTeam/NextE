@@ -67,6 +67,7 @@ const DISPLAY_OPTIONS: TypeOption[] = [
   { value: ListMode.SIMPLE_LIST, labelKey: 'view_simple' },
   { value: ListMode.GRID, labelKey: 'view_grid' },
   { value: ListMode.WATERFALL, labelKey: 'view_waterfall' },
+  { value: ListMode.WATERFALL_COMPACT, labelKey: 'view_waterfall_compact' },
   { value: ListMode.COVER_WALL, labelKey: 'view_cover_wall' },
 ]
 const TOPLIST_TLS: number[] = [11, 12, 13, 15]

@@ -43,6 +43,9 @@ export struct ColumnDensityPage {
     if (mode === ListMode.WATERFALL) {
       return ThemeConstants.GALLERY_WATERFALL_MIN_W
     }
+    if (mode === ListMode.WATERFALL_COMPACT) {
+      return ThemeConstants.GALLERY_WATERFALL_COMPACT_MIN_W
+    }
     if (mode === ListMode.THUMBNAIL_GRID) {
       return ThemeConstants.PREVIEW_THUMB_MIN_W
     }

@@ -28,7 +28,7 @@ export struct PullRefreshWaterFlowScaffold {
   layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Param scroller: Scroller = new Scroller();
   @Param minColumnWidth: number = 0;
-  // When set to a ListMode.GRID/WATERFALL/COVER_WALL key, two-finger pinch adjusts that mode's stored
+  // When set to a grid-like ListMode key (including both waterfall variants), two-finger pinch adjusts that mode's stored
   // column width (and the scaffold renders that override). Empty = pinch disabled (e.g. thumbnails grid).
   @Param pinchModeKey: string = '';
   listMode: ListModeState = connectListMode();

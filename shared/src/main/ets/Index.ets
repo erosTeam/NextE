@@ -100,7 +100,11 @@ export { PullRefreshListScaffold } from './components/PullRefreshListScaffold'
 export { PullRefreshGridScaffold } from './components/PullRefreshGridScaffold'
 export { PullRefreshWaterFlowScaffold } from './components/PullRefreshWaterFlowScaffold'
 export { GalleryGridCard, galleryGridReuseId } from './components/GalleryGridCard'
-export { GalleryWaterfallCard, galleryWaterfallReuseId } from './components/GalleryWaterfallCard'
+export {
+  GalleryWaterfallCard,
+  galleryWaterfallReuseId,
+  galleryWaterfallCompactReuseId,
+} from './components/GalleryWaterfallCard'
 export { GalleryCoverPrefetchDataSource } from './utils/GalleryCoverPrefetchDataSource'
 export { requestGalleryCoverRetry } from './state/GalleryCoverRetryState'
 export { GalleryCoverWallCard, galleryCoverWallReuseId } from './components/GalleryCoverWallCard'

@@ -3285,6 +3285,10 @@
       "value": "瀑布流"
     },
     {
+      "name": "view_waterfall_compact",
+      "value": "紧凑瀑布流"
+    },
+    {
       "name": "view_cover_wall",
       "value": "封面墙"
     },

@@ -6,6 +6,7 @@ export enum ListMode {
   SIMPLE_LIST = 'simpleList', // compact rows
   GRID = 'grid',
   WATERFALL = 'waterfall',
+  WATERFALL_COMPACT = 'waterfallCompact',
   COVER_WALL = 'coverWall',
   THUMBNAIL_GRID = 'thumbnailGrid',
 }
@@ -29,6 +30,7 @@ export class ListModeState {
   // foldable / orientation width changes instead of fixing a count that would crowd or strand cells.
   @Trace gridColW: number = 0
   @Trace waterfallColW: number = 0
+  @Trace waterfallCompactColW: number = 0
   @Trace coverWallColW: number = 0
   @Trace thumbnailColW: number = 0
 
@@ -39,6 +41,9 @@ export class ListModeState {
     }
     if (mode === ListMode.WATERFALL) {
       return this.waterfallColW
+    }
+    if (mode === ListMode.WATERFALL_COMPACT) {
+      return this.waterfallCompactColW
     }
     if (mode === ListMode.COVER_WALL) {
       return this.coverWallColW
@@ -55,6 +60,8 @@ export class ListModeState {
       this.gridColW = width
     } else if (mode === ListMode.WATERFALL) {
       this.waterfallColW = width
+    } else if (mode === ListMode.WATERFALL_COMPACT) {
+      this.waterfallCompactColW = width
     } else if (mode === ListMode.COVER_WALL) {
       this.coverWallColW = width
     } else if (mode === ListMode.THUMBNAIL_GRID) {

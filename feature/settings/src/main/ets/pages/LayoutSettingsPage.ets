@@ -375,6 +375,9 @@ export struct LayoutSettingsPage {
     if (this.listMode.mode === ListMode.COVER_WALL) {
       return $r('app.string.view_cover_wall')
     }
+    if (this.listMode.mode === ListMode.WATERFALL_COMPACT) {
+      return $r('app.string.view_waterfall_compact')
+    }
     if (this.listMode.mode === ListMode.WATERFALL) {
       return $r('app.string.view_waterfall')
     }
@@ -401,6 +404,7 @@ export struct LayoutSettingsPage {
     return (
       this.listMode.mode === ListMode.GRID ||
       this.listMode.mode === ListMode.WATERFALL ||
+      this.listMode.mode === ListMode.WATERFALL_COMPACT ||
       this.listMode.mode === ListMode.COVER_WALL
     )
   }
@@ -514,6 +518,17 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.WATERFALL)
+          this.viewMenuShown = false
+        })
+      MenuItem({
+        content: $r('app.string.view_waterfall_compact'),
+        symbolEndIcon:
+          this.listMode.mode === ListMode.WATERFALL_COMPACT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setViewMode(ListMode.WATERFALL_COMPACT)
           this.viewMenuShown = false
         })
       MenuItem({

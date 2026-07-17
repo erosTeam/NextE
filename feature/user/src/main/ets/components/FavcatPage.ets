@@ -6,6 +6,7 @@ import {
   galleryGridReuseId,
   GalleryWaterfallCard,
   galleryWaterfallReuseId,
+  galleryWaterfallCompactReuseId,
   requestGalleryCoverRetry,
   GalleryCoverWallCard,
   galleryCoverWallReuseId,
@@ -723,6 +724,81 @@ export struct FavcatPage {
                   tagTranslation: this.tagTranslation,
                 })
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
+              }
+              .width('100%')
+              .onAppear(() => {
+                this.loadMoreIfTailAppeared(index)
+              })
+              .onClick(() => {
+                this.openDetail(g)
+              })
+            },
+            (g: EhGallery) => g.renderKey(),
+          )
+        }
+      } else if (this.listMode.mode === ListMode.WATERFALL_COMPACT) {
+        PullRefreshWaterFlowScaffold({
+          scroller: this.scroller,
+          backToTop: this.primaryBackToTopEnabled(),
+          minColumnWidth: ThemeConstants.GALLERY_WATERFALL_COMPACT_MIN_W,
+          pinchModeKey: ListMode.WATERFALL_COMPACT,
+          itemCount: this.vm.itemCount,
+          nearEndThreshold: 4,
+          nearEndRows: 2,
+          gap: ThemeConstants.GALLERY_GRID_GAP,
+          horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
+          topPadding: SELECTOR_BAR_HEIGHT,
+          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            requestGalleryCoverRetry()
+            await this.refreshCurrentList()
+          },
+          onBottomRefresh: async () => {
+            await this.vm.loadMore()
+          },
+          canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
+          onReachEnd: () => {
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
+          },
+          onNearEnd: () => {
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
+          },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
+          },
+          onUserScroll: () => {
+            this.reportPrimaryUserScroll()
+          },
+          showFooter: true,
+          footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+          footerHasMore: this.vm.hasMore,
+          footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+          onFooterRetry: () => {
+            this.vm.loadMore()
+          },
+        }) {
+          LazyForEach(
+            this.vm.dataSource,
+            (g: EhGallery, index: number) => {
+              FlowItem() {
+                GalleryWaterfallCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  tagSig: this.tagSig,
+                  tagTranslation: this.tagTranslation,
+                  compact: true,
+                })
+                  .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
               }
               .width('100%')
               .onAppear(() => {

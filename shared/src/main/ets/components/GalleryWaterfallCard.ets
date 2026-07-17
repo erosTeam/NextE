@@ -33,6 +33,13 @@ export function galleryWaterfallReuseId(gallery: EhGallery): string {
   return `waterfall_${coverShape}_${favoriteShape}_${ratingShape}_${tagShape}_${languageShape}`
 }
 
+/** Compact cards have a different conditional subtree and must never enter the regular reuse pool. */
+export function galleryWaterfallCompactReuseId(gallery: EhGallery): string {
+  const tagShape: string = gallery.simpleTags.length > 0 ? 'tags' : 'no_tags'
+  const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
+  return `waterfall_compact_${tagShape}_${languageShape}`
+}
+
 /**
  * Masonry card for ListMode.WATERFALL. Unlike GalleryGridCard, this deliberately allows variable
  * height: the cover follows the EH source aspect ratio and the compact info block can grow within
@@ -43,6 +50,7 @@ export function galleryWaterfallReuseId(gallery: EhGallery): string {
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
+  @Param compact: boolean = false;
   // Page-owned shared signals avoid reconnecting AppStorageV2 for every prebuilt/reused card.
   @Require @Param tagSig: UserTagSignal;
   @Require @Param tagTranslation: TagTranslationSettingsState;
@@ -59,6 +67,16 @@ export struct GalleryWaterfallCard {
     (): void => { this.searchTagAt(6) },
     (): void => { this.searchTagAt(7) },
   ]
+
+  @Monitor('gallery')
+  onGalleryChange(): void {
+    // A ReusableV2 instance keeps its Scroller. Reset the horizontal tag position when the slot is
+    // rebound so a gallery never inherits another gallery's partially-scrolled tag strip.
+    try {
+      this.tagScroller.scrollTo({ xOffset: 0, yOffset: 0 })
+    } catch (_error) {
+    }
+  }
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -83,6 +101,13 @@ export struct GalleryWaterfallCard {
 
   private isExtremeTallCover(): boolean {
     return this.sourceCoverRatio() < WATERFALL_MIN_COVER_RATIO
+  }
+
+  private compactCoverRatio(): number {
+    if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
+      return ThemeConstants.GALLERY_GRID_COVER_RATIO
+    }
+    return this.gallery.imgWidth / this.gallery.imgHeight
   }
 
   private ratingText(): string {
@@ -166,6 +191,27 @@ export struct GalleryWaterfallCard {
     return this.chipText(t, this.userTagAtSnapshot(t, this.tagSig.version))
   }
 
+  private compactTagTextColorAt(index: number): ResourceColor {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    if (t === undefined) {
+      return ThemeConstants.TEXT_ON_BRAND
+    }
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
+    if (u !== undefined && u.colorCode.length > 0) {
+      return u.colorCode
+    }
+    if (u !== undefined && u.fillColor.length > 0) {
+      return u.fillColor
+    }
+    if (t.backgroundColor.length > 0) {
+      return t.backgroundColor
+    }
+    if (t.color.length > 0) {
+      return t.color
+    }
+    return ThemeConstants.TEXT_ON_BRAND
+  }
+
   private searchTagAt(index: number): void {
     const t: SimpleTag | undefined = this.tagAt(index)
     if (t !== undefined) {
@@ -182,6 +228,19 @@ export struct GalleryWaterfallCard {
         .backgroundColor(this.chipBgAt(index))
         .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
         .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .constraintSize({ maxWidth: 150 })
+        .onClick(this.tagClickHandlers[index])
+    }
+  }
+
+  @Builder
+  private CompactTagTextAt(index: number) {
+    if (this.tagAt(index) !== undefined) {
+      Text(this.tagLabelAt(index))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(this.compactTagTextColorAt(index))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .constraintSize({ maxWidth: 150 })
@@ -225,7 +284,93 @@ export struct GalleryWaterfallCard {
     }
   }
 
-  build() {
+  @Builder
+  private CompactTags() {
+    if (this.gallery.simpleTags.length > 0) {
+      Scroll(this.tagScroller) {
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.CompactTagTextAt(0)
+          this.CompactTagTextAt(1)
+          this.CompactTagTextAt(2)
+          this.CompactTagTextAt(3)
+          this.CompactTagTextAt(4)
+          this.CompactTagTextAt(5)
+          this.CompactTagTextAt(6)
+          this.CompactTagTextAt(7)
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.SELF_FIRST,
+        scrollBackward: NestedScrollMode.SELF_FIRST,
+      })
+      .scrollBar(BarState.Off)
+      .align(Alignment.Start)
+      .width('100%')
+      .height(ThemeConstants.CHIP_LINE_HEIGHT + ThemeConstants.SPACE_SM)
+      .renderGroup(true)
+    }
+  }
+
+  @Builder
+  private CompactCard() {
+    Stack({ alignContent: Alignment.BottomStart }) {
+      EhThumbnail({
+        url: this.gallery.thumbUrl,
+        coverRatio: this.compactCoverRatio(),
+        radius: ThemeConstants.THUMB_RADIUS,
+        containFit: true,
+        sourceWidth: this.gallery.imgWidth,
+        sourceHeight: this.gallery.imgHeight,
+      })
+        .brightness(this.selected ? 0.86 : 1)
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.CompactTags()
+        Text(this.gallery.title())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor(ThemeConstants.TEXT_ON_BRAND)
+          .fontWeight(FontWeight.Medium)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({
+        left: ThemeConstants.SPACE_SM,
+        right: ThemeConstants.SPACE_SM,
+        top: ThemeConstants.SPACE_XL,
+        bottom: ThemeConstants.SPACE_SM,
+      })
+      .linearGradient({
+        direction: GradientDirection.Bottom,
+        colors: [
+          [Color.Transparent, 0.0],
+          [ThemeConstants.OVERLAY_SCRIM, 1.0],
+        ],
+      })
+      GalleryCategoryCornerBadge({
+        category: this.gallery.category,
+        translated: this.gallery.translated,
+      })
+        .position({ right: 0, top: 0 })
+    }
+    .width('100%')
+    // Match eros_n's outer AspectRatio: the cover determines the masonry height even when a very wide
+    // image has less room than the bounded overlay content. Stack clipping then keeps that overlay inside.
+    .aspectRatio(this.compactCoverRatio())
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .backgroundColor(
+      this.selected
+        ? $r('app.color.navigation_item_selected')
+        : $r('app.color.card_background'),
+    )
+    .clip(true)
+  }
+
+  @Builder
+  private RegularCard() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       Stack({ alignContent: Alignment.TopEnd }) {
         EhThumbnail({
@@ -307,5 +452,13 @@ export struct GalleryWaterfallCard {
         : $r('app.color.card_background'),
     )
     .clip(true)
+  }
+
+  build() {
+    if (this.compact) {
+      this.CompactCard()
+    } else {
+      this.RegularCard()
+    }
   }
 }

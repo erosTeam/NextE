@@ -175,6 +175,7 @@ export class ThemeConstants {
   // the pane width while keeping ordinary phone panes in the intended compact browsing density.
   static readonly GALLERY_GRID_MIN_W: number = 106
   static readonly GALLERY_WATERFALL_MIN_W: number = 160
+  static readonly GALLERY_WATERFALL_COMPACT_MIN_W: number = 160
   static readonly GALLERY_COVER_WALL_MIN_W: number = 120
   static readonly GALLERY_GRID_GAP: number = 6
   // Clamp for the pinch-zoom / slider column min-width override (vp). Mirrors eros_n's 80–300 extent range.

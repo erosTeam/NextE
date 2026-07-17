@@ -142,6 +142,7 @@ export struct HomePage {
       this.LayoutMenuItem($r('app.string.view_simple'), ListMode.SIMPLE_LIST)
       this.LayoutMenuItem($r('app.string.view_grid'), ListMode.GRID)
       this.LayoutMenuItem($r('app.string.view_waterfall'), ListMode.WATERFALL)
+      this.LayoutMenuItem($r('app.string.view_waterfall_compact'), ListMode.WATERFALL_COMPACT)
       this.LayoutMenuItem($r('app.string.view_cover_wall'), ListMode.COVER_WALL)
     }
   }

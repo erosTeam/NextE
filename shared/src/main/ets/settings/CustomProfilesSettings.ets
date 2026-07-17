@@ -79,6 +79,7 @@ const DISPLAY_MODES: string[] = [
   ListMode.SIMPLE_LIST,
   ListMode.GRID,
   ListMode.WATERFALL,
+  ListMode.WATERFALL_COMPACT,
   ListMode.COVER_WALL,
 ]
 

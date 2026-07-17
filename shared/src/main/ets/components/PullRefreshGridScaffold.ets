@@ -24,7 +24,7 @@ export struct PullRefreshGridScaffold {
   // When > 0, the column count is DERIVED responsively from the measured content width and this
   // minimum comfortable column width (vp) — eros_fe max-cross-axis-extent model — instead of `columns`.
   @Param minColumnWidth: number = 0;
-  // When set to a ListMode.GRID/WATERFALL/COVER_WALL/THUMBNAIL_GRID key, two-finger pinch adjusts that
+  // When set to a grid-like ListMode key, two-finger pinch adjusts that
   // mode's stored column width (and the scaffold renders that override). Empty = pinch disabled.
   @Param pinchModeKey: string = '';
   listMode: ListModeState = connectListMode();
