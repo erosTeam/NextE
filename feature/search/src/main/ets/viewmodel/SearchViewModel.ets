@@ -11,6 +11,7 @@ import {
   Favcat,
   FavcatSlotResolver,
   FavcatSlotResolveResult,
+  connectFavSelection,
   EhConstants,
   GalleryCoverPrefetchDataSource,
   connectSiteMode,
@@ -107,7 +108,11 @@ export class SearchViewModel {
   }
 
   private resolveFavoriteSlots(gallerys: EhGallery[], favcats: Favcat[]): void {
+    // Favorites search responses can omit the active slot from the selector metadata. Resolve from
+    // response-local metadata first, then fill any remaining title-only rows from the active
+    // account's restored snapshot. The late-change monitor still covers metadata arriving later.
     FavcatSlotResolver.applyInPlace(gallerys, favcats)
+    FavcatSlotResolver.applyInPlace(gallerys, connectFavSelection().favList)
   }
 
   private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {

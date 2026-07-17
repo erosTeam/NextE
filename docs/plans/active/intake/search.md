@@ -10,6 +10,49 @@ Purpose:
 
 ## Items
 
+### Favorite Search Result Hearts Fall Back To One Color
+
+Type: regression / visible search state
+
+Priority suggestion: P1
+
+Status: accepted
+
+Source:
+
+- User report on 2026-07-18: favorited galleries in Search results showed the same fallback heart
+  color instead of the color of their actual remote favorite folder.
+
+Observed behavior:
+
+- Search result cards render a filled heart when a row has only `favTitle`, but use
+  `ThemeConstants.FAV_HEART_DEFAULT` until the title is resolved to a numeric `favcat` slot.
+- `SearchViewModel` previously resolved incoming rows only from the response's `favList`. Its page
+  monitor covered metadata that changed after rendering, but not metadata restored before the search
+  request. A favorites response can also omit the active slot from its selector metadata.
+
+Expected behavior:
+
+- A title-only favorited row uses response-local favorite metadata first and then the current
+  account's already-restored real `0..9` metadata, matching the slot-specific heart colors used by
+  `eros_fe` gallery result cards.
+
+Implementation:
+
+- `SearchViewModel.resolveFavoriteSlots()` now preserves response-local precedence and fills only
+  still-unresolved rows from `connectFavSelection().favList`.
+- No card color, layout, parser, favorite write operation, or placeholder-folder behavior changed.
+
+Evidence:
+
+- Static comparison: `GalleryListViewModel` already resolves every incoming page from the current
+  `FavSelectionState`; `FavoritesViewModel` documents that filtered favorites pages can omit their
+  active slot; `eros_fe` result cards color the heart from the resolved favorite category ID.
+- Passed: V1 decorator inventory (`0 file(s)`), gallery-list and favcat-list synthetic parser fixtures,
+  tag-translation/Search wiring contract, `git diff --check`, and the official signed Hvigor build.
+- User acceptance on 2026-07-18: the reporter confirmed the problem was resolved on the real Search
+  result path. No additional device-affecting command was issued by the implementation task.
+
 ### Search Filter Sheet Edits Commit Before Apply
 
 Type: bug / search workflow
