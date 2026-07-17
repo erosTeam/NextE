@@ -1,6 +1,6 @@
 {
   "name": "search",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "NextE search module - search & advanced filter",
   "main": "src/main/ets/Index.ets",
   "dependencies": {
