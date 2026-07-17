@@ -30,6 +30,7 @@ Allowed `Sync` values:
 | StorageKeys.LIST_ITEM_FIXED_HEIGHT | setting | plaintext | excluded | List-row height mode |
 | StorageKeys.GRID_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.WATERFALL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
+| StorageKeys.WATERFALL_COMPACT_COLUMN_WIDTH | setting | plaintext | excluded | Compact waterfall user layout override |
 | StorageKeys.COVER_WALL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.THUMBNAIL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.JAPANESE_TITLE_IN_GALLERY_PAGE | setting | plaintext | excluded | Title display preference |
