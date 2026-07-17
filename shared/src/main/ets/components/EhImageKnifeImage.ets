@@ -1,3 +1,4 @@
+import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ImageKnifeProImageAdapter } from '../services/ImageKnifeProImageAdapter'
 import {
   EH_IMAGE_DOWNSAMPLING_DEFAULT,
@@ -11,6 +12,7 @@ export struct EhImageKnifeImage {
   @Param src: string = '';
   @Param objectFit: ImageFit = ImageFit.Cover;
   @Param radius: number = 0;
+  @Param contentTransition: ContentTransitionType = ContentTransitionType.IDENTITY;
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
   @Param enableCache: boolean = true;
@@ -37,6 +39,7 @@ export struct EhImageKnifeImage {
       src: this.src,
       objectFit: this.objectFit,
       radius: this.radius,
+      contentTransition: this.contentTransition,
       widthValue: this.widthValue,
       heightValue: this.heightValue,
       enableCache: this.enableCache,

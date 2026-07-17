@@ -4,6 +4,7 @@ import { NodeContent } from '@ohos.arkui.node'
 import nativeNode from 'libimageknifepro.so'
 import {
   CacheStrategy,
+  ContentTransitionType,
   DownSamplingStrategy,
   EventImage,
   HeaderOptions,
@@ -34,6 +35,7 @@ export struct ImageKnifeProImageAdapter {
   @Param src: string = '';
   @Param objectFit: ImageFit = ImageFit.Cover;
   @Param radius: number = 0;
+  @Param contentTransition: ContentTransitionType = ContentTransitionType.IDENTITY;
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
   @Param enableCache: boolean = true;
@@ -80,6 +82,7 @@ export struct ImageKnifeProImageAdapter {
       {
         syncLoad: false,
         draggable: false,
+        contentTransition: this.contentTransition,
       },
     )
     this.nativeRootAttached = true
@@ -126,6 +129,14 @@ export struct ImageKnifeProImageAdapter {
   )
   onOptionInputChanged(): void {
     this.applyOption()
+  }
+
+  @Monitor('contentTransition')
+  onContentTransitionChanged(): void {
+    if (!this.nativeRootAttached || this.nativeComponentId.length === 0) {
+      return
+    }
+    nativeNode.updateNodeContentTransition(this.nativeComponentId, this.contentTransition)
   }
 
   private applyOption(): void {

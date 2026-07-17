@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit'
+import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
@@ -332,6 +333,7 @@ export struct EhSpriteThumbnail {
           widthValue: this.sheetRenderWidth(),
           heightValue: this.sheetRenderHeight(),
           objectFit: ImageFit.Fill,
+          contentTransition: ContentTransitionType.OPACITY,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -359,6 +361,7 @@ export struct EhSpriteThumbnail {
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
           radius: this.radius,
+          contentTransition: ContentTransitionType.OPACITY,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -384,6 +387,7 @@ export struct EhSpriteThumbnail {
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
           radius: this.radius,
+          contentTransition: ContentTransitionType.OPACITY,
           onComplete: () => {
             this.onThumbComplete()
           },

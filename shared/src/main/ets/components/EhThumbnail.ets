@@ -1,3 +1,4 @@
+import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { CoverColorService } from '../services/CoverColorService'
@@ -297,6 +298,7 @@ export struct EhThumbnail {
           heightValue: '100%',
           objectFit: this.coverObjectFit(),
           radius: this.radius,
+          contentTransition: ContentTransitionType.OPACITY,
           maxRetries: THUMBNAIL_MAX_RETRIES,
           retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
           settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
@@ -333,6 +335,7 @@ export struct EhThumbnail {
           heightValue: this.fittedHeight(),
           objectFit: ImageFit.Fill,
           radius: this.radius,
+          contentTransition: ContentTransitionType.OPACITY,
           maxRetries: THUMBNAIL_MAX_RETRIES,
           retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
           settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
@@ -359,6 +362,7 @@ export struct EhThumbnail {
         heightValue: '100%',
         objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
         radius: this.radius,
+        contentTransition: ContentTransitionType.OPACITY,
         maxRetries: THUMBNAIL_MAX_RETRIES,
         retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
         settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
@@ -384,6 +388,7 @@ export struct EhThumbnail {
           heightValue: this.fillHeight ? '100%' : this.thumbHeight,
           objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
           radius: this.radius,
+          contentTransition: ContentTransitionType.OPACITY,
           maxRetries: THUMBNAIL_MAX_RETRIES,
           retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
           settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
