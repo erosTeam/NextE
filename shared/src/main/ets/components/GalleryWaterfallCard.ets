@@ -47,6 +47,18 @@ export struct GalleryWaterfallCard {
   @Require @Param tagSig: UserTagSignal;
   @Require @Param tagTranslation: TagTranslationSettingsState;
   private tagScroller: Scroller = new Scroller();
+  // Reused component instances keep these handlers. Each handler resolves the tag through the current
+  // @Param gallery when tapped, so recycling does not capture data from the card that first owned a slot.
+  private tagClickHandlers: Array<() => void> = [
+    (): void => { this.searchTagAt(0) },
+    (): void => { this.searchTagAt(1) },
+    (): void => { this.searchTagAt(2) },
+    (): void => { this.searchTagAt(3) },
+    (): void => { this.searchTagAt(4) },
+    (): void => { this.searchTagAt(5) },
+    (): void => { this.searchTagAt(6) },
+    (): void => { this.searchTagAt(7) },
+  ]
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -173,10 +185,7 @@ export struct GalleryWaterfallCard {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .constraintSize({ maxWidth: 150 })
-        .onClick(() => {
-          // Resolve through the current @Param instead of capturing the gallery that first built this slot.
-          this.searchTagAt(index)
-        })
+        .onClick(this.tagClickHandlers[index])
     }
   }
 

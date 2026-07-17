@@ -1011,6 +1011,7 @@ export struct GallerySearchPage {
               pinchModeKey: ListMode.WATERFALL,
               itemCount: this.vm.itemCount,
               nearEndThreshold: 4,
+              nearEndRows: 2,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,

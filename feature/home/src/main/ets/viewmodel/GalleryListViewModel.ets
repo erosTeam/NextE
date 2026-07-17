@@ -24,6 +24,7 @@ import {
   PROFILE_TYPE_FAVORITE,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
+import { UIContext } from '@kit.ArkUI'
 
 /** Immutable ownership token for one Home list request and its account/site/profile context. */
 class GalleryFirstPageRun {
@@ -111,6 +112,8 @@ export class GalleryListViewModel {
   private favcat: string = 'a'
   private favNextPage: number = -1
   private favPrevPage: number = -1
+  private pagingAppendContext: UIContext | null = null
+  private pagingAppendBatchSize: number = 0
 
   debugState(): string {
     return `vm=${this.debugId} source=${this.source} profile=${this.profileUuid} count=${this.itemCount} loaded=${this.loaded} loading=${this.isLoading} loadingMore=${this.isLoadingMore} hasMore=${this.hasMore} epoch=${this.epoch} next=${this.nextGid} prev=${this.prevGid} favNext=${this.favNextPage} favPrev=${this.favPrevPage} toplistNext=${this.toplistNextPage} toplistPrev=${this.toplistPrevPage} toplistCurrent=${this.currentToplistPage} afterToplistJump=${this.afterToplistJump} afterDateJump=${this.afterDateJump}`
@@ -118,6 +121,13 @@ export class GalleryListViewModel {
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
+  }
+
+  /** WaterFlow can opt into frame-sized page commits; other renderers keep one atomic page ADD. */
+  configurePagingAppend(uiContext: UIContext | null, batchSize: number = 0): void {
+    this.dataSource.cancelPendingAppend()
+    this.pagingAppendContext = uiContext
+    this.pagingAppendBatchSize = uiContext === null ? 0 : Math.max(1, Math.floor(batchSize))
   }
 
   private profileContentRevision(): string {
@@ -901,8 +911,15 @@ export class GalleryListViewModel {
         return
       }
       if (fresh.length > 0) {
-        this.dataSource.appendData(fresh)
-        this.itemCount = this.dataSource.totalCount()
+        const committed: boolean = await this.appendCurrentPagingRows(fresh, run)
+        if (!committed) {
+          DiagnosticLogger.info(
+            'home-list-anchor',
+            'load_more_append_interrupted',
+            `${this.debugState()} requested=${requestedNext} fresh=${fresh.length}`,
+          )
+          return
+        }
       }
       this.nextGid = list.nextGid
       this.lastNext = requestedNext
@@ -925,6 +942,30 @@ export class GalleryListViewModel {
         this.isLoadingMore = false
       }
     }
+  }
+
+  private async appendCurrentPagingRows(
+    fresh: EhGallery[],
+    run: GalleryFirstPageRun,
+  ): Promise<boolean> {
+    const uiContext: UIContext | null = this.pagingAppendContext
+    const batchSize: number = this.pagingAppendBatchSize
+    if (uiContext === null || batchSize <= 0) {
+      this.dataSource.appendData(fresh)
+      this.itemCount = this.dataSource.totalCount()
+      return true
+    }
+    return this.dataSource.appendDataByFrame(
+      fresh,
+      batchSize,
+      uiContext,
+      (): boolean => {
+        return this.pagingAppendContext === uiContext && this.isCurrentPagingRun(run)
+      },
+      (totalCount: number, _committedCount: number): void => {
+        this.itemCount = totalCount
+      },
+    )
   }
 
   /** Toplist page paging: request the next ptt-parsed 0-based page (?p=), dedup-append, then store the newly parsed next page. */

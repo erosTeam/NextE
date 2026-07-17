@@ -1,4 +1,4 @@
-import { BasicPrefetcher, IDataSourcePrefetching } from '@kit.ArkUI'
+import { BasicPrefetcher, FrameCallback, IDataSourcePrefetching, UIContext } from '@kit.ArkUI'
 import { ImageKnifeRequest } from '@ohos/imageknifepro'
 import { EhConstants } from '../constants/EhConstants'
 import { EhGallery } from '../model/EhGallery'
@@ -8,6 +8,21 @@ import { EH_IMAGE_PRIORITY_LOW } from '../services/ImagePipelineTypes'
 import { BasicDataSource } from './BasicDataSource'
 
 const GALLERY_COVER_PREFETCH_GUARD_MS: number = 15000
+
+class GalleryAppendFrameCallback extends FrameCallback {
+  private callback: () => void
+
+  constructor(callback: () => void) {
+    super()
+    this.callback = callback
+  }
+
+  onFrame(_frameTimeInNano: number): void {
+    this.callback()
+  }
+
+  onIdle(_timeLeftInNano: number): void {}
+}
 
 /**
  * One in-flight offscreen cover preload. A request becomes non-cancellable as soon as ImageKnife
@@ -65,6 +80,8 @@ export class GalleryCoverPrefetchDataSource extends BasicDataSource<EhGallery>
   private readonly prefetcher: BasicPrefetcher
   private readonly tickets: Map<number, GalleryCoverPreloadTicket> = new Map()
   private nextToken: number = 1
+  private appendToken: number = 0
+  private cancelAppend: (() => void) | null = null
 
   constructor() {
     super()
@@ -138,12 +155,107 @@ export class GalleryCoverPrefetchDataSource extends BasicDataSource<EhGallery>
     })
   }
 
+  /**
+   * Append one page as frame-sized atomic ADD operations. The backing array, LazyForEach notification,
+   * and the WaterFlow item count move together so the container never observes mismatched child counts.
+   */
+  appendDataByFrame(
+    items: EhGallery[],
+    batchSize: number,
+    uiContext: UIContext,
+    canCommit: () => boolean,
+    onBatchCommitted: (totalCount: number, committedCount: number) => void,
+  ): Promise<boolean> {
+    this.cancelPendingAppend()
+    if (items.length === 0) {
+      return Promise.resolve(true)
+    }
+    const rows: EhGallery[] = items.slice()
+    const size: number = Math.max(1, Math.floor(batchSize))
+    const token: number = this.appendToken + 1
+    this.appendToken = token
+    return new Promise<boolean>((resolve: (committed: boolean) => void): void => {
+      let offset: number = 0
+      let settled: boolean = false
+      const finish = (committed: boolean): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        if (this.appendToken === token) {
+          this.cancelAppend = null
+        }
+        resolve(committed)
+      }
+      this.cancelAppend = (): void => {
+        finish(false)
+      }
+      const commitNext = (): void => {
+        if (settled || this.appendToken !== token) {
+          finish(false)
+          return
+        }
+        let allowed: boolean = false
+        try {
+          allowed = canCommit()
+        } catch (_error) {
+          finish(false)
+          return
+        }
+        if (!allowed) {
+          finish(false)
+          return
+        }
+        const end: number = Math.min(rows.length, offset + size)
+        const batch: EhGallery[] = rows.slice(offset, end)
+        try {
+          super.appendData(batch)
+          offset = end
+          onBatchCommitted(this.totalCount(), batch.length)
+        } catch (_error) {
+          finish(false)
+          return
+        }
+        if (offset >= rows.length) {
+          finish(true)
+          return
+        }
+        try {
+          uiContext.postFrameCallback(new GalleryAppendFrameCallback(commitNext))
+        } catch (_error) {
+          finish(false)
+        }
+      }
+      try {
+        uiContext.postFrameCallback(new GalleryAppendFrameCallback(commitNext))
+      } catch (_error) {
+        finish(false)
+      }
+    })
+  }
+
+  cancelPendingAppend(): void {
+    this.appendToken = this.appendToken + 1
+    const cancel: (() => void) | null = this.cancelAppend
+    this.cancelAppend = null
+    if (cancel !== null) {
+      cancel()
+    }
+  }
+
+  appendData(items: EhGallery[]): void {
+    this.cancelPendingAppend()
+    super.appendData(items)
+  }
+
   setData(items: EhGallery[]): void {
+    this.cancelPendingAppend()
     this.cancelQueuedCoverPrefetches()
     super.setData(items)
   }
 
   prependData(items: EhGallery[]): void {
+    this.cancelPendingAppend()
     this.cancelQueuedCoverPrefetches()
     super.prependData(items)
   }
@@ -154,11 +266,13 @@ export class GalleryCoverPrefetchDataSource extends BasicDataSource<EhGallery>
   }
 
   removeDataAt(index: number): boolean {
+    this.cancelPendingAppend()
     this.cancelQueuedCoverPrefetches()
     return super.removeDataAt(index)
   }
 
   clear(): void {
+    this.cancelPendingAppend()
     this.cancelQueuedCoverPrefetches()
     super.clear()
   }

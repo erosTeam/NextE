@@ -669,6 +669,7 @@ export struct FavcatPage {
           pinchModeKey: ListMode.WATERFALL,
           itemCount: this.vm.itemCount,
           nearEndThreshold: 4,
+          nearEndRows: 2,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: SELECTOR_BAR_HEIGHT,

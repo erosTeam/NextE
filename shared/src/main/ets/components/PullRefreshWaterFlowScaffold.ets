@@ -44,6 +44,10 @@ export struct PullRefreshWaterFlowScaffold {
   @Param topPadding: number = 0;
   @Param itemCount: number = 0;
   @Param nearEndThreshold: number = 0;
+  // WaterFlow rows contain a device- and pinch-dependent number of items. A row-based threshold keeps
+  // paging lead time stable across portrait phones and wide tablets instead of prefetching less than one
+  // row on a seven-column layout.
+  @Param nearEndRows: number = 0;
   @Param showFooter: boolean = false;
   @Param footerIsLoading: boolean = false;
   @Param footerHasMore: boolean = true;
@@ -353,10 +357,11 @@ export struct PullRefreshWaterFlowScaffold {
   }
 
   private maybeLoadNearEnd(end: number): void {
-    if (this.itemCount <= 0 || this.nearEndThreshold <= 0) {
+    const threshold: number = this.effectiveNearEndThreshold()
+    if (this.itemCount <= 0 || threshold <= 0) {
       return
     }
-    if (end < this.itemCount - 1 - this.nearEndThreshold) {
+    if (end < this.itemCount - 1 - threshold) {
       return
     }
     if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
@@ -369,6 +374,11 @@ export struct PullRefreshWaterFlowScaffold {
     if (this.onReachEnd) {
       this.onReachEnd()
     }
+  }
+
+  private effectiveNearEndThreshold(): number {
+    const rows: number = Math.max(0, Math.floor(this.nearEndRows))
+    return Math.max(this.nearEndThreshold, this.contentColumnCount() * rows)
   }
 
   private maybeLoadOnTailAppear(): void {

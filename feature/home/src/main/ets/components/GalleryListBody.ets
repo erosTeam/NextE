@@ -43,6 +43,8 @@ import {
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
+const WATERFALL_APPEND_BATCH_SIZE: number = 3
+
 /**
  * The shared gallery-list body (loading / error / empty / grid / list / simple branches + paging),
  * used by both HomePage (Gallery tab) and ToplistPage (Toplist tab) so they can't drift. The page
@@ -75,18 +77,28 @@ export struct GalleryListBody {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
+  private appeared: boolean = false;
 
   // Re-tapping the active bottom tab refreshes this list: the nav shell looks the action up by this list's
   // Scroller (it tracks each tab's active sub-tab Scroller) and fires it. Used by Gallery + Toplist tabs.
   aboutToAppear(): void {
+    this.appeared = true
+    this.configurePagingAppend()
     RootRefreshRegistry.register(this.scroller, () => {
       this.refreshController.triggerTopRefresh()
     })
   }
 
   aboutToDisappear(): void {
+    this.appeared = false
+    this.vm.configurePagingAppend(null)
     RootRefreshRegistry.unregister(this.scroller)
     this.vm.dataSource.cancelQueuedCoverPrefetches()
+  }
+
+  @Monitor('listMode.mode', 'overrideMode')
+  onPagingAppendModeChange(): void {
+    this.configurePagingAppend()
   }
 
   @Monitor('favoriteMutation.version')
@@ -119,6 +131,14 @@ export struct GalleryListBody {
     return this.overrideMode !== 'global' && this.overrideMode.length > 0
       ? this.overrideMode
       : this.listMode.mode
+  }
+
+  private configurePagingAppend(): void {
+    if (this.appeared && this.effectiveMode() === ListMode.WATERFALL) {
+      this.vm.configurePagingAppend(this.getUIContext(), WATERFALL_APPEND_BATCH_SIZE)
+      return
+    }
+    this.vm.configurePagingAppend(null)
   }
 
   private openDetail(g: EhGallery): void {
@@ -319,6 +339,7 @@ export struct GalleryListBody {
           pinchModeKey: ListMode.WATERFALL,
           itemCount: this.vm.itemCount,
           nearEndThreshold: 4,
+          nearEndRows: 2,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: this.topPadding,
