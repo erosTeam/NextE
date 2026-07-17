@@ -27,6 +27,12 @@ export enum ReaderBackgroundMode {
   AUTO = 'auto',
 }
 
+export enum ReaderImageScalingQuality {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
 /**
  * Reactive reader direction + horizontal double-page mode. Restored from preferences at startup; the
  * ReaderPage reads it to switch between paged Swiper (LTR/RTL/top-to-bottom), continuous vertical
@@ -44,6 +50,7 @@ export class ReadModeState {
   @Trace tapZoneLayout: string = ReaderTapZoneLayout.RIGHT_LEFT
   @Trace tapZoneInvert: string = ReaderTapZoneInvert.NONE
   @Trace backgroundMode: string = ReaderBackgroundMode.BLACK
+  @Trace imageScalingQuality: string = ReaderImageScalingQuality.MEDIUM
   @Trace showPageNumber: boolean = true
   @Trace fullscreen: boolean = true
   @Trace keepScreenOn: boolean = true

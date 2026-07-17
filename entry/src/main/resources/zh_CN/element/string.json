@@ -3045,6 +3045,26 @@
       "value": "自动"
     },
     {
+      "name": "settings_reader_image_scaling_quality",
+      "value": "图片缩放质量"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_hint",
+      "value": "控制缩小显示时的插值算法；优化模式使用 Mipmap，更适合网点漫画。"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_standard",
+      "value": "标准（双线性）"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_optimized",
+      "value": "优化（Mipmap）"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_high",
+      "value": "高（双三次）"
+    },
+    {
       "name": "settings_reader_show_page_number",
       "value": "显示页码"
     },

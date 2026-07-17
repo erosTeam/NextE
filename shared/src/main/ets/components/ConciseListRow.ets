@@ -71,7 +71,8 @@ export struct ConciseListRow {
 
   private secondaryTextModifier(): TextModifier {
     return new TextModifier()
-      .textIndent(this.hasLeading() ? undefined : ThemeConstants.LIST_ROW_TEXT_INDENT)
+      // textIndent only affects the first line; block padding keeps wrapped subtitle lines aligned.
+      .padding({ left: this.hasLeading() ? 0 : ThemeConstants.LIST_ROW_TEXT_INDENT })
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
       .maxLines(this.subtitleMaxLines)

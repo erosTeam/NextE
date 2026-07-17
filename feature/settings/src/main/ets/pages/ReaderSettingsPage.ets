@@ -7,6 +7,7 @@ import {
   ReadModeState,
   ReadMode,
   ReaderBackgroundMode,
+  ReaderImageScalingQuality,
   ReadSpreadLayout,
   ReaderTapZoneInvert,
   ReaderTapZoneLayout,
@@ -41,6 +42,7 @@ export struct ReaderSettingsPage {
   @Local tapZoneMenuShown: boolean = false;
   @Local tapZoneInvertMenuShown: boolean = false;
   @Local backgroundMenuShown: boolean = false;
+  @Local imageScalingQualityMenuShown: boolean = false;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
@@ -98,6 +100,12 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setBackgroundMode(ctx, mode)
+  }
+
+  private setImageScalingQuality(quality: string): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setImageScalingQuality(ctx, quality)
   }
 
   private setShowPageNumber(enabled: boolean): void {
@@ -206,6 +214,16 @@ export struct ReaderSettingsPage {
       return $r('app.string.settings_reader_background_auto')
     }
     return $r('app.string.settings_reader_background_black')
+  }
+
+  private imageScalingQualityLabel(): Resource {
+    if (this.readMode.imageScalingQuality === ReaderImageScalingQuality.LOW) {
+      return $r('app.string.settings_reader_image_scaling_quality_standard')
+    }
+    if (this.readMode.imageScalingQuality === ReaderImageScalingQuality.HIGH) {
+      return $r('app.string.settings_reader_image_scaling_quality_high')
+    }
+    return $r('app.string.settings_reader_image_scaling_quality_optimized')
   }
 
   @Builder
@@ -554,6 +572,42 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  ImageScalingQualityMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.settings_reader_image_scaling_quality_standard'),
+        symbolEndIcon:
+          this.readMode.imageScalingQuality === ReaderImageScalingQuality.LOW
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
+        this.imageScalingQualityMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_image_scaling_quality_optimized'),
+        symbolEndIcon:
+          this.readMode.imageScalingQuality === ReaderImageScalingQuality.MEDIUM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
+        this.imageScalingQualityMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_image_scaling_quality_high'),
+        symbolEndIcon:
+          this.readMode.imageScalingQuality === ReaderImageScalingQuality.HIGH
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
+        this.imageScalingQualityMenuShown = false
+      })
+    }
+  }
+
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
@@ -695,6 +749,25 @@ export struct ReaderSettingsPage {
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.backgroundMenuShown = false
+            },
+          })
+          this.rowDivider()
+          Column() {
+            ConciseListRow({
+              title: $r('app.string.settings_reader_image_scaling_quality'),
+              subtitle: $r('app.string.settings_reader_image_scaling_quality_hint'),
+              subtitleMaxLines: 3,
+              trailingText: this.imageScalingQualityLabel(),
+              trailingDropdown: true,
+              action: () => {
+                this.imageScalingQualityMenuShown = true
+              },
+            })
+          }
+          .bindMenu(this.imageScalingQualityMenuShown, this.ImageScalingQualityMenu, {
+            placement: Placement.BottomRight,
+            onDisappear: () => {
+              this.imageScalingQualityMenuShown = false
             },
           })
           this.rowDivider()

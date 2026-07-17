@@ -440,6 +440,7 @@ export {
   ReadColumnMode,
   ReadSpreadLayout,
   ReaderBackgroundMode,
+  ReaderImageScalingQuality,
   ReadModeState,
   connectReadMode,
 } from './state/ReadModeState'

@@ -5,6 +5,7 @@ import {
   ReadColumnMode,
   ReadMode,
   ReaderBackgroundMode,
+  ReaderImageScalingQuality,
   ReadSpreadLayout,
 } from '../state/ReadModeState'
 import { StorageKeys } from '../constants/StorageKeys'
@@ -70,6 +71,15 @@ export class ReadModeSettings {
     return ReaderBackgroundMode.BLACK
   }
 
+  private static normalizeImageScalingQuality(quality: string): string {
+    if (quality === ReaderImageScalingQuality.LOW ||
+      quality === ReaderImageScalingQuality.MEDIUM ||
+      quality === ReaderImageScalingQuality.HIGH) {
+      return quality
+    }
+    return ReaderImageScalingQuality.MEDIUM
+  }
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -107,6 +117,12 @@ export class ReadModeSettings {
       const backgroundMode: string = ReadModeSettings.normalizeBackgroundMode(
         store.getSync(StorageKeys.READING_BACKGROUND_MODE, ReaderBackgroundMode.BLACK) as string
       )
+      const imageScalingQuality: string = ReadModeSettings.normalizeImageScalingQuality(
+        store.getSync(
+          StorageKeys.READING_IMAGE_SCALING_QUALITY,
+          ReaderImageScalingQuality.MEDIUM,
+        ) as string
+      )
       const showPageNumber: boolean = store.getSync(
         StorageKeys.READING_SHOW_PAGE_NUMBER,
         true,
@@ -127,6 +143,7 @@ export class ReadModeSettings {
       connectReadMode().tapZoneLayout = tapZoneLayout
       connectReadMode().tapZoneInvert = tapZoneInvert
       connectReadMode().backgroundMode = backgroundMode
+      connectReadMode().imageScalingQuality = imageScalingQuality
       connectReadMode().showPageNumber = showPageNumber
       connectReadMode().fullscreen = fullscreen
       connectReadMode().keepScreenOn = keepScreenOn
@@ -279,6 +296,24 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_background_mode_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setImageScalingQuality(
+    context: common.UIAbilityContext,
+    quality: string,
+  ): Promise<void> {
+    const normalized: string = ReadModeSettings.normalizeImageScalingQuality(quality)
+    connectReadMode().imageScalingQuality = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_IMAGE_SCALING_QUALITY, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_image_scaling_quality_save_failed', (error as Error).message)
     }
   }
 

@@ -48,6 +48,7 @@ export class StorageKeys {
   static readonly READING_TAP_ZONE_LAYOUT: string = 'reading.tapZoneLayout'
   static readonly READING_TAP_ZONE_INVERT: string = 'reading.tapZoneInvert'
   static readonly READING_BACKGROUND_MODE: string = 'reading.backgroundMode'
+  static readonly READING_IMAGE_SCALING_QUALITY: string = 'reading.imageScalingQuality'
   static readonly READING_SHOW_PAGE_NUMBER: string = 'reading.showPageNumber'
   static readonly READING_FULLSCREEN: string = 'reading.fullscreen'
   static readonly READING_KEEP_SCREEN_ON: string = 'reading.keepScreenOn'

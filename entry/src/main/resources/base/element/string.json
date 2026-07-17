@@ -3045,6 +3045,26 @@
       "value": "Automatic"
     },
     {
+      "name": "settings_reader_image_scaling_quality",
+      "value": "Image scaling quality"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_hint",
+      "value": "Controls downscaling interpolation. Optimized uses Mipmap for halftone artwork."
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_standard",
+      "value": "Standard (bilinear)"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_optimized",
+      "value": "Optimized (Mipmap)"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_high",
+      "value": "High (cubic)"
+    },
+    {
       "name": "settings_reader_show_page_number",
       "value": "Show page number"
     },

@@ -26,6 +26,7 @@ import {
   ReadModeState,
   ReadMode,
   ReaderBackgroundMode,
+  ReaderImageScalingQuality,
   ReadColumnMode,
   ReadSpreadLayout,
   ReaderTapZoneAction,
@@ -127,6 +128,16 @@ function readerSecondaryForegroundColor(mode: string, effectiveDark: boolean): R
   return readerBackgroundIsDark(mode, effectiveDark)
     ? ThemeConstants.READER_FOREGROUND_LIGHT_SECONDARY
     : ThemeConstants.READER_FOREGROUND_DARK_SECONDARY
+}
+
+function readerImageInterpolation(quality: string): ImageInterpolation {
+  if (quality === ReaderImageScalingQuality.LOW) {
+    return ImageInterpolation.Low
+  }
+  if (quality === ReaderImageScalingQuality.HIGH) {
+    return ImageInterpolation.High
+  }
+  return ImageInterpolation.Medium
 }
 
 function readerDelay(ms: number): Promise<void> {
@@ -3801,6 +3812,34 @@ interface ReaderImageLoadEvent {
   componentHeight?: number
 }
 
+@ComponentV2
+struct ReaderInterpolatedImage {
+  @Param src: string = '';
+  @Param widthValue: Length = '100%';
+  @Param heightValue: Length = '100%';
+  @Event onComplete: (event?: ReaderImageLoadEvent) => void = (_event?: ReaderImageLoadEvent) => {};
+  @Event onError: () => void = () => {};
+  @Local readMode: ReadModeState = connectReadMode();
+
+  build() {
+    // ImageKnifePro 1.0.16 does not expose ArkUI interpolation for its native Image node. Reader
+    // sources are already local file-cache URIs, so preserve the Reader download/cache pipeline and
+    // use system Image only for the final sampled render.
+    Image(this.src)
+      .objectFit(ImageFit.Contain)
+      .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+      .width(this.widthValue)
+      .height(this.heightValue)
+      .draggable(false)
+      .onComplete((event?: ReaderImageLoadEvent) => {
+        this.onComplete(event)
+      })
+      .onError(() => {
+        this.onError()
+      })
+  }
+}
+
 function readerImageFormatFromFile(filePath: string): string {
   let file: fileIo.File | null = null
   try {
@@ -3962,21 +4001,18 @@ struct ReaderCacheWarmImage {
 
   build() {
     if (this.warmDisplayUri.length > 0) {
-      EhImageKnifeImage({
+      ReaderInterpolatedImage({
         src: this.warmDisplayUri,
-        memoryOnly: true,
         widthValue: '100%',
         heightValue: '100%',
-        objectFit: ImageFit.Contain,
-        priority: EH_IMAGE_PRIORITY_LOW,
-        onComplete: () => {
+        onComplete: (_event?: ReaderImageLoadEvent) => {
           if (this.decodedKey === this.warmedKey) {
             return
           }
           this.decodedKey = this.warmedKey
           this.onImageLoaded(this.page)
           DiagnosticLogger.info('image-cache', 'reader_warm_decoded', `page ${this.page}`)
-          DiagnosticLogger.info('imageknife', 'reader_imageknife_display_decoded', `page=${this.page} warm=true`)
+          DiagnosticLogger.info('image', 'reader_image_display_decoded', `page=${this.page} warm=true`)
         },
         onError: () => {
           DiagnosticLogger.warn('image-cache', 'reader_warm_decode_failed', `page ${this.page}`)
@@ -4959,8 +4995,8 @@ struct ReaderSpreadImageLayer {
       this.onImageMetrics(this.image.page, width, height)
     }
     DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_display_decoded',
+      'image',
+      'reader_image_display_decoded',
       `page=${this.image.page} width=${width} height=${height}`,
     )
   }
@@ -4976,18 +5012,16 @@ struct ReaderSpreadImageLayer {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        EhImageKnifeImage({
+        ReaderInterpolatedImage({
           src: this.imageUrl,
-          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
-          objectFit: ImageFit.Contain,
-          priority: this.loadPriority(),
-          onImageInfo: (width: number, height: number) => {
-            this.onImageDecoded(width, height)
-          },
-          onComplete: () => {
-            this.markImageLoaded()
+          onComplete: (event?: ReaderImageLoadEvent) => {
+            if (event && event.width && event.height) {
+              this.onImageDecoded(event.width, event.height)
+            } else {
+              this.markImageLoaded()
+            }
           },
           onError: () => {
             DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
@@ -5427,8 +5461,8 @@ struct ReaderImagePage {
     }
     this.onImageMetrics(this.image.page, width, height)
     DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_display_decoded',
+      'image',
+      'reader_image_display_decoded',
       `page=${this.image.page} width=${width} height=${height}`,
     )
     this.markImageLoaded()
@@ -5545,19 +5579,17 @@ struct ReaderImagePage {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        EhImageKnifeImage({
+        ReaderInterpolatedImage({
           src: this.imageUrl,
-          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
-          objectFit: ImageFit.Contain,
-          priority: this.loadPriority(),
-          onImageInfo: (width: number, height: number) => {
-            this.onImageDecoded(width, height)
-          },
-          onComplete: () => {
-            this.markImageLoaded()
-            this.clampOffset()
+          onComplete: (event?: ReaderImageLoadEvent) => {
+            if (event && event.width && event.height) {
+              this.onImageDecoded(event.width, event.height)
+            } else {
+              this.markImageLoaded()
+              this.clampOffset()
+            }
           },
           onError: () => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
@@ -6262,8 +6294,8 @@ struct ReaderVerticalImage {
     }
     this.onImageMetrics(this.image.page, width, height)
     DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_display_decoded',
+      'image',
+      'reader_image_display_decoded',
       `page=${this.image.page} width=${width} height=${height}`,
     )
     this.markImageLoaded()
@@ -6287,19 +6319,17 @@ struct ReaderVerticalImage {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        EhImageKnifeImage({
+        ReaderInterpolatedImage({
           src: this.imageUrl,
-          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
-          objectFit: ImageFit.Contain,
-          priority: this.loadPriority(),
-          onImageInfo: (width: number, height: number) => {
-            this.onImageDecoded(width, height)
-          },
-          onComplete: () => {
-            this.markImageLoaded()
-            this.clampOffset()
+          onComplete: (event?: ReaderImageLoadEvent) => {
+            if (event && event.width && event.height) {
+              this.onImageDecoded(event.width, event.height)
+            } else {
+              this.markImageLoaded()
+              this.clampOffset()
+            }
           },
           onError: () => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)

@@ -3045,6 +3045,26 @@
       "value": "自動"
     },
     {
+      "name": "settings_reader_image_scaling_quality",
+      "value": "画像の拡大縮小品質"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_hint",
+      "value": "縮小表示時の補間方式を制御します。最適化は網点画像向けの Mipmap を使用します。"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_standard",
+      "value": "標準（バイリニア）"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_optimized",
+      "value": "最適化（Mipmap）"
+    },
+    {
+      "name": "settings_reader_image_scaling_quality_high",
+      "value": "高（バイキュービック）"
+    },
+    {
       "name": "settings_reader_show_page_number",
       "value": "ページ番号を表示"
     },
