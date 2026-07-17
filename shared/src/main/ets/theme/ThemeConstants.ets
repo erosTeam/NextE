@@ -37,6 +37,11 @@ export class ThemeConstants {
   // future over-image controls). No system token fits an over-image scrim — V2Next hardcodes
   // it per page; this is the shared, reusable version of that literal.
   static readonly OVERLAY_SCRIM: ResourceColor = '#99000000'
+  // Compact colored gallery tags sit over unpredictable cover art. Keep this shadow dark and tight;
+  // it supplements the colored glyph without recreating the fuzzy halo of the rejected white outline.
+  // A small white mix preserves the user's category hue while lifting dark colors off cover art.
+  static readonly COMPACT_TAG_TEXT_SHADOW: ResourceColor = '#CC000000'
+  static readonly COMPACT_TAG_TEXT_LIGHTEN_RATIO: number = 0.2
   static readonly READER_TAP_ZONE_PREVIOUS: ResourceColor = $r('app.color.reader_tap_zone_previous')
   static readonly READER_TAP_ZONE_NEXT: ResourceColor = $r('app.color.reader_tap_zone_next')
   static readonly READER_TAP_ZONE_MENU: ResourceColor = $r('app.color.reader_tap_zone_menu')
@@ -86,6 +91,7 @@ export class ThemeConstants {
   static readonly RADIUS_ROUND: number = 999
   // Gallery list / waterfall tag chips: slightly rounder than tiny badges, but still compact.
   static readonly LIST_TAG_RADIUS: number = 6
+  static readonly COMPACT_TAG_TEXT_SHADOW_RADIUS: number = 2
   // Detail header cover is inset inside the large card chrome: larger than compact thumbnails,
   // but intentionally smaller than the surrounding card radius.
   static readonly DETAIL_COVER_RADIUS: number = 16

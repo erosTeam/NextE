@@ -14,6 +14,33 @@ const WATERFALL_MIN_COVER_RATIO: number = 0.5
 const WATERFALL_MAX_COVER_RATIO: number = 1.35
 const WATERFALL_TAG_LIMIT: number = 8
 const WATERFALL_TAG_STRIP_HEIGHT: number = 48
+const WATERFALL_NO_TEXT_SHADOWS: Array<ShadowOptions> = []
+const WATERFALL_COMPACT_TAG_TEXT_SHADOWS: Array<ShadowOptions> = [{
+  radius: ThemeConstants.COMPACT_TAG_TEXT_SHADOW_RADIUS,
+  color: ThemeConstants.COMPACT_TAG_TEXT_SHADOW,
+  offsetX: 0,
+  offsetY: 0,
+}]
+
+function compactTagColorChannelHex(value: number): string {
+  const channel: string = Math.max(0, Math.min(255, value)).toString(16).toUpperCase()
+  return channel.length === 1 ? `0${channel}` : channel
+}
+
+function compactTagColorTowardWhite(color: string): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+    return color
+  }
+  const rgb: number = Number.parseInt(color.substring(1), 16)
+  if (Number.isNaN(rgb)) {
+    return color
+  }
+  const ratio: number = ThemeConstants.COMPACT_TAG_TEXT_LIGHTEN_RATIO
+  const red: number = Math.round(((rgb >> 16) & 255) + (255 - ((rgb >> 16) & 255)) * ratio)
+  const green: number = Math.round(((rgb >> 8) & 255) + (255 - ((rgb >> 8) & 255)) * ratio)
+  const blue: number = Math.round((rgb & 255) + (255 - (rgb & 255)) * ratio)
+  return `#${compactTagColorChannelHex(red)}${compactTagColorChannelHex(green)}${compactTagColorChannelHex(blue)}`
+}
 
 // Reuse only cards whose conditional subtree shape matches. The identifiers deliberately use
 // letters and underscores only, so they are also valid ArkUI state-management keys.
@@ -198,18 +225,38 @@ export struct GalleryWaterfallCard {
     }
     const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
     if (u !== undefined && u.colorCode.length > 0) {
-      return u.colorCode
+      return compactTagColorTowardWhite(u.colorCode)
     }
     if (u !== undefined && u.fillColor.length > 0) {
-      return u.fillColor
+      return compactTagColorTowardWhite(u.fillColor)
     }
     if (t.backgroundColor.length > 0) {
-      return t.backgroundColor
+      return compactTagColorTowardWhite(t.backgroundColor)
     }
     if (t.color.length > 0) {
-      return t.color
+      return compactTagColorTowardWhite(t.color)
     }
     return ThemeConstants.TEXT_ON_BRAND
+  }
+
+  private compactTagHasCustomColorAt(index: number): boolean {
+    const t: SimpleTag | undefined = this.tagAt(index)
+    if (t === undefined) {
+      return false
+    }
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
+    return (u !== undefined && (u.colorCode.length > 0 || u.fillColor.length > 0)) ||
+      t.backgroundColor.length > 0 || t.color.length > 0
+  }
+
+  private compactTagFontWeightAt(index: number): FontWeight {
+    return this.compactTagHasCustomColorAt(index) ? FontWeight.Medium : FontWeight.Normal
+  }
+
+  private compactTagTextShadowsAt(index: number): Array<ShadowOptions> {
+    return this.compactTagHasCustomColorAt(index)
+      ? WATERFALL_COMPACT_TAG_TEXT_SHADOWS
+      : WATERFALL_NO_TEXT_SHADOWS
   }
 
   private searchTagAt(index: number): void {
@@ -241,6 +288,8 @@ export struct GalleryWaterfallCard {
       Text(this.tagLabelAt(index))
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(this.compactTagTextColorAt(index))
+        .fontWeight(this.compactTagFontWeightAt(index))
+        .textShadow(this.compactTagTextShadowsAt(index))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .constraintSize({ maxWidth: 150 })
