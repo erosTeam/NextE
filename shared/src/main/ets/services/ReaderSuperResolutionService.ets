@@ -775,7 +775,7 @@ export class ReaderSuperResolutionService {
               sourceHeight,
               stride,
               nnrtModelPath,
-              (): Promise<void> => ReaderSuperResolutionService.waitForNnrtAllowed(inFlight),
+              inFlight.requestId,
             )
           enhancedPixels = nnrtResult.pixels
           actualBackend = nnrtResult.backend

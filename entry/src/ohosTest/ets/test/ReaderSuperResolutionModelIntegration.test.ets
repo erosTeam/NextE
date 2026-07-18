@@ -1,5 +1,4 @@
 import { common } from '@kit.AbilityKit'
-import { ThreadWorkerPriority, worker } from '@kit.ArkTS'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { mindSporeLite } from '@kit.MindSporeLiteKit'
@@ -8,7 +7,6 @@ import { describe, expect, it } from '@ohos/hypium'
 import {
   connectReadMode,
   ReaderMindSporeSuperResolution,
-  ReaderMindSporeSuperResolutionWorkerFactory,
   ReaderNativeBackendPreference,
   ReaderNativeModelKind,
   ReaderNativeSuperResolution,
@@ -32,24 +30,6 @@ const CANCELLATION_INPUT_WIDTH: number = 640
 const CANCELLATION_INPUT_HEIGHT: number = 900
 const BENCHMARK_INPUT_WIDTH: number = 800
 const BENCHMARK_INPUT_HEIGHT: number = 1149
-
-class TestReaderMindSporeWorkerFactory
-  implements ReaderMindSporeSuperResolutionWorkerFactory {
-  create(): worker.ThreadWorker {
-    return new worker.ThreadWorker(
-      'entry_test/ets/workers/ReaderMindSporeSuperResolutionWorker.ets', {
-        name: 'reader_super_resolution_nnrt_test',
-        priority: ThreadWorkerPriority.LOW,
-      },
-    )
-  }
-}
-
-function installTestReaderMindSporeWorkerFactory(): void {
-  ReaderMindSporeSuperResolution.configureWorkerFactory(
-    new TestReaderMindSporeWorkerFactory(),
-  )
-}
 
 function integrationEnabled(): boolean {
   const parameters: Record<string, string> =
@@ -595,7 +575,6 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const previousBackend: string = connectReadMode().superResolutionBackend
       const previousMaxHeight: number = connectReadMode().superResolutionMaxHeight
       try {
-        installTestReaderMindSporeWorkerFactory()
         await ReaderSuperResolutionService.clear(context)
         installExternalMindSporeModelForBenchmark(context)
         if (!benchmarkSkipModelInstall()) {

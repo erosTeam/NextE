@@ -18,4 +18,5 @@ target_link_libraries(
     PRIVATE
     ncnn
     libace_napi.z.so
-    libhilog_ndk.z.so)
+    libhilog_ndk.z.so
+    libmindspore_lite_ndk.so)

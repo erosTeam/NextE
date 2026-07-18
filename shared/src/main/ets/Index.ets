@@ -173,11 +173,7 @@ export {
 } from './services/ReaderSuperResolutionModelRegistry'
 export {
   ReaderMindSporeSuperResolution,
-  ReaderMindSporeSuperResolutionWorkerFactory,
 } from './services/ReaderMindSporeSuperResolution'
-export {
-  startReaderMindSporeSuperResolutionWorker,
-} from './workers/ReaderMindSporeSuperResolutionWorker'
 export {
   ReaderNativeBackendPreference,
   ReaderNativeModelKind,

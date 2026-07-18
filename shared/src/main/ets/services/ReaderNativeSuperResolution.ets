@@ -30,25 +30,18 @@ interface NativeSuperResolutionModule {
     requestId: number,
   ): Promise<NativeSuperResolutionResult>
 
-  prepareNnrtTileRgba(
+  prepareMindSporeModel(
+    modelPath: string,
+  ): Promise<NativeSuperResolutionPrepareResult>
+
+  upscaleMindSporeRgba(
     pixels: ArrayBuffer,
     width: number,
     height: number,
     stride: number,
-    inputX: number,
-    inputY: number,
-  ): ArrayBuffer
-
-  writeNnrtTileRgba(
-    pixels: ArrayBuffer,
-    outputWidth: number,
-    outputHeight: number,
-    tensor: ArrayBuffer,
-    inputX: number,
-    inputY: number,
-    tileWidth: number,
-    tileHeight: number,
-  ): void
+    modelPath: string,
+    requestId: number,
+  ): Promise<NativeSuperResolutionResult>
 
   setRequestActive(requestId: number, active: boolean): void
 
@@ -67,6 +60,7 @@ interface NativeSuperResolutionResult {
   backend: string
   modelLoadMs: number
   inferenceMs: number
+  tileCount: number
 }
 
 interface NativeSuperResolutionCapabilities {
@@ -103,6 +97,7 @@ export class ReaderNativeSuperResolutionResult {
   backend: string = ''
   modelLoadMs: number = 0
   inferenceMs: number = 0
+  tileCount: number = 0
 }
 
 export class ReaderNativeSuperResolutionPrepareResult {
@@ -187,47 +182,45 @@ export class ReaderNativeSuperResolution {
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
     result.inferenceMs = native.inferenceMs
+    result.tileCount = native.tileCount
     return result
   }
 
-  static prepareNnrtTileRgba(
+  static async prepareMindSporeModel(
+    modelPath: string,
+  ): Promise<ReaderNativeSuperResolutionPrepareResult> {
+    const native: NativeSuperResolutionPrepareResult =
+      await nativeRuntime.prepareMindSporeModel(modelPath)
+    const result: ReaderNativeSuperResolutionPrepareResult =
+      new ReaderNativeSuperResolutionPrepareResult()
+    result.backend = native.backend
+    result.modelLoadMs = native.modelLoadMs
+    return result
+  }
+
+  static async upscaleMindSporeRgba(
     pixels: ArrayBuffer,
     width: number,
     height: number,
     stride: number,
-    inputX: number,
-    inputY: number,
-  ): ArrayBuffer {
-    return nativeRuntime.prepareNnrtTileRgba(
+    modelPath: string,
+    requestId: number,
+  ): Promise<ReaderNativeSuperResolutionResult> {
+    const native: NativeSuperResolutionResult = await nativeRuntime.upscaleMindSporeRgba(
       pixels,
       width,
       height,
       stride,
-      inputX,
-      inputY,
+      modelPath,
+      requestId,
     )
-  }
-
-  static writeNnrtTileRgba(
-    pixels: ArrayBuffer,
-    outputWidth: number,
-    outputHeight: number,
-    tensor: ArrayBuffer,
-    inputX: number,
-    inputY: number,
-    tileWidth: number,
-    tileHeight: number,
-  ): void {
-    nativeRuntime.writeNnrtTileRgba(
-      pixels,
-      outputWidth,
-      outputHeight,
-      tensor,
-      inputX,
-      inputY,
-      tileWidth,
-      tileHeight,
-    )
+    const result: ReaderNativeSuperResolutionResult = new ReaderNativeSuperResolutionResult()
+    result.pixels = native.pixels
+    result.backend = native.backend
+    result.modelLoadMs = native.modelLoadMs
+    result.inferenceMs = native.inferenceMs
+    result.tileCount = native.tileCount
+    return result
   }
 
   static setRequestActive(requestId: number, active: boolean): void {
