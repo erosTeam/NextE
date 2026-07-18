@@ -41,6 +41,10 @@ const REAL_ESRGAN_SOURCE_MODEL_SHA256: string =
   '119cbbcf701a976a016d03fc5c457157e52a94f5e3e929e562e9ec87596d782b'
 const REAL_ESRGAN_RUNTIME_MODEL_SHA256: string =
   '80154ed738cd609c639fed031e9d2bc5d612f4895b91b73e623e88fa0c19f8b9'
+const REAL_ESRGAN_NNRT_MODEL_FILE_NAME: string = 'realesrgan-x2plus-180-fp16.ms'
+const REAL_ESRGAN_NNRT_MODEL_BYTES: number = 33735064
+const REAL_ESRGAN_NNRT_MODEL_SHA256: string =
+  'b6ee78c1e01d79fa5fb4ccb0b1bca039f804eb9c8f77e6c37b065869eb25866a'
 // The pinned NCNN pair was audited locally against the official RealESRGAN_x2plus
 // params_ema checkpoint: all 351 convolution weights and biases matched bit-for-bit.
 const REAL_ESRGAN_SOURCE_REVISION: string = '2533a62c56b4f080eb90a039250752bc21e96259'
@@ -69,6 +73,7 @@ const ESPCN_RUNTIME_PARAM: string =
 export class ReaderSuperResolutionModelPaths {
   paramPath: string = ''
   modelPath: string = ''
+  acceleratedModelPath: string = ''
 }
 
 /** Downloads and verifies immutable model assets before the native runtime can see them. */
@@ -253,6 +258,15 @@ export class ReaderSuperResolutionModelService {
     return ReaderSuperResolutionModelService.realEsrganPaths(context)
   }
 
+  static realEsrganNnrtPathIfReady(context: common.UIAbilityContext): string | null {
+    const path: string = ReaderSuperResolutionModelService.realEsrganNnrtModelPath(context)
+    return ReaderSuperResolutionModelService.validateFile(
+      path,
+      REAL_ESRGAN_NNRT_MODEL_BYTES,
+      REAL_ESRGAN_NNRT_MODEL_SHA256,
+    ) ? path : null
+  }
+
   static async installWaifu2x(context: common.UIAbilityContext): Promise<void> {
     if (await ReaderSuperResolutionModelService.isWaifu2xInstalled(context)) {
       return
@@ -330,6 +344,8 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.runtime`)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part.runtime`)
     ReaderSuperResolutionModelService.removeIfExists(`${sourceParamPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(paths.acceleratedModelPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
   }
 
   private static async installDirectNow(
@@ -1000,7 +1016,14 @@ export class ReaderSuperResolutionModelService {
     if (definition === null) {
       return new ReaderSuperResolutionModelPaths()
     }
-    return ReaderSuperResolutionModelService.paths(context, definition)
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    paths.acceleratedModelPath = ReaderSuperResolutionModelService.realEsrganNnrtModelPath(context)
+    return paths
+  }
+
+  private static realEsrganNnrtModelPath(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/${REAL_ESRGAN_NNRT_MODEL_FILE_NAME}`
   }
 
   private static realEsrganSourceParamPath(context: common.UIAbilityContext): string {

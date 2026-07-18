@@ -1,10 +1,14 @@
 import { common } from '@kit.AbilityKit'
+import { ThreadWorkerPriority, worker } from '@kit.ArkTS'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
+import { mindSporeLite } from '@kit.MindSporeLiteKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   connectReadMode,
+  ReaderMindSporeSuperResolution,
+  ReaderMindSporeSuperResolutionWorkerFactory,
   ReaderNativeBackendPreference,
   ReaderNativeModelKind,
   ReaderNativeSuperResolution,
@@ -29,6 +33,24 @@ const CANCELLATION_INPUT_HEIGHT: number = 900
 const BENCHMARK_INPUT_WIDTH: number = 800
 const BENCHMARK_INPUT_HEIGHT: number = 1149
 
+class TestReaderMindSporeWorkerFactory
+  implements ReaderMindSporeSuperResolutionWorkerFactory {
+  create(): worker.ThreadWorker {
+    return new worker.ThreadWorker(
+      'entry_test/ets/workers/ReaderMindSporeSuperResolutionWorker.ets', {
+        name: 'reader_super_resolution_nnrt_test',
+        priority: ThreadWorkerPriority.LOW,
+      },
+    )
+  }
+}
+
+function installTestReaderMindSporeWorkerFactory(): void {
+  ReaderMindSporeSuperResolution.configureWorkerFactory(
+    new TestReaderMindSporeWorkerFactory(),
+  )
+}
+
 function integrationEnabled(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
@@ -42,12 +64,115 @@ function benchmarkModel(): string {
     ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
 }
 
-function externalLuminanceModelPaths(): string[] {
+function benchmarkBackend(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionBenchmarkBackend'] ??
+    ReaderSuperResolutionBackend.VULKAN
+}
+
+function benchmarkExpectedBackend(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionBenchmarkExpectedBackend'] ??
+    ReaderSuperResolutionBackend.VULKAN
+}
+
+function benchmarkSkipModelInstall(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionSkipModelInstall'] === 'true'
+}
+
+function benchmarkOutputPath(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionBenchmarkOutput'] ?? ''
+}
+
+function installExternalMindSporeModelForBenchmark(
+  context: common.UIAbilityContext,
+): void {
+  const sourcePath: string = externalMindSporeModelPath()
+  if (sourcePath.length === 0) {
+    return
+  }
+  const targetPath: string = context.filesDir + '/realesrgan-x2plus-180-fp16.ms'
+  if (sourcePath === targetPath) {
+    return
+  }
+  fileIo.copyFileSync(sourcePath, targetPath)
+}
+
+function externalModelPaths(): string[] {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
   const paramPath: string = parameters['-s superResolutionExternalParam'] ?? ''
   const modelPath: string = parameters['-s superResolutionExternalModel'] ?? ''
   return [paramPath, modelPath]
+}
+
+function externalModelKind(): number {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return Number.parseInt(parameters['-s superResolutionExternalKind'] ?? '2')
+}
+
+function externalTileSize(): number {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return Number.parseInt(parameters['-s superResolutionExternalTileSize'] ?? '128')
+}
+
+function externalPrepadding(): number {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return Number.parseInt(parameters['-s superResolutionExternalPrepadding'] ?? '4')
+}
+
+function externalInputName(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionExternalInputName'] ?? 'in0'
+}
+
+function externalOutputName(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionExternalOutputName'] ?? 'out0'
+}
+
+function externalMindSporeModelPath(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionExternalMindSporeModel'] ?? ''
+}
+
+function externalMindSporeRepeats(): number {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return Math.max(
+    1,
+    Number.parseInt(parameters['-s superResolutionMindSporeRepeats'] ?? '1'),
+  )
+}
+
+function externalMindSporeConcurrency(): number {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return Math.max(
+    1,
+    Number.parseInt(parameters['-s superResolutionMindSporeConcurrency'] ?? '1'),
+  )
+}
+
+function describeTensor(tensor: mindSporeLite.MSTensor): string {
+  return 'name=' + tensor.name +
+    ' shape=' + tensor.shape.join('x') +
+    ' elements=' + tensor.elementNum +
+    ' bytes=' + tensor.dataSize +
+    ' dtype=' + tensor.dtype +
+    ' format=' + tensor.format
 }
 
 function benchmarkPixels(width: number, height: number): ArrayBuffer {
@@ -89,6 +214,59 @@ function waitFor(milliseconds: number): Promise<void> {
   return new Promise<void>((resolve: () => void): void => {
     setTimeout(resolve, milliseconds)
   })
+}
+
+class ReaderEventLoopProbe {
+  private active: boolean = false
+  private expectedAt: number = 0
+  private delays: number[] = []
+
+  start(): void {
+    this.active = true
+    this.expectedAt = Date.now() + 16
+    this.schedule()
+  }
+
+  stop(): void {
+    this.active = false
+  }
+
+  sampleCount(): number {
+    return this.delays.length
+  }
+
+  maximumDelayMs(): number {
+    if (this.delays.length === 0) {
+      return 0
+    }
+    return Math.max(...this.delays)
+  }
+
+  percentile95DelayMs(): number {
+    if (this.delays.length === 0) {
+      return 0
+    }
+    const ordered: number[] = this.delays.slice().sort((left: number, right: number): number => {
+      return left - right
+    })
+    const index: number = Math.min(
+      ordered.length - 1,
+      Math.floor(ordered.length * 0.95),
+    )
+    return ordered[index]
+  }
+
+  private schedule(): void {
+    setTimeout((): void => {
+      if (!this.active) {
+        return
+      }
+      const now: number = Date.now()
+      this.delays.push(Math.max(0, now - this.expectedAt))
+      this.expectedAt = now + 16
+      this.schedule()
+    }, 16)
+  }
 }
 
 async function writeTestImage(
@@ -408,6 +586,8 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       }
       const context: common.UIAbilityContext = await appContext()
       const model: string = benchmarkModel()
+      const backend: string = benchmarkBackend()
+      const expectedBackend: string = benchmarkExpectedBackend()
       const sourcePath: string =
         context.cacheDir + '/reader-super-resolution-benchmark-input.jpg'
       const previousEnabled: boolean = connectReadMode().superResolutionEnabled
@@ -415,37 +595,59 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const previousBackend: string = connectReadMode().superResolutionBackend
       const previousMaxHeight: number = connectReadMode().superResolutionMaxHeight
       try {
+        installTestReaderMindSporeWorkerFactory()
         await ReaderSuperResolutionService.clear(context)
-        await ReaderSuperResolutionModelService.install(context, model)
+        installExternalMindSporeModelForBenchmark(context)
+        if (!benchmarkSkipModelInstall()) {
+          await ReaderSuperResolutionModelService.install(context, model)
+        }
         connectReadMode().superResolutionEnabled = true
         connectReadMode().superResolutionModel = model
-        connectReadMode().superResolutionBackend = ReaderSuperResolutionBackend.VULKAN
+        connectReadMode().superResolutionBackend = backend
         connectReadMode().superResolutionMaxHeight = 2000
         await writeTestImage(sourcePath, BENCHMARK_INPUT_WIDTH, BENCHMARK_INPUT_HEIGHT)
         const preparationStartedAt: number = Date.now()
         await ReaderSuperResolutionService.prepareSelectedModel(context)
         const preparationElapsedMs: number = Date.now() - preparationStartedAt
+        const eventLoopProbe: ReaderEventLoopProbe = new ReaderEventLoopProbe()
+        eventLoopProbe.start()
         const result: ReaderSuperResolutionResult =
           await ReaderSuperResolutionService.process(
             context,
             sourcePath,
             `ohos-test-reader-benchmark-${model}`,
           )
+        eventLoopProbe.stop()
         console.info(
           'ReaderSuperResolutionBenchmark model=' + model +
             ' source=' + BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
             ' preparationElapsedMs=' + preparationElapsedMs +
             ' processElapsedMs=' + result.elapsedMs +
+            ' backendPreference=' + backend +
             ' backend=' + result.backend +
-            ' reason=' + result.reason,
+            ' reason=' + result.reason +
+            ' eventLoopSamples=' + eventLoopProbe.sampleCount() +
+            ' eventLoopP95DelayMs=' + eventLoopProbe.percentile95DelayMs() +
+            ' eventLoopMaxDelayMs=' + eventLoopProbe.maximumDelayMs(),
         )
+        if (!result.applied) {
+          throw new Error(
+            'Reader super-resolution benchmark failed: reason=' + result.reason +
+              ' backend=' + result.backend,
+          )
+        }
         expect(result.applied).assertEqual(true)
         expect(result.sourceWidth).assertEqual(BENCHMARK_INPUT_WIDTH)
         expect(result.sourceHeight).assertEqual(BENCHMARK_INPUT_HEIGHT)
         expect(result.outputWidth).assertEqual(BENCHMARK_INPUT_WIDTH * 2)
         expect(result.outputHeight).assertEqual(BENCHMARK_INPUT_HEIGHT * 2)
-        expect(result.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+        expect(result.backend).assertEqual(expectedBackend)
         expect(fileIo.accessSync(result.filePath)).assertEqual(true)
+        const outputPath: string = benchmarkOutputPath()
+        if (outputPath.length > 0) {
+          fileIo.copyFileSync(result.filePath, outputPath)
+          console.info('ReaderSuperResolutionBenchmark preservedOutput=' + outputPath)
+        }
       } finally {
         connectReadMode().superResolutionEnabled = previousEnabled
         connectReadMode().superResolutionModel = previousModel
@@ -459,12 +661,12 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('benchmarksExternalLuminanceModel', 0, async (done: Function) => {
+    it('benchmarksExternalModel', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
       }
-      const modelPaths: string[] = externalLuminanceModelPaths()
+      const modelPaths: string[] = externalModelPaths()
       const paramPath: string = modelPaths[0]
       const modelPath: string = modelPaths[1]
       if (paramPath.length === 0 || modelPath.length === 0) {
@@ -475,13 +677,13 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       expect(fileIo.accessSync(modelPath)).assertEqual(true)
       const config: ReaderNativeSuperResolutionConfig =
         new ReaderNativeSuperResolutionConfig()
-      config.modelKind = ReaderNativeModelKind.LUMINANCE
+      config.modelKind = externalModelKind()
       config.backendPreference = ReaderNativeBackendPreference.VULKAN
-      config.tileSize = 128
-      config.prepadding = 4
+      config.tileSize = externalTileSize()
+      config.prepadding = externalPrepadding()
       config.threads = 2
-      config.inputName = 'in0'
-      config.outputName = 'out0'
+      config.inputName = externalInputName()
+      config.outputName = externalOutputName()
       const startedAt: number = Date.now()
       const prepared: ReaderNativeSuperResolutionPrepareResult =
         await ReaderNativeSuperResolution.prepareModel(paramPath, modelPath, config)
@@ -504,6 +706,8 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       console.info(
         'ReaderSuperResolutionExternalBenchmark source=' +
           BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          ' kind=' + config.modelKind +
+          ' tileSize=' + config.tileSize +
           ' preparationMs=' + prepared.modelLoadMs +
           ' inferenceMs=' + result.inferenceMs +
           ' totalElapsedMs=' + totalElapsedMs +
@@ -515,6 +719,121 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         BENCHMARK_INPUT_WIDTH * 2 * BENCHMARK_INPUT_HEIGHT * 2 * 4,
       )
       verifyRawOutputHasSignal(result.pixels)
+      done()
+    })
+
+    it('benchmarksExternalMindSporeModel', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const modelPath: string = externalMindSporeModelPath()
+      if (modelPath.length === 0) {
+        done()
+        return
+      }
+      expect(fileIo.accessSync(modelPath)).assertEqual(true)
+      const devices: mindSporeLite.NNRTDeviceDescription[] =
+        mindSporeLite.getAllNNRTDeviceDescriptions()
+      let selectedDevice: mindSporeLite.NNRTDeviceDescription | undefined = undefined
+      for (let index: number = 0; index < devices.length; index++) {
+        const device: mindSporeLite.NNRTDeviceDescription = devices[index]
+        console.info(
+          'ReaderSuperResolutionMindSporeBenchmark device=' + device.deviceName() +
+            ' id=' + device.deviceID().toString() +
+            ' type=' + device.deviceType(),
+        )
+        if (selectedDevice === undefined &&
+          device.deviceType() === mindSporeLite.NNRTDeviceType.NNRTDEVICE_ACCELERATOR) {
+          selectedDevice = device
+        }
+      }
+      expect(selectedDevice !== undefined).assertEqual(true)
+      if (selectedDevice === undefined) {
+        done()
+        return
+      }
+      const context: mindSporeLite.Context = {
+        target: ['nnrt'],
+        nnrt: {
+          deviceID: selectedDevice.deviceID(),
+          performanceMode: mindSporeLite.PerformanceMode.PERFORMANCE_HIGH,
+          priority: mindSporeLite.Priority.PRIORITY_LOW,
+        },
+      }
+      const repeats: number = externalMindSporeRepeats()
+      const concurrency: number = Math.min(externalMindSporeConcurrency(), repeats)
+      const loadStartedAt: number = Date.now()
+      const models: mindSporeLite.Model[] = []
+      const modelInputs: mindSporeLite.MSTensor[][] = []
+      for (let modelIndex: number = 0; modelIndex < concurrency; modelIndex++) {
+        const model: mindSporeLite.Model =
+          await mindSporeLite.loadModelFromFile(modelPath, context)
+        const inputs: mindSporeLite.MSTensor[] = model.getInputs()
+        expect(inputs.length).assertEqual(1)
+        models.push(model)
+        modelInputs.push(inputs)
+      }
+      const modelLoadMs: number = Date.now() - loadStartedAt
+      const input: mindSporeLite.MSTensor = modelInputs[0][0]
+      console.info(
+        'ReaderSuperResolutionMindSporeBenchmark input ' + describeTensor(input),
+      )
+      expect(input.dtype).assertEqual(mindSporeLite.DataType.NUMBER_TYPE_FLOAT32)
+      const inputValues: Float32Array = new Float32Array(input.elementNum)
+      for (let index: number = 0; index < inputValues.length; index++) {
+        inputValues[index] = (index % 251) / 250.0
+      }
+      for (let modelIndex: number = 0; modelIndex < concurrency; modelIndex++) {
+        modelInputs[modelIndex][0].setData(inputValues.buffer)
+      }
+      const predictionStartedAt: number = Date.now()
+      let firstPredictionMs: number = 0
+      let outputs: mindSporeLite.MSTensor[] = []
+      let completed: number = 0
+      while (completed < repeats) {
+        const batchSize: number = Math.min(concurrency, repeats - completed)
+        const batchStartedAt: number = Date.now()
+        const predictions: Promise<mindSporeLite.MSTensor[]>[] = []
+        for (let modelIndex: number = 0; modelIndex < batchSize; modelIndex++) {
+          predictions.push(models[modelIndex].predict(modelInputs[modelIndex]))
+        }
+        const batchOutputs: mindSporeLite.MSTensor[][] = await Promise.all(predictions)
+        outputs = batchOutputs[batchOutputs.length - 1]
+        if (completed === 0) {
+          firstPredictionMs = Date.now() - batchStartedAt
+        }
+        completed += batchSize
+      }
+      const predictionMs: number = Date.now() - predictionStartedAt
+      expect(outputs.length).assertLarger(0)
+      const output: mindSporeLite.MSTensor = outputs[0]
+      console.info(
+        'ReaderSuperResolutionMindSporeBenchmark output ' + describeTensor(output),
+      )
+      const outputData: ArrayBuffer = output.getData()
+      expect(outputData.byteLength).assertEqual(output.dataSize)
+      let minimum: number = Number.MAX_VALUE
+      let maximum: number = -Number.MAX_VALUE
+      if (output.dtype === mindSporeLite.DataType.NUMBER_TYPE_FLOAT32) {
+        const outputValues: Float32Array = new Float32Array(outputData)
+        for (let index: number = 0; index < outputValues.length; index++) {
+          minimum = Math.min(minimum, outputValues[index])
+          maximum = Math.max(maximum, outputValues[index])
+        }
+      }
+      console.info(
+        'ReaderSuperResolutionMindSporeBenchmark model=' + modelPath +
+          ' device=' + selectedDevice.deviceName() +
+          ' modelLoadMs=' + modelLoadMs +
+          ' repeats=' + repeats +
+          ' concurrency=' + concurrency +
+          ' firstPredictionMs=' + firstPredictionMs +
+          ' totalPredictionMs=' + predictionMs +
+          ' averagePredictionMs=' + Math.round(predictionMs / repeats) +
+          ' outputSignal=' + minimum + '..' + maximum,
+      )
+      expect(maximum > minimum).assertEqual(true)
       done()
     })
 

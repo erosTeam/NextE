@@ -11,6 +11,11 @@ import {
 } from '../state/ReadModeState'
 import { CacheStat } from './CacheStat'
 import {
+  ReaderMindSporeSuperResolution,
+  ReaderMindSporeSuperResolutionPrepareResult,
+  ReaderMindSporeSuperResolutionResult,
+} from './ReaderMindSporeSuperResolution'
+import {
   ReaderNativeBackendPreference,
   ReaderNativeSuperResolution,
   ReaderNativeSuperResolutionCapabilities,
@@ -38,7 +43,9 @@ const MAX_CACHE_FILE_COUNT: number = 64
 const MAX_CACHE_BYTES: number = 256 * 1024 * 1024
 const HASH_CHUNK_BYTES: number = 256 * 1024
 const SUPER_RESOLUTION_SUPERSEDED_ERROR: string = 'super-resolution request superseded'
-const NATIVE_PIPELINE_VERSION: string = 'vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
+const NNRT_VALIDATION_BACKEND: string = 'nnrt'
+const NATIVE_PIPELINE_VERSION: string =
+  'nnrt-realesrgan-x2plus-tile160-pad10-fp16-v2|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
 class ReaderSuperResolutionCacheEntry {
   path: string = ''
@@ -93,8 +100,59 @@ class ReaderSuperResolutionInFlightTask {
   rejectTask: (error: Error) => void = (_error: Error): void => {}
 }
 
+class ReaderSuperResolutionEventLoopProbe {
+  private active: boolean = false
+  private expectedAt: number = 0
+  private delays: number[] = []
+
+  start(): void {
+    this.active = true
+    this.expectedAt = Date.now() + 16
+    this.schedule()
+  }
+
+  stop(): void {
+    this.active = false
+  }
+
+  sampleCount(): number {
+    return this.delays.length
+  }
+
+  maximumDelayMs(): number {
+    return this.delays.length === 0 ? 0 : Math.max(...this.delays)
+  }
+
+  percentile95DelayMs(): number {
+    if (this.delays.length === 0) {
+      return 0
+    }
+    const ordered: number[] = this.delays.slice().sort(
+      (left: number, right: number): number => left - right,
+    )
+    const index: number = Math.min(
+      ordered.length - 1,
+      Math.floor(ordered.length * 0.95),
+    )
+    return ordered[index]
+  }
+
+  private schedule(): void {
+    setTimeout((): void => {
+      if (!this.active) {
+        return
+      }
+      const now: number = Date.now()
+      this.delays.push(Math.max(0, now - this.expectedAt))
+      this.expectedAt = now + 16
+      this.schedule()
+    }, 16)
+  }
+}
+
 export class ReaderSuperResolutionCapabilities {
   vulkanAvailable: boolean = false
+  nnrtAvailable: boolean = false
   gpuName: string = ''
   ncnnVersion: string = ''
 }
@@ -118,12 +176,18 @@ export class ReaderSuperResolutionService {
   private static activeTask: ReaderSuperResolutionInFlightTask | null = null
   private static pruneChain: Promise<void> = Promise.resolve()
   private static preparationInFlight: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static interactionPaused: boolean = false
 
   static capabilities(): ReaderSuperResolutionCapabilities {
     const native: ReaderNativeSuperResolutionCapabilities =
       ReaderNativeSuperResolution.capabilities()
     const result: ReaderSuperResolutionCapabilities = new ReaderSuperResolutionCapabilities()
     result.vulkanAvailable = native.vulkanAvailable
+    try {
+      result.nnrtAvailable = ReaderMindSporeSuperResolution.acceleratorAvailable()
+    } catch (_error) {
+      result.nnrtAvailable = false
+    }
     result.gpuName = native.gpuName
     result.ncnnVersion = native.ncnnVersion
     return result
@@ -168,10 +232,12 @@ export class ReaderSuperResolutionService {
     backendPreference: string,
   ): Promise<void> {
     try {
+      const nnrtModelPath: string | null =
+        ReaderSuperResolutionService.nnrtModelPath(context, model, backendPreference)
       const modelPaths: ReaderSuperResolutionModelPaths | null =
         await ReaderSuperResolutionModelService.pathsIfReady(context, model)
       const readMode = connectReadMode()
-      if (modelPaths === null || !readMode.superResolutionEnabled ||
+      if ((modelPaths === null && nnrtModelPath === null) || !readMode.superResolutionEnabled ||
         readMode.superResolutionModel !== model ||
         readMode.superResolutionBackend !== backendPreference) {
         return
@@ -181,6 +247,30 @@ export class ReaderSuperResolutionService {
         'prepare_start',
         `model=${model} backendPreference=${backendPreference}`,
       )
+      if (nnrtModelPath !== null) {
+        try {
+          const nnrtResult: ReaderMindSporeSuperResolutionPrepareResult =
+            await ReaderMindSporeSuperResolution.prepareModel(nnrtModelPath)
+          DiagnosticLogger.info(
+            'reader-super-resolution',
+            'prepare_success',
+            `model=${model} backend=${nnrtResult.backend} modelLoadMs=${nnrtResult.modelLoadMs}`,
+          )
+          return
+        } catch (error) {
+          DiagnosticLogger.warn(
+            'reader-super-resolution',
+            'prepare_nnrt_failed',
+            `model=${model} message=${(error as Error).message}`,
+          )
+          if (backendPreference === NNRT_VALIDATION_BACKEND) {
+            throw error as Error
+          }
+        }
+      }
+      if (modelPaths === null) {
+        return
+      }
       const result: ReaderNativeSuperResolutionPrepareResult =
         await ReaderNativeSuperResolution.prepareModel(
           modelPaths.paramPath,
@@ -397,6 +487,7 @@ export class ReaderSuperResolutionService {
   }
 
   static setInteractionPaused(paused: boolean): void {
+    ReaderSuperResolutionService.interactionPaused = paused
     ReaderNativeSuperResolution.setInteractionPaused(paused)
   }
 
@@ -574,6 +665,9 @@ export class ReaderSuperResolutionService {
     inFlight: ReaderSuperResolutionInFlightTask,
   ): Promise<ReaderSuperResolutionResult> {
     const startedAt: number = Date.now()
+    const eventLoopProbe: ReaderSuperResolutionEventLoopProbe =
+      new ReaderSuperResolutionEventLoopProbe()
+    eventLoopProbe.start()
     let source: image.ImageSource | undefined = undefined
     let sourcePixelMap: image.PixelMap | undefined = undefined
     let outputPixelMap: image.PixelMap | undefined = undefined
@@ -651,8 +745,10 @@ export class ReaderSuperResolutionService {
       )
       const modelPaths: ReaderSuperResolutionModelPaths | null =
         await ReaderSuperResolutionModelService.pathsIfReady(context, model)
+      const nnrtModelPath: string | null =
+        ReaderSuperResolutionService.nnrtModelPath(context, model, backendPreference)
       ReaderSuperResolutionService.ensureTaskActive(inFlight)
-      if (modelPaths === null) {
+      if (modelPaths === null && nnrtModelPath === null) {
         return ReaderSuperResolutionService.skipResult(
           sourcePath,
           sourceWidth,
@@ -665,32 +761,73 @@ export class ReaderSuperResolutionService {
       const inputBuffer: ArrayBuffer = new ArrayBuffer(sourcePixelMap.getPixelBytesNumber())
       await sourcePixelMap.readPixelsToBuffer(inputBuffer)
       ReaderSuperResolutionService.ensureTaskActive(inFlight)
-      const nativeResult: ReaderNativeSuperResolutionResult =
-        await ReaderNativeSuperResolution.upscaleRgba(
-          inputBuffer,
-          sourceWidth,
-          sourceHeight,
-          Math.max(Math.floor(decodedInfo.stride), sourceWidth * 4),
-          modelPaths.paramPath,
-          modelPaths.modelPath,
-          ReaderSuperResolutionService.nativeConfig(model, backendPreference),
-          inFlight.requestId,
-        )
+      const stride: number = Math.max(Math.floor(decodedInfo.stride), sourceWidth * 4)
+      let enhancedPixels: ArrayBuffer = new ArrayBuffer(0)
+      let modelLoadMs: number = 0
+      let inferenceMs: number = 0
+      let tileCount: number = 0
+      if (nnrtModelPath !== null) {
+        try {
+          const nnrtResult: ReaderMindSporeSuperResolutionResult =
+            await ReaderMindSporeSuperResolution.upscaleRgba(
+              inputBuffer,
+              sourceWidth,
+              sourceHeight,
+              stride,
+              nnrtModelPath,
+              (): Promise<void> => ReaderSuperResolutionService.waitForNnrtAllowed(inFlight),
+            )
+          enhancedPixels = nnrtResult.pixels
+          actualBackend = nnrtResult.backend
+          modelLoadMs = nnrtResult.modelLoadMs
+          inferenceMs = nnrtResult.inferenceMs
+          tileCount = nnrtResult.tileCount
+        } catch (error) {
+          ReaderSuperResolutionService.ensureTaskActive(inFlight)
+          DiagnosticLogger.warn(
+            'reader-super-resolution',
+            'nnrt_fallback',
+            `model=${model} message=${(error as Error).message}`,
+          )
+        }
+      }
+      if (enhancedPixels.byteLength === 0) {
+        if (backendPreference === NNRT_VALIDATION_BACKEND) {
+          throw new Error('NNRT-only validation failed')
+        }
+        if (modelPaths === null) {
+          throw new Error('NNRT model failed and ncnn fallback is unavailable')
+        }
+        const nativeResult: ReaderNativeSuperResolutionResult =
+          await ReaderNativeSuperResolution.upscaleRgba(
+            inputBuffer,
+            sourceWidth,
+            sourceHeight,
+            stride,
+            modelPaths.paramPath,
+            modelPaths.modelPath,
+            ReaderSuperResolutionService.nativeConfig(model, backendPreference),
+            inFlight.requestId,
+          )
+        enhancedPixels = nativeResult.pixels
+        actualBackend = nativeResult.backend
+        modelLoadMs = nativeResult.modelLoadMs
+        inferenceMs = nativeResult.inferenceMs
+      }
       ReaderSuperResolutionService.ensureTaskActive(inFlight)
-      actualBackend = nativeResult.backend
       const initializationOptions: image.InitializationOptions = {
         size: { width: outputWidth, height: outputHeight },
         srcPixelFormat: image.PixelMapFormat.RGBA_8888,
         pixelFormat: image.PixelMapFormat.RGBA_8888,
         editable: false,
       }
-      outputPixelMap = await image.createPixelMap(nativeResult.pixels, initializationOptions)
+      outputPixelMap = await image.createPixelMap(enhancedPixels, initializationOptions)
       ReaderSuperResolutionService.ensureTaskActive(inFlight)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_inference_done',
         `model=${model} backend=${actualBackend} output=${outputWidth}x${outputHeight} ` +
-          `modelLoadMs=${nativeResult.modelLoadMs} inferenceMs=${nativeResult.inferenceMs} ` +
+          `modelLoadMs=${modelLoadMs} inferenceMs=${inferenceMs} tiles=${tileCount} ` +
           `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
       )
 
@@ -762,6 +899,15 @@ export class ReaderSuperResolutionService {
       )
       return ReaderSuperResolutionService.originalResult(sourcePath, 'processing_failed')
     } finally {
+      eventLoopProbe.stop()
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'event_loop_probe',
+        `samples=${eventLoopProbe.sampleCount()} ` +
+          `p95DelayMs=${eventLoopProbe.percentile95DelayMs()} ` +
+          `maxDelayMs=${eventLoopProbe.maximumDelayMs()} ` +
+          `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      )
       if (outputFile !== null) {
         try {
           fileIo.closeSync(outputFile)
@@ -805,6 +951,48 @@ export class ReaderSuperResolutionService {
       config.backendPreference = ReaderNativeBackendPreference.CPU
     }
     return config
+  }
+
+  private static nnrtModelPath(
+    context: common.UIAbilityContext,
+    model: string,
+    backendPreference: string,
+  ): string | null {
+    if (model !== ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
+      (backendPreference !== ReaderSuperResolutionBackend.AUTO &&
+        backendPreference !== NNRT_VALIDATION_BACKEND)) {
+      return null
+    }
+    try {
+      const acceleratorAvailable: boolean =
+        ReaderMindSporeSuperResolution.acceleratorAvailable()
+      const modelPath: string | null = acceleratorAvailable
+        ? ReaderSuperResolutionModelService.realEsrganNnrtPathIfReady(context)
+        : null
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'nnrt_probe',
+        `accelerator=${acceleratorAvailable} modelReady=${modelPath !== null} filesDir=${context.filesDir}`,
+      )
+      if (!acceleratorAvailable) {
+        return null
+      }
+      return modelPath
+    } catch (_error) {
+      return null
+    }
+  }
+
+  private static async waitForNnrtAllowed(
+    task: ReaderSuperResolutionInFlightTask,
+  ): Promise<void> {
+    while (ReaderSuperResolutionService.interactionPaused) {
+      ReaderSuperResolutionService.ensureTaskActive(task)
+      await new Promise<void>((resolve: () => void): void => {
+        setTimeout(resolve, 16)
+      })
+    }
+    ReaderSuperResolutionService.ensureTaskActive(task)
   }
 
   private static skipResult(

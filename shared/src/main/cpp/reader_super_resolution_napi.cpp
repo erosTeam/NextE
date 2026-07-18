@@ -27,6 +27,10 @@ namespace {
 
 constexpr const char *kModuleName = "nexte_super_resolution";
 constexpr int kScale = 2;
+constexpr int kNnrtTileSize = 160;
+constexpr int kNnrtPrepadding = 10;
+constexpr int kNnrtInputSize = kNnrtTileSize + kNnrtPrepadding * 2;
+constexpr int kNnrtOutputSize = kNnrtInputSize * kScale;
 
 enum class ModelKind : int {
     Waifu2x = 0,
@@ -180,6 +184,15 @@ bool GetBytes(napi_env env, napi_value value, std::vector<uint8_t> &bytes)
     const auto *begin = static_cast<const uint8_t *>(data);
     bytes.assign(begin, begin + length);
     return true;
+}
+
+bool GetArrayBuffer(napi_env env, napi_value value, void *&data, size_t &length)
+{
+    bool arrayBuffer = false;
+    if (napi_is_arraybuffer(env, value, &arrayBuffer) != napi_ok || !arrayBuffer) {
+        return false;
+    }
+    return napi_get_arraybuffer_info(env, value, &data, &length) == napi_ok;
 }
 
 bool GetInt(napi_env env, napi_value value, int &result)
@@ -1147,6 +1160,110 @@ void CompletePrepare(napi_env env, napi_status status, void *data)
     delete task;
 }
 
+napi_value PrepareNnrtTileRgba(napi_env env, napi_callback_info info)
+{
+    size_t argc = 6;
+    napi_value argv[6] = {nullptr};
+    void *sourceData = nullptr;
+    size_t sourceBytes = 0;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int inputX = 0;
+    int inputY = 0;
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 6 ||
+        !GetArrayBuffer(env, argv[0], sourceData, sourceBytes) ||
+        !GetInt(env, argv[1], width) || !GetInt(env, argv[2], height) ||
+        !GetInt(env, argv[3], stride) || !GetInt(env, argv[4], inputX) ||
+        !GetInt(env, argv[5], inputY) || width <= 0 || height <= 0 ||
+        stride < width * 4 || sourceBytes < static_cast<size_t>(stride) * height ||
+        inputX < 0 || inputX >= width || inputY < 0 || inputY >= height) {
+        napi_throw_type_error(env, nullptr, "invalid NNRT tile preprocessing arguments");
+        return nullptr;
+    }
+
+    constexpr size_t planeElements = static_cast<size_t>(kNnrtInputSize) * kNnrtInputSize;
+    constexpr size_t outputBytes = planeElements * 3 * sizeof(float);
+    void *outputData = nullptr;
+    napi_value output = nullptr;
+    if (napi_create_arraybuffer(env, outputBytes, &outputData, &output) != napi_ok) {
+        napi_throw_error(env, nullptr, "failed to allocate NNRT input tile");
+        return nullptr;
+    }
+    const auto *source = static_cast<const uint8_t *>(sourceData);
+    auto *target = static_cast<float *>(outputData);
+    for (int localY = 0; localY < kNnrtInputSize; ++localY) {
+        const int sourceY = std::clamp(inputY + localY - kNnrtPrepadding, 0, height - 1);
+        for (int localX = 0; localX < kNnrtInputSize; ++localX) {
+            const int sourceX = std::clamp(inputX + localX - kNnrtPrepadding, 0, width - 1);
+            const size_t sourceOffset = static_cast<size_t>(sourceY) * stride + sourceX * 4;
+            const size_t tileOffset = static_cast<size_t>(localY) * kNnrtInputSize + localX;
+            target[tileOffset] = source[sourceOffset] * (1.0f / 255.0f);
+            target[planeElements + tileOffset] = source[sourceOffset + 1] * (1.0f / 255.0f);
+            target[planeElements * 2 + tileOffset] = source[sourceOffset + 2] * (1.0f / 255.0f);
+        }
+    }
+    return output;
+}
+
+napi_value WriteNnrtTileRgba(napi_env env, napi_callback_info info)
+{
+    size_t argc = 8;
+    napi_value argv[8] = {nullptr};
+    void *targetData = nullptr;
+    size_t targetBytes = 0;
+    void *tensorData = nullptr;
+    size_t tensorBytes = 0;
+    int outputWidth = 0;
+    int outputHeight = 0;
+    int inputX = 0;
+    int inputY = 0;
+    int tileWidth = 0;
+    int tileHeight = 0;
+    constexpr size_t planeElements = static_cast<size_t>(kNnrtOutputSize) * kNnrtOutputSize;
+    constexpr size_t requiredTensorBytes = planeElements * 3 * sizeof(float);
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 8 ||
+        !GetArrayBuffer(env, argv[0], targetData, targetBytes) ||
+        !GetInt(env, argv[1], outputWidth) || !GetInt(env, argv[2], outputHeight) ||
+        !GetArrayBuffer(env, argv[3], tensorData, tensorBytes) ||
+        !GetInt(env, argv[4], inputX) || !GetInt(env, argv[5], inputY) ||
+        !GetInt(env, argv[6], tileWidth) || !GetInt(env, argv[7], tileHeight) ||
+        outputWidth <= 0 || outputHeight <= 0 ||
+        targetBytes < static_cast<size_t>(outputWidth) * outputHeight * 4 ||
+        tensorBytes < requiredTensorBytes || inputX < 0 || inputY < 0 ||
+        tileWidth <= 0 || tileWidth > kNnrtTileSize ||
+        tileHeight <= 0 || tileHeight > kNnrtTileSize ||
+        (inputX + tileWidth) * kScale > outputWidth ||
+        (inputY + tileHeight) * kScale > outputHeight) {
+        napi_throw_type_error(env, nullptr, "invalid NNRT tile postprocessing arguments");
+        return nullptr;
+    }
+
+    auto *target = static_cast<uint8_t *>(targetData);
+    const auto *tensor = static_cast<const float *>(tensorData);
+    constexpr int crop = kNnrtPrepadding * kScale;
+    const int writeWidth = tileWidth * kScale;
+    const int writeHeight = tileHeight * kScale;
+    const int outputX = inputX * kScale;
+    const int outputY = inputY * kScale;
+    for (int y = 0; y < writeHeight; ++y) {
+        const size_t tensorRow = static_cast<size_t>(crop + y) * kNnrtOutputSize + crop;
+        const size_t targetRow =
+            (static_cast<size_t>(outputY + y) * outputWidth + outputX) * 4;
+        for (int x = 0; x < writeWidth; ++x) {
+            const size_t tensorOffset = tensorRow + x;
+            const size_t targetOffset = targetRow + x * 4;
+            target[targetOffset] = ToByte(tensor[tensorOffset]);
+            target[targetOffset + 1] = ToByte(tensor[planeElements + tensorOffset]);
+            target[targetOffset + 2] = ToByte(tensor[planeElements * 2 + tensorOffset]);
+            target[targetOffset + 3] = 255;
+        }
+    }
+    napi_value result = nullptr;
+    napi_get_undefined(env, &result);
+    return result;
+}
+
 napi_value SetRequestActive(napi_env env, napi_callback_info info)
 {
     size_t argc = 2;
@@ -1337,6 +1454,8 @@ static napi_value Init(napi_env env, napi_value exports)
     napi_property_descriptor descriptors[] = {
         {"prepareModel", nullptr, PrepareModel, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"upscaleRgba", nullptr, UpscaleRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"prepareNnrtTileRgba", nullptr, PrepareNnrtTileRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"writeNnrtTileRgba", nullptr, WriteNnrtTileRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCapabilities", nullptr, GetCapabilities, nullptr, nullptr, nullptr, napi_default, nullptr},

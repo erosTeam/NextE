@@ -24,6 +24,9 @@ import {
   connectSafeMode,
   SyncScheduler,
 } from 'shared'
+import {
+  installReaderMindSporeSuperResolutionWorkerFactory,
+} from '../workers/ReaderMindSporeSuperResolutionWorkerHost'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
 const ENTRY_PAGE: string = 'pages/Index'
@@ -48,6 +51,7 @@ export default class EntryAbility extends UIAbility {
   private clipboardProbeInFlight: boolean = false
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    installReaderMindSporeSuperResolutionWorkerFactory()
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
       return HuaweiCloudSyncService.runScheduledSync(context, reason)
     })

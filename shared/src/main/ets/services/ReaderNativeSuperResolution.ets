@@ -30,6 +30,26 @@ interface NativeSuperResolutionModule {
     requestId: number,
   ): Promise<NativeSuperResolutionResult>
 
+  prepareNnrtTileRgba(
+    pixels: ArrayBuffer,
+    width: number,
+    height: number,
+    stride: number,
+    inputX: number,
+    inputY: number,
+  ): ArrayBuffer
+
+  writeNnrtTileRgba(
+    pixels: ArrayBuffer,
+    outputWidth: number,
+    outputHeight: number,
+    tensor: ArrayBuffer,
+    inputX: number,
+    inputY: number,
+    tileWidth: number,
+    tileHeight: number,
+  ): void
+
   setRequestActive(requestId: number, active: boolean): void
 
   setInteractionPaused(paused: boolean): void
@@ -168,6 +188,46 @@ export class ReaderNativeSuperResolution {
     result.modelLoadMs = native.modelLoadMs
     result.inferenceMs = native.inferenceMs
     return result
+  }
+
+  static prepareNnrtTileRgba(
+    pixels: ArrayBuffer,
+    width: number,
+    height: number,
+    stride: number,
+    inputX: number,
+    inputY: number,
+  ): ArrayBuffer {
+    return nativeRuntime.prepareNnrtTileRgba(
+      pixels,
+      width,
+      height,
+      stride,
+      inputX,
+      inputY,
+    )
+  }
+
+  static writeNnrtTileRgba(
+    pixels: ArrayBuffer,
+    outputWidth: number,
+    outputHeight: number,
+    tensor: ArrayBuffer,
+    inputX: number,
+    inputY: number,
+    tileWidth: number,
+    tileHeight: number,
+  ): void {
+    nativeRuntime.writeNnrtTileRgba(
+      pixels,
+      outputWidth,
+      outputHeight,
+      tensor,
+      inputX,
+      inputY,
+      tileWidth,
+      tileHeight,
+    )
   }
 
   static setRequestActive(requestId: number, active: boolean): void {

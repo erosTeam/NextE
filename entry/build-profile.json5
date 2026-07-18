@@ -1,5 +1,12 @@
 {
   "apiType": "stageMode",
+  "buildOption": {
+    "sourceOption": {
+      "workers": [
+        "./src/main/ets/workers/ReaderMindSporeSuperResolutionWorker.ets"
+      ]
+    }
+  },
   "buildOptionSet": [
     {
       "name": "debug",
