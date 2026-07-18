@@ -36,6 +36,8 @@ const MAX_OUTPUT_PIXEL_BYTES: number = MAX_OUTPUT_PIXELS * 4
 const MAX_CACHE_FILE_COUNT: number = 64
 const MAX_CACHE_BYTES: number = 256 * 1024 * 1024
 const HASH_CHUNK_BYTES: number = 256 * 1024
+const SUPER_RESOLUTION_SUPERSEDED_ERROR: string = 'super-resolution request superseded'
+const NATIVE_PIPELINE_VERSION: string = 'vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
 class ReaderSuperResolutionCacheEntry {
   path: string = ''
@@ -67,9 +69,27 @@ export enum ReaderSuperResolutionTaskState {
   PROCESSING = 'processing',
 }
 
+export enum ReaderSuperResolutionTaskPriority {
+  CURRENT = 0,
+  PREFETCH = 1,
+}
+
 class ReaderSuperResolutionInFlightTask {
   promise: Promise<ReaderSuperResolutionResult> = Promise.resolve(new ReaderSuperResolutionResult())
   state: ReaderSuperResolutionTaskState = ReaderSuperResolutionTaskState.QUEUED
+  requestId: number = 0
+  priority: number = ReaderSuperResolutionTaskPriority.CURRENT
+  enqueueOrder: number = 0
+  sourcePath: string = ''
+  owners: Set<string> = new Set<string>()
+  observers: Array<(state: ReaderSuperResolutionTaskState) => void> = []
+  uncancellable: boolean = false
+  superseded: boolean = false
+  startAction: () => Promise<ReaderSuperResolutionResult> =
+    (): Promise<ReaderSuperResolutionResult> => Promise.resolve(new ReaderSuperResolutionResult())
+  resolveTask: (result: ReaderSuperResolutionResult) => void =
+    (_result: ReaderSuperResolutionResult): void => {}
+  rejectTask: (error: Error) => void = (_error: Error): void => {}
 }
 
 export class ReaderSuperResolutionCapabilities {
@@ -87,7 +107,14 @@ export class ReaderSuperResolutionService {
     string,
     ReaderSuperResolutionInFlightTask
   >()
-  private static processingChain: Promise<void> = Promise.resolve()
+  private static ownerTasks: Map<string, ReaderSuperResolutionInFlightTask> = new Map<
+    string,
+    ReaderSuperResolutionInFlightTask
+  >()
+  private static requestSequence: number = 0
+  private static enqueueSequence: number = 0
+  private static pendingTasks: ReaderSuperResolutionInFlightTask[] = []
+  private static activeTask: ReaderSuperResolutionInFlightTask | null = null
   private static pruneChain: Promise<void> = Promise.resolve()
 
   static capabilities(): ReaderSuperResolutionCapabilities {
@@ -111,7 +138,7 @@ export class ReaderSuperResolutionService {
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
-    await ReaderSuperResolutionService.processingChain
+    await ReaderSuperResolutionService.waitForIdle()
     const entries: ReaderSuperResolutionCacheEntry[] = ReaderSuperResolutionService.cacheEntries(context)
     for (let i: number = 0; i < entries.length; i++) {
       ReaderSuperResolutionService.removeIfExists(entries[i].path)
@@ -126,21 +153,27 @@ export class ReaderSuperResolutionService {
     sourcePath: string,
     sourceKey: string,
     onTaskState: (state: ReaderSuperResolutionTaskState) => void = (_state: ReaderSuperResolutionTaskState) => {},
+    ownerKey: string = '',
+    priority: number = ReaderSuperResolutionTaskPriority.CURRENT,
   ): Promise<ReaderSuperResolutionResult> {
     if (!connectReadMode().superResolutionEnabled) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'disabled')
     }
     const model: string = connectReadMode().superResolutionModel
     if (model === ReaderSuperResolutionModel.NONE) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'model_not_selected')
     }
     if (ReaderSuperResolutionModelRegistry.find(model) === null) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'backend_unavailable')
     }
     const backendPreference: string = connectReadMode().superResolutionBackend
 
     const sourceStat: fileIo.Stat | null = ReaderSuperResolutionService.fileStat(sourcePath)
     if (sourceStat === null || sourceStat.size <= 0) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'source_missing')
     }
     const maxHeight: number = connectReadMode().superResolutionMaxHeight
@@ -153,6 +186,7 @@ export class ReaderSuperResolutionService {
         'source_hash_failed',
         `message=${(error as Error).message} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
       )
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'source_hash_failed')
     }
     const cacheIdentity: string =
@@ -167,10 +201,12 @@ export class ReaderSuperResolutionService {
         'cache_prepare_failed',
         `message=${(error as Error).message} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
       )
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'cache_unavailable')
     }
     const cachedBytes: number = ReaderSuperResolutionService.fileSize(outputPath)
     if (cachedBytes > 0) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
       ReaderSuperResolutionService.touch(outputPath)
       DiagnosticLogger.info(
         'reader-super-resolution',
@@ -191,6 +227,8 @@ export class ReaderSuperResolutionService {
     const existing: ReaderSuperResolutionInFlightTask | undefined =
       ReaderSuperResolutionService.inFlight.get(outputPath)
     if (existing !== undefined) {
+      ReaderSuperResolutionService.claimOwner(ownerKey, existing, onTaskState)
+      ReaderSuperResolutionService.promote(existing, priority, sourceKey)
       onTaskState(existing.state)
       DiagnosticLogger.info(
         'reader-super-resolution',
@@ -200,77 +238,236 @@ export class ReaderSuperResolutionService {
       return await existing.promise
     }
     const inFlight: ReaderSuperResolutionInFlightTask = new ReaderSuperResolutionInFlightTask()
-    const task: Promise<ReaderSuperResolutionResult> = ReaderSuperResolutionService.enqueue(
-      context,
-      sourcePath,
-      sourceKey,
-      outputPath,
-      maxHeight,
-      model,
-      backendPreference,
-      (): void => {
-        inFlight.state = ReaderSuperResolutionTaskState.PROCESSING
-        onTaskState(ReaderSuperResolutionTaskState.PROCESSING)
-      },
-    )
+    ReaderSuperResolutionService.requestSequence += 1
+    inFlight.requestId = ReaderSuperResolutionService.requestSequence
+    ReaderSuperResolutionService.enqueueSequence += 1
+    inFlight.enqueueOrder = ReaderSuperResolutionService.enqueueSequence
+    inFlight.priority = priority
+    inFlight.sourcePath = sourcePath
+    ReaderSuperResolutionService.claimOwner(ownerKey, inFlight, onTaskState)
+    const task: Promise<ReaderSuperResolutionResult> =
+      new Promise<ReaderSuperResolutionResult>(
+        (
+          resolve: (result: ReaderSuperResolutionResult) => void,
+          reject: (error: Error) => void,
+        ): void => {
+          inFlight.resolveTask = resolve
+          inFlight.rejectTask = reject
+        },
+      )
     inFlight.promise = task
+    inFlight.startAction = (): Promise<ReaderSuperResolutionResult> =>
+      ReaderSuperResolutionService.processNow(
+        context,
+        sourcePath,
+        sourceKey,
+        outputPath,
+        maxHeight,
+        model,
+        backendPreference,
+        inFlight,
+    )
     ReaderSuperResolutionService.inFlight.set(outputPath, inFlight)
     onTaskState(ReaderSuperResolutionTaskState.QUEUED)
     DiagnosticLogger.info(
       'reader-super-resolution',
       'queue_enqueue',
-      `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      `priority=${priority} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
     )
+    ReaderSuperResolutionService.enqueue(inFlight, sourceKey)
     try {
       return await task
     } finally {
-      if (ReaderSuperResolutionService.inFlight.get(outputPath) === inFlight) {
-        ReaderSuperResolutionService.inFlight.delete(outputPath)
-      }
+      ReaderSuperResolutionService.cleanupTask(outputPath, inFlight)
     }
   }
 
-  private static enqueue(
-    context: common.UIAbilityContext,
-    sourcePath: string,
-    sourceKey: string,
+  static releaseOwner(ownerKey: string): void {
+    if (ownerKey.length <= 0) {
+      return
+    }
+    const task: ReaderSuperResolutionInFlightTask | undefined =
+      ReaderSuperResolutionService.ownerTasks.get(ownerKey)
+    if (task === undefined) {
+      return
+    }
+    ReaderSuperResolutionService.ownerTasks.delete(ownerKey)
+    task.owners.delete(ownerKey)
+    if (task.owners.size <= 0) {
+      ReaderNativeSuperResolution.setRequestActive(task.requestId, false)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'queue_release',
+        `request=${task.requestId} state=${task.state}`,
+      )
+    }
+  }
+
+  static setInteractionPaused(paused: boolean): void {
+    ReaderNativeSuperResolution.setInteractionPaused(paused)
+  }
+
+  private static claimOwner(
+    ownerKey: string,
+    task: ReaderSuperResolutionInFlightTask,
+    observer: (state: ReaderSuperResolutionTaskState) => void,
+  ): void {
+    task.observers.push(observer)
+    if (ownerKey.length <= 0) {
+      task.uncancellable = true
+      ReaderNativeSuperResolution.setRequestActive(task.requestId, true)
+      return
+    }
+    const previous: ReaderSuperResolutionInFlightTask | undefined =
+      ReaderSuperResolutionService.ownerTasks.get(ownerKey)
+    if (previous !== undefined && previous !== task) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
+    }
+    task.owners.add(ownerKey)
+    ReaderSuperResolutionService.ownerTasks.set(ownerKey, task)
+    ReaderNativeSuperResolution.setRequestActive(task.requestId, true)
+  }
+
+  private static hasActiveOwner(task: ReaderSuperResolutionInFlightTask): boolean {
+    return !task.superseded && (task.uncancellable || task.owners.size > 0)
+  }
+
+  private static ensureTaskActive(task: ReaderSuperResolutionInFlightTask): void {
+    if (ReaderSuperResolutionService.hasActiveOwner(task)) {
+      return
+    }
+    ReaderNativeSuperResolution.setRequestActive(task.requestId, false)
+    throw new Error(SUPER_RESOLUTION_SUPERSEDED_ERROR)
+  }
+
+  private static notifyProcessing(task: ReaderSuperResolutionInFlightTask): void {
+    task.state = ReaderSuperResolutionTaskState.PROCESSING
+    for (let i: number = 0; i < task.observers.length; i++) {
+      task.observers[i](ReaderSuperResolutionTaskState.PROCESSING)
+    }
+  }
+
+  private static cleanupTask(
     outputPath: string,
-    maxHeight: number,
-    model: string,
-    backendPreference: string,
-    onProcessStart: () => void,
-  ): Promise<ReaderSuperResolutionResult> {
-    const task: Promise<ReaderSuperResolutionResult> = ReaderSuperResolutionService.processingChain.then(
-      (): Promise<ReaderSuperResolutionResult> => {
-        onProcessStart()
-        return ReaderSuperResolutionService.processNow(
-          context,
-          sourcePath,
-          sourceKey,
-          outputPath,
-          maxHeight,
-          model,
-          backendPreference,
-        )
-      },
-      (): Promise<ReaderSuperResolutionResult> => {
-        onProcessStart()
-        return ReaderSuperResolutionService.processNow(
-          context,
-          sourcePath,
-          sourceKey,
-          outputPath,
-          maxHeight,
-          model,
-          backendPreference,
-        )
+    task: ReaderSuperResolutionInFlightTask,
+  ): void {
+    if (ReaderSuperResolutionService.inFlight.get(outputPath) === task) {
+      ReaderSuperResolutionService.inFlight.delete(outputPath)
+    }
+    task.owners.forEach((ownerKey: string): void => {
+      if (ReaderSuperResolutionService.ownerTasks.get(ownerKey) === task) {
+        ReaderSuperResolutionService.ownerTasks.delete(ownerKey)
+      }
+    })
+    task.owners.clear()
+    ReaderNativeSuperResolution.setRequestActive(task.requestId, true)
+  }
+
+  private static enqueue(
+    inFlight: ReaderSuperResolutionInFlightTask,
+    sourceKey: string,
+  ): void {
+    ReaderSuperResolutionService.pendingTasks.push(inFlight)
+    ReaderSuperResolutionService.sortPendingTasks()
+    if (inFlight.priority === ReaderSuperResolutionTaskPriority.CURRENT) {
+      ReaderSuperResolutionService.preemptActivePrefetch(sourceKey)
+    }
+    ReaderSuperResolutionService.drainQueue()
+  }
+
+  private static promote(
+    task: ReaderSuperResolutionInFlightTask,
+    priority: number,
+    sourceKey: string,
+  ): void {
+    if (priority >= task.priority) {
+      return
+    }
+    task.priority = priority
+    ReaderSuperResolutionService.sortPendingTasks()
+    if (priority === ReaderSuperResolutionTaskPriority.CURRENT) {
+      ReaderSuperResolutionService.preemptActivePrefetch(sourceKey)
+    }
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'queue_promote',
+      `request=${task.requestId} priority=${priority} state=${task.state} ` +
+        `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+    )
+  }
+
+  private static sortPendingTasks(): void {
+    ReaderSuperResolutionService.pendingTasks.sort(
+      (
+        left: ReaderSuperResolutionInFlightTask,
+        right: ReaderSuperResolutionInFlightTask,
+      ): number => {
+        if (left.priority !== right.priority) {
+          return left.priority - right.priority
+        }
+        return left.enqueueOrder - right.enqueueOrder
       },
     )
-    ReaderSuperResolutionService.processingChain = task.then(
-      (): void => {},
-      (): void => {},
+  }
+
+  private static preemptActivePrefetch(sourceKey: string): void {
+    const active: ReaderSuperResolutionInFlightTask | null =
+      ReaderSuperResolutionService.activeTask
+    if (active === null ||
+      active.priority === ReaderSuperResolutionTaskPriority.CURRENT || active.superseded) {
+      return
+    }
+    active.superseded = true
+    ReaderNativeSuperResolution.setRequestActive(active.requestId, false)
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'queue_preempt',
+      `request=${active.requestId} byKeyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
     )
-    return task
+  }
+
+  private static drainQueue(): void {
+    if (ReaderSuperResolutionService.activeTask !== null) {
+      return
+    }
+    while (ReaderSuperResolutionService.pendingTasks.length > 0) {
+      const next: ReaderSuperResolutionInFlightTask | undefined =
+        ReaderSuperResolutionService.pendingTasks.shift()
+      if (next === undefined) {
+        return
+      }
+      if (!ReaderSuperResolutionService.hasActiveOwner(next)) {
+        next.resolveTask(
+          ReaderSuperResolutionService.originalResult(next.sourcePath, 'superseded'),
+        )
+        continue
+      }
+      ReaderSuperResolutionService.activeTask = next
+      ReaderSuperResolutionService.notifyProcessing(next)
+      next.startAction()
+        .then((result: ReaderSuperResolutionResult): void => {
+          next.resolveTask(result)
+        })
+        .catch((error: Error): void => {
+          next.rejectTask(error)
+        })
+        .finally((): void => {
+          if (ReaderSuperResolutionService.activeTask === next) {
+            ReaderSuperResolutionService.activeTask = null
+          }
+          ReaderSuperResolutionService.drainQueue()
+        })
+      return
+    }
+  }
+
+  private static async waitForIdle(): Promise<void> {
+    while (ReaderSuperResolutionService.activeTask !== null ||
+      ReaderSuperResolutionService.pendingTasks.length > 0) {
+      await new Promise<void>((resolve: () => void): void => {
+        setTimeout((): void => resolve(), 20)
+      })
+    }
   }
 
   private static async processNow(
@@ -281,6 +478,7 @@ export class ReaderSuperResolutionService {
     maxHeight: number,
     model: string,
     backendPreference: string,
+    inFlight: ReaderSuperResolutionInFlightTask,
   ): Promise<ReaderSuperResolutionResult> {
     const startedAt: number = Date.now()
     let source: image.ImageSource | undefined = undefined
@@ -290,11 +488,15 @@ export class ReaderSuperResolutionService {
     let outputFile: fileIo.File | null = null
     let actualBackend: string = ''
     const tmpPath: string = `${outputPath}.part`
+    let sourceWidth: number = 0
+    let sourceHeight: number = 0
     try {
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       source = image.createImageSource(sourcePath)
       const sourceInfo: image.ImageInfo = await source.getImageInfo()
-      const sourceWidth: number = sourceInfo.size.width
-      const sourceHeight: number = sourceInfo.size.height
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
+      sourceWidth = sourceInfo.size.width
+      sourceHeight = sourceInfo.size.height
       if (sourceWidth <= 0 || sourceHeight <= 0) {
         return ReaderSuperResolutionService.skipResult(
           sourcePath,
@@ -348,6 +550,7 @@ export class ReaderSuperResolutionService {
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
       }
       sourcePixelMap = await source.createPixelMap(decodingOptions)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'source_decoded',
@@ -355,6 +558,7 @@ export class ReaderSuperResolutionService {
       )
       const modelPaths: ReaderSuperResolutionModelPaths | null =
         await ReaderSuperResolutionModelService.pathsIfReady(context, model)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       if (modelPaths === null) {
         return ReaderSuperResolutionService.skipResult(
           sourcePath,
@@ -367,6 +571,7 @@ export class ReaderSuperResolutionService {
       const decodedInfo: image.ImageInfo = await sourcePixelMap.getImageInfo()
       const inputBuffer: ArrayBuffer = new ArrayBuffer(sourcePixelMap.getPixelBytesNumber())
       await sourcePixelMap.readPixelsToBuffer(inputBuffer)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       const nativeResult: ReaderNativeSuperResolutionResult =
         await ReaderNativeSuperResolution.upscaleRgba(
           inputBuffer,
@@ -376,7 +581,9 @@ export class ReaderSuperResolutionService {
           modelPaths.paramPath,
           modelPaths.modelPath,
           ReaderSuperResolutionService.nativeConfig(model, backendPreference),
+          inFlight.requestId,
         )
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       actualBackend = nativeResult.backend
       const initializationOptions: image.InitializationOptions = {
         size: { width: outputWidth, height: outputHeight },
@@ -385,10 +592,12 @@ export class ReaderSuperResolutionService {
         editable: false,
       }
       outputPixelMap = await image.createPixelMap(nativeResult.pixels, initializationOptions)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_inference_done',
         `model=${model} backend=${actualBackend} output=${outputWidth}x${outputHeight} ` +
+          `modelLoadMs=${nativeResult.modelLoadMs} inferenceMs=${nativeResult.inferenceMs} ` +
           `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
       )
 
@@ -400,6 +609,7 @@ export class ReaderSuperResolutionService {
       packer = image.createImagePacker()
       const packOptions: image.PackingOption = { format: 'image/jpeg', quality: 98 }
       await packer.packToFile(outputPixelMap, outputFile.fd, packOptions)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
       fileIo.closeSync(outputFile)
       outputFile = null
       ReaderSuperResolutionService.removeIfExists(outputPath)
@@ -436,10 +646,26 @@ export class ReaderSuperResolutionService {
       return result
     } catch (error) {
       ReaderSuperResolutionService.removeIfExists(tmpPath)
+      const message: string = (error as Error).message
+      if (message === SUPER_RESOLUTION_SUPERSEDED_ERROR ||
+        !ReaderSuperResolutionService.hasActiveOwner(inFlight)) {
+        DiagnosticLogger.info(
+          'reader-super-resolution',
+          'process_superseded',
+          `request=${inFlight.requestId} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+        )
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'superseded',
+        )
+      }
       DiagnosticLogger.warn(
         'reader-super-resolution',
         'process_failed',
-        `message=${(error as Error).message} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+        `message=${message} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
       )
       return ReaderSuperResolutionService.originalResult(sourcePath, 'processing_failed')
     } finally {
@@ -466,7 +692,9 @@ export class ReaderSuperResolutionService {
   private static pipelineVersion(model: string): string {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
-    return definition === null ? 'unsupported' : definition.pipelineVersion
+    return definition === null
+      ? 'unsupported'
+      : `${definition.pipelineVersion}|runtime=${NATIVE_PIPELINE_VERSION}`
   }
 
   private static nativeConfig(

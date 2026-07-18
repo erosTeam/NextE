@@ -10,12 +10,16 @@ import {
   ReaderSuperResolutionModelService,
   ReaderSuperResolutionResult,
   ReaderSuperResolutionService,
+  ReaderSuperResolutionTaskPriority,
+  ReaderSuperResolutionTaskState,
 } from 'shared'
 
 const INPUT_WIDTH: number = 64
 const INPUT_HEIGHT: number = 48
 const READER_SIZED_INPUT_WIDTH: number = 1280
 const READER_SIZED_INPUT_HEIGHT: number = 1837
+const CANCELLATION_INPUT_WIDTH: number = 640
+const CANCELLATION_INPUT_HEIGHT: number = 900
 
 function integrationEnabled(): boolean {
   const parameters: Record<string, string> =
@@ -27,6 +31,12 @@ async function appContext(): Promise<common.UIAbilityContext> {
   const delegator = abilityDelegatorRegistry.getAbilityDelegator()
   const ability = await delegator.getCurrentTopAbility()
   return ability.context as common.UIAbilityContext
+}
+
+function waitFor(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve: () => void): void => {
+    setTimeout(resolve, milliseconds)
+  })
 }
 
 async function writeTestImage(
@@ -170,7 +180,7 @@ async function verifyDownloadedModelThroughVulkan(model: string, slug: string): 
 
 export default function readerSuperResolutionModelIntegrationTest(): void {
   describe('ReaderSuperResolutionModelIntegration', () => {
-    it('downloads and runs waifu2x through Vulkan', 0, async (done: Function) => {
+    it('runsWaifu2xPhotoThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -219,7 +229,90 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('downloads and runs Real-ESRGAN x2plus through Vulkan', 0, async (done: Function) => {
+    it('prioritizesCurrentOwnerAndCancelsStaleInference', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const staleSourcePath: string =
+        context.cacheDir + '/reader-super-resolution-stale-owner-input.jpg'
+      const currentSourcePath: string =
+        context.cacheDir + '/reader-super-resolution-current-owner-input.jpg'
+      const staleOwnerKey: string = 'ohos-test-prefetch-reader-owner'
+      const currentOwnerKey: string = 'ohos-test-current-reader-owner'
+      const previousEnabled: boolean = connectReadMode().superResolutionEnabled
+      const previousModel: string = connectReadMode().superResolutionModel
+      const previousBackend: string = connectReadMode().superResolutionBackend
+      const previousMaxHeight: number = connectReadMode().superResolutionMaxHeight
+      try {
+        await ReaderSuperResolutionModelService.installWaifu2x(context)
+        await writeTestImage(staleSourcePath, CANCELLATION_INPUT_WIDTH, CANCELLATION_INPUT_HEIGHT)
+        await writeTestImage(currentSourcePath)
+        connectReadMode().superResolutionEnabled = true
+        connectReadMode().superResolutionModel = ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
+        connectReadMode().superResolutionBackend = ReaderSuperResolutionBackend.VULKAN
+        connectReadMode().superResolutionMaxHeight = 2000
+
+        let staleProcessing: boolean = false
+        const stalePromise: Promise<ReaderSuperResolutionResult> =
+          ReaderSuperResolutionService.process(
+            context,
+            staleSourcePath,
+            'ohos-test-stale-owner-vulkan',
+            (state: ReaderSuperResolutionTaskState): void => {
+              staleProcessing = state === ReaderSuperResolutionTaskState.PROCESSING
+            },
+            staleOwnerKey,
+            ReaderSuperResolutionTaskPriority.PREFETCH,
+          )
+        for (let attempt: number = 0; attempt < 100 && !staleProcessing; attempt++) {
+          await waitFor(20)
+        }
+        expect(staleProcessing).assertEqual(true)
+
+        const currentPromise: Promise<ReaderSuperResolutionResult> =
+          ReaderSuperResolutionService.process(
+            context,
+            currentSourcePath,
+            'ohos-test-current-owner-vulkan',
+            (_state: ReaderSuperResolutionTaskState): void => {},
+            currentOwnerKey,
+            ReaderSuperResolutionTaskPriority.CURRENT,
+          )
+        const staleResult: ReaderSuperResolutionResult = await stalePromise
+        const currentResult: ReaderSuperResolutionResult = await currentPromise
+        console.info(
+          'ReaderSuperResolutionModelIntegration priority stale=' + staleResult.reason +
+            ' current=' + currentResult.reason +
+            ' currentElapsedMs=' + currentResult.elapsedMs,
+        )
+        expect(staleResult.applied).assertEqual(false)
+        expect(staleResult.reason).assertEqual('superseded')
+        expect(currentResult.applied).assertEqual(true)
+        expect(currentResult.outputWidth).assertEqual(INPUT_WIDTH * 2)
+        expect(currentResult.outputHeight).assertEqual(INPUT_HEIGHT * 2)
+        expect(currentResult.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+        await verifyOutputHasSignal(currentResult.filePath)
+      } finally {
+        ReaderSuperResolutionService.releaseOwner(staleOwnerKey)
+        ReaderSuperResolutionService.releaseOwner(currentOwnerKey)
+        connectReadMode().superResolutionEnabled = previousEnabled
+        connectReadMode().superResolutionModel = previousModel
+        connectReadMode().superResolutionBackend = previousBackend
+        connectReadMode().superResolutionMaxHeight = previousMaxHeight
+        await ReaderSuperResolutionService.clear(context)
+        try {
+          fileIo.unlinkSync(staleSourcePath)
+        } catch (_error) {}
+        try {
+          fileIo.unlinkSync(currentSourcePath)
+        } catch (_error) {}
+      }
+      done()
+    })
+
+    it('runsRealEsrganX2plusThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -231,7 +324,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('downloads and runs Real-ESRGAN animevideo-v3 through Vulkan', 0, async (done: Function) => {
+    it('runsRealEsrganAnimevideoV3ThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -243,7 +336,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('downloads and runs waifu2x art through Vulkan', 0, async (done: Function) => {
+    it('runsWaifu2xArtThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -255,7 +348,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('downloads and runs waifu2x CUNet through Vulkan', 0, async (done: Function) => {
+    it('runsWaifu2xCunetThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -267,7 +360,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('downloads and runs Real-CUGAN SE through Vulkan', 0, async (done: Function) => {
+    it('runsRealCuganSeThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -279,7 +372,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('runs waifu2x through CPU', 0, async (done: Function) => {
+    it('runsWaifu2xThroughCpu', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return
@@ -312,7 +405,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
-    it('runs Real-ESRGAN x2plus through CPU', 0, async (done: Function) => {
+    it('runsRealEsrganX2plusThroughCpu', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
         return

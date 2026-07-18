@@ -159,6 +159,7 @@ export {
   ReaderSuperResolutionCapabilities,
   ReaderSuperResolutionResult,
   ReaderSuperResolutionService,
+  ReaderSuperResolutionTaskPriority,
   ReaderSuperResolutionTaskState,
 } from './services/ReaderSuperResolutionService'
 export {

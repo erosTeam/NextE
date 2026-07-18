@@ -15,7 +15,12 @@ interface NativeSuperResolutionModule {
     threads: number,
     inputName: string,
     outputName: string,
+    requestId: number,
   ): Promise<NativeSuperResolutionResult>
+
+  setRequestActive(requestId: number, active: boolean): void
+
+  setInteractionPaused(paused: boolean): void
 
   getCapabilities(): NativeSuperResolutionCapabilities
 }
@@ -23,6 +28,8 @@ interface NativeSuperResolutionModule {
 interface NativeSuperResolutionResult {
   pixels: ArrayBuffer
   backend: string
+  modelLoadMs: number
+  inferenceMs: number
 }
 
 interface NativeSuperResolutionCapabilities {
@@ -56,6 +63,8 @@ export class ReaderNativeSuperResolutionConfig {
 export class ReaderNativeSuperResolutionResult {
   pixels: ArrayBuffer = new ArrayBuffer(0)
   backend: string = ''
+  modelLoadMs: number = 0
+  inferenceMs: number = 0
 }
 
 export class ReaderNativeSuperResolutionCapabilities {
@@ -89,6 +98,7 @@ export class ReaderNativeSuperResolution {
     paramPath: string,
     modelPath: string,
     config: ReaderNativeSuperResolutionConfig,
+    requestId: number,
   ): Promise<ReaderNativeSuperResolutionResult> {
     const native: NativeSuperResolutionResult = await nativeRuntime.upscaleRgba(
       pixels,
@@ -104,10 +114,24 @@ export class ReaderNativeSuperResolution {
       config.threads,
       config.inputName,
       config.outputName,
+      requestId,
     )
     const result: ReaderNativeSuperResolutionResult = new ReaderNativeSuperResolutionResult()
     result.pixels = native.pixels
     result.backend = native.backend
+    result.modelLoadMs = native.modelLoadMs
+    result.inferenceMs = native.inferenceMs
     return result
+  }
+
+  static setRequestActive(requestId: number, active: boolean): void {
+    if (requestId <= 0) {
+      return
+    }
+    nativeRuntime.setRequestActive(requestId, active)
+  }
+
+  static setInteractionPaused(paused: boolean): void {
+    nativeRuntime.setInteractionPaused(paused)
   }
 }

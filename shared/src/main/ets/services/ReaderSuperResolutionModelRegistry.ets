@@ -21,7 +21,7 @@ export class ReaderSuperResolutionModelDefinition {
   installStrategy: string = ReaderSuperResolutionInstallStrategy.DIRECT
   pipelineVersion: string = ''
   nativeModelKind: number = ReaderNativeModelKind.WAIFU2X
-  tileSize: number = 142
+  tileSize: number = 128
   prepadding: number = 7
   threads: number = 2
   inputName: string = 'Input1'

@@ -1,20 +1,27 @@
 #include <napi/native_api.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
+#include <unordered_set>
 #include <vector>
 
+#include <command.h>
 #include <gpu.h>
 #include <hilog/log.h>
 #include <mat.h>
 #include <net.h>
+#include <pipeline.h>
 #include <platform.h>
+
+#include "reader_super_resolution_shaders.h"
 
 namespace {
 
@@ -51,15 +58,42 @@ struct UpscaleTask {
     std::string outputName;
     std::string backend;
     std::string error;
+    uint64_t requestId = 0;
+    bool cancelled = false;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
 };
 
 std::once_flag gGpuInitFlag;
 int gGpuInitResult = -1;
 int gGpuCount = 0;
+uint32_t gGpuHeapBudget = 0;
 std::string gGpuName;
 std::mutex gInferenceMutex;
+std::mutex gRequestStateMutex;
+std::unordered_set<uint64_t> gInactiveRequests;
+std::mutex gInteractionMutex;
+std::condition_variable gInteractionCondition;
+bool gInteractionPaused = false;
 std::unique_ptr<ncnn::Net> gCachedNet;
+std::unique_ptr<ncnn::Pipeline> gCachedPreprocessPipeline;
+std::unique_ptr<ncnn::Pipeline> gCachedPostprocessPipeline;
 std::string gCachedNetKey;
+
+using SteadyClock = std::chrono::steady_clock;
+
+int64_t ElapsedMilliseconds(const SteadyClock::time_point &startedAt)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(SteadyClock::now() - startedAt).count();
+}
+
+void ResetCachedRuntime()
+{
+    gCachedPreprocessPipeline.reset();
+    gCachedPostprocessPipeline.reset();
+    gCachedNet.reset();
+    gCachedNetKey.clear();
+}
 
 void InitializeGpuRuntime()
 {
@@ -72,6 +106,10 @@ void InitializeGpuRuntime()
                 if (name != nullptr) {
                     gGpuName = name;
                 }
+                const ncnn::VulkanDevice *device = ncnn::get_gpu_device(0);
+                if (device != nullptr) {
+                    gGpuHeapBudget = device->get_heap_budget();
+                }
             }
         }
         OH_LOG_Print(
@@ -79,10 +117,11 @@ void InitializeGpuRuntime()
             gGpuCount > 0 ? LOG_INFO : LOG_WARN,
             0x0,
             "NextESuperResolution",
-            "ncnn Vulkan init result=%{public}d gpuCount=%{public}d gpu=%{public}s",
+            "ncnn Vulkan init result=%{public}d gpuCount=%{public}d gpu=%{public}s heapBudgetMiB=%{public}u",
             gGpuInitResult,
             gGpuCount,
-            gGpuName.c_str());
+            gGpuName.c_str(),
+            gGpuHeapBudget);
     });
 }
 
@@ -152,6 +191,78 @@ bool GetInt(napi_env env, napi_value value, int &result)
     return true;
 }
 
+bool GetInt64(napi_env env, napi_value value, int64_t &result)
+{
+    return napi_get_value_int64(env, value, &result) == napi_ok;
+}
+
+void SetRequestActiveState(uint64_t requestId, bool active)
+{
+    if (requestId == 0) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(gRequestStateMutex);
+        if (active) {
+            gInactiveRequests.erase(requestId);
+        } else {
+            gInactiveRequests.insert(requestId);
+        }
+    }
+    if (!active) {
+        gInteractionCondition.notify_all();
+    }
+}
+
+bool EnsureRequestActive(UpscaleTask &task)
+{
+    if (task.requestId == 0) {
+        return true;
+    }
+    std::lock_guard<std::mutex> lock(gRequestStateMutex);
+    if (gInactiveRequests.find(task.requestId) == gInactiveRequests.end()) {
+        return true;
+    }
+    task.cancelled = true;
+    task.error = "super-resolution request superseded";
+    return false;
+}
+
+void SetInteractionPausedState(bool paused)
+{
+    {
+        std::lock_guard<std::mutex> lock(gInteractionMutex);
+        gInteractionPaused = paused;
+    }
+    if (!paused) {
+        gInteractionCondition.notify_all();
+    }
+    OH_LOG_Print(
+        LOG_APP,
+        LOG_INFO,
+        0x0,
+        "NextESuperResolution",
+        "foreground interaction pause=%{public}d",
+        paused ? 1 : 0);
+}
+
+bool WaitUntilInferenceAllowed(UpscaleTask &task)
+{
+    while (true) {
+        {
+            std::unique_lock<std::mutex> lock(gInteractionMutex);
+            if (!gInteractionPaused) {
+                break;
+            }
+            gInteractionCondition.wait_for(lock, std::chrono::milliseconds(16));
+        }
+        if (!EnsureRequestActive(task)) {
+            return false;
+        }
+    }
+    return EnsureRequestActive(task);
+}
+
 uint8_t ToByte(float value)
 {
     const float scaled = value * 255.0f + 0.5f;
@@ -179,17 +290,20 @@ bool ValidateTask(UpscaleTask &task)
 ncnn::Net *PrepareNet(UpscaleTask &task, bool useVulkan)
 {
     const std::string key = task.paramPath + "|" + task.modelPath + "|" +
-        (useVulkan ? "vulkan" : "cpu") + "|" + std::to_string(task.threads);
+        (useVulkan ? "vulkan" : "cpu") + "|" + std::to_string(task.threads) + "|" +
+        std::to_string(static_cast<int>(task.modelKind));
     if (gCachedNet != nullptr && gCachedNetKey == key) {
+        task.modelLoadMs = 0;
         return gCachedNet.get();
     }
 
+    const SteadyClock::time_point startedAt = SteadyClock::now();
     auto net = std::make_unique<ncnn::Net>();
     net->opt.num_threads = task.threads;
     net->opt.use_vulkan_compute = useVulkan;
     net->opt.use_fp16_packed = true;
     net->opt.use_fp16_storage = true;
-    net->opt.use_fp16_arithmetic = false;
+    net->opt.use_fp16_arithmetic = true;
     net->opt.use_int8_storage = true;
     if (useVulkan) {
         net->set_vulkan_device(0);
@@ -202,8 +316,53 @@ ncnn::Net *PrepareNet(UpscaleTask &task, bool useVulkan)
         task.error = "failed to load ncnn model file";
         return nullptr;
     }
+
+    std::unique_ptr<ncnn::Pipeline> preprocessPipeline;
+    std::unique_ptr<ncnn::Pipeline> postprocessPipeline;
+    if (useVulkan) {
+        static std::vector<uint32_t> preprocessSpirv;
+        static std::vector<uint32_t> postprocessSpirv;
+        if (preprocessSpirv.empty() && ncnn::compile_spirv_module(
+                kReaderSuperResolutionPreprocessShader,
+                net->opt,
+                preprocessSpirv) != 0) {
+            task.error = "failed to compile super-resolution Vulkan preprocessing shader";
+            return nullptr;
+        }
+        if (postprocessSpirv.empty() && ncnn::compile_spirv_module(
+                kReaderSuperResolutionPostprocessShader,
+                net->opt,
+                postprocessSpirv) != 0) {
+            task.error = "failed to compile super-resolution Vulkan postprocessing shader";
+            return nullptr;
+        }
+        std::vector<ncnn::vk_specialization_type> specializations(2);
+        specializations[0].i = 0;
+        specializations[1].i = task.modelKind == ModelKind::RealEsrgan ? 1 : 0;
+        preprocessPipeline = std::make_unique<ncnn::Pipeline>(net->vulkan_device());
+        postprocessPipeline = std::make_unique<ncnn::Pipeline>(net->vulkan_device());
+        const int localSize = task.modelKind == ModelKind::RealEsrgan ? 32 : 8;
+        preprocessPipeline->set_optimal_local_size_xyz(localSize, localSize, 3);
+        postprocessPipeline->set_optimal_local_size_xyz(localSize, localSize, 4);
+        if (preprocessPipeline->create(
+                preprocessSpirv.data(),
+                preprocessSpirv.size() * sizeof(uint32_t),
+                specializations) != 0 ||
+            postprocessPipeline->create(
+                postprocessSpirv.data(),
+                postprocessSpirv.size() * sizeof(uint32_t),
+                specializations) != 0) {
+            task.error = "failed to create super-resolution Vulkan preprocessing pipeline";
+            return nullptr;
+        }
+    }
+
+    ResetCachedRuntime();
     gCachedNet = std::move(net);
+    gCachedPreprocessPipeline = std::move(preprocessPipeline);
+    gCachedPostprocessPipeline = std::move(postprocessPipeline);
     gCachedNetKey = key;
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
     return gCachedNet.get();
 }
 
@@ -238,6 +397,189 @@ ncnn::Mat NormalizedRgbaRoi(
     return normalized;
 }
 
+bool RunVulkan(UpscaleTask &task, ncnn::Net &net)
+{
+    if (gCachedPreprocessPipeline == nullptr || gCachedPostprocessPipeline == nullptr ||
+        net.vulkan_device() == nullptr) {
+        task.error = "super-resolution Vulkan pipelines are unavailable";
+        return false;
+    }
+
+    const ncnn::VulkanDevice *device = net.vulkan_device();
+    ncnn::VkAllocator *blobAllocator = device->acquire_blob_allocator();
+    ncnn::VkAllocator *stagingAllocator = device->acquire_staging_allocator();
+    ncnn::Option option = net.opt;
+    option.blob_vkallocator = blobAllocator;
+    option.workspace_vkallocator = blobAllocator;
+    option.staging_vkallocator = stagingAllocator;
+
+    const bool success = [&]() -> bool {
+        const int outputWidth = task.width * kScale;
+        const int outputHeight = task.height * kScale;
+        task.output.assign(static_cast<size_t>(outputWidth) * outputHeight * 4, 255);
+
+        ncnn::VkCompute command(device);
+        ncnn::Mat sourceBytes(
+            static_cast<int>(task.input.size()),
+            task.input.data(),
+            static_cast<size_t>(1u),
+            1);
+        ncnn::VkMat sourceGpu;
+        command.record_clone(sourceBytes, sourceGpu, option);
+        command.submit_and_wait();
+        command.reset();
+
+        ncnn::VkMat outputGpu;
+        outputGpu.create(
+            outputWidth,
+            outputHeight,
+            static_cast<size_t>(4u),
+            1,
+            blobAllocator);
+        if (sourceGpu.empty() || outputGpu.empty()) {
+            task.error = "failed to allocate super-resolution Vulkan image buffers";
+            return false;
+        }
+
+        const int xTiles = (task.width + task.tileSize - 1) / task.tileSize;
+        const int yTiles = (task.height + task.tileSize - 1) / task.tileSize;
+        const size_t tileElementSize = option.use_fp16_storage ? 2u : 4u;
+        for (int tileY = 0; tileY < yTiles; ++tileY) {
+            const int inputY = tileY * task.tileSize;
+            const int tileHeight = std::min(inputY + task.tileSize, task.height) - inputY;
+            const int paddingBottom = task.modelKind == ModelKind::RealEsrgan
+                ? task.prepadding + (tileHeight % 2)
+                : task.prepadding + ((tileHeight + 1) / 2 * 2) - tileHeight;
+            const int paddedHeight = tileHeight + task.prepadding + paddingBottom;
+
+            for (int tileX = 0; tileX < xTiles; ++tileX) {
+                if (!WaitUntilInferenceAllowed(task)) {
+                    return false;
+                }
+                const int inputX = tileX * task.tileSize;
+                const int tileWidth = std::min(inputX + task.tileSize, task.width) - inputX;
+                const int paddingRight = task.modelKind == ModelKind::RealEsrgan
+                    ? task.prepadding + (tileWidth % 2)
+                    : task.prepadding + ((tileWidth + 1) / 2 * 2) - tileWidth;
+                const int paddedWidth = tileWidth + task.prepadding + paddingRight;
+
+                ncnn::VkMat inputTileGpu;
+                inputTileGpu.create(
+                    paddedWidth,
+                    paddedHeight,
+                    3,
+                    tileElementSize,
+                    1,
+                    blobAllocator);
+                if (inputTileGpu.empty()) {
+                    task.error = "failed to allocate super-resolution Vulkan input tile";
+                    return false;
+                }
+                std::vector<ncnn::VkMat> preprocessBindings(2);
+                preprocessBindings[0] = sourceGpu;
+                preprocessBindings[1] = inputTileGpu;
+                std::vector<ncnn::vk_constant_type> preprocessConstants(11);
+                preprocessConstants[0].i = task.width;
+                preprocessConstants[1].i = task.height;
+                preprocessConstants[2].i = task.stride;
+                preprocessConstants[3].i = inputTileGpu.w;
+                preprocessConstants[4].i = inputTileGpu.h;
+                preprocessConstants[5].i = inputTileGpu.cstep;
+                preprocessConstants[6].i = task.prepadding;
+                preprocessConstants[7].i = task.prepadding;
+                preprocessConstants[8].i = inputX;
+                preprocessConstants[9].i = inputY;
+                preprocessConstants[10].i = 4;
+                ncnn::VkMat preprocessDispatcher;
+                preprocessDispatcher.w = inputTileGpu.w;
+                preprocessDispatcher.h = inputTileGpu.h;
+                preprocessDispatcher.c = 3;
+                command.record_pipeline(
+                    gCachedPreprocessPipeline.get(),
+                    preprocessBindings,
+                    preprocessConstants,
+                    preprocessDispatcher);
+
+                ncnn::Extractor extractor = net.create_extractor();
+                extractor.set_blob_vkallocator(blobAllocator);
+                extractor.set_workspace_vkallocator(blobAllocator);
+                extractor.set_staging_vkallocator(stagingAllocator);
+                if (extractor.input(task.inputName.c_str(), inputTileGpu) != 0) {
+                    task.error = "super-resolution model rejected the Vulkan input tile";
+                    return false;
+                }
+                ncnn::VkMat outputTileGpu;
+                if (extractor.extract(task.outputName.c_str(), outputTileGpu, command) != 0) {
+                    task.error = "super-resolution model failed to infer the Vulkan output tile";
+                    return false;
+                }
+
+                const int writeWidth = tileWidth * kScale;
+                const int writeHeight = tileHeight * kScale;
+                const int crop = task.modelKind == ModelKind::RealEsrgan
+                    ? task.prepadding * kScale
+                    : 0;
+                if (outputTileGpu.w < crop + writeWidth ||
+                    outputTileGpu.h < crop + writeHeight) {
+                    task.error = "super-resolution Vulkan output tile has an unexpected shape";
+                    return false;
+                }
+                std::vector<ncnn::VkMat> postprocessBindings(2);
+                postprocessBindings[0] = outputTileGpu;
+                postprocessBindings[1] = outputGpu;
+                std::vector<ncnn::vk_constant_type> postprocessConstants(12);
+                postprocessConstants[0].i = outputTileGpu.w;
+                postprocessConstants[1].i = outputTileGpu.h;
+                postprocessConstants[2].i = outputTileGpu.cstep;
+                postprocessConstants[3].i = outputWidth;
+                postprocessConstants[4].i = outputHeight;
+                postprocessConstants[5].i = inputX * kScale;
+                postprocessConstants[6].i = inputY * kScale;
+                postprocessConstants[7].i = writeWidth;
+                postprocessConstants[8].i = writeHeight;
+                postprocessConstants[9].i = crop;
+                postprocessConstants[10].i = crop;
+                postprocessConstants[11].i = 4;
+                ncnn::VkMat postprocessDispatcher;
+                postprocessDispatcher.w = writeWidth;
+                postprocessDispatcher.h = writeHeight;
+                postprocessDispatcher.c = 4;
+                command.record_pipeline(
+                    gCachedPostprocessPipeline.get(),
+                    postprocessBindings,
+                    postprocessConstants,
+                    postprocessDispatcher);
+                command.submit_and_wait();
+                command.reset();
+
+                if (!EnsureRequestActive(task)) {
+                    return false;
+                }
+                // One tile is the cancellation and GPU scheduling quantum. Leave a short gap so
+                // RenderService can submit foreground composition work between inference tiles.
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+
+        if (!WaitUntilInferenceAllowed(task)) {
+            return false;
+        }
+        ncnn::Mat outputBytes(
+            outputWidth,
+            outputHeight,
+            task.output.data(),
+            static_cast<size_t>(4u),
+            1);
+        command.record_clone(outputGpu, outputBytes, option);
+        command.submit_and_wait();
+        return EnsureRequestActive(task);
+    }();
+
+    device->reclaim_blob_allocator(blobAllocator);
+    device->reclaim_staging_allocator(stagingAllocator);
+    return success;
+}
+
 bool RunWaifu2x(UpscaleTask &task, ncnn::Net &net)
 {
     const int outputWidth = task.width * kScale;
@@ -256,6 +598,9 @@ bool RunWaifu2x(UpscaleTask &task, ncnn::Net &net)
             std::min((tileY + 1) * task.tileSize + paddingBottom, task.height);
 
         for (int tileX = 0; tileX < xTiles; ++tileX) {
+            if (!WaitUntilInferenceAllowed(task)) {
+                return false;
+            }
             const int tileWidth =
                 std::min((tileX + 1) * task.tileSize, task.width) - tileX * task.tileSize;
             int paddingRight = task.prepadding;
@@ -299,6 +644,9 @@ bool RunWaifu2x(UpscaleTask &task, ncnn::Net &net)
             ncnn::Mat outputTile;
             if (extractor.extract(task.outputName.c_str(), outputTile) != 0) {
                 task.error = "waifu2x failed to infer the output tile";
+                return false;
+            }
+            if (!WaitUntilInferenceAllowed(task)) {
                 return false;
             }
             const int expectedWidth = tileWidth * kScale;
@@ -346,6 +694,9 @@ bool RunRealEsrgan(UpscaleTask &task, ncnn::Net &net)
             std::max(outputInputY0 + tileHeight + paddingBottom - task.height, 0);
 
         for (int tileX = 0; tileX < xTiles; ++tileX) {
+            if (!WaitUntilInferenceAllowed(task)) {
+                return false;
+            }
             const int outputInputX0 = tileX * task.tileSize;
             const int tileWidth = std::min(outputInputX0 + task.tileSize, task.width) - outputInputX0;
             const int paddingRight = task.prepadding + (tileWidth % 2);
@@ -387,6 +738,9 @@ bool RunRealEsrgan(UpscaleTask &task, ncnn::Net &net)
                 task.error = "Real-ESRGAN failed to infer the output tile";
                 return false;
             }
+            if (!EnsureRequestActive(task)) {
+                return false;
+            }
             const int expectedWidth = tileWidth * kScale;
             const int expectedHeight = tileHeight * kScale;
             const int sourceX = task.prepadding * kScale;
@@ -422,12 +776,17 @@ bool RunWithBackend(UpscaleTask &task, bool useVulkan)
     if (net == nullptr) {
         return false;
     }
-    const bool success = task.modelKind == ModelKind::RealEsrgan
-        ? RunRealEsrgan(task, *net)
-        : RunWaifu2x(task, *net);
+    const SteadyClock::time_point inferenceStartedAt = SteadyClock::now();
+    const bool success = useVulkan
+        ? RunVulkan(task, *net)
+        : (task.modelKind == ModelKind::RealEsrgan
+            ? RunRealEsrgan(task, *net)
+            : RunWaifu2x(task, *net));
+    task.inferenceMs = ElapsedMilliseconds(inferenceStartedAt);
     if (!success) {
-        gCachedNet.reset();
-        gCachedNetKey.clear();
+        if (!task.cancelled) {
+            ResetCachedRuntime();
+        }
         return false;
     }
     task.backend = useVulkan ? "vulkan" : "cpu";
@@ -439,7 +798,13 @@ bool RunUpscale(UpscaleTask &task)
     if (!ValidateTask(task)) {
         return false;
     }
+    if (!EnsureRequestActive(task)) {
+        return false;
+    }
     std::lock_guard<std::mutex> lock(gInferenceMutex);
+    if (!EnsureRequestActive(task)) {
+        return false;
+    }
     const bool canUseVulkan = VulkanAvailable();
     if (task.backendPreference == BackendPreference::Vulkan && !canUseVulkan) {
         task.error = "Vulkan backend is unavailable";
@@ -448,6 +813,9 @@ bool RunUpscale(UpscaleTask &task)
     const bool tryVulkan = task.backendPreference != BackendPreference::Cpu && canUseVulkan;
     if (tryVulkan && RunWithBackend(task, true)) {
         return true;
+    }
+    if (task.cancelled) {
+        return false;
     }
     if (task.backendPreference == BackendPreference::Vulkan) {
         return false;
@@ -471,6 +839,9 @@ void ExecuteUpscale(napi_env env, void *data)
     (void)env;
     auto *task = static_cast<UpscaleTask *>(data);
     RunUpscale(*task);
+    // The N-API completion callback runs on the ArkTS thread. Release the multi-megabyte source
+    // copy here so cancellation cannot turn buffer destruction into a foreground input stall.
+    std::vector<uint8_t>().swap(task->input);
 }
 
 napi_value StringValue(napi_env env, const std::string &value)
@@ -480,20 +851,42 @@ napi_value StringValue(napi_env env, const std::string &value)
     return result;
 }
 
+napi_value Int64Value(napi_env env, int64_t value)
+{
+    napi_value result = nullptr;
+    napi_create_int64(env, value, &result);
+    return result;
+}
+
+void FinalizeOutputBuffer(napi_env env, void *data, void *hint)
+{
+    (void)env;
+    (void)data;
+    delete static_cast<std::vector<uint8_t> *>(hint);
+}
+
 void CompleteUpscale(napi_env env, napi_status status, void *data)
 {
     auto *task = static_cast<UpscaleTask *>(data);
     if (status == napi_ok && task->error.empty()) {
-        void *outputData = nullptr;
         napi_value outputBuffer = nullptr;
         napi_value result = nullptr;
-        if (napi_create_arraybuffer(env, task->output.size(), &outputData, &outputBuffer) == napi_ok &&
-            napi_create_object(env, &result) == napi_ok) {
-            std::memcpy(outputData, task->output.data(), task->output.size());
+        auto *output = new std::vector<uint8_t>(std::move(task->output));
+        if (napi_create_object(env, &result) == napi_ok &&
+            napi_create_external_arraybuffer(
+                env,
+                output->data(),
+                output->size(),
+                FinalizeOutputBuffer,
+                output,
+                &outputBuffer) == napi_ok) {
             napi_set_named_property(env, result, "pixels", outputBuffer);
             napi_set_named_property(env, result, "backend", StringValue(env, task->backend));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
             napi_resolve_deferred(env, task->deferred, result);
         } else {
+            delete output;
             task->error = "failed to allocate JavaScript output";
         }
     }
@@ -506,21 +899,57 @@ void CompleteUpscale(napi_env env, napi_status status, void *data)
         napi_reject_deferred(env, task->deferred, error);
     }
     napi_delete_async_work(env, task->work);
+    SetRequestActiveState(task->requestId, true);
     delete task;
+}
+
+napi_value SetRequestActive(napi_env env, napi_callback_info info)
+{
+    size_t argc = 2;
+    napi_value argv[2] = {nullptr};
+    int64_t requestId = 0;
+    bool active = false;
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 2 ||
+        !GetInt64(env, argv[0], requestId) || requestId <= 0 ||
+        napi_get_value_bool(env, argv[1], &active) != napi_ok) {
+        napi_throw_type_error(env, nullptr, "setRequestActive expects a positive request ID and boolean state");
+        return nullptr;
+    }
+    SetRequestActiveState(static_cast<uint64_t>(requestId), active);
+    napi_value result = nullptr;
+    napi_get_undefined(env, &result);
+    return result;
+}
+
+napi_value SetInteractionPaused(napi_env env, napi_callback_info info)
+{
+    size_t argc = 1;
+    napi_value argv[1] = {nullptr};
+    bool paused = false;
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 1 ||
+        napi_get_value_bool(env, argv[0], &paused) != napi_ok) {
+        napi_throw_type_error(env, nullptr, "setInteractionPaused expects a boolean state");
+        return nullptr;
+    }
+    SetInteractionPausedState(paused);
+    napi_value result = nullptr;
+    napi_get_undefined(env, &result);
+    return result;
 }
 
 napi_value UpscaleRgba(napi_env env, napi_callback_info info)
 {
-    size_t argc = 13;
-    napi_value argv[13] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 13) {
-        napi_throw_type_error(env, nullptr, "upscaleRgba expects 13 arguments");
+    size_t argc = 14;
+    napi_value argv[14] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 14) {
+        napi_throw_type_error(env, nullptr, "upscaleRgba expects 14 arguments");
         return nullptr;
     }
 
     auto *task = new UpscaleTask();
     int modelKind = 0;
     int backendPreference = 0;
+    int64_t requestId = 0;
     if (!GetBytes(env, argv[0], task->input) ||
         !GetInt(env, argv[1], task->width) ||
         !GetInt(env, argv[2], task->height) ||
@@ -530,6 +959,8 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[8], task->tileSize) ||
         !GetInt(env, argv[9], task->prepadding) ||
         !GetInt(env, argv[10], task->threads) ||
+        !GetInt64(env, argv[13], requestId) ||
+        requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
         modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
@@ -540,6 +971,7 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
     }
     task->modelKind = static_cast<ModelKind>(modelKind);
     task->backendPreference = static_cast<BackendPreference>(backendPreference);
+    task->requestId = static_cast<uint64_t>(requestId);
     task->paramPath = GetString(env, argv[4]);
     task->modelPath = GetString(env, argv[5]);
     task->inputName = GetString(env, argv[11]);
@@ -596,6 +1028,8 @@ static napi_value Init(napi_env env, napi_value exports)
 {
     napi_property_descriptor descriptors[] = {
         {"upscaleRgba", nullptr, UpscaleRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCapabilities", nullptr, GetCapabilities, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
