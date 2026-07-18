@@ -3133,6 +3133,30 @@
       "value": "モデルを削除しました"
     },
     {
+      "name": "settings_reader_super_resolution_scope_scans_photos",
+      "value": "スキャン/写真"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_illustrations",
+      "value": "漫画/イラスト"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_animation_comics",
+      "value": "アニメ/漫画"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_detail",
+      "value": "漫画/細部強調"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_conservative",
+      "value": "漫画/控えめ補正"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_photos_textures",
+      "value": "写真/複雑な質感"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "オフ"
     },

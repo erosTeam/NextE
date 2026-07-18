@@ -26,6 +26,8 @@ export class ReaderSuperResolutionModelDefinition {
   threads: number = 2
   inputName: string = 'Input1'
   outputName: string = 'Eltwise4'
+  usageScopeStringKey: string = ''
+  reference800pElapsedMs: number = 0
 
   bytes(): number {
     return this.paramBytes + this.modelBytes
@@ -62,6 +64,8 @@ function waifu2xDefinition(
   paramSha256: string,
   modelSha256: string,
   prepadding: number,
+  usageScopeStringKey: string,
+  reference800pElapsedMs: number,
 ): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
@@ -85,6 +89,8 @@ function waifu2xDefinition(
   )
   definition.pipelineVersion = `waifu2x-${WAIFU2X_REVISION}-${directoryName}`
   definition.prepadding = prepadding
+  definition.usageScopeStringKey = usageScopeStringKey
+  definition.reference800pElapsedMs = reference800pElapsedMs
   return definition
 }
 
@@ -113,6 +119,8 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   definition.prepadding = 18
   definition.inputName = 'in0'
   definition.outputName = 'out0'
+  definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_comics_conservative'
+  definition.reference800pElapsedMs = 11598
   return definition
 }
 
@@ -144,6 +152,8 @@ function realEsrganAnimeDefinition(): ReaderSuperResolutionModelDefinition {
   definition.threads = 4
   definition.inputName = 'data'
   definition.outputName = 'output'
+  definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_animation_comics'
+  definition.reference800pElapsedMs = 10597
   return definition
 }
 
@@ -166,6 +176,8 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   definition.threads = 4
   definition.inputName = 'input'
   definition.outputName = 'output'
+  definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_photos_textures'
+  definition.reference800pElapsedMs = 88766
   return definition
 }
 
@@ -179,6 +191,8 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
     '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
     'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673',
     7,
+    'settings_reader_super_resolution_scope_scans_photos',
+    6605,
   ),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X,
@@ -189,6 +203,8 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
     '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
     'e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189',
     7,
+    'settings_reader_super_resolution_scope_comics_illustrations',
+    7643,
   ),
   realEsrganAnimeDefinition(),
   waifu2xDefinition(
@@ -200,6 +216,8 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
     'ccc3b2f1c9fad829ecdda40cac8dc853fcddf14917170efba888b256fbf9074a',
     '5329a9375c9cfb64a60a2903fd8ae6e2851d9b069556bf025dbab9d0216fb27c',
     18,
+    'settings_reader_super_resolution_scope_comics_detail',
+    11882,
   ),
   realCuganDefinition(),
   realEsrganPhotoDefinition(),

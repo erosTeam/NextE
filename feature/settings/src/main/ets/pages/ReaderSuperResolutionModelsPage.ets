@@ -113,6 +113,13 @@ export struct ReaderSuperResolutionModelsPage {
     }
   }
 
+  private modelSubtitle(definition: ReaderSuperResolutionModelDefinition): string {
+    const scope: string = AppStrings.get(definition.usageScopeStringKey)
+    const seconds: string = (definition.reference800pElapsedMs / 1000).toFixed(1)
+    const megabytes: string = (definition.bytes() / (1024 * 1024)).toFixed(1)
+    return `${scope} · 800p ~${seconds}s · ${megabytes} MB`
+  }
+
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {
     if (state.installed || state.downloading) {
       return
@@ -219,7 +226,7 @@ export struct ReaderSuperResolutionModelsPage {
   private ModelRow(state: ReaderSuperResolutionModelFileState) {
     ConciseListRow({
       title: this.modelTitle(state.definition.id),
-      subtitle: `${(state.definition.bytes() / (1024 * 1024)).toFixed(1)} MB`,
+      subtitle: this.modelSubtitle(state.definition),
       showChevron: false,
       suffixPaddingRight: 0,
       suffixBuilderParam: () => {

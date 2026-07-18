@@ -3133,6 +3133,30 @@
       "value": "Model deleted"
     },
     {
+      "name": "settings_reader_super_resolution_scope_scans_photos",
+      "value": "Scans/photos"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_illustrations",
+      "value": "Comics/illustrations"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_animation_comics",
+      "value": "Animation/comics"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_detail",
+      "value": "Detailed line art"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_conservative",
+      "value": "Conservative comic enhancement"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_photos_textures",
+      "value": "Photos/complex textures"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "Off"
     },

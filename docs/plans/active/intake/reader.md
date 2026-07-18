@@ -61,6 +61,34 @@ Candidate boundary:
 - SwinIR, HAT, and OmniSR require a separately validated mobile graph/runtime and are not allowed to
   appear as nonfunctional placeholders.
 
+Model subtitle extension grounding, 2026-07-19:
+
+1. `eros_fe` has no local super-resolution model-file manager. This extension therefore stays inside
+   NextE's existing `ReaderSuperResolutionModelsPage.ModelRow` and reuses the established
+   `ConciseListRow` model-management pattern rather than inventing an Aidoku-style screen.
+2. The model name remains the primary row information. The first scan should distinguish the six
+   technical model identities; applicability, one representative 800p reference time, and file size
+   remain one subordinate line.
+3. Download/delete remains the only row action and keeps its existing icon weight. The subtitle is
+   informational only; it does not become a picker, badge, selected state, or hit target.
+4. The usable loop is model-management entry -> compare scope/performance/size -> download or delete ->
+   return to the existing installed-model selector. This extension does not change enablement,
+   selection, download state, routing, or the same-panel transition.
+5. HarmonyOS expression remains the existing HDS/project list stack: `GroupedListSection`,
+   `ConciseListRow.subtitle`, native `SymbolGlyph`, and `LoadingProgress`; no custom-drawn component or
+   extra control is introduced.
+
+Model subtitle validation, 2026-07-19:
+
+- Device selector `103` resolved live to `192.168.50.103:12345`. The signed HAP was installed and the
+  full-screen user path `Settings -> Reader -> Model management` displayed all six rows with one-line
+  `scope · 800p reference · size` subtitles. The longest model titles and subtitles remained intact,
+  and every existing download/delete symbol retained its trailing action space. Evidence:
+  `.hvigor/outputs/reader-super-resolution-model-subtitles-20260719/03-model-management/`.
+- The signed application build passed, the V1 decorator inventory reported `0 file(s)`, i18n parity
+  reported identical keys across all four locales, and `git diff --check` passed. This lane did not
+  change selection, model download state, routing, or the Reader-sheet same-panel transition.
+
 Acceptance:
 
 - Settings > Reader opens the routed management destination and returns through the normal app stack.

@@ -3133,6 +3133,30 @@
       "value": "模型已删除"
     },
     {
+      "name": "settings_reader_super_resolution_scope_scans_photos",
+      "value": "扫描图/照片"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_illustrations",
+      "value": "漫画/插画"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_animation_comics",
+      "value": "动画/漫画"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_detail",
+      "value": "漫画/细节强化"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_comics_conservative",
+      "value": "漫画/保守增强"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_photos_textures",
+      "value": "照片/复杂纹理"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "关闭"
     },
