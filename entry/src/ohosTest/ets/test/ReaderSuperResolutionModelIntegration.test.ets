@@ -20,11 +20,20 @@ const READER_SIZED_INPUT_WIDTH: number = 1280
 const READER_SIZED_INPUT_HEIGHT: number = 1837
 const CANCELLATION_INPUT_WIDTH: number = 640
 const CANCELLATION_INPUT_HEIGHT: number = 900
+const BENCHMARK_INPUT_WIDTH: number = 800
+const BENCHMARK_INPUT_HEIGHT: number = 1149
 
 function integrationEnabled(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
   return parameters['-s superResolutionIntegration'] === 'true'
+}
+
+function benchmarkModel(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionBenchmarkModel'] ??
+    ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
 }
 
 async function appContext(): Promise<common.UIAbilityContext> {
@@ -344,6 +353,64 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         } catch (_error) {}
         try {
           fileIo.unlinkSync(currentSourcePath)
+        } catch (_error) {}
+      }
+      done()
+    })
+
+    it('benchmarksReaderSizedSelectedModel', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const model: string = benchmarkModel()
+      const sourcePath: string =
+        context.cacheDir + '/reader-super-resolution-benchmark-input.jpg'
+      const previousEnabled: boolean = connectReadMode().superResolutionEnabled
+      const previousModel: string = connectReadMode().superResolutionModel
+      const previousBackend: string = connectReadMode().superResolutionBackend
+      const previousMaxHeight: number = connectReadMode().superResolutionMaxHeight
+      try {
+        await ReaderSuperResolutionService.clear(context)
+        await ReaderSuperResolutionModelService.install(context, model)
+        connectReadMode().superResolutionEnabled = true
+        connectReadMode().superResolutionModel = model
+        connectReadMode().superResolutionBackend = ReaderSuperResolutionBackend.VULKAN
+        connectReadMode().superResolutionMaxHeight = 2000
+        await writeTestImage(sourcePath, BENCHMARK_INPUT_WIDTH, BENCHMARK_INPUT_HEIGHT)
+        const preparationStartedAt: number = Date.now()
+        await ReaderSuperResolutionService.prepareSelectedModel(context)
+        const preparationElapsedMs: number = Date.now() - preparationStartedAt
+        const result: ReaderSuperResolutionResult =
+          await ReaderSuperResolutionService.process(
+            context,
+            sourcePath,
+            `ohos-test-reader-benchmark-${model}`,
+          )
+        console.info(
+          'ReaderSuperResolutionBenchmark model=' + model +
+            ' source=' + BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+            ' preparationElapsedMs=' + preparationElapsedMs +
+            ' processElapsedMs=' + result.elapsedMs +
+            ' backend=' + result.backend +
+            ' reason=' + result.reason,
+        )
+        expect(result.applied).assertEqual(true)
+        expect(result.sourceWidth).assertEqual(BENCHMARK_INPUT_WIDTH)
+        expect(result.sourceHeight).assertEqual(BENCHMARK_INPUT_HEIGHT)
+        expect(result.outputWidth).assertEqual(BENCHMARK_INPUT_WIDTH * 2)
+        expect(result.outputHeight).assertEqual(BENCHMARK_INPUT_HEIGHT * 2)
+        expect(result.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+        expect(fileIo.accessSync(result.filePath)).assertEqual(true)
+      } finally {
+        connectReadMode().superResolutionEnabled = previousEnabled
+        connectReadMode().superResolutionModel = previousModel
+        connectReadMode().superResolutionBackend = previousBackend
+        connectReadMode().superResolutionMaxHeight = previousMaxHeight
+        await ReaderSuperResolutionService.clear(context)
+        try {
+          fileIo.unlinkSync(sourcePath)
         } catch (_error) {}
       }
       done()

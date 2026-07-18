@@ -170,8 +170,6 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
 }
 
 const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
-  realEsrganPhotoDefinition(),
-  realEsrganAnimeDefinition(),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
     'waifu2x-photo-noise0-2x-ncnn-v1',
@@ -192,6 +190,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
     'e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189',
     7,
   ),
+  realEsrganAnimeDefinition(),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X,
     'waifu2x-cunet-noise0-2x-ncnn-v1',
@@ -203,6 +202,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
     18,
   ),
   realCuganDefinition(),
+  realEsrganPhotoDefinition(),
 ]
 
 export class ReaderSuperResolutionModelRegistry {

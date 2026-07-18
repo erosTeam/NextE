@@ -150,6 +150,18 @@ Performance continuation, 2026-07-18:
   preparation. During the preparation interval, the only application actual frame above 16.67 ms was
   22.789 ms and its main-thread trace was `FlushDirtyNodeUpdate` / `Default DecodeInterceptor`; the
   native preparation worker remained on background QoS.
+- A repeatable ohosTest benchmark now accepts a selected registry model and processes the same
+  synthetic 800 x 1149 input after Vulkan preparation. All six runs passed on selector `103`. Native
+  inference / end-to-end process times were: waifu2x photo 4,611 / 6,605 ms; waifu2x art 4,616 /
+  7,643 ms; Real-ESRGAN animevideov3 8,832 / 10,597 ms; waifu2x CUNet 10,700 / 11,882 ms;
+  Real-CUGAN SE conservative 10,863 / 11,598 ms; Real-ESRGAN x2plus photo 87,987 / 88,766 ms.
+  Model-load preparation remained outside those process times and returned `modelLoadMs=0` during
+  every measured inference.
+- The downloadable registry and selected-model fallback order now put the two measured lightweight
+  waifu2x models first and the 88.8-second Real-ESRGAN x2plus path last. All six candidates remain
+  downloadable and selectable; the management rows keep their existing neutral name/size/action
+  presentation rather than adding benchmark prose to the UI. This latency matrix does not replace
+  real-page perceptual-quality comparison.
 
 ### Reader Display And Page-Turn Preferences
 
