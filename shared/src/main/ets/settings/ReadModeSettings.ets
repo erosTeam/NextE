@@ -84,7 +84,8 @@ export class ReadModeSettings {
   }
 
   private static normalizeSuperResolutionModel(model: string): string {
-    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
+    if (model === ReaderSuperResolutionModel.ESPCN_X2 ||
+      model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
       model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X ||
       model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X ||
       model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE ||

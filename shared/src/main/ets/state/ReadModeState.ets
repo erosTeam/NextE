@@ -39,6 +39,7 @@ export enum ReaderImageScalingQuality {
  */
 export enum ReaderSuperResolutionModel {
   NONE = 'none',
+  ESPCN_X2 = 'espcn2x',
   WAIFU2X_PHOTO_NOISE0_2X = 'waifu2xPhotoNoise0_2x',
   WAIFU2X_ART_NOISE0_2X = 'waifu2xArtNoise0_2x',
   WAIFU2X_CUNET_NOISE0_2X = 'waifu2xCunetNoise0_2x',

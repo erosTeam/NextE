@@ -53,11 +53,12 @@ State semantics:
 
 Candidate boundary:
 
-- First shared-ncnn registry set: Real-ESRGAN x2plus photo, Real-ESRGAN animevideov3 2x, waifu2x
-  photo noise0 2x, waifu2x art noise0 2x, waifu2x CUNet noise0 2x, and Real-CUGAN SE 2x conservative.
+- Shared-ncnn registry set: ESPCN 2x, Real-ESRGAN x2plus photo, Real-ESRGAN animevideov3 2x,
+  waifu2x photo noise0 2x, waifu2x art noise0 2x, waifu2x CUNet noise0 2x, and Real-CUGAN SE
+  2x conservative.
 - Anime4K remains a shader pipeline rather than a downloadable ncnn model.
-- IMDN, RFDN, ECBSR, FSRCNN, and ESPCN require audited converted weights and output contracts before
-  they can enter the downloadable registry.
+- IMDN, RFDN, ECBSR, and FSRCNN require audited converted weights and output contracts before they
+  can enter the downloadable registry.
 - SwinIR, HAT, and OmniSR require a separately validated mobile graph/runtime and are not allowed to
   appear as nonfunctional placeholders.
 
@@ -66,9 +67,10 @@ Model subtitle extension grounding, 2026-07-19:
 1. `eros_fe` has no local super-resolution model-file manager. This extension therefore stays inside
    NextE's existing `ReaderSuperResolutionModelsPage.ModelRow` and reuses the established
    `ConciseListRow` model-management pattern rather than inventing an Aidoku-style screen.
-2. The model name remains the primary row information. The first scan should distinguish the six
-   technical model identities; applicability, one representative 800p reference time, and file size
-   remain one subordinate line.
+2. The model name remains the primary row information. The first scan should distinguish the seven
+   technical model identities; applicability, a device-dependent 800p time tier, and file size remain
+   one subordinate line. Exact test seconds are evidence only and never presented as a portable
+   estimate across devices.
 3. Download/delete remains the only row action and keeps its existing icon weight. The subtitle is
    informational only; it does not become a picker, badge, selected state, or hit target.
 4. The usable loop is model-management entry -> compare scope/performance/size -> download or delete ->
@@ -179,17 +181,25 @@ Performance continuation, 2026-07-18:
   22.789 ms and its main-thread trace was `FlushDirtyNodeUpdate` / `Default DecodeInterceptor`; the
   native preparation worker remained on background QoS.
 - A repeatable ohosTest benchmark now accepts a selected registry model and processes the same
-  synthetic 800 x 1149 input after Vulkan preparation. All six runs passed on selector `103`. Native
+  synthetic 800 x 1149 input after Vulkan preparation. All six original registry runs passed on
+  selector `103`. Native
   inference / end-to-end process times were: waifu2x photo 4,611 / 6,605 ms; waifu2x art 4,616 /
   7,643 ms; Real-ESRGAN animevideov3 8,832 / 10,597 ms; waifu2x CUNet 10,700 / 11,882 ms;
   Real-CUGAN SE conservative 10,863 / 11,598 ms; Real-ESRGAN x2plus photo 87,987 / 88,766 ms.
   Model-load preparation remained outside those process times and returned `modelLoadMs=0` during
   every measured inference.
-- The downloadable registry and selected-model fallback order now put the two measured lightweight
-  waifu2x models first and the 88.8-second Real-ESRGAN x2plus path last. All six candidates remain
+- ESPCN 2x now enters the registry as the lightweight first option. Installation downloads the pinned
+  official Hailo Model Zoo ZIP, verifies the ZIP and ONNX hashes, deterministically converts the
+  three convolution tensors to the matching ncnn FP16 runtime pair, verifies the generated pair, and
+  removes the temporary ZIP/ONNX. Nothing is added to the application package; the installed runtime
+  pair is about 42 KB. Its full 800 x 1149 Reader process passed on selector `103` in the seconds tier;
+  after consolidating RGB reconstruction into one bilinear sample, the recorded run moved from
+  7,625 ms to 3,171 ms. Those exact figures remain device evidence only, while the management UI
+  reports `800p 数秒级`.
+- The downloadable registry and selected-model fallback order now put ESPCN and the two measured
+  lightweight waifu2x models first and the Real-ESRGAN x2plus path last. All seven candidates remain
   downloadable and selectable; the management rows keep their existing neutral name/size/action
-  presentation rather than adding benchmark prose to the UI. This latency matrix does not replace
-  real-page perceptual-quality comparison.
+  presentation. This latency matrix does not replace real-page perceptual-quality comparison.
 
 ### Reader Display And Page-Turn Preferences
 

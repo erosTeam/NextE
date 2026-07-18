@@ -5,6 +5,12 @@ import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   connectReadMode,
+  ReaderNativeBackendPreference,
+  ReaderNativeModelKind,
+  ReaderNativeSuperResolution,
+  ReaderNativeSuperResolutionConfig,
+  ReaderNativeSuperResolutionPrepareResult,
+  ReaderNativeSuperResolutionResult,
   ReaderSuperResolutionBackend,
   ReaderSuperResolutionModel,
   ReaderSuperResolutionModelService,
@@ -34,6 +40,43 @@ function benchmarkModel(): string {
     abilityDelegatorRegistry.getArguments().parameters
   return parameters['-s superResolutionBenchmarkModel'] ??
     ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
+}
+
+function externalLuminanceModelPaths(): string[] {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  const paramPath: string = parameters['-s superResolutionExternalParam'] ?? ''
+  const modelPath: string = parameters['-s superResolutionExternalModel'] ?? ''
+  return [paramPath, modelPath]
+}
+
+function benchmarkPixels(width: number, height: number): ArrayBuffer {
+  const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+  const pixels: Uint8Array = new Uint8Array(buffer)
+  for (let y: number = 0; y < height; y++) {
+    for (let x: number = 0; x < width; x++) {
+      const offset: number = (y * width + x) * 4
+      pixels[offset] = (x * 11 + y * 3) % 251
+      pixels[offset + 1] = (x * 5 + y * 7) % 241
+      pixels[offset + 2] = ((x / 8 | 0) + (y / 8 | 0)) % 2 === 0 ? 32 : 224
+      pixels[offset + 3] = 255
+    }
+  }
+  return buffer
+}
+
+function verifyRawOutputHasSignal(buffer: ArrayBuffer): void {
+  const pixels: Uint8Array = new Uint8Array(buffer)
+  let minimum: number = 255
+  let maximum: number = 0
+  for (let index: number = 0; index + 2 < pixels.length; index += 4) {
+    minimum = Math.min(minimum, pixels[index], pixels[index + 1], pixels[index + 2])
+    maximum = Math.max(maximum, pixels[index], pixels[index + 1], pixels[index + 2])
+  }
+  console.info(
+    'ReaderSuperResolutionExternalBenchmark outputSignal=' + minimum + '..' + maximum,
+  )
+  expect(maximum - minimum).assertLarger(16)
 }
 
 async function appContext(): Promise<common.UIAbilityContext> {
@@ -416,6 +459,65 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
+    it('benchmarksExternalLuminanceModel', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const modelPaths: string[] = externalLuminanceModelPaths()
+      const paramPath: string = modelPaths[0]
+      const modelPath: string = modelPaths[1]
+      if (paramPath.length === 0 || modelPath.length === 0) {
+        done()
+        return
+      }
+      expect(fileIo.accessSync(paramPath)).assertEqual(true)
+      expect(fileIo.accessSync(modelPath)).assertEqual(true)
+      const config: ReaderNativeSuperResolutionConfig =
+        new ReaderNativeSuperResolutionConfig()
+      config.modelKind = ReaderNativeModelKind.LUMINANCE
+      config.backendPreference = ReaderNativeBackendPreference.VULKAN
+      config.tileSize = 128
+      config.prepadding = 4
+      config.threads = 2
+      config.inputName = 'in0'
+      config.outputName = 'out0'
+      const startedAt: number = Date.now()
+      const prepared: ReaderNativeSuperResolutionPrepareResult =
+        await ReaderNativeSuperResolution.prepareModel(paramPath, modelPath, config)
+      const input: ArrayBuffer = benchmarkPixels(
+        BENCHMARK_INPUT_WIDTH,
+        BENCHMARK_INPUT_HEIGHT,
+      )
+      const result: ReaderNativeSuperResolutionResult =
+        await ReaderNativeSuperResolution.upscaleRgba(
+          input,
+          BENCHMARK_INPUT_WIDTH,
+          BENCHMARK_INPUT_HEIGHT,
+          BENCHMARK_INPUT_WIDTH * 4,
+          paramPath,
+          modelPath,
+          config,
+          900001,
+        )
+      const totalElapsedMs: number = Date.now() - startedAt
+      console.info(
+        'ReaderSuperResolutionExternalBenchmark source=' +
+          BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          ' preparationMs=' + prepared.modelLoadMs +
+          ' inferenceMs=' + result.inferenceMs +
+          ' totalElapsedMs=' + totalElapsedMs +
+          ' backend=' + result.backend,
+      )
+      expect(prepared.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+      expect(result.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+      expect(result.pixels.byteLength).assertEqual(
+        BENCHMARK_INPUT_WIDTH * 2 * BENCHMARK_INPUT_HEIGHT * 2 * 4,
+      )
+      verifyRawOutputHasSignal(result.pixels)
+      done()
+    })
+
     it('runsRealEsrganX2plusThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
@@ -424,6 +526,18 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       await verifyDownloadedModelThroughVulkan(
         ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS,
         'realesrgan-photo',
+      )
+      done()
+    })
+
+    it('runsEspcnThroughVulkan', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      await verifyDownloadedModelThroughVulkan(
+        ReaderSuperResolutionModel.ESPCN_X2,
+        'espcn',
       )
       done()
     })

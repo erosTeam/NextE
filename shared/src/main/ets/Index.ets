@@ -172,6 +172,14 @@ export {
   ReaderSuperResolutionModelRegistry,
 } from './services/ReaderSuperResolutionModelRegistry'
 export {
+  ReaderNativeBackendPreference,
+  ReaderNativeModelKind,
+  ReaderNativeSuperResolution,
+  ReaderNativeSuperResolutionConfig,
+  ReaderNativeSuperResolutionPrepareResult,
+  ReaderNativeSuperResolutionResult,
+} from './services/ReaderNativeSuperResolution'
+export {
   ReaderNnrtCapabilities,
   ReaderNnrtCapabilityProbe,
 } from './services/ReaderNnrtCapabilityProbe'

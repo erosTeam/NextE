@@ -4,6 +4,7 @@ import { ReaderNativeModelKind, ReaderNativeSuperResolutionConfig } from './Read
 export enum ReaderSuperResolutionInstallStrategy {
   DIRECT = 'direct',
   REAL_ESRGAN_X2PLUS_COMPAT = 'realEsrganX2plusCompat',
+  ESPCN_ONNX_ZIP = 'espcnOnnxZip',
 }
 
 /** Immutable runtime and download contract for one selectable local model. */
@@ -18,6 +19,9 @@ export class ReaderSuperResolutionModelDefinition {
   modelSha256: string = ''
   paramUrls: string[] = []
   modelUrls: string[] = []
+  packageBytes: number = 0
+  packageSha256: string = ''
+  packageUrls: string[] = []
   installStrategy: string = ReaderSuperResolutionInstallStrategy.DIRECT
   pipelineVersion: string = ''
   nativeModelKind: number = ReaderNativeModelKind.WAIFU2X
@@ -47,6 +51,37 @@ export class ReaderSuperResolutionModelDefinition {
 
 const WAIFU2X_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
 const REAL_CUGAN_REVISION: string = '395302c5c70f1bff604c974e92e0a87e45c9f9ee'
+
+function espcnDefinition(): ReaderSuperResolutionModelDefinition {
+  const definition: ReaderSuperResolutionModelDefinition =
+    new ReaderSuperResolutionModelDefinition()
+  definition.id = ReaderSuperResolutionModel.ESPCN_X2
+  definition.directoryName = 'espcn-2x-ncnn-v1'
+  definition.paramFileName = 'espcn_x2.ncnn.param'
+  definition.modelFileName = 'espcn_x2.ncnn.bin'
+  definition.paramBytes = 587
+  definition.modelBytes = 42780
+  definition.paramSha256 = 'f9a70c5588dc2377e301c61729e9e488e564cca268c1f4c8d01bf259a83dd72a'
+  definition.modelSha256 = '77d3889bbaf3db5748e87d216fc68c2107c7ca8d7ec1333e5158b566736af3c0'
+  definition.packageBytes = 80589
+  definition.packageSha256 = '11a286a0a761ec78a4f0ec17b905d2dbe12a19263e6315a25c08c6aaf983410c'
+  definition.packageUrls = [
+    'https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/SuperResolution/' +
+      'espcn/espcn_x2/2022-08-02/espcn_x2.zip',
+  ]
+  definition.installStrategy = ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP
+  definition.pipelineVersion = 'espcn-x2-hailo-onnx-20220802-ncnn-20260526'
+  definition.nativeModelKind = ReaderNativeModelKind.LUMINANCE
+  definition.tileSize = 128
+  definition.prepadding = 4
+  definition.threads = 2
+  definition.inputName = 'in0'
+  definition.outputName = 'out0'
+  definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_fast_general'
+  // Internal reference used only to select a device-dependent UI time tier.
+  definition.reference800pElapsedMs = 5000
+  return definition
+}
 
 function githubRawUrls(repository: string, revision: string, path: string): string[] {
   return [
@@ -182,6 +217,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
 }
 
 const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
+  espcnDefinition(),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
     'waifu2x-photo-noise0-2x-ncnn-v1',

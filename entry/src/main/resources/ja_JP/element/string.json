@@ -3157,8 +3157,28 @@
       "value": "写真/複雑な質感"
     },
     {
+      "name": "settings_reader_super_resolution_performance_seconds",
+      "value": "800p 数秒級"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_fast_general",
+      "value": "高速な汎用/軽めの補正"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_tens_seconds",
+      "value": "800p 10秒級"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_minutes",
+      "value": "800p 分単位"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "オフ"
+    },
+    {
+      "name": "settings_reader_super_resolution_espcn_2x",
+      "value": "ESPCN (2x)"
     },
     {
       "name": "settings_reader_super_resolution_realesrgan_x2plus",

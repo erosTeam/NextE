@@ -3157,8 +3157,28 @@
       "value": "Photos/complex textures"
     },
     {
+      "name": "settings_reader_super_resolution_performance_seconds",
+      "value": "800p: seconds"
+    },
+    {
+      "name": "settings_reader_super_resolution_scope_fast_general",
+      "value": "Fast general use/light enhancement"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_tens_seconds",
+      "value": "800p: tens of seconds"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_minutes",
+      "value": "800p: minutes"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "Off"
+    },
+    {
+      "name": "settings_reader_super_resolution_espcn_2x",
+      "value": "ESPCN (2x)"
     },
     {
       "name": "settings_reader_super_resolution_realesrgan_x2plus",

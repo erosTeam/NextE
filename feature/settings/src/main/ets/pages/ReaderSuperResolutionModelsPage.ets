@@ -70,6 +70,9 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private modelTitle(model: string): ResourceStr {
+    if (model === ReaderSuperResolutionModel.ESPCN_X2) {
+      return $r('app.string.settings_reader_super_resolution_espcn_2x')
+    }
     if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
       return $r('app.string.settings_reader_super_resolution_realesrgan_x2plus')
     }
@@ -89,6 +92,9 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private modelTitleText(model: string): string {
+    if (model === ReaderSuperResolutionModel.ESPCN_X2) {
+      return AppStrings.get('settings_reader_super_resolution_espcn_2x')
+    }
     if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
       return AppStrings.get('settings_reader_super_resolution_realesrgan_x2plus')
     }
@@ -115,9 +121,18 @@ export struct ReaderSuperResolutionModelsPage {
 
   private modelSubtitle(definition: ReaderSuperResolutionModelDefinition): string {
     const scope: string = AppStrings.get(definition.usageScopeStringKey)
-    const seconds: string = (definition.reference800pElapsedMs / 1000).toFixed(1)
-    const megabytes: string = (definition.bytes() / (1024 * 1024)).toFixed(1)
-    return `${scope} · 800p ~${seconds}s · ${megabytes} MB`
+    let performanceKey: string = 'settings_reader_super_resolution_performance_seconds'
+    if (definition.reference800pElapsedMs >= 60000) {
+      performanceKey = 'settings_reader_super_resolution_performance_minutes'
+    } else if (definition.reference800pElapsedMs >= 10000) {
+      performanceKey = 'settings_reader_super_resolution_performance_tens_seconds'
+    }
+    const performance: string = AppStrings.get(performanceKey)
+    const bytes: number = definition.bytes()
+    const size: string = bytes < 1024 * 1024
+      ? `${Math.round(bytes / 1024)} KB`
+      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    return `${scope} · ${performance} · ${size}`
   }
 
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {

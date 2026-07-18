@@ -31,6 +31,7 @@ constexpr int kScale = 2;
 enum class ModelKind : int {
     Waifu2x = 0,
     RealEsrgan = 1,
+    Luminance = 2,
 };
 
 enum class BackendPreference : int {
@@ -319,7 +320,7 @@ ncnn::Net *PrepareNet(UpscaleTask &task, bool useVulkan)
 
     std::unique_ptr<ncnn::Pipeline> preprocessPipeline;
     std::unique_ptr<ncnn::Pipeline> postprocessPipeline;
-    if (useVulkan) {
+    if (useVulkan && task.modelKind != ModelKind::Luminance) {
         static std::vector<uint32_t> preprocessSpirv;
         static std::vector<uint32_t> postprocessSpirv;
         if (preprocessSpirv.empty() && ncnn::compile_spirv_module(
@@ -395,6 +396,73 @@ ncnn::Mat NormalizedRgbaRoi(
         }
     }
     return normalized;
+}
+
+ncnn::Mat NormalizedLumaRoi(
+    const UpscaleTask &task,
+    int x,
+    int y,
+    int width,
+    int height)
+{
+    ncnn::Mat luma(width, height, 1);
+    if (luma.empty()) {
+        return {};
+    }
+    for (int row = 0; row < height; ++row) {
+        float *destination = luma.row(row);
+        const uint8_t *source = task.input.data() +
+            static_cast<size_t>(y + row) * task.stride + static_cast<size_t>(x) * 4;
+        for (int column = 0; column < width; ++column) {
+            const float red = source[0] * (1.0f / 255.0f);
+            const float green = source[1] * (1.0f / 255.0f);
+            const float blue = source[2] * (1.0f / 255.0f);
+            destination[column] =
+                (65.481f * red + 128.553f * green + 24.966f * blue + 16.0f) *
+                (1.0f / 255.0f);
+            source += 4;
+        }
+    }
+    return luma;
+}
+
+struct RgbSample {
+    float red;
+    float green;
+    float blue;
+};
+
+RgbSample BilinearSourceRgb(const UpscaleTask &task, float x, float y)
+{
+    const float clampedX = std::clamp(x, 0.0f, static_cast<float>(task.width - 1));
+    const float clampedY = std::clamp(y, 0.0f, static_cast<float>(task.height - 1));
+    const int x0 = static_cast<int>(std::floor(clampedX));
+    const int y0 = static_cast<int>(std::floor(clampedY));
+    const int x1 = std::min(x0 + 1, task.width - 1);
+    const int y1 = std::min(y0 + 1, task.height - 1);
+    const float tx = clampedX - x0;
+    const float ty = clampedY - y0;
+    const uint8_t *topLeft = task.input.data() +
+        static_cast<size_t>(y0) * task.stride + static_cast<size_t>(x0) * 4;
+    const uint8_t *topRight = task.input.data() +
+        static_cast<size_t>(y0) * task.stride + static_cast<size_t>(x1) * 4;
+    const uint8_t *bottomLeft = task.input.data() +
+        static_cast<size_t>(y1) * task.stride + static_cast<size_t>(x0) * 4;
+    const uint8_t *bottomRight = task.input.data() +
+        static_cast<size_t>(y1) * task.stride + static_cast<size_t>(x1) * 4;
+    const float topLeftWeight = (1.0f - tx) * (1.0f - ty);
+    const float topRightWeight = tx * (1.0f - ty);
+    const float bottomLeftWeight = (1.0f - tx) * ty;
+    const float bottomRightWeight = tx * ty;
+    constexpr float normalization = 1.0f / 255.0f;
+    return {
+        (topLeft[0] * topLeftWeight + topRight[0] * topRightWeight +
+            bottomLeft[0] * bottomLeftWeight + bottomRight[0] * bottomRightWeight) * normalization,
+        (topLeft[1] * topLeftWeight + topRight[1] * topRightWeight +
+            bottomLeft[1] * bottomLeftWeight + bottomRight[1] * bottomRightWeight) * normalization,
+        (topLeft[2] * topLeftWeight + topRight[2] * topRightWeight +
+            bottomLeft[2] * bottomLeftWeight + bottomRight[2] * bottomRightWeight) * normalization,
+    };
 }
 
 bool RunVulkan(UpscaleTask &task, ncnn::Net &net)
@@ -770,6 +838,103 @@ bool RunRealEsrgan(UpscaleTask &task, ncnn::Net &net)
     return true;
 }
 
+bool RunLuminance(UpscaleTask &task, ncnn::Net &net)
+{
+    const int outputWidth = task.width * kScale;
+    const int outputHeight = task.height * kScale;
+    task.output.assign(static_cast<size_t>(outputWidth) * outputHeight * 4, 255);
+    const int xTiles = (task.width + task.tileSize - 1) / task.tileSize;
+    const int yTiles = (task.height + task.tileSize - 1) / task.tileSize;
+
+    for (int tileY = 0; tileY < yTiles; ++tileY) {
+        const int outputInputY0 = tileY * task.tileSize;
+        const int tileHeight = std::min(outputInputY0 + task.tileSize, task.height) - outputInputY0;
+        const int inputY0 = std::max(outputInputY0 - task.prepadding, 0);
+        const int inputY1 = std::min(outputInputY0 + tileHeight + task.prepadding, task.height);
+        const int borderTop = std::max(task.prepadding - outputInputY0, 0);
+        const int borderBottom =
+            std::max(outputInputY0 + tileHeight + task.prepadding - task.height, 0);
+
+        for (int tileX = 0; tileX < xTiles; ++tileX) {
+            if (!WaitUntilInferenceAllowed(task)) {
+                return false;
+            }
+            const int outputInputX0 = tileX * task.tileSize;
+            const int tileWidth = std::min(outputInputX0 + task.tileSize, task.width) - outputInputX0;
+            const int inputX0 = std::max(outputInputX0 - task.prepadding, 0);
+            const int inputX1 = std::min(outputInputX0 + tileWidth + task.prepadding, task.width);
+            const int borderLeft = std::max(task.prepadding - outputInputX0, 0);
+            const int borderRight =
+                std::max(outputInputX0 + tileWidth + task.prepadding - task.width, 0);
+
+            ncnn::Mat normalized = NormalizedLumaRoi(
+                task, inputX0, inputY0, inputX1 - inputX0, inputY1 - inputY0);
+            if (normalized.empty()) {
+                task.error = "failed to create luminance input tile";
+                return false;
+            }
+            ncnn::Mat padded;
+            ncnn::copy_make_border(
+                normalized,
+                padded,
+                borderTop,
+                borderBottom,
+                borderLeft,
+                borderRight,
+                ncnn::BORDER_REPLICATE,
+                0.0f,
+                net.opt);
+
+            ncnn::Extractor extractor = net.create_extractor();
+            if (extractor.input(task.inputName.c_str(), padded) != 0) {
+                task.error = "luminance model rejected the input tile";
+                return false;
+            }
+            ncnn::Mat outputTile;
+            if (extractor.extract(task.outputName.c_str(), outputTile) != 0) {
+                task.error = "luminance model failed to infer the output tile";
+                return false;
+            }
+            if (!EnsureRequestActive(task)) {
+                return false;
+            }
+            const int expectedWidth = tileWidth * kScale;
+            const int expectedHeight = tileHeight * kScale;
+            const int sourceX = task.prepadding * kScale;
+            const int sourceY = task.prepadding * kScale;
+            if (outputTile.w < sourceX + expectedWidth ||
+                outputTile.h < sourceY + expectedHeight || outputTile.c < 1) {
+                task.error = "luminance model returned an unexpected output shape";
+                return false;
+            }
+
+            const int outputX0 = outputInputX0 * kScale;
+            const int outputY0 = outputInputY0 * kScale;
+            for (int y = 0; y < expectedHeight; ++y) {
+                const float *enhancedLuma = outputTile.channel(0).row(sourceY + y) + sourceX;
+                for (int x = 0; x < expectedWidth; ++x) {
+                    const int globalX = outputX0 + x;
+                    const int globalY = outputY0 + y;
+                    const float sampleX = (globalX + 0.5f) * 0.5f - 0.5f;
+                    const float sampleY = (globalY + 0.5f) * 0.5f - 0.5f;
+                    const RgbSample source = BilinearSourceRgb(task, sampleX, sampleY);
+                    const float sourceLuma =
+                        (65.481f * source.red + 128.553f * source.green +
+                            24.966f * source.blue + 16.0f) *
+                        (1.0f / 255.0f);
+                    const float lumaDelta = (enhancedLuma[x] - sourceLuma) * (255.0f / 219.0f);
+                    const size_t offset =
+                        (static_cast<size_t>(globalY) * outputWidth + globalX) * 4;
+                    task.output[offset] = ToByte(source.red + lumaDelta);
+                    task.output[offset + 1] = ToByte(source.green + lumaDelta);
+                    task.output[offset + 2] = ToByte(source.blue + lumaDelta);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 bool RunWithBackend(UpscaleTask &task, bool useVulkan)
 {
     ncnn::Net *net = PrepareNet(task, useVulkan);
@@ -777,11 +942,13 @@ bool RunWithBackend(UpscaleTask &task, bool useVulkan)
         return false;
     }
     const SteadyClock::time_point inferenceStartedAt = SteadyClock::now();
-    const bool success = useVulkan
-        ? RunVulkan(task, *net)
-        : (task.modelKind == ModelKind::RealEsrgan
-            ? RunRealEsrgan(task, *net)
-            : RunWaifu2x(task, *net));
+    const bool success = task.modelKind == ModelKind::Luminance
+        ? RunLuminance(task, *net)
+        : (useVulkan
+            ? RunVulkan(task, *net)
+            : (task.modelKind == ModelKind::RealEsrgan
+                ? RunRealEsrgan(task, *net)
+                : RunWaifu2x(task, *net)));
     task.inferenceMs = ElapsedMilliseconds(inferenceStartedAt);
     if (!success) {
         if (!task.cancelled) {
@@ -1039,7 +1206,7 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         !GetInt64(env, argv[13], requestId) ||
         requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
+        modelKind > static_cast<int>(ModelKind::Luminance) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;
@@ -1099,7 +1266,7 @@ napi_value PrepareModel(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], task->prepadding) ||
         !GetInt(env, argv[6], task->threads) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
+        modelKind > static_cast<int>(ModelKind::Luminance) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;

@@ -1,4 +1,6 @@
 import { common } from '@kit.AbilityKit'
+import { util } from '@kit.ArkTS'
+import { zlib } from '@kit.BasicServicesKit'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -46,6 +48,23 @@ const REAL_ESRGAN_SOURCE_REPOSITORY: string = 'bpawnzZ/Real-ESRGAN-x2plus-NCNN'
 const DOWNLOAD_CONNECT_TIMEOUT_MS: number = 15000
 const DOWNLOAD_READ_TIMEOUT_MS: number = 10 * 60 * 1000
 const HASH_CHUNK_BYTES: number = 256 * 1024
+const ESPCN_PACKAGE_FILE_NAME: string = 'espcn_x2.download.zip'
+const ESPCN_EXTRACT_DIR_NAME: string = 'espcn_x2.extract'
+const ESPCN_ONNX_FILE_NAME: string = 'espcn_x2_156x240.onnx'
+const ESPCN_ONNX_BYTES: number = 86056
+const ESPCN_ONNX_SHA256: string =
+  '6004f76f2699323e72186dae30f5e611dfb58478109391391bbc003dfbab950e'
+const ESPCN_NCNN_FP16_TAG: number = 0x01306b47
+const ESPCN_RUNTIME_PARAM: string =
+  '7767517\n' +
+  '7 7\n' +
+  'Input                    in0                      0 1 in0\n' +
+  'Convolution              conv_3                   1 1 in0 1 0=64 1=5 11=5 12=1 13=1 14=2 2=1 3=1 4=2 5=1 6=1600\n' +
+  'TanH                     tanh_1                   1 1 1 2\n' +
+  'Convolution              conv_4                   1 1 2 3 0=32 1=3 11=3 12=1 13=1 14=1 2=1 3=1 4=1 5=1 6=18432\n' +
+  'TanH                     tanh_2                   1 1 3 4\n' +
+  'Convolution              conv_5                   1 1 4 5 0=4 1=3 11=3 12=1 13=1 14=1 2=1 3=1 4=1 5=1 6=1152\n' +
+  'PixelShuffle             pixel_shuffle_0          1 1 5 out0 0=2 1=0\n'
 
 export class ReaderSuperResolutionModelPaths {
   paramPath: string = ''
@@ -133,6 +152,10 @@ export class ReaderSuperResolutionModelService {
       await ReaderSuperResolutionModelService.installRealEsrgan(context)
       return
     }
+    if (definition.installStrategy === ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP) {
+      await ReaderSuperResolutionModelService.installEspcn(context, definition)
+      return
+    }
     if (await ReaderSuperResolutionModelService.isInstalled(context, model)) {
       return
     }
@@ -171,6 +194,9 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+    if (definition.installStrategy === ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP) {
+      ReaderSuperResolutionModelService.cleanupEspcnTemporaryFiles(context, definition)
+    }
   }
 
   static waifu2xModelBytes(): number {
@@ -257,6 +283,31 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  private static async installEspcn(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): Promise<void> {
+    if (await ReaderSuperResolutionModelService.isInstalled(context, definition.id)) {
+      return
+    }
+    const existing: Promise<void> | undefined =
+      ReaderSuperResolutionModelService.directInstallTasks.get(definition.id)
+    if (existing !== undefined) {
+      await existing
+      return
+    }
+    const task: Promise<void> = ReaderSuperResolutionModelService.installEspcnNow(
+      context,
+      definition,
+    )
+    ReaderSuperResolutionModelService.directInstallTasks.set(definition.id, task)
+    try {
+      await task
+    } finally {
+      ReaderSuperResolutionModelService.directInstallTasks.delete(definition.id)
+    }
+  }
+
   static removeWaifu2x(context: common.UIAbilityContext): void {
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.waifu2xPaths(context)
@@ -334,6 +385,241 @@ export class ReaderSuperResolutionModelService {
         `model=${definition.id} message=${(error as Error).message}`,
       )
       throw error as Error
+    }
+  }
+
+  private static async installEspcnNow(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): Promise<void> {
+    const dir: string = ReaderSuperResolutionModelService.definitionDir(context, definition)
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    const packagePath: string = `${dir}/${ESPCN_PACKAGE_FILE_NAME}`
+    const extractDir: string = `${dir}/${ESPCN_EXTRACT_DIR_NAME}`
+    const onnxPath: string = `${extractDir}/${ESPCN_ONNX_FILE_NAME}`
+    const paramPart: string = `${paths.paramPath}.part`
+    const modelPart: string = `${paths.modelPath}.part`
+    ReaderSuperResolutionModelService.ensureDir(dir)
+    ReaderSuperResolutionModelService.cleanupEspcnTemporaryFiles(context, definition)
+    ReaderSuperResolutionModelService.ensureDir(extractDir)
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'model_download_start',
+      `model=${definition.id}`,
+    )
+    try {
+      await ReaderSuperResolutionModelService.downloadAsset(definition.packageUrls, packagePath)
+      if (!ReaderSuperResolutionModelService.validateFile(
+        packagePath,
+        definition.packageBytes,
+        definition.packageSha256,
+      )) {
+        throw new Error('ESPCN package checksum mismatch')
+      }
+      const options: zlib.Options = {
+        parallel: zlib.ParallelStrategy.PARALLEL_STRATEGY_PARALLEL_DECOMPRESSION,
+        pathSeparatorStrategy: zlib.PathSeparatorStrategy.PATH_SEPARATOR_STRATEGY_REPLACE_BACKSLASH,
+      }
+      await zlib.decompressFile(packagePath, extractDir, options)
+      if (!ReaderSuperResolutionModelService.validateFile(
+        onnxPath,
+        ESPCN_ONNX_BYTES,
+        ESPCN_ONNX_SHA256,
+      )) {
+        throw new Error('ESPCN ONNX checksum mismatch')
+      }
+      ReaderSuperResolutionModelService.createEspcnRuntimeFiles(
+        onnxPath,
+        paramPart,
+        modelPart,
+      )
+      if (!ReaderSuperResolutionModelService.validateFile(
+        paramPart,
+        definition.paramBytes,
+        definition.paramSha256,
+      )) {
+        throw new Error('ESPCN generated param checksum mismatch')
+      }
+      if (!ReaderSuperResolutionModelService.validateFile(
+        modelPart,
+        definition.modelBytes,
+        definition.modelSha256,
+      )) {
+        throw new Error('ESPCN generated model checksum mismatch')
+      }
+      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+      ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+      fileIo.renameSync(paramPart, paths.paramPath)
+      fileIo.renameSync(modelPart, paths.modelPath)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_download_success',
+        `model=${definition.id} downloadBytes=${definition.packageBytes} runtimeBytes=${definition.bytes()}`,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'model_download_failed',
+        `model=${definition.id} message=${(error as Error).message}`,
+      )
+      throw error as Error
+    } finally {
+      ReaderSuperResolutionModelService.cleanupEspcnTemporaryFiles(context, definition)
+    }
+  }
+
+  private static createEspcnRuntimeFiles(
+    onnxPath: string,
+    paramPath: string,
+    modelPath: string,
+  ): void {
+    // These tensor byte ranges belong only to the SHA-pinned Hailo ONNX above. The generated pair is
+    // independently hash-checked before it can replace an installed runtime.
+    const onnx: ArrayBuffer = ReaderSuperResolutionModelService.readExactFile(
+      onnxPath,
+      ESPCN_ONNX_BYTES,
+    )
+    const model: ArrayBuffer = new ArrayBuffer(42780)
+    let cursor: number = 0
+    cursor = ReaderSuperResolutionModelService.appendEspcnConvolution(
+      onnx,
+      model,
+      cursor,
+      682,
+      7082,
+      7113,
+      7369,
+    )
+    cursor = ReaderSuperResolutionModelService.appendEspcnConvolution(
+      onnx,
+      model,
+      cursor,
+      7410,
+      81138,
+      81169,
+      81297,
+    )
+    cursor = ReaderSuperResolutionModelService.appendEspcnConvolution(
+      onnx,
+      model,
+      cursor,
+      81333,
+      85941,
+      85967,
+      85983,
+    )
+    if (cursor !== model.byteLength) {
+      throw new Error('ESPCN generated model size mismatch')
+    }
+    const paramBytes: Uint8Array = new util.TextEncoder().encodeInto(ESPCN_RUNTIME_PARAM)
+    const paramBuffer: ArrayBuffer = new ArrayBuffer(paramBytes.byteLength)
+    new Uint8Array(paramBuffer).set(paramBytes)
+    ReaderSuperResolutionModelService.writeFile(paramPath, paramBuffer)
+    ReaderSuperResolutionModelService.writeFile(modelPath, model)
+  }
+
+  private static appendEspcnConvolution(
+    onnx: ArrayBuffer,
+    model: ArrayBuffer,
+    cursor: number,
+    weightStart: number,
+    weightEnd: number,
+    biasStart: number,
+    biasEnd: number,
+  ): number {
+    const input: DataView = new DataView(onnx)
+    const output: DataView = new DataView(model)
+    const outputBytes: Uint8Array = new Uint8Array(model)
+    output.setUint32(cursor, ESPCN_NCNN_FP16_TAG, true)
+    cursor += 4
+    for (let offset: number = weightStart; offset < weightEnd; offset += 4) {
+      output.setUint16(
+        cursor,
+        ReaderSuperResolutionModelService.float32BitsToNcnnFloat16(
+          input.getUint32(offset, true),
+        ),
+        true,
+      )
+      cursor += 2
+    }
+    const biasBytes: Uint8Array = new Uint8Array(onnx, biasStart, biasEnd - biasStart)
+    outputBytes.set(biasBytes, cursor)
+    return cursor + biasBytes.byteLength
+  }
+
+  private static float32BitsToNcnnFloat16(bits: number): number {
+    const sign: number = (bits >>> 16) & 0x8000
+    const exponent: number = (bits >>> 23) & 0xff
+    const significand: number = bits & 0x7fffff
+    if (exponent === 0) {
+      return sign
+    }
+    if (exponent === 0xff) {
+      return sign | 0x7c00 | (significand >>> 13)
+    }
+    const halfExponent: number = exponent - 127 + 15
+    if (halfExponent >= 31) {
+      return sign | 0x7c00
+    }
+    if (halfExponent <= 0) {
+      return sign
+    }
+    return sign | (halfExponent << 10) | (significand >>> 13)
+  }
+
+  private static readExactFile(path: string, expectedBytes: number): ArrayBuffer {
+    const buffer: ArrayBuffer = new ArrayBuffer(expectedBytes)
+    const output: Uint8Array = new Uint8Array(buffer)
+    let file: fileIo.File | null = null
+    let offset: number = 0
+    try {
+      file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+      while (offset < expectedBytes) {
+        const chunk: ArrayBuffer = new ArrayBuffer(expectedBytes - offset)
+        const read: number = fileIo.readSync(
+          file.fd,
+          chunk,
+          { length: chunk.byteLength },
+        )
+        if (read <= 0) {
+          throw new Error('unexpected end of ESPCN ONNX file')
+        }
+        output.set(new Uint8Array(chunk, 0, read), offset)
+        offset += read
+      }
+      return buffer
+    } finally {
+      if (file !== null) {
+        fileIo.closeSync(file)
+      }
+    }
+  }
+
+  private static writeFile(path: string, buffer: ArrayBuffer): void {
+    let file: fileIo.File | null = null
+    let offset: number = 0
+    try {
+      file = fileIo.openSync(
+        path,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
+      while (offset < buffer.byteLength) {
+        const remaining: ArrayBuffer = buffer.slice(offset)
+        const written: number = fileIo.writeSync(
+          file.fd,
+          remaining,
+          { length: remaining.byteLength },
+        )
+        if (written <= 0) {
+          throw new Error('failed to write ESPCN runtime file')
+        }
+        offset += written
+      }
+    } finally {
+      if (file !== null) {
+        fileIo.closeSync(file)
+      }
     }
   }
 
@@ -749,6 +1035,25 @@ export class ReaderSuperResolutionModelService {
     definition: ReaderSuperResolutionModelDefinition,
   ): string {
     return `${context.filesDir}/${MODEL_DIR_NAME}/${definition.directoryName}`
+  }
+
+  private static cleanupEspcnTemporaryFiles(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): void {
+    const dir: string = ReaderSuperResolutionModelService.definitionDir(context, definition)
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    const extractDir: string = `${dir}/${ESPCN_EXTRACT_DIR_NAME}`
+    ReaderSuperResolutionModelService.removeIfExists(`${dir}/${ESPCN_PACKAGE_FILE_NAME}`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${extractDir}/${ESPCN_ONNX_FILE_NAME}`)
+    try {
+      if (fileIo.accessSync(extractDir)) {
+        fileIo.rmdirSync(extractDir)
+      }
+    } catch (_error) {}
   }
 
   private static paths(
