@@ -1,6 +1,7 @@
 .hvigor/
 entry/build/
 **/build/
+**/.cxx/
 **/BuildProfile.ets
 oh_modules/
 # DevEco-generated ohosTest intermediate; source tests live in entry/src/ohosTest/.

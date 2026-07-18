@@ -1350,7 +1350,27 @@
     },
     {
       "name": "reader_image_info_dimensions",
-      "value": "尺寸：%d x %d"
+      "value": "显示尺寸：%d x %d"
+    },
+    {
+      "name": "reader_image_info_enhancement",
+      "value": "图像增强：%s"
+    },
+    {
+      "name": "reader_image_info_enhancement_applied",
+      "value": "%s · 已应用"
+    },
+    {
+      "name": "reader_image_info_enhancement_processing",
+      "value": "%s · 处理中"
+    },
+    {
+      "name": "reader_image_info_enhancement_queued",
+      "value": "%s · 排队中"
+    },
+    {
+      "name": "reader_image_info_enhancement_not_applied",
+      "value": "%s · 未应用"
     },
     {
       "name": "reader_image_info_original_available",
@@ -3025,6 +3045,10 @@
       "value": "显示与屏幕"
     },
     {
+      "name": "settings_reader_group_image_enhancement",
+      "value": "图像增强"
+    },
+    {
       "name": "settings_reader_background",
       "value": "背景颜色"
     },
@@ -3063,6 +3087,138 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "高（双三次）"
+    },
+    {
+      "name": "settings_reader_super_resolution",
+      "value": "图像增强"
+    },
+    {
+      "name": "settings_reader_super_resolution_models",
+      "value": "模型管理"
+    },
+    {
+      "name": "settings_reader_super_resolution_model",
+      "value": "增强模型"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_not_selected",
+      "value": "未选择"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_installed",
+      "value": "已下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_available",
+      "value": "可下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_none_installed",
+      "value": "暂无已下载模型"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download",
+      "value": "下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading_short",
+      "value": "下载中…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_delete_confirm",
+      "value": "从设备中删除 %s？"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_deleted",
+      "value": "模型已删除"
+    },
+    {
+      "name": "settings_reader_super_resolution_off",
+      "value": "关闭"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_x2plus",
+      "value": "Real-ESRGAN (photo, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_animevideov3_2x",
+      "value": "Real-ESRGAN (animevideo-v3, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_art_noise0_2x",
+      "value": "waifu2x (art, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_cunet_noise0_2x",
+      "value": "waifu2x (CUNet, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realcugan_se_2x_conservative",
+      "value": "Real-CUGAN (SE, 2x, conservative)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_download",
+      "value": "Real-ESRGAN (photo, 2x) · 下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_downloading",
+      "value": "Real-ESRGAN (photo, 2x) · 下载中"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
+      "value": "waifu2x (photo, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_download",
+      "value": "waifu2x (photo, 2x, noise0) · 下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_downloading",
+      "value": "waifu2x (photo, 2x, noise0) · 下载中"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading",
+      "value": "正在下载超分模型…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloaded",
+      "value": "超分模型已下载"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download_failed",
+      "value": "超分模型下载失败"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend",
+      "value": "推理后端"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto",
+      "value": "自动"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_vulkan",
+      "value": "自动（Vulkan）"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_cpu",
+      "value": "自动（CPU）"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_vulkan",
+      "value": "Vulkan"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_cpu",
+      "value": "CPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height",
+      "value": "最大原图高度"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height_hint",
+      "value": "仅放大高度不超过此值的图片。"
     },
     {
       "name": "settings_reader_show_page_number",

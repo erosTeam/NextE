@@ -1,6 +1,7 @@
-import { HdsNavDestination } from '@kit.UIDesignKit'
+import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { ReaderSuperResolutionModelsPage } from './ReaderSuperResolutionModelsPage'
 import {
   ThemeConstants,
   connectReadMode,
@@ -8,6 +9,12 @@ import {
   ReadMode,
   ReaderBackgroundMode,
   ReaderImageScalingQuality,
+  ReaderSuperResolutionBackend,
+  READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
+  ReaderSuperResolutionCapabilities,
+  ReaderSuperResolutionModel,
+  ReaderSuperResolutionModelService,
+  ReaderSuperResolutionService,
   ReadSpreadLayout,
   ReaderTapZoneInvert,
   ReaderTapZoneLayout,
@@ -43,10 +50,28 @@ export struct ReaderSettingsPage {
   @Local tapZoneInvertMenuShown: boolean = false;
   @Local backgroundMenuShown: boolean = false;
   @Local imageScalingQualityMenuShown: boolean = false;
+  @Local superResolutionModelMenuShown: boolean = false;
+  @Local superResolutionBackendMenuShown: boolean = false;
+  @Local superResolutionMaxHeightMenuShown: boolean = false;
+  @Local installedSuperResolutionModels: string[] = [];
+  @Local vulkanAvailable: boolean = false;
+  @Local superResolutionModelsPanelShown: boolean = false;
+  @Local sheetPanelWidth: number = 0;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+
+  aboutToAppear(): void {
+    const capabilities: ReaderSuperResolutionCapabilities =
+      ReaderSuperResolutionService.capabilities()
+    this.vulkanAvailable = capabilities.vulkanAvailable
+    this.refreshSuperResolutionModels()
+  }
+
+  private context(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private setMode(mode: string): void {
     const ctx: common.UIAbilityContext =
@@ -106,6 +131,73 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setImageScalingQuality(ctx, quality)
+  }
+
+  private setSuperResolutionEnabled(enabled: boolean): void {
+    if (enabled && this.installedSuperResolutionModels.length === 0) {
+      return
+    }
+    ReadModeSettings.setSuperResolutionEnabled(this.context(), enabled)
+  }
+
+  private async refreshSuperResolutionModels(): Promise<void> {
+    this.installedSuperResolutionModels =
+      await ReaderSuperResolutionModelService.installedModels(this.context())
+    let selectedInstalled: boolean = false
+    for (let i: number = 0; i < this.installedSuperResolutionModels.length; i++) {
+      if (this.installedSuperResolutionModels[i] === this.readMode.superResolutionModel) {
+        selectedInstalled = true
+        break
+      }
+    }
+    if (!selectedInstalled) {
+      const replacement: string = this.installedSuperResolutionModels.length > 0
+        ? this.installedSuperResolutionModels[0]
+        : ReaderSuperResolutionModel.NONE
+      ReadModeSettings.setSuperResolutionModel(this.context(), replacement)
+      if (replacement === ReaderSuperResolutionModel.NONE) {
+        ReadModeSettings.setSuperResolutionEnabled(this.context(), false)
+      }
+    }
+  }
+
+  private setSuperResolutionModel(model: string): void {
+    ReadModeSettings.setSuperResolutionModel(this.context(), model)
+  }
+
+  private openSuperResolutionModelManagement(): void {
+    if (this.sheetPresentation) {
+      this.getUIContext().animateTo({
+        duration: ThemeConstants.ANIM_DURATION,
+        curve: Curve.EaseOut,
+      }, () => {
+        this.superResolutionModelsPanelShown = true
+      })
+      return
+    }
+    this.stack.pushPathByName('ReaderSuperResolutionModels', null)
+  }
+
+  private closeSuperResolutionModelManagement(): void {
+    this.refreshSuperResolutionModels()
+    this.getUIContext().animateTo({
+      duration: ThemeConstants.ANIM_DURATION,
+      curve: Curve.EaseOut,
+    }, () => {
+      this.superResolutionModelsPanelShown = false
+    })
+  }
+
+  private setSuperResolutionBackend(backend: string): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setSuperResolutionBackend(ctx, backend)
+  }
+
+  private setSuperResolutionMaxHeight(maxHeight: number): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setSuperResolutionMaxHeight(ctx, maxHeight)
   }
 
   private setShowPageNumber(enabled: boolean): void {
@@ -224,6 +316,48 @@ export struct ReaderSettingsPage {
       return $r('app.string.settings_reader_image_scaling_quality_high')
     }
     return $r('app.string.settings_reader_image_scaling_quality_optimized')
+  }
+
+  private superResolutionModelLabel(): ResourceStr {
+    if (this.installedSuperResolutionModels.length === 0) {
+      return $r('app.string.settings_reader_super_resolution_models_none_installed')
+    }
+    return this.superResolutionModelTitle(this.readMode.superResolutionModel)
+  }
+
+  private superResolutionModelTitle(model: string): ResourceStr {
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
+      return $r('app.string.settings_reader_super_resolution_realesrgan_x2plus')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_ANIMEVIDEO_V3_X2) {
+      return $r('app.string.settings_reader_super_resolution_realesrgan_animevideov3_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X) {
+      return $r('app.string.settings_reader_super_resolution_waifu2x_art_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X) {
+      return $r('app.string.settings_reader_super_resolution_waifu2x_cunet_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
+      return $r('app.string.settings_reader_super_resolution_realcugan_se_2x_conservative')
+    }
+    return $r('app.string.settings_reader_super_resolution_waifu2x_photo_noise0_2x')
+  }
+
+  private superResolutionBackendLabel(): Resource {
+    if (this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.VULKAN) {
+      return $r('app.string.settings_reader_super_resolution_backend_vulkan')
+    }
+    if (this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.CPU) {
+      return $r('app.string.settings_reader_super_resolution_backend_cpu')
+    }
+    return this.vulkanAvailable
+      ? $r('app.string.settings_reader_super_resolution_backend_auto_vulkan')
+      : $r('app.string.settings_reader_super_resolution_backend_auto_cpu')
+  }
+
+  private superResolutionMaxHeightLabel(): string {
+    return `${this.readMode.superResolutionMaxHeight}px`
   }
 
   @Builder
@@ -608,6 +742,82 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  SuperResolutionModelMenu() {
+    Menu() {
+      ForEach(this.installedSuperResolutionModels, (model: string) => {
+        MenuItem({
+          content: this.superResolutionModelTitle(model),
+          symbolEndIcon:
+            this.readMode.superResolutionModel === model
+              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+              : undefined,
+        }).onClick(() => {
+          this.setSuperResolutionModel(model)
+          this.superResolutionModelMenuShown = false
+        })
+      }, (model: string): string => model)
+    }
+  }
+
+  @Builder
+  SuperResolutionBackendMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.settings_reader_super_resolution_backend_auto'),
+        symbolEndIcon:
+          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.AUTO
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setSuperResolutionBackend(ReaderSuperResolutionBackend.AUTO)
+        this.superResolutionBackendMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_super_resolution_backend_vulkan'),
+        symbolEndIcon:
+          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.VULKAN
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .enabled(this.vulkanAvailable)
+        .onClick(() => {
+          if (this.vulkanAvailable) {
+            this.setSuperResolutionBackend(ReaderSuperResolutionBackend.VULKAN)
+            this.superResolutionBackendMenuShown = false
+          }
+        })
+      MenuItem({
+        content: $r('app.string.settings_reader_super_resolution_backend_cpu'),
+        symbolEndIcon:
+          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.CPU
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setSuperResolutionBackend(ReaderSuperResolutionBackend.CPU)
+        this.superResolutionBackendMenuShown = false
+      })
+    }
+  }
+
+  @Builder
+  SuperResolutionMaxHeightMenu() {
+    Menu() {
+      ForEach([1000, 1500, READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT], (maxHeight: number) => {
+        MenuItem({
+          content: `${maxHeight}px`,
+          symbolEndIcon:
+            this.readMode.superResolutionMaxHeight === maxHeight
+              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+              : undefined,
+        }).onClick(() => {
+          this.setSuperResolutionMaxHeight(maxHeight)
+          this.superResolutionMaxHeightMenuShown = false
+        })
+      }, (maxHeight: number): string => `${maxHeight}`)
+    }
+  }
+
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
@@ -815,6 +1025,102 @@ export struct ReaderSettingsPage {
 
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
+        SectionHeader({ title: $r('app.string.settings_reader_group_image_enhancement') })
+        GroupedListSection() {
+          ConciseListRow({
+            title: $r('app.string.settings_reader_super_resolution'),
+            hasSwitch: true,
+            checked: this.readMode.superResolutionEnabled,
+            isEnabled: this.installedSuperResolutionModels.length > 0,
+            showChevron: false,
+            action: () => {
+              if (this.installedSuperResolutionModels.length > 0) {
+                this.setSuperResolutionEnabled(!this.readMode.superResolutionEnabled)
+              }
+            },
+            switchAction: (value: boolean) => {
+              this.setSuperResolutionEnabled(value)
+            },
+          })
+          this.rowDivider()
+          Column() {
+            ConciseListRow({
+              title: $r('app.string.settings_reader_super_resolution_model'),
+              trailingText: this.superResolutionModelLabel(),
+              trailingDropdown: true,
+              isEnabled: this.installedSuperResolutionModels.length > 0,
+              action: () => {
+                if (this.installedSuperResolutionModels.length > 0) {
+                  this.superResolutionModelMenuShown = true
+                }
+              },
+            })
+          }
+          .bindMenu(this.superResolutionModelMenuShown, this.SuperResolutionModelMenu, {
+            placement: Placement.BottomRight,
+            onDisappear: () => {
+              this.superResolutionModelMenuShown = false
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_super_resolution_models'),
+            action: () => {
+              this.openSuperResolutionModelManagement()
+            },
+          })
+          this.rowDivider()
+          Column() {
+            ConciseListRow({
+              title: $r('app.string.settings_reader_super_resolution_backend'),
+              trailingText: this.superResolutionBackendLabel(),
+              trailingDropdown: true,
+              isEnabled: this.readMode.superResolutionEnabled &&
+                this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
+              action: () => {
+                if (this.readMode.superResolutionEnabled &&
+                  this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE) {
+                  this.superResolutionBackendMenuShown = true
+                }
+              },
+            })
+          }
+          .bindMenu(this.superResolutionBackendMenuShown, this.SuperResolutionBackendMenu, {
+            placement: Placement.BottomRight,
+            onDisappear: () => {
+              this.superResolutionBackendMenuShown = false
+            },
+          })
+          this.rowDivider()
+          Column() {
+            ConciseListRow({
+              title: $r('app.string.settings_reader_super_resolution_max_height'),
+              subtitle: $r('app.string.settings_reader_super_resolution_max_height_hint'),
+              subtitleMaxLines: 3,
+              trailingText: this.superResolutionMaxHeightLabel(),
+              trailingDropdown: true,
+              isEnabled: this.readMode.superResolutionEnabled &&
+                this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
+              action: () => {
+                if (this.readMode.superResolutionEnabled &&
+                  this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE) {
+                  this.superResolutionMaxHeightMenuShown = true
+                }
+              },
+            })
+          }
+          .bindMenu(this.superResolutionMaxHeightMenuShown, this.SuperResolutionMaxHeightMenu, {
+            placement: Placement.BottomRight,
+            onDisappear: () => {
+              this.superResolutionMaxHeightMenuShown = false
+            },
+          })
+        }
+      }
+    }
+
+    ListItem() {
+      Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_controls') })
         GroupedListSection() {
           Column() {
@@ -877,19 +1183,69 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  private ReaderSettingsSheetPage() {
+    AppModalScaffold({
+      title: $r('app.string.settings_reader'),
+      showConfirmAction: false,
+      closeAction: () => {
+        if (this.closeSheet) {
+          this.closeSheet()
+        }
+      },
+    }) {
+      this.SettingsListItems()
+    }
+  }
+
+  @Builder
+  private SuperResolutionModelsSheetPage() {
+    ReaderSuperResolutionModelsPage({
+      modal: true,
+      modalCloseIcon: $r('sys.media.ohos_ic_compnent_titlebar_back'),
+      modalCloseIconStyle: IconStyleMode.NORMAL,
+      closeAction: () => {
+        this.closeSuperResolutionModelManagement()
+      },
+      modelsChanged: () => {
+        this.refreshSuperResolutionModels()
+      },
+    })
+  }
+
+  @Builder
+  private ReaderSettingsSheetPanel() {
+    Stack() {
+      Column() {
+        this.ReaderSettingsSheetPage()
+      }
+      .width('100%')
+      .height('100%')
+      .translate({
+        x: this.superResolutionModelsPanelShown ? -this.sheetPanelWidth : 0,
+      })
+
+      Column() {
+        this.SuperResolutionModelsSheetPage()
+      }
+      .width('100%')
+      .height('100%')
+      .opacity(this.sheetPanelWidth > 0 ? 1 : 0)
+      .translate({
+        x: this.superResolutionModelsPanelShown ? 0 : this.sheetPanelWidth,
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      this.sheetPanelWidth = area.width as number
+    })
+  }
+
   build() {
     if (this.sheetPresentation) {
-      AppModalScaffold({
-        title: $r('app.string.settings_reader'),
-        showConfirmAction: false,
-        closeAction: () => {
-          if (this.closeSheet) {
-            this.closeSheet()
-          }
-        },
-      }) {
-        this.SettingsListItems()
-      }
+      this.ReaderSettingsSheetPanel()
     } else {
       HdsNavDestination() {
         SecondaryListScaffold({
@@ -908,6 +1264,7 @@ export struct ReaderSettingsPage {
       })
       .onWillShow(() => {
         this.refreshFirstSecondaryDestination(this.stack)
+        this.refreshSuperResolutionModels()
       })
     }
   }

@@ -1350,7 +1350,27 @@
     },
     {
       "name": "reader_image_info_dimensions",
-      "value": "サイズ: %d x %d"
+      "value": "表示サイズ: %d x %d"
+    },
+    {
+      "name": "reader_image_info_enhancement",
+      "value": "画像エンハンス: %s"
+    },
+    {
+      "name": "reader_image_info_enhancement_applied",
+      "value": "%s・適用済み"
+    },
+    {
+      "name": "reader_image_info_enhancement_processing",
+      "value": "%s・処理中"
+    },
+    {
+      "name": "reader_image_info_enhancement_queued",
+      "value": "%s・待機中"
+    },
+    {
+      "name": "reader_image_info_enhancement_not_applied",
+      "value": "%s・未適用"
     },
     {
       "name": "reader_image_info_original_available",
@@ -3025,6 +3045,10 @@
       "value": "表示と画面"
     },
     {
+      "name": "settings_reader_group_image_enhancement",
+      "value": "画像エンハンス"
+    },
+    {
       "name": "settings_reader_background",
       "value": "背景色"
     },
@@ -3063,6 +3087,138 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "高（バイキュービック）"
+    },
+    {
+      "name": "settings_reader_super_resolution",
+      "value": "画像強調"
+    },
+    {
+      "name": "settings_reader_super_resolution_models",
+      "value": "モデル管理"
+    },
+    {
+      "name": "settings_reader_super_resolution_model",
+      "value": "モデル"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_not_selected",
+      "value": "未選択"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_installed",
+      "value": "ダウンロード済み"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_available",
+      "value": "ダウンロード可能"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_none_installed",
+      "value": "ダウンロード済みモデルはありません"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download",
+      "value": "ダウンロード"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading_short",
+      "value": "ダウンロード中…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_delete_confirm",
+      "value": "%s を端末から削除しますか？"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_deleted",
+      "value": "モデルを削除しました"
+    },
+    {
+      "name": "settings_reader_super_resolution_off",
+      "value": "オフ"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_x2plus",
+      "value": "Real-ESRGAN (photo, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_animevideov3_2x",
+      "value": "Real-ESRGAN (animevideo-v3, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_art_noise0_2x",
+      "value": "waifu2x (art, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_cunet_noise0_2x",
+      "value": "waifu2x (CUNet, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realcugan_se_2x_conservative",
+      "value": "Real-CUGAN (SE, 2x, conservative)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_download",
+      "value": "Real-ESRGAN (photo, 2x) · ダウンロード"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_downloading",
+      "value": "Real-ESRGAN (photo, 2x) · ダウンロード中"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
+      "value": "waifu2x (photo, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_download",
+      "value": "waifu2x (photo, 2x, noise0) · ダウンロード"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_downloading",
+      "value": "waifu2x (photo, 2x, noise0) · ダウンロード中"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading",
+      "value": "超解像モデルをダウンロード中…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloaded",
+      "value": "超解像モデルをダウンロードしました"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download_failed",
+      "value": "超解像モデルのダウンロードに失敗しました"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend",
+      "value": "推論バックエンド"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto",
+      "value": "自動"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_vulkan",
+      "value": "自動（Vulkan）"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_cpu",
+      "value": "自動（CPU）"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_vulkan",
+      "value": "Vulkan"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_cpu",
+      "value": "CPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height",
+      "value": "元画像の最大高さ"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height_hint",
+      "value": "この高さ以下の画像のみ拡大します。"
     },
     {
       "name": "settings_reader_show_page_number",

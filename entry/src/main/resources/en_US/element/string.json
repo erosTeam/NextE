@@ -1350,7 +1350,27 @@
     },
     {
       "name": "reader_image_info_dimensions",
-      "value": "Dimensions: %d x %d"
+      "value": "Displayed dimensions: %d x %d"
+    },
+    {
+      "name": "reader_image_info_enhancement",
+      "value": "Image enhancement: %s"
+    },
+    {
+      "name": "reader_image_info_enhancement_applied",
+      "value": "%s · applied"
+    },
+    {
+      "name": "reader_image_info_enhancement_processing",
+      "value": "%s · processing"
+    },
+    {
+      "name": "reader_image_info_enhancement_queued",
+      "value": "%s · queued"
+    },
+    {
+      "name": "reader_image_info_enhancement_not_applied",
+      "value": "%s · not applied"
     },
     {
       "name": "reader_image_info_original_available",
@@ -3025,6 +3045,10 @@
       "value": "Display & screen"
     },
     {
+      "name": "settings_reader_group_image_enhancement",
+      "value": "Image enhancement"
+    },
+    {
       "name": "settings_reader_background",
       "value": "Background color"
     },
@@ -3063,6 +3087,138 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "High (cubic)"
+    },
+    {
+      "name": "settings_reader_super_resolution",
+      "value": "Image enhancement"
+    },
+    {
+      "name": "settings_reader_super_resolution_models",
+      "value": "Model management"
+    },
+    {
+      "name": "settings_reader_super_resolution_model",
+      "value": "Model"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_not_selected",
+      "value": "Not selected"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_installed",
+      "value": "Downloaded models"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_available",
+      "value": "Available models"
+    },
+    {
+      "name": "settings_reader_super_resolution_models_none_installed",
+      "value": "No downloaded models"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download",
+      "value": "Download"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading_short",
+      "value": "Downloading…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_delete_confirm",
+      "value": "Delete %s from this device?"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_deleted",
+      "value": "Model deleted"
+    },
+    {
+      "name": "settings_reader_super_resolution_off",
+      "value": "Off"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_x2plus",
+      "value": "Real-ESRGAN (photo, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_animevideov3_2x",
+      "value": "Real-ESRGAN (animevideo-v3, 2x)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_art_noise0_2x",
+      "value": "waifu2x (art, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_cunet_noise0_2x",
+      "value": "waifu2x (CUNet, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realcugan_se_2x_conservative",
+      "value": "Real-CUGAN (SE, 2x, conservative)"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_download",
+      "value": "Real-ESRGAN (photo, 2x) · Download"
+    },
+    {
+      "name": "settings_reader_super_resolution_realesrgan_downloading",
+      "value": "Real-ESRGAN (photo, 2x) · Downloading"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
+      "value": "waifu2x (photo, 2x, noise0)"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_download",
+      "value": "waifu2x (photo, 2x, noise0) · Download"
+    },
+    {
+      "name": "settings_reader_super_resolution_waifu2x_downloading",
+      "value": "waifu2x (photo, 2x, noise0) · Downloading"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloading",
+      "value": "Downloading super-resolution model…"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_downloaded",
+      "value": "Super-resolution model downloaded"
+    },
+    {
+      "name": "settings_reader_super_resolution_model_download_failed",
+      "value": "Super-resolution model download failed"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend",
+      "value": "Inference backend"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto",
+      "value": "Automatic"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_vulkan",
+      "value": "Automatic (Vulkan)"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_auto_cpu",
+      "value": "Automatic (CPU)"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_vulkan",
+      "value": "Vulkan"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_cpu",
+      "value": "CPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height",
+      "value": "Maximum source height"
+    },
+    {
+      "name": "settings_reader_super_resolution_max_height_hint",
+      "value": "Only images at or below this height are enlarged."
     },
     {
       "name": "settings_reader_show_page_number",

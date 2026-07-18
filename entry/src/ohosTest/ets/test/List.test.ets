@@ -46,6 +46,8 @@ import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
 import backupCipherMetadataGuardTest from './BackupCipherMetadataGuard.test'
 import backupLocalDataStructureGuardTest from './BackupLocalDataStructureGuard.test'
 import backupWebDavCredentialGroupTest from './BackupWebDavCredentialGroup.test'
+import readerSuperResolutionBackendTest from './ReaderSuperResolutionBackend.test'
+import readerSuperResolutionModelIntegrationTest from './ReaderSuperResolutionModelIntegration.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -96,4 +98,6 @@ export default function testsuite(): void {
   backupCipherMetadataGuardTest()
   backupLocalDataStructureGuardTest()
   backupWebDavCredentialGroupTest()
+  readerSuperResolutionBackendTest()
+  readerSuperResolutionModelIntegrationTest()
 }

@@ -1,0 +1,2 @@
+# Preserve vendored third-party source and license text byte-for-byte.
+shared/src/main/cpp/third_party/** -whitespace

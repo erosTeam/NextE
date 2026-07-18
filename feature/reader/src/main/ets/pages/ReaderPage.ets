@@ -41,6 +41,10 @@ import {
   ImageSaveUtil,
   CachedImageProgress,
   CachedImageFileResult,
+  ReaderSuperResolutionResult,
+  ReaderSuperResolutionService,
+  ReaderSuperResolutionTaskState,
+  ReaderSuperResolutionModel,
   ImageBlockDecision,
   ImageBlockRuntimeService,
   ImageBlockSettingsState,
@@ -272,6 +276,10 @@ export struct ReaderPage {
   @Local imageMetricPages: number[] = [];
   @Local imageMetricWidths: number[] = [];
   @Local imageMetricHeights: number[] = [];
+  @Local imageEnhancementPages: number[] = [];
+  @Local imageEnhancementModels: string[] = [];
+  @Local imageEnhancementApplied: boolean[] = [];
+  @Local imageEnhancementReasons: string[] = [];
   @Local imageFilePages: number[] = [];
   @Local imageFileBytes: number[] = [];
   @Local imageFileFormats: string[] = [];
@@ -359,8 +367,9 @@ export struct ReaderPage {
           this.ReaderTapZonePreview()
         }
 
-        if (this.readerContentReady() && this.readMode.showPageNumber && !this.showChrome) {
-          this.ReaderPersistentPageNumber()
+        if (this.readerContentReady() && !this.showChrome &&
+          (this.readMode.showPageNumber || this.superResolutionIndicatorVisible())) {
+          this.ReaderPersistentPageStatus()
         }
 
         // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
@@ -763,6 +772,10 @@ export struct ReaderPage {
     this.imageMetricPages = []
     this.imageMetricWidths = []
     this.imageMetricHeights = []
+    this.imageEnhancementPages = []
+    this.imageEnhancementModels = []
+    this.imageEnhancementApplied = []
+    this.imageEnhancementReasons = []
     this.imageFilePages = []
     this.imageFileBytes = []
     this.imageFileFormats = []
@@ -816,7 +829,116 @@ export struct ReaderPage {
     return ''
   }
 
+  private rememberImageEnhancement(
+    page: number,
+    model: string,
+    applied: boolean,
+    reason: string,
+  ): void {
+    if (page <= 0) {
+      return
+    }
+    for (let i: number = 0; i < this.imageEnhancementPages.length; i++) {
+      if (this.imageEnhancementPages[i] === page) {
+        this.imageEnhancementModels[i] = model
+        this.imageEnhancementApplied[i] = applied
+        this.imageEnhancementReasons[i] = reason
+        return
+      }
+    }
+    this.imageEnhancementPages.push(page)
+    this.imageEnhancementModels.push(model)
+    this.imageEnhancementApplied.push(applied)
+    this.imageEnhancementReasons.push(reason)
+  }
+
+  private clearImageEnhancement(page: number): void {
+    for (let i: number = 0; i < this.imageEnhancementPages.length; i++) {
+      if (this.imageEnhancementPages[i] === page) {
+        this.imageEnhancementPages.splice(i, 1)
+        this.imageEnhancementModels.splice(i, 1)
+        this.imageEnhancementApplied.splice(i, 1)
+        this.imageEnhancementReasons.splice(i, 1)
+        return
+      }
+    }
+  }
+
+  private imageEnhancementModelLabel(model: string): string {
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
+      return AppStrings.get('settings_reader_super_resolution_realesrgan_x2plus')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_photo_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_ANIMEVIDEO_V3_X2) {
+      return AppStrings.get('settings_reader_super_resolution_realesrgan_animevideov3_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_art_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_cunet_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
+      return AppStrings.get('settings_reader_super_resolution_realcugan_se_2x_conservative')
+    }
+    return AppStrings.get('settings_reader_super_resolution_model_not_selected')
+  }
+
+  private imageEnhancementBackendLabel(reason: string): string {
+    if (reason.endsWith(':vulkan')) {
+      return AppStrings.get('settings_reader_super_resolution_backend_vulkan')
+    }
+    if (reason.endsWith(':cpu')) {
+      return AppStrings.get('settings_reader_super_resolution_backend_cpu')
+    }
+    return ''
+  }
+
+  private imageEnhancementText(page: number): string {
+    if (!this.readMode.superResolutionEnabled) {
+      return AppStrings.get('reader_image_info_enhancement').replace(
+        '%s',
+        AppStrings.get('settings_reader_super_resolution_off'),
+      )
+    }
+    const currentModel: string = this.readMode.superResolutionModel
+    const modelLabel: string = this.imageEnhancementModelLabel(currentModel)
+    if (currentModel === ReaderSuperResolutionModel.NONE) {
+      return AppStrings.get('reader_image_info_enhancement').replace('%s', modelLabel)
+    }
+    let applied: boolean = false
+    let reason: string = 'queued'
+    for (let i: number = 0; i < this.imageEnhancementPages.length; i++) {
+      if (this.imageEnhancementPages[i] === page && this.imageEnhancementModels[i] === currentModel) {
+        applied = this.imageEnhancementApplied[i]
+        reason = this.imageEnhancementReasons[i]
+        break
+      }
+    }
+    let detail: string = ''
+    if (applied) {
+      const backendLabel: string = this.imageEnhancementBackendLabel(reason)
+      const appliedLabel: string = backendLabel.length > 0
+        ? `${modelLabel} · ${backendLabel}`
+        : modelLabel
+      detail = AppStrings.get('reader_image_info_enhancement_applied').replace('%s', appliedLabel)
+    } else if (reason === 'processing') {
+      detail = AppStrings.get('reader_image_info_enhancement_processing').replace('%s', modelLabel)
+    } else if (reason === 'queued') {
+      detail = AppStrings.get('reader_image_info_enhancement_queued').replace('%s', modelLabel)
+    } else {
+      detail = AppStrings.get('reader_image_info_enhancement_not_applied').replace('%s', modelLabel)
+    }
+    return AppStrings.get('reader_image_info_enhancement').replace('%s', detail)
+  }
+
   private rememberImageFile(page: number, filePath: string, bytes: number): void {
+    const previousFilePath: string = this.imageBlockFileForPage(page)
+    if (previousFilePath.length > 0 && previousFilePath !== filePath) {
+      this.clearImageEnhancement(page)
+    }
     this.rememberImageBlockFile(page, filePath)
     if (page <= 0 || filePath.length === 0 || bytes < 0) {
       return
@@ -940,6 +1062,7 @@ export struct ReaderPage {
     if (dimensions.length > 0) {
       lines.push(dimensions)
     }
+    lines.push(this.imageEnhancementText(image.page))
     const sourceText: string = this.readerSourceText()
     const displaySource: string = sourceText.length > 0
       ? sourceText
@@ -2135,6 +2258,9 @@ export struct ReaderPage {
               onImageMetrics: (page: number, width: number, height: number) => {
                 this.rememberImageMetrics(page, width, height)
               },
+              onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => {
+                this.rememberImageEnhancement(page, model, applied, reason)
+              },
               onImageBlockState: (page: number, blocked: boolean) => {
                 this.rememberImageBlockState(page, blocked)
               },
@@ -2351,6 +2477,9 @@ export struct ReaderPage {
               onImageMetrics: (page: number, width: number, height: number) => {
                 this.rememberImageMetrics(page, width, height)
               },
+              onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => {
+                this.rememberImageEnhancement(page, model, applied, reason)
+              },
               onImageBlockState: (page: number, blocked: boolean) => {
                 this.rememberImageBlockState(page, blocked)
               },
@@ -2548,6 +2677,9 @@ export struct ReaderPage {
                 onImageMetrics: (page: number, width: number, height: number) => {
                   this.rememberImageMetrics(page, width, height)
                 },
+                onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => {
+                  this.rememberImageEnhancement(page, model, applied, reason)
+                },
                 onImageBlockState: (page: number, blocked: boolean) => {
                   this.rememberImageBlockState(page, blocked)
                 },
@@ -2686,10 +2818,40 @@ export struct ReaderPage {
     return `${shown} / ${this.vm.totalPages()}`
   }
 
+  private superResolutionIndicatorVisible(): boolean {
+    return this.readMode.superResolutionEnabled &&
+      this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE
+  }
+
+  private currentImageEnhancementIndex(): number {
+    const page: number = this.vm.currentIndex + 1
+    const model: string = this.readMode.superResolutionModel
+    for (let i: number = 0; i < this.imageEnhancementPages.length; i++) {
+      if (this.imageEnhancementPages[i] === page && this.imageEnhancementModels[i] === model) {
+        return i
+      }
+    }
+    return -1
+  }
+
+  private currentImageEnhancementProcessing(): boolean {
+    const index: number = this.currentImageEnhancementIndex()
+    return index >= 0 && this.imageEnhancementReasons[index] === 'processing'
+  }
+
+  private currentImageEnhancementApplied(): boolean {
+    const index: number = this.currentImageEnhancementIndex()
+    return index >= 0 && this.imageEnhancementApplied[index]
+  }
+
   @Builder
-  ReaderPersistentPageNumber() {
-    ReaderPageNumberText({
+  ReaderPersistentPageStatus() {
+    ReaderPageStatusOverlay({
       value: this.pageCountText(),
+      showPageNumber: this.readMode.showPageNumber,
+      showEnhancement: this.superResolutionIndicatorVisible(),
+      enhancementProcessing: this.currentImageEnhancementProcessing(),
+      enhancementApplied: this.currentImageEnhancementApplied(),
       bottomMargin: this.layout.bottomAvoidHeight + ThemeConstants.READER_PAGE_NUMBER_BOTTOM_GAP,
     })
   }
@@ -3035,12 +3197,20 @@ export struct ReaderPage {
       .width('100%')
       .height(56)
       .alignItems(VerticalAlign.Center)
-      Text(this.pageCountText())
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .maxLines(1)
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        Text(this.pageCountText())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor(Color.White)
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+        if (this.superResolutionIndicatorVisible()) {
+          ReaderSuperResolutionStatusIcon({
+            processing: this.currentImageEnhancementProcessing(),
+            applied: this.currentImageEnhancementApplied(),
+          })
+        }
+      }
+        .alignItems(VerticalAlign.Center)
         .hitTestBehavior(HitTestMode.None)
     }
     .width('100%')
@@ -3321,8 +3491,12 @@ export struct ReaderPage {
 }
 
 @ComponentV2
-struct ReaderPageNumberText {
+struct ReaderPageStatusOverlay {
   @Require @Param value: string
+  @Require @Param showPageNumber: boolean
+  @Require @Param showEnhancement: boolean
+  @Require @Param enhancementProcessing: boolean
+  @Require @Param enhancementApplied: boolean
   @Require @Param bottomMargin: number
   private controller: TextController = new TextController()
 
@@ -3353,15 +3527,48 @@ struct ReaderPageNumberText {
   }
 
   build() {
-    Text(undefined, { controller: this.controller })
-      .textAlign(TextAlign.Center)
-      .maxLines(1)
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      if (this.showPageNumber) {
+        Text(undefined, { controller: this.controller })
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .onAppear(() => {
+            this.updateStyledText()
+          })
+      }
+      if (this.showEnhancement) {
+        ReaderSuperResolutionStatusIcon({
+          processing: this.enhancementProcessing,
+          applied: this.enhancementApplied,
+        })
+      }
+    }
       .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
       .margin({ bottom: this.bottomMargin })
       .hitTestBehavior(HitTestMode.None)
-      .onAppear(() => {
-        this.updateStyledText()
-      })
+  }
+}
+
+@ComponentV2
+struct ReaderSuperResolutionStatusIcon {
+  @Require @Param processing: boolean
+  @Require @Param applied: boolean
+
+  build() {
+    if (this.processing) {
+      LoadingProgress()
+        .width(ThemeConstants.FONT_SIZE_BODY)
+        .height(ThemeConstants.FONT_SIZE_BODY)
+        .color(Color.White)
+        .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
+    } else {
+      SymbolGlyph($r('sys.symbol.AI_hd_rectangle'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor([this.applied ? ThemeConstants.BRAND_PRIMARY : Color.White])
+        .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
+    }
   }
 }
 
@@ -4059,6 +4266,8 @@ struct ReaderSpreadSurface {
   @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
+  @Param onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => void =
+    (_page: number, _model: string, _applied: boolean, _reason: string) => {};
 
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -4486,6 +4695,9 @@ struct ReaderSpreadSurface {
           this.recordImageMetrics(page, width, height)
           this.onImageMetrics(page, width, height)
         },
+        onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => {
+          this.onImageEnhancementState(page, model, applied, reason)
+        },
       })
     } else {
       Blank()
@@ -4678,6 +4890,8 @@ struct ReaderSpreadImageLayer {
   @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
+  @Param onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => void =
+    (_page: number, _model: string, _applied: boolean, _reason: string) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -4688,8 +4902,11 @@ struct ReaderSpreadImageLayer {
   @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
+  @Local readMode: ReadModeState = connectReadMode();
   private autoRetryCount: number = 0;
   private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
+  private resolvedFilePath: string = '';
+  private resolvedDisplayUri: string = '';
 
   aboutToAppear(): void {
     this.resolve()
@@ -4727,8 +4944,37 @@ struct ReaderSpreadImageLayer {
 
   @Monitor('active')
   onActiveChanged(): void {
-    if (this.active && this.imageUrl.length === 0 && !this.imageBlocked) {
+    if (!this.active || this.imageBlocked) {
+      return
+    }
+    if (this.imageUrl.length === 0) {
       this.resolve()
+      return
+    }
+    if (this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
+    }
+  }
+
+  @Monitor('readMode.superResolutionEnabled', 'readMode.superResolutionModel',
+    'readMode.superResolutionBackend',
+    'readMode.superResolutionMaxHeight')
+  onSuperResolutionSettingChanged(): void {
+    if (this.resolvedDisplayUri.length > 0) {
+      this.imageUrl = this.resolvedDisplayUri
+    }
+    if (this.active && !this.imageBlocked && this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
     }
   }
 
@@ -4742,6 +4988,8 @@ struct ReaderSpreadImageLayer {
     this.imageProgressTotal = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
@@ -4844,6 +5092,8 @@ struct ReaderSpreadImageLayer {
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     this.sourceImageUrl = resolved
     this.imageUrl = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
@@ -4879,10 +5129,58 @@ struct ReaderSpreadImageLayer {
       return
     }
     this.imageUrl = result.displayUri
+    this.resolvedFilePath = result.filePath
+    this.resolvedDisplayUri = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    if (this.active) {
+      this.applySuperResolution(result.filePath, result.displayUri, source.fileCacheKey, this.imageKey)
+    }
+  }
+
+  private async applySuperResolution(
+    filePath: string,
+    displayUri: string,
+    fileCacheKey: string,
+    imageKey: string,
+  ): Promise<void> {
+    if (!this.active || this.imageBlocked) {
+      return
+    }
+    const enabled: boolean = this.readMode.superResolutionEnabled
+    const model: string = this.readMode.superResolutionModel
+    const backend: string = this.readMode.superResolutionBackend
+    const maxHeight: number = this.readMode.superResolutionMaxHeight
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.onImageEnhancementState(
+      this.image.page,
+      model,
+      false,
+      enabled && model !== ReaderSuperResolutionModel.NONE ? 'queued' : 'disabled',
+    )
+    const result: ReaderSuperResolutionResult = await ReaderSuperResolutionService.process(
+      context,
+      filePath,
+      fileCacheKey,
+      (state: ReaderSuperResolutionTaskState): void => {
+        this.onImageEnhancementState(this.image.page, model, false, state)
+      },
+    )
+    if (!this.active || this.imageBlocked ||
+      this.readMode.superResolutionEnabled !== enabled ||
+      this.readMode.superResolutionModel !== model ||
+      this.readMode.superResolutionBackend !== backend ||
+      this.readMode.superResolutionMaxHeight !== maxHeight ||
+      this.fileCacheKey !== fileCacheKey || this.imageKey !== imageKey ||
+      this.resolvedFilePath !== filePath || this.resolvedDisplayUri !== displayUri) {
+      return
+    }
+    this.onImageEnhancementState(this.image.page, model, result.applied, result.reason)
+    if (result.applied) {
+      this.imageUrl = result.displayUri
+    }
   }
 
   private loadPriority(): number {
@@ -5094,6 +5392,8 @@ struct ReaderImagePage {
   @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
+  @Param onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => void =
+    (_page: number, _model: string, _applied: boolean, _reason: string) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -5110,6 +5410,7 @@ struct ReaderImagePage {
   @Local zoomAnimating: boolean = false;
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
+  @Local readMode: ReadModeState = connectReadMode();
 
   private pinchStartScale: number = 1;
   private pinchAnchorX: number = 0.5;
@@ -5125,6 +5426,8 @@ struct ReaderImagePage {
   private autoRetryCount: number = 0;
   private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
   private zoomAnimatingTimerId: number = 0;
+  private resolvedFilePath: string = '';
+  private resolvedDisplayUri: string = '';
 
   aboutToAppear(): void {
     this.resolve()
@@ -5180,6 +5483,32 @@ struct ReaderImagePage {
     }
     if (this.imageUrl.length === 0 && !this.imageBlocked) {
       this.resolve()
+      return
+    }
+    if (!this.imageBlocked && this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
+    }
+  }
+
+  @Monitor('readMode.superResolutionEnabled', 'readMode.superResolutionModel',
+    'readMode.superResolutionBackend',
+    'readMode.superResolutionMaxHeight')
+  onSuperResolutionSettingChanged(): void {
+    if (this.resolvedDisplayUri.length > 0) {
+      this.imageUrl = this.resolvedDisplayUri
+    }
+    if (this.isActive() && !this.imageBlocked && this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
     }
   }
 
@@ -5287,6 +5616,8 @@ struct ReaderImagePage {
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     this.sourceImageUrl = resolved
     this.imageUrl = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
@@ -5322,10 +5653,58 @@ struct ReaderImagePage {
       return
     }
     this.imageUrl = result.displayUri
+    this.resolvedFilePath = result.filePath
+    this.resolvedDisplayUri = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    if (this.isActive()) {
+      this.applySuperResolution(result.filePath, result.displayUri, source.fileCacheKey, this.imageKey)
+    }
+  }
+
+  private async applySuperResolution(
+    filePath: string,
+    displayUri: string,
+    fileCacheKey: string,
+    imageKey: string,
+  ): Promise<void> {
+    if (!this.isActive() || this.imageBlocked) {
+      return
+    }
+    const enabled: boolean = this.readMode.superResolutionEnabled
+    const model: string = this.readMode.superResolutionModel
+    const backend: string = this.readMode.superResolutionBackend
+    const maxHeight: number = this.readMode.superResolutionMaxHeight
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.onImageEnhancementState(
+      this.image.page,
+      model,
+      false,
+      enabled && model !== ReaderSuperResolutionModel.NONE ? 'queued' : 'disabled',
+    )
+    const result: ReaderSuperResolutionResult = await ReaderSuperResolutionService.process(
+      context,
+      filePath,
+      fileCacheKey,
+      (state: ReaderSuperResolutionTaskState): void => {
+        this.onImageEnhancementState(this.image.page, model, false, state)
+      },
+    )
+    if (!this.isActive() || this.imageBlocked ||
+      this.readMode.superResolutionEnabled !== enabled ||
+      this.readMode.superResolutionModel !== model ||
+      this.readMode.superResolutionBackend !== backend ||
+      this.readMode.superResolutionMaxHeight !== maxHeight ||
+      this.fileCacheKey !== fileCacheKey || this.imageKey !== imageKey ||
+      this.resolvedFilePath !== filePath || this.resolvedDisplayUri !== displayUri) {
+      return
+    }
+    this.onImageEnhancementState(this.image.page, model, result.applied, result.reason)
+    if (result.applied) {
+      this.imageUrl = result.displayUri
+    }
   }
 
   private loadPriority(): number {
@@ -5393,6 +5772,8 @@ struct ReaderImagePage {
     this.imageProgressTotal = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.intrinsicW = 0
@@ -5766,6 +6147,8 @@ struct ReaderVerticalImage {
   @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
+  @Param onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => void =
+    (_page: number, _model: string, _applied: boolean, _reason: string) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local sourceImageUrl: string = '';
@@ -5782,6 +6165,7 @@ struct ReaderVerticalImage {
   @Local zoomAnimating: boolean = false;
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
+  @Local readMode: ReadModeState = connectReadMode();
   private pinchStartScale: number = 1;
   private pinchAnchorX: number = 0.5;
   private pinchAnchorY: number = 0.5;
@@ -5801,6 +6185,8 @@ struct ReaderVerticalImage {
   private tapCancelled: boolean = false;
   private skipNextTapUp: boolean = false;
   private singleTapTimerId: number = 0;
+  private resolvedFilePath: string = '';
+  private resolvedDisplayUri: string = '';
 
   aboutToAppear(): void {
     this.resolve()
@@ -5847,8 +6233,37 @@ struct ReaderVerticalImage {
 
   @Monitor('visible')
   onVisibleChanged(): void {
-    if (this.visible && this.imageUrl.length === 0 && !this.imageBlocked) {
+    if (!this.visible || this.imageBlocked) {
+      return
+    }
+    if (this.imageUrl.length === 0) {
       this.resolve()
+      return
+    }
+    if (this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
+    }
+  }
+
+  @Monitor('readMode.superResolutionEnabled', 'readMode.superResolutionModel',
+    'readMode.superResolutionBackend',
+    'readMode.superResolutionMaxHeight')
+  onSuperResolutionSettingChanged(): void {
+    if (this.resolvedDisplayUri.length > 0) {
+      this.imageUrl = this.resolvedDisplayUri
+    }
+    if (this.visible && !this.imageBlocked && this.resolvedFilePath.length > 0) {
+      this.applySuperResolution(
+        this.resolvedFilePath,
+        this.resolvedDisplayUri,
+        this.fileCacheKey,
+        this.imageKey,
+      )
     }
   }
 
@@ -5951,6 +6366,8 @@ struct ReaderVerticalImage {
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     this.sourceImageUrl = resolved
     this.imageUrl = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
@@ -5986,10 +6403,58 @@ struct ReaderVerticalImage {
       return
     }
     this.imageUrl = result.displayUri
+    this.resolvedFilePath = result.filePath
+    this.resolvedDisplayUri = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    if (this.visible) {
+      this.applySuperResolution(result.filePath, result.displayUri, source.fileCacheKey, this.imageKey)
+    }
+  }
+
+  private async applySuperResolution(
+    filePath: string,
+    displayUri: string,
+    fileCacheKey: string,
+    imageKey: string,
+  ): Promise<void> {
+    if (!this.visible || this.imageBlocked) {
+      return
+    }
+    const enabled: boolean = this.readMode.superResolutionEnabled
+    const model: string = this.readMode.superResolutionModel
+    const backend: string = this.readMode.superResolutionBackend
+    const maxHeight: number = this.readMode.superResolutionMaxHeight
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.onImageEnhancementState(
+      this.image.page,
+      model,
+      false,
+      enabled && model !== ReaderSuperResolutionModel.NONE ? 'queued' : 'disabled',
+    )
+    const result: ReaderSuperResolutionResult = await ReaderSuperResolutionService.process(
+      context,
+      filePath,
+      fileCacheKey,
+      (state: ReaderSuperResolutionTaskState): void => {
+        this.onImageEnhancementState(this.image.page, model, false, state)
+      },
+    )
+    if (!this.visible || this.imageBlocked ||
+      this.readMode.superResolutionEnabled !== enabled ||
+      this.readMode.superResolutionModel !== model ||
+      this.readMode.superResolutionBackend !== backend ||
+      this.readMode.superResolutionMaxHeight !== maxHeight ||
+      this.fileCacheKey !== fileCacheKey || this.imageKey !== imageKey ||
+      this.resolvedFilePath !== filePath || this.resolvedDisplayUri !== displayUri) {
+      return
+    }
+    this.onImageEnhancementState(this.image.page, model, result.applied, result.reason)
+    if (result.applied) {
+      this.imageUrl = result.displayUri
+    }
   }
 
   private loadPriority(): number {
@@ -6057,6 +6522,8 @@ struct ReaderVerticalImage {
     this.imageProgressTotal = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
+    this.resolvedFilePath = ''
+    this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.ratio = DEFAULT_VERTICAL_RATIO

@@ -20,6 +20,9 @@
 - [2026-07-15 Gallery Comment Preview Text Tap Regression](incidents/2026-07-15-gallery-comment-preview-text-tap-regression.md)
 - [2026-07-15 Reader Thumbnail Geometry Verification Failure](incidents/2026-07-15-reader-thumbnail-geometry-verification-failure.md)
 - [2026-07-16 Active Task Continuity Failure](incidents/2026-07-16-active-task-continuity-failure.md)
+- [2026-07-18 Reader Super-Resolution Performance Verification Failure](incidents/2026-07-18-reader-super-resolution-performance-verification-failure.md)
+- [2026-07-18 Reader Super-Resolution UI And Scope Failure](incidents/2026-07-18-reader-super-resolution-ui-and-scope-failure.md)
+- [2026-07-18 Reader Super-Resolution Height Limit Contract Failure](incidents/2026-07-18-reader-super-resolution-height-limit-contract-failure.md)
 
 ## 硬停: 未知即阻断
 

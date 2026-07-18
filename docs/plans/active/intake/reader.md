@@ -10,6 +10,127 @@ Purpose:
 
 ## Items
 
+### Reader Super-Resolution Model Management And Candidate Registry
+
+Type: Reader image enhancement / settings subflow
+
+Priority suggestion: P1 / experimental reading enhancement
+
+Status: implemented / device smoke and integration complete
+
+Grounding:
+
+1. NextE references are `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` for grouped
+   settings, `shared/src/main/ets/components/AppModalScaffold.ets` for sheet presentation,
+   `feature/download/src/main/ets/pages/DownloadQueuePage.ets` for circular symbol actions and loading
+   state, and `entry/src/main/ets/pages/Index.ets` for full-screen versus Reader-overlay navigation.
+   Aidoku is capability reference only; its screen structure and selection treatment are not a UI
+   source for NextE.
+2. The active reading image is primary. Reader settings only expose the enhancement switch, selected
+   installed model, execution backend, and maximum input height; model-management rows expose local
+   file identity and size.
+3. The switch is the primary enable/disable control. Model choice is a secondary installed-model menu.
+   The management-page row action is a native circular download/delete symbol and becomes an in-place
+   `LoadingProgress` while the file is being fetched.
+4. The usable loop is: open Reader settings, optionally enter model management without leaving the
+   current sheet context, download a model, return, select an installed model, and enable enhancement.
+   This lane does not claim Reader-ready performance; representative-page latency remains governed by
+   the separate performance incident.
+5. HarmonyOS expression uses `@ComponentV2`, one typed downloadable-model registry, routed
+   `HdsNavDestination` for the full settings entry, and the Huawei component UX example's one-sheet
+   clipped-`Stack` plus horizontal `translate` transition for the Reader-sheet entry. Rows and actions
+   remain `ConciseListRow`, native `Menu`/`Switch`, `SymbolGlyph`, and `LoadingProgress`.
+
+State semantics:
+
+- Enhancement enabled/disabled is owned only by the independent switch.
+- The model menu contains installed runnable models only; it has no `none` entry.
+- If no model is installed, enhancement cannot be enabled and the settings row reports that no local
+  model is available.
+- Installing the first model selects it without enabling enhancement. Deleting the selected model
+  selects another installed model; deleting the last installed model disables enhancement.
+- Model management has no selected-row color, checkmark, pressed-state imitation, or text action.
+
+Candidate boundary:
+
+- First shared-ncnn registry set: Real-ESRGAN x2plus photo, Real-ESRGAN animevideov3 2x, waifu2x
+  photo noise0 2x, waifu2x art noise0 2x, waifu2x CUNet noise0 2x, and Real-CUGAN SE 2x conservative.
+- Anime4K remains a shader pipeline rather than a downloadable ncnn model.
+- IMDN, RFDN, ECBSR, FSRCNN, and ESPCN require audited converted weights and output contracts before
+  they can enter the downloadable registry.
+- SwinIR, HAT, and OmniSR require a separately validated mobile graph/runtime and are not allowed to
+  appear as nonfunctional placeholders.
+
+Acceptance:
+
+- Settings > Reader opens the routed management destination and returns through the normal app stack.
+- Reader's medium/large settings sheet transitions between the complete settings and model-management
+  pages inside the same panel. Back reverses the horizontal transition without opening a second panel
+  or moving to a full-screen overlay.
+- Every registered model row has neutral styling, ASCII model punctuation, file size, icon-only
+  download/delete action, and an in-place loading indicator during download.
+- Model selection, first-install, selected-delete, last-delete, and enhancement-switch guards follow the
+  state semantics above.
+- Build and static checks pass, then device selector `103` verifies both entry paths and file-state
+  transitions. Model quality and representative-page performance remain a separate validation matrix.
+
+Validation, 2026-07-18:
+
+- Device selector `103` resolved live to `192.168.50.103:12345`. Full-page and Reader-sheet entry,
+  the original embedded-navigation behavior, download loading state, completed-download action, and
+  delete confirmation were verified on the device. After replacing the embedded navigation with the
+  Huawei-example same-panel transition, Reader-sheet `阅读 -> 模型管理 -> 阅读` was verified again on
+  the same target: the floating sheet remained a single panel, the reverse transition returned to the
+  existing Reader settings scroll position, and the bounded after-action hilog contained no crash or
+  fatal signal.
+- The signed application build and the `entry@ohosTest` HAP build passed. The device test run reported
+  `96` tests passed with `0` failures and `0` errors; the six registry models each completed download,
+  checksum validation, model load, and Vulkan processing on the small integration fixture.
+- The fixture proves model/runtime connectivity only. It does not establish 800p Reader latency or
+  perceptual quality; those remain the separate representative-page evaluation requested by the user.
+
+Maximum-height contract correction, 2026-07-18:
+
+- The prior service caps made the displayed source-height limit misleading: a hidden 3200 output-edge
+  cap rejected every 2x source taller than 1600, and the menu still exposed unsupported values up to
+  4000. The service now derives its 2x output guards from the shared 2000 source-height maximum, treats
+  exactly 2000 as eligible, and the settings menu exposes only 1000, 1500, and 2000.
+- Device selector `103` resolved live to `192.168.50.103:12345`. A targeted test created an exact
+  1280 x 1837 source and produced a 2560 x 3674 waifu2x Vulkan output in 21,405 ms. Hypium reported 1
+  pass, 0 failures, and 0 errors. This proves the height-limit path for that representative dimension;
+  it does not change the separate model-quality or general performance assessment.
+
+Reader status and foreground-contention grounding, 2026-07-18:
+
+1. `../eros_fe/lib/pages/image_view/view/view_widget.dart` establishes the existing centered page
+   counter plus already-constrained top and bottom Reader chrome. It has no super-resolution status
+   treatment; the requested indicator is grounded in NextE's existing
+   `ReaderPersistentPageNumber` and top-bar counter instead of adding another controller button.
+2. The reading image remains primary. The first supporting information is the page counter; when
+   enhancement is enabled, a subordinate adjacent symbol reports the current page's enhancement state.
+3. The settings-sheet switch remains the primary control. The Reader indicator is passive and has no
+   hit target; no new top-bar or bottom-bar quick action is added in this lane.
+4. The usable loop covers enabled/unprocessed or queued, processing, and enhanced states for the current
+   page, plus lower-priority native scheduling so inference does not compete at the default UI QoS.
+   Model quality, tile tuning, and a new quick-control interaction remain outside this lane.
+5. HarmonyOS expression reuses the existing centered page-status rows, native `SymbolGlyph` with
+   `sys.symbol.AI_hd_rectangle`, native `LoadingProgress`, theme tokens, and Node-API background QoS.
+
+Validation, 2026-07-18:
+
+- Device selector `103` resolved live to `192.168.50.103:12345`. On a real 800 x 1148 source page,
+  the Reader showed a white `AI_hd_rectangle` while queued, native loading progress while processing,
+  and the theme-colored symbol after the 1600 x 2296 result was applied. The same status was visible
+  beside the persistent page counter and the expanded top-bar counter.
+- The signed application build passed, the V1 decorator inventory reported `0 file(s)`, and a current
+  trace recorded `Native async work queueWithQos` before the Vulkan inference callback. During that
+  active inference, the measured Reader page-jump frame was 20.447 ms. Opening Reader settings had one
+  263.868 ms actual frame; the same sheet opening without active inference reproduced a 223.787 ms
+  actual frame, so the dominant remaining settings stall is sheet construction/layout rather than
+  continuous inference contention. This trace does not provide a pre-change A/B measurement.
+- Real-ESRGAN still took 109.286 seconds for the representative page. Background QoS protects
+  foreground scheduling; it does not reduce model inference latency.
+
 ### Reader Display And Page-Turn Preferences
 
 Type: Reader settings expansion

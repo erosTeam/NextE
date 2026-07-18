@@ -1,0 +1,780 @@
+import { common } from '@kit.AbilityKit'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
+import { fileIo } from '@kit.CoreFileKit'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhHttpClient } from '../network/EhHttpClient'
+import { ReaderSuperResolutionModel } from '../state/ReadModeState'
+import {
+  ReaderSuperResolutionInstallStrategy,
+  ReaderSuperResolutionModelDefinition,
+  ReaderSuperResolutionModelRegistry,
+} from './ReaderSuperResolutionModelRegistry'
+
+const MODEL_DIR_NAME: string = 'reader-super-resolution-models'
+const WAIFU2X_DIR_NAME: string = 'waifu2x-photo-noise0-2x-ncnn-v1'
+const WAIFU2X_PARAM_FILE_NAME: string = 'noise0_scale2.0x_model.param'
+const WAIFU2X_MODEL_FILE_NAME: string = 'noise0_scale2.0x_model.bin'
+const WAIFU2X_PARAM_BYTES: number = 1047
+const WAIFU2X_MODEL_BYTES: number = 1106248
+const WAIFU2X_PARAM_SHA256: string =
+  '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6'
+const WAIFU2X_MODEL_SHA256: string =
+  'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673'
+const SOURCE_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
+const SOURCE_PATH: string = 'models/models-upconv_7_photo'
+const REAL_ESRGAN_DIR_NAME: string = 'realesrgan-x2plus-ncnn-fp32-v1'
+const REAL_ESRGAN_SOURCE_PARAM_FILE_NAME: string = 'realesrgan_x2plus.param'
+const REAL_ESRGAN_RUNTIME_PARAM_FILE_NAME: string = 'realesrgan_x2plus.compat.param'
+const REAL_ESRGAN_MODEL_FILE_NAME: string = 'realesrgan_x2plus.bin'
+const REAL_ESRGAN_SOURCE_PARAM_BYTES: number = 292200
+const REAL_ESRGAN_RUNTIME_PARAM_BYTES: number = 288376
+const REAL_ESRGAN_SOURCE_MODEL_BYTES: number = 66814128
+const REAL_ESRGAN_RUNTIME_MODEL_BYTES: number = 66814088
+const REAL_ESRGAN_MODEL_PREFIX_BYTES: number = 40
+const REAL_ESRGAN_SOURCE_PARAM_SHA256: string =
+  '79cb4938c0465a3b7d66aa21e9dc0e595a2ab2015b453831426f37a536b925b5'
+const REAL_ESRGAN_RUNTIME_PARAM_SHA256: string =
+  'b17f57a46574e28bbe405ed1d95edc99d6fa2abc777b477a2ba8399ffa3ea4dd'
+const REAL_ESRGAN_SOURCE_MODEL_SHA256: string =
+  '119cbbcf701a976a016d03fc5c457157e52a94f5e3e929e562e9ec87596d782b'
+const REAL_ESRGAN_RUNTIME_MODEL_SHA256: string =
+  '80154ed738cd609c639fed031e9d2bc5d612f4895b91b73e623e88fa0c19f8b9'
+// The pinned NCNN pair was audited locally against the official RealESRGAN_x2plus
+// params_ema checkpoint: all 351 convolution weights and biases matched bit-for-bit.
+const REAL_ESRGAN_SOURCE_REVISION: string = '2533a62c56b4f080eb90a039250752bc21e96259'
+const REAL_ESRGAN_SOURCE_REPOSITORY: string = 'bpawnzZ/Real-ESRGAN-x2plus-NCNN'
+const DOWNLOAD_CONNECT_TIMEOUT_MS: number = 15000
+const DOWNLOAD_READ_TIMEOUT_MS: number = 10 * 60 * 1000
+const HASH_CHUNK_BYTES: number = 256 * 1024
+
+export class ReaderSuperResolutionModelPaths {
+  paramPath: string = ''
+  modelPath: string = ''
+}
+
+/** Downloads and verifies immutable model assets before the native runtime can see them. */
+export class ReaderSuperResolutionModelService {
+  private static waifu2xInstallTask: Promise<void> | null = null
+  private static realEsrganInstallTask: Promise<void> | null = null
+  private static directInstallTasks: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+
+  static definitions(): ReaderSuperResolutionModelDefinition[] {
+    return ReaderSuperResolutionModelRegistry.all()
+  }
+
+  static modelBytes(model: string): number {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    return definition === null ? 0 : definition.bytes()
+  }
+
+  static async isInstalled(context: common.UIAbilityContext, model: string): Promise<boolean> {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    if (definition === null) {
+      return false
+    }
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    return ReaderSuperResolutionModelService.validateFile(
+      paths.paramPath,
+      definition.paramBytes,
+      definition.paramSha256,
+    ) && ReaderSuperResolutionModelService.validateFile(
+      paths.modelPath,
+      definition.modelBytes,
+      definition.modelSha256,
+    )
+  }
+
+  static async installedModels(context: common.UIAbilityContext): Promise<string[]> {
+    const installed: string[] = []
+    const definitions: ReaderSuperResolutionModelDefinition[] =
+      ReaderSuperResolutionModelRegistry.all()
+    for (let i: number = 0; i < definitions.length; i++) {
+      if (await ReaderSuperResolutionModelService.isInstalled(context, definitions[i].id)) {
+        installed.push(definitions[i].id)
+      }
+    }
+    return installed
+  }
+
+  static async pathsIfReady(
+    context: common.UIAbilityContext,
+    model: string,
+  ): Promise<ReaderSuperResolutionModelPaths | null> {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    if (definition === null) {
+      return null
+    }
+    if (definition.installStrategy ===
+      ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT) {
+      return ReaderSuperResolutionModelService.realEsrganPathsIfReady(context)
+    }
+    if (!await ReaderSuperResolutionModelService.isInstalled(context, model)) {
+      return null
+    }
+    return ReaderSuperResolutionModelService.paths(context, definition)
+  }
+
+  static async install(context: common.UIAbilityContext, model: string): Promise<void> {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    if (definition === null) {
+      throw new Error(`unsupported super-resolution model: ${model}`)
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
+      await ReaderSuperResolutionModelService.installWaifu2x(context)
+      return
+    }
+    if (definition.installStrategy ===
+      ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT) {
+      await ReaderSuperResolutionModelService.installRealEsrgan(context)
+      return
+    }
+    if (await ReaderSuperResolutionModelService.isInstalled(context, model)) {
+      return
+    }
+    const existing: Promise<void> | undefined =
+      ReaderSuperResolutionModelService.directInstallTasks.get(model)
+    if (existing !== undefined) {
+      await existing
+      return
+    }
+    const task: Promise<void> = ReaderSuperResolutionModelService.installDirectNow(
+      context,
+      definition,
+    )
+    ReaderSuperResolutionModelService.directInstallTasks.set(model, task)
+    try {
+      await task
+    } finally {
+      ReaderSuperResolutionModelService.directInstallTasks.delete(model)
+    }
+  }
+
+  static remove(context: common.UIAbilityContext, model: string): void {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    if (definition === null) {
+      return
+    }
+    if (definition.installStrategy ===
+      ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT) {
+      ReaderSuperResolutionModelService.removeRealEsrgan(context)
+      return
+    }
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+    ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+  }
+
+  static waifu2xModelBytes(): number {
+    return WAIFU2X_PARAM_BYTES + WAIFU2X_MODEL_BYTES
+  }
+
+  static realEsrganModelBytes(): number {
+    return REAL_ESRGAN_RUNTIME_PARAM_BYTES + REAL_ESRGAN_RUNTIME_MODEL_BYTES
+  }
+
+  static async isWaifu2xInstalled(context: common.UIAbilityContext): Promise<boolean> {
+    return ReaderSuperResolutionModelService.isInstalled(
+      context,
+      ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+    )
+  }
+
+  static async isRealEsrganInstalled(context: common.UIAbilityContext): Promise<boolean> {
+    return ReaderSuperResolutionModelService.isInstalled(
+      context,
+      ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS,
+    )
+  }
+
+  static async waifu2xPathsIfReady(
+    context: common.UIAbilityContext,
+  ): Promise<ReaderSuperResolutionModelPaths | null> {
+    if (!await ReaderSuperResolutionModelService.isWaifu2xInstalled(context)) {
+      return null
+    }
+    return ReaderSuperResolutionModelService.waifu2xPaths(context)
+  }
+
+  static async realEsrganPathsIfReady(
+    context: common.UIAbilityContext,
+  ): Promise<ReaderSuperResolutionModelPaths | null> {
+    if (!await ReaderSuperResolutionModelService.isRealEsrganInstalled(context) &&
+      ReaderSuperResolutionModelService.hasRealEsrganSourceAssets(context)) {
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_migration_start',
+        'model=realesrgan_x2plus',
+      )
+      await ReaderSuperResolutionModelService.installRealEsrgan(context)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_migration_success',
+        'model=realesrgan_x2plus',
+      )
+    }
+    if (!await ReaderSuperResolutionModelService.isRealEsrganInstalled(context)) {
+      return null
+    }
+    return ReaderSuperResolutionModelService.realEsrganPaths(context)
+  }
+
+  static async installWaifu2x(context: common.UIAbilityContext): Promise<void> {
+    if (await ReaderSuperResolutionModelService.isWaifu2xInstalled(context)) {
+      return
+    }
+    if (ReaderSuperResolutionModelService.waifu2xInstallTask === null) {
+      ReaderSuperResolutionModelService.waifu2xInstallTask =
+        ReaderSuperResolutionModelService.installWaifu2xNow(context)
+    }
+    try {
+      await ReaderSuperResolutionModelService.waifu2xInstallTask
+    } finally {
+      ReaderSuperResolutionModelService.waifu2xInstallTask = null
+    }
+  }
+
+  static async installRealEsrgan(context: common.UIAbilityContext): Promise<void> {
+    if (await ReaderSuperResolutionModelService.isRealEsrganInstalled(context)) {
+      return
+    }
+    if (ReaderSuperResolutionModelService.realEsrganInstallTask === null) {
+      ReaderSuperResolutionModelService.realEsrganInstallTask =
+        ReaderSuperResolutionModelService.installRealEsrganNow(context)
+    }
+    try {
+      await ReaderSuperResolutionModelService.realEsrganInstallTask
+    } finally {
+      ReaderSuperResolutionModelService.realEsrganInstallTask = null
+    }
+  }
+
+  static removeWaifu2x(context: common.UIAbilityContext): void {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.waifu2xPaths(context)
+    ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+    ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+  }
+
+  static removeRealEsrgan(context: common.UIAbilityContext): void {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.realEsrganPaths(context)
+    const sourceParamPath: string =
+      ReaderSuperResolutionModelService.realEsrganSourceParamPath(context)
+    ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+    ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+    ReaderSuperResolutionModelService.removeIfExists(sourceParamPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.runtime`)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part.runtime`)
+    ReaderSuperResolutionModelService.removeIfExists(`${sourceParamPath}.part`)
+  }
+
+  private static async installDirectNow(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): Promise<void> {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    ReaderSuperResolutionModelService.ensureDir(
+      ReaderSuperResolutionModelService.definitionDir(context, definition),
+    )
+    const paramPart: string = `${paths.paramPath}.part`
+    const modelPart: string = `${paths.modelPath}.part`
+    ReaderSuperResolutionModelService.removeIfExists(paramPart)
+    ReaderSuperResolutionModelService.removeIfExists(modelPart)
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'model_download_start',
+      `model=${definition.id}`,
+    )
+    try {
+      await ReaderSuperResolutionModelService.downloadAsset(definition.paramUrls, paramPart)
+      if (!ReaderSuperResolutionModelService.validateFile(
+        paramPart,
+        definition.paramBytes,
+        definition.paramSha256,
+      )) {
+        throw new Error(`${definition.id} param checksum mismatch`)
+      }
+      await ReaderSuperResolutionModelService.downloadAsset(definition.modelUrls, modelPart)
+      if (!ReaderSuperResolutionModelService.validateFile(
+        modelPart,
+        definition.modelBytes,
+        definition.modelSha256,
+      )) {
+        throw new Error(`${definition.id} model checksum mismatch`)
+      }
+      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+      ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+      fileIo.renameSync(paramPart, paths.paramPath)
+      fileIo.renameSync(modelPart, paths.modelPath)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_download_success',
+        `model=${definition.id} bytes=${definition.bytes()}`,
+      )
+    } catch (error) {
+      ReaderSuperResolutionModelService.removeIfExists(paramPart)
+      ReaderSuperResolutionModelService.removeIfExists(modelPart)
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'model_download_failed',
+        `model=${definition.id} message=${(error as Error).message}`,
+      )
+      throw error as Error
+    }
+  }
+
+  private static async installWaifu2xNow(context: common.UIAbilityContext): Promise<void> {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.waifu2xPaths(context)
+    ReaderSuperResolutionModelService.ensureDir(ReaderSuperResolutionModelService.modelDir(context))
+    const paramPart: string = `${paths.paramPath}.part`
+    const modelPart: string = `${paths.modelPath}.part`
+    ReaderSuperResolutionModelService.removeIfExists(paramPart)
+    ReaderSuperResolutionModelService.removeIfExists(modelPart)
+    DiagnosticLogger.info('reader-super-resolution', 'model_download_start', 'model=waifu2x_photo_noise0_2x')
+    try {
+      await ReaderSuperResolutionModelService.downloadAsset(
+        ReaderSuperResolutionModelService.waifu2xAssetUrls(WAIFU2X_PARAM_FILE_NAME),
+        paramPart,
+      )
+      if (!ReaderSuperResolutionModelService.validateFile(
+        paramPart,
+        WAIFU2X_PARAM_BYTES,
+        WAIFU2X_PARAM_SHA256,
+      )) {
+        throw new Error('waifu2x param checksum mismatch')
+      }
+      await ReaderSuperResolutionModelService.downloadAsset(
+        ReaderSuperResolutionModelService.waifu2xAssetUrls(WAIFU2X_MODEL_FILE_NAME),
+        modelPart,
+      )
+      if (!ReaderSuperResolutionModelService.validateFile(
+        modelPart,
+        WAIFU2X_MODEL_BYTES,
+        WAIFU2X_MODEL_SHA256,
+      )) {
+        throw new Error('waifu2x model checksum mismatch')
+      }
+      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+      ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+      fileIo.renameSync(paramPart, paths.paramPath)
+      fileIo.renameSync(modelPart, paths.modelPath)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_download_success',
+        `model=waifu2x_photo_noise0_2x bytes=${WAIFU2X_PARAM_BYTES + WAIFU2X_MODEL_BYTES}`,
+      )
+    } catch (error) {
+      ReaderSuperResolutionModelService.removeIfExists(paramPart)
+      ReaderSuperResolutionModelService.removeIfExists(modelPart)
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'model_download_failed',
+        (error as Error).message,
+      )
+      throw error as Error
+    }
+  }
+
+  private static async installRealEsrganNow(context: common.UIAbilityContext): Promise<void> {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.realEsrganPaths(context)
+    ReaderSuperResolutionModelService.ensureDir(
+      ReaderSuperResolutionModelService.realEsrganModelDir(context),
+    )
+    const sourceParamPath: string =
+      ReaderSuperResolutionModelService.realEsrganSourceParamPath(context)
+    const sourceParamPart: string = sourceParamPath + '.part'
+    const runtimeParamPart: string = paths.paramPath + '.part'
+    const modelPart: string = paths.modelPath + '.part'
+    ReaderSuperResolutionModelService.removeIfExists(sourceParamPart)
+    ReaderSuperResolutionModelService.removeIfExists(runtimeParamPart)
+    ReaderSuperResolutionModelService.removeIfExists(modelPart)
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'model_download_start',
+      'model=realesrgan_x2plus',
+    )
+    try {
+      if (!ReaderSuperResolutionModelService.validateFile(
+        sourceParamPath,
+        REAL_ESRGAN_SOURCE_PARAM_BYTES,
+        REAL_ESRGAN_SOURCE_PARAM_SHA256,
+      )) {
+        await ReaderSuperResolutionModelService.downloadAsset(
+          ReaderSuperResolutionModelService.realEsrganAssetUrls(
+            REAL_ESRGAN_SOURCE_PARAM_FILE_NAME,
+          ),
+          sourceParamPart,
+        )
+        if (!ReaderSuperResolutionModelService.validateFile(
+          sourceParamPart,
+          REAL_ESRGAN_SOURCE_PARAM_BYTES,
+          REAL_ESRGAN_SOURCE_PARAM_SHA256,
+        )) {
+          throw new Error('Real-ESRGAN source param checksum mismatch')
+        }
+        ReaderSuperResolutionModelService.removeIfExists(sourceParamPath)
+        fileIo.renameSync(sourceParamPart, sourceParamPath)
+      }
+      ReaderSuperResolutionModelService.createRealEsrganRuntimeParam(
+        sourceParamPath,
+        runtimeParamPart,
+      )
+      if (!ReaderSuperResolutionModelService.validateFile(
+        runtimeParamPart,
+        REAL_ESRGAN_RUNTIME_PARAM_BYTES,
+        REAL_ESRGAN_RUNTIME_PARAM_SHA256,
+      )) {
+        throw new Error('Real-ESRGAN runtime param checksum mismatch')
+      }
+      if (ReaderSuperResolutionModelService.validateFile(
+        paths.modelPath,
+        REAL_ESRGAN_SOURCE_MODEL_BYTES,
+        REAL_ESRGAN_SOURCE_MODEL_SHA256,
+      )) {
+        ReaderSuperResolutionModelService.createRealEsrganRuntimeModel(paths.modelPath)
+      }
+      if (!ReaderSuperResolutionModelService.validateFile(
+        paths.modelPath,
+        REAL_ESRGAN_RUNTIME_MODEL_BYTES,
+        REAL_ESRGAN_RUNTIME_MODEL_SHA256,
+      )) {
+        await ReaderSuperResolutionModelService.downloadAsset(
+          ReaderSuperResolutionModelService.realEsrganAssetUrls(REAL_ESRGAN_MODEL_FILE_NAME),
+          modelPart,
+        )
+        if (!ReaderSuperResolutionModelService.validateFile(
+          modelPart,
+          REAL_ESRGAN_SOURCE_MODEL_BYTES,
+          REAL_ESRGAN_SOURCE_MODEL_SHA256,
+        )) {
+          throw new Error('Real-ESRGAN source model checksum mismatch')
+        }
+        ReaderSuperResolutionModelService.createRealEsrganRuntimeModel(modelPart)
+        if (!ReaderSuperResolutionModelService.validateFile(
+          modelPart,
+          REAL_ESRGAN_RUNTIME_MODEL_BYTES,
+          REAL_ESRGAN_RUNTIME_MODEL_SHA256,
+        )) {
+          throw new Error('Real-ESRGAN runtime model checksum mismatch')
+        }
+        ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+        fileIo.renameSync(modelPart, paths.modelPath)
+      }
+      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+      fileIo.renameSync(runtimeParamPart, paths.paramPath)
+      ReaderSuperResolutionModelService.removeIfExists(sourceParamPath)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_download_success',
+        'model=realesrgan_x2plus bytes=' +
+          (REAL_ESRGAN_SOURCE_PARAM_BYTES + REAL_ESRGAN_SOURCE_MODEL_BYTES),
+      )
+    } catch (error) {
+      ReaderSuperResolutionModelService.removeIfExists(sourceParamPart)
+      ReaderSuperResolutionModelService.removeIfExists(runtimeParamPart)
+      ReaderSuperResolutionModelService.removeIfExists(modelPart)
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'model_download_failed',
+        (error as Error).message,
+      )
+      throw error as Error
+    }
+  }
+
+  /**
+   * The source graph expands PixelUnshuffle into dynamic shape operators that the HarmonyOS ncnn
+   * build cannot load. Reorg(stride=2, mode=0) is the same space-to-depth channel order, so the
+   * compatible graph replaces only that prelude and leaves every learned layer untouched.
+   */
+  private static createRealEsrganRuntimeParam(sourcePath: string, targetPath: string): void {
+    const source: string = fileIo.readTextSync(sourcePath)
+    const sourceLines: string[] = source.split('\n')
+    if (sourceLines.length < 3 || sourceLines[0] !== '7767517' ||
+      sourceLines[1] !== '1408 2199') {
+      throw new Error('unsupported Real-ESRGAN source param header')
+    }
+    let convFirstIndex: number = -1
+    for (let i: number = 2; i < sourceLines.length; i++) {
+      if (sourceLines[i].startsWith('Convolution') &&
+        sourceLines[i].includes('/conv_first/Conv')) {
+        convFirstIndex = i
+        break
+      }
+    }
+    if (convFirstIndex < 0) {
+      throw new Error('Real-ESRGAN conv_first layer is missing')
+    }
+    const layers: string[] = [
+      'Input            input                    0 1 input',
+    ]
+    layers.push(
+      'Reorg            pixel_unshuffle          1 1 input /Reshape_1_output_0 0=2 1=0',
+    )
+    for (let i: number = convFirstIndex; i < sourceLines.length; i++) {
+      layers.push(sourceLines[i])
+    }
+    const runtimeParam: string = '7767517\n1371 2154\n' + layers.join('\n')
+    let output: fileIo.File | null = null
+    try {
+      output = fileIo.openSync(
+        targetPath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
+      fileIo.writeSync(output.fd, runtimeParam)
+    } finally {
+      if (output !== null) {
+        fileIo.closeSync(output)
+      }
+    }
+  }
+
+  /**
+   * The pinned model bin starts with five int64 values used only by the removed dynamic-shape
+   * prelude. They are verified as part of the immutable source hash, then omitted while writing a
+   * temporary runtime file. The verified runtime file atomically replaces the source file.
+   */
+  private static createRealEsrganRuntimeModel(path: string): void {
+    if (fileIo.statSync(path).size !== REAL_ESRGAN_SOURCE_MODEL_BYTES) {
+      throw new Error('unexpected Real-ESRGAN source model size')
+    }
+    const runtimePath: string = path + '.runtime'
+    ReaderSuperResolutionModelService.removeIfExists(runtimePath)
+    let source: fileIo.File | null = null
+    let output: fileIo.File | null = null
+    let readOffset: number = REAL_ESRGAN_MODEL_PREFIX_BYTES
+    let totalWritten: number = 0
+    try {
+      source = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+      output = fileIo.openSync(
+        runtimePath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
+      while (totalWritten < REAL_ESRGAN_RUNTIME_MODEL_BYTES) {
+        const length: number = Math.min(
+          HASH_CHUNK_BYTES,
+          REAL_ESRGAN_RUNTIME_MODEL_BYTES - totalWritten,
+        )
+        const buffer: ArrayBuffer = new ArrayBuffer(length)
+        const read: number = fileIo.readSync(
+          source.fd,
+          buffer,
+          { offset: readOffset, length: length },
+        )
+        if (read !== length) {
+          throw new Error('failed to read Real-ESRGAN runtime model chunk')
+        }
+        let written: number = 0
+        while (written < read) {
+          const remaining: ArrayBuffer = written === 0
+            ? buffer
+            : buffer.slice(written, read)
+          const count: number = fileIo.writeSync(
+            output.fd,
+            remaining,
+            { length: read - written },
+          )
+          if (count <= 0) {
+            throw new Error('failed to write Real-ESRGAN runtime model chunk')
+          }
+          written += count
+        }
+        readOffset += read
+        totalWritten += read
+      }
+    } finally {
+      if (output !== null) {
+        fileIo.closeSync(output)
+      }
+      if (source !== null) {
+        fileIo.closeSync(source)
+      }
+    }
+    if (!ReaderSuperResolutionModelService.validateFile(
+      runtimePath,
+      REAL_ESRGAN_RUNTIME_MODEL_BYTES,
+      REAL_ESRGAN_RUNTIME_MODEL_SHA256,
+    )) {
+      ReaderSuperResolutionModelService.removeIfExists(runtimePath)
+      throw new Error('Real-ESRGAN generated runtime model checksum mismatch')
+    }
+    ReaderSuperResolutionModelService.removeIfExists(path)
+    fileIo.renameSync(runtimePath, path)
+  }
+
+  private static async downloadAsset(urls: string[], path: string): Promise<void> {
+    let lastError: Error | null = null
+    for (let i: number = 0; i < urls.length; i++) {
+      try {
+        const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+          urls[i],
+          path,
+          (_loaded: number, _total: number): void => {},
+          DOWNLOAD_CONNECT_TIMEOUT_MS,
+          0,
+          'application/octet-stream,text/plain,*/*',
+          2,
+          DOWNLOAD_READ_TIMEOUT_MS,
+        )
+        if (bytes <= 0) {
+          throw new Error('model asset response is empty')
+        }
+        return
+      } catch (error) {
+        lastError = error as Error
+        ReaderSuperResolutionModelService.removeIfExists(path)
+      }
+    }
+    throw lastError !== null ? lastError : new Error('model asset download failed')
+  }
+
+  private static waifu2xAssetUrls(fileName: string): string[] {
+    return [
+      `https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/${SOURCE_REVISION}/${SOURCE_PATH}/${fileName}`,
+      `https://github.com/nihui/waifu2x-ncnn-vulkan/raw/${SOURCE_REVISION}/${SOURCE_PATH}/${fileName}`,
+    ]
+  }
+
+  private static realEsrganAssetUrls(fileName: string): string[] {
+    return [
+      `https://huggingface.co/${REAL_ESRGAN_SOURCE_REPOSITORY}/resolve/` +
+        `${REAL_ESRGAN_SOURCE_REVISION}/${fileName}`,
+    ]
+  }
+
+  private static validateFile(path: string, expectedBytes: number, expectedSha256: string): boolean {
+    try {
+      const stat: fileIo.Stat = fileIo.statSync(path)
+      return stat.size === expectedBytes &&
+        ReaderSuperResolutionModelService.hashFile(path) === expectedSha256
+    } catch (_error) {
+      return false
+    }
+  }
+
+  private static hashFile(path: string): string {
+    const md = cryptoFramework.createMd('SHA256')
+    let file: fileIo.File | null = null
+    try {
+      file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+      while (true) {
+        const buffer: ArrayBuffer = new ArrayBuffer(HASH_CHUNK_BYTES)
+        const read: number = fileIo.readSync(file.fd, buffer, { length: HASH_CHUNK_BYTES })
+        if (read <= 0) {
+          break
+        }
+        md.updateSync({ data: new Uint8Array(buffer, 0, read) })
+      }
+      return ReaderSuperResolutionModelService.toHex(md.digestSync().data)
+    } finally {
+      if (file !== null) {
+        fileIo.closeSync(file)
+      }
+    }
+  }
+
+  private static toHex(bytes: Uint8Array): string {
+    const parts: string[] = []
+    for (let i: number = 0; i < bytes.length; i++) {
+      parts.push(bytes[i].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
+  }
+
+  private static waifu2xPaths(context: common.UIAbilityContext): ReaderSuperResolutionModelPaths {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(
+        ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+      )
+    if (definition === null) {
+      return new ReaderSuperResolutionModelPaths()
+    }
+    return ReaderSuperResolutionModelService.paths(context, definition)
+  }
+
+  private static realEsrganPaths(context: common.UIAbilityContext): ReaderSuperResolutionModelPaths {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    if (definition === null) {
+      return new ReaderSuperResolutionModelPaths()
+    }
+    return ReaderSuperResolutionModelService.paths(context, definition)
+  }
+
+  private static realEsrganSourceParamPath(context: common.UIAbilityContext): string {
+    return `${ReaderSuperResolutionModelService.realEsrganModelDir(context)}/` +
+      REAL_ESRGAN_SOURCE_PARAM_FILE_NAME
+  }
+
+  private static hasRealEsrganSourceAssets(context: common.UIAbilityContext): boolean {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.realEsrganPaths(context)
+    return ReaderSuperResolutionModelService.validateFile(
+      ReaderSuperResolutionModelService.realEsrganSourceParamPath(context),
+      REAL_ESRGAN_SOURCE_PARAM_BYTES,
+      REAL_ESRGAN_SOURCE_PARAM_SHA256,
+    ) && ReaderSuperResolutionModelService.validateFile(
+      paths.modelPath,
+      REAL_ESRGAN_SOURCE_MODEL_BYTES,
+      REAL_ESRGAN_SOURCE_MODEL_SHA256,
+    )
+  }
+
+  private static modelDir(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/${MODEL_DIR_NAME}/${WAIFU2X_DIR_NAME}`
+  }
+
+  private static realEsrganModelDir(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/${MODEL_DIR_NAME}/${REAL_ESRGAN_DIR_NAME}`
+  }
+
+  private static definitionDir(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): string {
+    return `${context.filesDir}/${MODEL_DIR_NAME}/${definition.directoryName}`
+  }
+
+  private static paths(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): ReaderSuperResolutionModelPaths {
+    const dir: string = ReaderSuperResolutionModelService.definitionDir(context, definition)
+    const paths: ReaderSuperResolutionModelPaths = new ReaderSuperResolutionModelPaths()
+    paths.paramPath = `${dir}/${definition.paramFileName}`
+    paths.modelPath = `${dir}/${definition.modelFileName}`
+    return paths
+  }
+
+  private static ensureDir(path: string): void {
+    try {
+      fileIo.mkdirSync(path, true)
+    } catch (error) {
+      if (!fileIo.accessSync(path)) {
+        throw error as Error
+      }
+    }
+  }
+
+  private static removeIfExists(path: string): void {
+    try {
+      fileIo.unlinkSync(path)
+    } catch (_error) {}
+  }
+}

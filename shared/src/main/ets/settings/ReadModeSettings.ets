@@ -6,6 +6,9 @@ import {
   ReadMode,
   ReaderBackgroundMode,
   ReaderImageScalingQuality,
+  ReaderSuperResolutionBackend,
+  ReaderSuperResolutionModel,
+  READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
   ReadSpreadLayout,
 } from '../state/ReadModeState'
 import { StorageKeys } from '../constants/StorageKeys'
@@ -80,6 +83,36 @@ export class ReadModeSettings {
     return ReaderImageScalingQuality.MEDIUM
   }
 
+  private static normalizeSuperResolutionModel(model: string): string {
+    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
+      model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X ||
+      model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X ||
+      model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE ||
+      model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
+      model === ReaderSuperResolutionModel.REAL_ESRGAN_ANIMEVIDEO_V3_X2) {
+      return model
+    }
+    return ReaderSuperResolutionModel.NONE
+  }
+
+  private static normalizeSuperResolutionBackend(backend: string): string {
+    if (backend === ReaderSuperResolutionBackend.VULKAN ||
+      backend === ReaderSuperResolutionBackend.CPU) {
+      return backend
+    }
+    return ReaderSuperResolutionBackend.AUTO
+  }
+
+  private static normalizeSuperResolutionMaxHeight(value: number): number {
+    if (!Number.isFinite(value)) {
+      return READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT
+    }
+    return Math.max(
+      200,
+      Math.min(READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT, Math.round(value / 100) * 100),
+    )
+  }
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -123,6 +156,28 @@ export class ReadModeSettings {
           ReaderImageScalingQuality.MEDIUM,
         ) as string
       )
+      const superResolutionModel: string = ReadModeSettings.normalizeSuperResolutionModel(
+        store.getSync(
+          StorageKeys.READING_SUPER_RESOLUTION_MODEL,
+          ReaderSuperResolutionModel.NONE,
+        ) as string
+      )
+      const superResolutionEnabled: boolean = store.getSync(
+        StorageKeys.READING_SUPER_RESOLUTION_ENABLED,
+        superResolutionModel !== ReaderSuperResolutionModel.NONE,
+      ) as boolean
+      const superResolutionBackend: string = ReadModeSettings.normalizeSuperResolutionBackend(
+        store.getSync(
+          StorageKeys.READING_SUPER_RESOLUTION_BACKEND,
+          ReaderSuperResolutionBackend.AUTO,
+        ) as string
+      )
+      const superResolutionMaxHeight: number = ReadModeSettings.normalizeSuperResolutionMaxHeight(
+        store.getSync(
+          StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT,
+          READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
+        ) as number
+      )
       const showPageNumber: boolean = store.getSync(
         StorageKeys.READING_SHOW_PAGE_NUMBER,
         true,
@@ -144,6 +199,10 @@ export class ReadModeSettings {
       connectReadMode().tapZoneInvert = tapZoneInvert
       connectReadMode().backgroundMode = backgroundMode
       connectReadMode().imageScalingQuality = imageScalingQuality
+      connectReadMode().superResolutionEnabled = superResolutionEnabled
+      connectReadMode().superResolutionModel = superResolutionModel
+      connectReadMode().superResolutionBackend = superResolutionBackend
+      connectReadMode().superResolutionMaxHeight = superResolutionMaxHeight
       connectReadMode().showPageNumber = showPageNumber
       connectReadMode().fullscreen = fullscreen
       connectReadMode().keepScreenOn = keepScreenOn
@@ -314,6 +373,77 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_image_scaling_quality_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setSuperResolutionModel(
+    context: common.UIAbilityContext,
+    model: string,
+  ): Promise<void> {
+    const normalized: string = ReadModeSettings.normalizeSuperResolutionModel(model)
+    connectReadMode().superResolutionModel = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_SUPER_RESOLUTION_MODEL, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_super_resolution_model_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setSuperResolutionEnabled(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<void> {
+    connectReadMode().superResolutionEnabled = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_SUPER_RESOLUTION_ENABLED, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_super_resolution_enabled_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setSuperResolutionBackend(
+    context: common.UIAbilityContext,
+    backend: string,
+  ): Promise<void> {
+    const normalized: string = ReadModeSettings.normalizeSuperResolutionBackend(backend)
+    connectReadMode().superResolutionBackend = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_SUPER_RESOLUTION_BACKEND, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_super_resolution_backend_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setSuperResolutionMaxHeight(
+    context: common.UIAbilityContext,
+    maxHeight: number,
+  ): Promise<void> {
+    const normalized: number = ReadModeSettings.normalizeSuperResolutionMaxHeight(maxHeight)
+    connectReadMode().superResolutionMaxHeight = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_super_resolution_max_height_save_failed', (error as Error).message)
     }
   }
 

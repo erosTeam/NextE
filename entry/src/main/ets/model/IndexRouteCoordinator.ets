@@ -25,6 +25,7 @@ export type IndexDestinationFamily =
   'thumbnailColumnDensity' |
   'cacheSettings' |
   'readerSettings' |
+  'readerSuperResolutionModels' |
   'downloadSettings' |
   'searchSettings' |
   'localBlockSettings' |
@@ -69,6 +70,7 @@ export class IndexRouteCoordinator {
     'ThumbnailColumnDensity': 'thumbnailColumnDensity',
     'CacheSettings': 'cacheSettings',
     'ReaderSettings': 'readerSettings',
+    'ReaderSuperResolutionModels': 'readerSuperResolutionModels',
     'DownloadSettings': 'downloadSettings',
     'SearchSettings': 'searchSettings',
     'LocalBlockSettings': 'localBlockSettings',

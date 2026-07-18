@@ -102,6 +102,7 @@ import {
   ColumnDensityPage,
   CacheSettingsPage,
   ReaderSettingsPage,
+  ReaderSuperResolutionModelsPage,
   DownloadSettingsPage,
   SearchSettingsPage,
   LocalBlockSettingsPage,
@@ -282,6 +283,11 @@ function IndexReaderSettingsRoute() {
 }
 
 @Builder
+function IndexReaderSuperResolutionModelsRoute() {
+  ReaderSuperResolutionModelsPage()
+}
+
+@Builder
 function IndexDownloadSettingsRoute() {
   DownloadSettingsPage()
 }
@@ -418,6 +424,7 @@ struct Index {
     'thumbnailColumnDensity': wrapBuilder<[]>(IndexThumbnailColumnDensityRoute),
     'cacheSettings': wrapBuilder<[]>(IndexCacheSettingsRoute),
     'readerSettings': wrapBuilder<[]>(IndexReaderSettingsRoute),
+    'readerSuperResolutionModels': wrapBuilder<[]>(IndexReaderSuperResolutionModelsRoute),
     'downloadSettings': wrapBuilder<[]>(IndexDownloadSettingsRoute),
     'searchSettings': wrapBuilder<[]>(IndexSearchSettingsRoute),
     'localBlockSettings': wrapBuilder<[]>(IndexLocalBlockSettingsRoute),
@@ -1310,6 +1317,8 @@ struct Index {
       })
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
+    } else if (name === 'ReaderSuperResolutionModels') {
+      ReaderSuperResolutionModelsPage()
     } else if (name === 'ReaderGestureProbe') {
       ReaderGestureProbePage()
     } else {

@@ -7,6 +7,7 @@ import { ImageKnifePreloadCallbacks, ImageKnifeProRuntime } from './ImageKnifePr
 import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
 import { ImageKnifeRequest } from '@ohos/imageknifepro'
 import { ReaderImageFileCacheService } from './ReaderImageFileCacheService'
+import { ReaderSuperResolutionService } from './ReaderSuperResolutionService'
 import { ReaderImageCacheSettings } from '../settings/ReaderImageCacheSettings'
 
 export class ImagePipelineService {
@@ -125,10 +126,13 @@ export class ImagePipelineService {
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
     const out: CacheStat = await CachedImageFileService.stat(context)
     const readerCache: CacheStat = await ReaderImageFileCacheService.stat(context)
+    const superResolutionCache: CacheStat = await ReaderSuperResolutionService.stat(context)
     const imageBlockPreviewCache: CacheStat = await ImageBlockPreviewCacheService.stat(context)
     const imageCache: CacheStat = ImageKnifeProRuntime.stat()
     out.count += readerCache.count
     out.bytes += readerCache.bytes
+    out.count += superResolutionCache.count
+    out.bytes += superResolutionCache.bytes
     out.count += imageBlockPreviewCache.count
     out.bytes += imageBlockPreviewCache.bytes
     out.count += imageCache.count
@@ -139,6 +143,7 @@ export class ImagePipelineService {
   static async clearCache(context: common.UIAbilityContext): Promise<void> {
     await CachedImageFileService.clear(context)
     await ReaderImageFileCacheService.clear(context)
+    await ReaderSuperResolutionService.clear(context)
     await ImageBlockPreviewCacheService.clear(context)
     await ImageKnifeProRuntime.clearCache()
   }

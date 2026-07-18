@@ -11,6 +11,7 @@ export struct AppModalScaffold {
   @Param contentHorizontalPadding: number = ThemeConstants.SPACE_MD
   @Param closeInMenu: boolean = false
   @Param closeIcon: Resource = $r('sys.symbol.xmark')
+  @Param closeIconStyle: IconStyleMode = IconStyleMode.SMALL
   @Param footerReserveHeight: number = 0
   @Param showFooterActionOne: boolean = false
   @Param footerActionOneIcon: Resource = $r('sys.symbol.checkmark')
@@ -79,7 +80,7 @@ export struct AppModalScaffold {
               label: 'modal_close',
               icon: this.closeIcon,
               isEnabled: !this.confirmLoading,
-              type: IconStyleMode.SMALL,
+              type: this.closeIconStyle,
               action: () => {
                 if (this.closeAction) {
                   this.closeAction()
@@ -93,7 +94,7 @@ export struct AppModalScaffold {
                 label: 'modal_close',
                 icon: this.closeIcon,
                 isEnabled: !this.confirmLoading,
-                type: IconStyleMode.SMALL,
+                type: this.closeIconStyle,
                 action: () => {
                   if (this.closeAction) {
                     this.closeAction()

@@ -155,6 +155,25 @@ export {
   ImageResolveSourceGate,
 } from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
+export {
+  ReaderSuperResolutionCapabilities,
+  ReaderSuperResolutionResult,
+  ReaderSuperResolutionService,
+  ReaderSuperResolutionTaskState,
+} from './services/ReaderSuperResolutionService'
+export {
+  ReaderSuperResolutionModelPaths,
+  ReaderSuperResolutionModelService,
+} from './services/ReaderSuperResolutionModelService'
+export {
+  ReaderSuperResolutionInstallStrategy,
+  ReaderSuperResolutionModelDefinition,
+  ReaderSuperResolutionModelRegistry,
+} from './services/ReaderSuperResolutionModelRegistry'
+export {
+  ReaderNnrtCapabilities,
+  ReaderNnrtCapabilityProbe,
+} from './services/ReaderNnrtCapabilityProbe'
 export { ImageBlockPreviewCacheService } from './services/ImageBlockPreviewCacheService'
 export { ReaderImagePriorityScheduler, ReaderImagePriorityTask } from './services/ReaderImageFileCacheService'
 export {
@@ -441,6 +460,9 @@ export {
   ReadSpreadLayout,
   ReaderBackgroundMode,
   ReaderImageScalingQuality,
+  ReaderSuperResolutionBackend,
+  ReaderSuperResolutionModel,
+  READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
   ReadModeState,
   connectReadMode,
 } from './state/ReadModeState'
