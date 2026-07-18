@@ -15,6 +15,7 @@ import {
   ReaderNativeSuperResolution,
   ReaderNativeSuperResolutionCapabilities,
   ReaderNativeSuperResolutionConfig,
+  ReaderNativeSuperResolutionPrepareResult,
   ReaderNativeSuperResolutionResult,
 } from './ReaderNativeSuperResolution'
 import {
@@ -116,6 +117,7 @@ export class ReaderSuperResolutionService {
   private static pendingTasks: ReaderSuperResolutionInFlightTask[] = []
   private static activeTask: ReaderSuperResolutionInFlightTask | null = null
   private static pruneChain: Promise<void> = Promise.resolve()
+  private static preparationInFlight: Map<string, Promise<void>> = new Map<string, Promise<void>>()
 
   static capabilities(): ReaderSuperResolutionCapabilities {
     const native: ReaderNativeSuperResolutionCapabilities =
@@ -125,6 +127,78 @@ export class ReaderSuperResolutionService {
     result.gpuName = native.gpuName
     result.ncnnVersion = native.ncnnVersion
     return result
+  }
+
+  static async prepareSelectedModel(context: common.UIAbilityContext): Promise<void> {
+    const readMode = connectReadMode()
+    if (!readMode.superResolutionEnabled) {
+      return
+    }
+    const model: string = readMode.superResolutionModel
+    if (model === ReaderSuperResolutionModel.NONE ||
+      ReaderSuperResolutionModelRegistry.find(model) === null) {
+      return
+    }
+    const backendPreference: string = readMode.superResolutionBackend
+    const preparationKey: string = `${model}|${backendPreference}`
+    const existing: Promise<void> | undefined =
+      ReaderSuperResolutionService.preparationInFlight.get(preparationKey)
+    if (existing !== undefined) {
+      await existing
+      return
+    }
+    const preparation: Promise<void> = ReaderSuperResolutionService.prepareSelectedModelNow(
+      context,
+      model,
+      backendPreference,
+    )
+    ReaderSuperResolutionService.preparationInFlight.set(preparationKey, preparation)
+    try {
+      await preparation
+    } finally {
+      if (ReaderSuperResolutionService.preparationInFlight.get(preparationKey) === preparation) {
+        ReaderSuperResolutionService.preparationInFlight.delete(preparationKey)
+      }
+    }
+  }
+
+  private static async prepareSelectedModelNow(
+    context: common.UIAbilityContext,
+    model: string,
+    backendPreference: string,
+  ): Promise<void> {
+    try {
+      const modelPaths: ReaderSuperResolutionModelPaths | null =
+        await ReaderSuperResolutionModelService.pathsIfReady(context, model)
+      const readMode = connectReadMode()
+      if (modelPaths === null || !readMode.superResolutionEnabled ||
+        readMode.superResolutionModel !== model ||
+        readMode.superResolutionBackend !== backendPreference) {
+        return
+      }
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'prepare_start',
+        `model=${model} backendPreference=${backendPreference}`,
+      )
+      const result: ReaderNativeSuperResolutionPrepareResult =
+        await ReaderNativeSuperResolution.prepareModel(
+          modelPaths.paramPath,
+          modelPaths.modelPath,
+          ReaderSuperResolutionService.nativeConfig(model, backendPreference),
+        )
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'prepare_success',
+        `model=${model} backend=${result.backend} modelLoadMs=${result.modelLoadMs}`,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'prepare_failed',
+        `model=${model} message=${(error as Error).message}`,
+      )
+    }
   }
 
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
@@ -221,6 +295,25 @@ export class ReaderSuperResolutionService {
       cachedResult.reason = cachedResult.backend.length > 0
         ? `cache_hit:${cachedResult.backend}`
         : 'cache_hit'
+      let cachedSource: image.ImageSource | undefined = undefined
+      try {
+        cachedSource = image.createImageSource(sourcePath)
+        const cachedSourceInfo: image.ImageInfo = await cachedSource.getImageInfo()
+        cachedResult.sourceWidth = cachedSourceInfo.size.width
+        cachedResult.sourceHeight = cachedSourceInfo.size.height
+        cachedResult.outputWidth = cachedResult.sourceWidth * OUTPUT_SCALE
+        cachedResult.outputHeight = cachedResult.sourceHeight * OUTPUT_SCALE
+      } catch (error) {
+        DiagnosticLogger.warn(
+          'reader-super-resolution',
+          'cache_dimensions_failed',
+          `message=${(error as Error).message} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+        )
+      } finally {
+        if (cachedSource !== undefined) {
+          await cachedSource.release()
+        }
+      }
       return cachedResult
     }
 

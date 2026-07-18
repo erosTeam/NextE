@@ -1,6 +1,18 @@
 import nativeSuperResolution from 'libnexte_super_resolution.so'
 
 interface NativeSuperResolutionModule {
+  prepareModel(
+    paramPath: string,
+    modelPath: string,
+    modelKind: number,
+    backendPreference: number,
+    tileSize: number,
+    prepadding: number,
+    threads: number,
+    inputName: string,
+    outputName: string,
+  ): Promise<NativeSuperResolutionPrepareResult>
+
   upscaleRgba(
     pixels: ArrayBuffer,
     width: number,
@@ -23,6 +35,11 @@ interface NativeSuperResolutionModule {
   setInteractionPaused(paused: boolean): void
 
   getCapabilities(): NativeSuperResolutionCapabilities
+}
+
+interface NativeSuperResolutionPrepareResult {
+  backend: string
+  modelLoadMs: number
 }
 
 interface NativeSuperResolutionResult {
@@ -67,6 +84,11 @@ export class ReaderNativeSuperResolutionResult {
   inferenceMs: number = 0
 }
 
+export class ReaderNativeSuperResolutionPrepareResult {
+  backend: string = ''
+  modelLoadMs: number = 0
+}
+
 export class ReaderNativeSuperResolutionCapabilities {
   vulkanAvailable: boolean = false
   gpuCount: number = 0
@@ -87,6 +109,29 @@ export class ReaderNativeSuperResolution {
     result.gpuCount = native.gpuCount
     result.gpuName = native.gpuName
     result.ncnnVersion = native.ncnnVersion
+    return result
+  }
+
+  static async prepareModel(
+    paramPath: string,
+    modelPath: string,
+    config: ReaderNativeSuperResolutionConfig,
+  ): Promise<ReaderNativeSuperResolutionPrepareResult> {
+    const native: NativeSuperResolutionPrepareResult = await nativeRuntime.prepareModel(
+      paramPath,
+      modelPath,
+      config.modelKind,
+      config.backendPreference,
+      config.tileSize,
+      config.prepadding,
+      config.threads,
+      config.inputName,
+      config.outputName,
+    )
+    const result: ReaderNativeSuperResolutionPrepareResult =
+      new ReaderNativeSuperResolutionPrepareResult()
+    result.backend = native.backend
+    result.modelLoadMs = native.modelLoadMs
     return result
   }
 

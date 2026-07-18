@@ -102,6 +102,7 @@ import {
   LayoutSafeAreaBridge,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  ReaderSuperResolutionService,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -437,6 +438,7 @@ export struct GalleryDetailPage {
   // Pending 5s viewed-history timer (eros_fe delays addHistory 5s after open so a quick bounce isn't
   // recorded). Cancelled if the user leaves before it fires. -1 = none.
   private historyTimer: number = -1;
+  private superResolutionPrepareTimer: number = -1;
 
   // eros_fe resumes reading at the saved lastIndex when the READ button is tapped (thumbnail taps
   // still open their own page). 0 when there is no saved progress.
@@ -515,8 +517,21 @@ export struct GalleryDetailPage {
     }, 5000)
   }
 
+  private scheduleSuperResolutionPreparation(): void {
+    if (this.superResolutionPrepareTimer >= 0) {
+      clearTimeout(this.superResolutionPrepareTimer)
+    }
+    // Let the detail transition and first layout settle before model IO and Vulkan pipeline creation.
+    // The work itself stays on the native background QoS and is reused by the Reader process.
+    this.superResolutionPrepareTimer = setTimeout(() => {
+      this.superResolutionPrepareTimer = -1
+      ReaderSuperResolutionService.prepareSelectedModel(this.ctx())
+    }, 600)
+  }
+
   aboutToAppear(): void {
     this.syncDownloadChipState('appear')
+    this.scheduleSuperResolutionPreparation()
   }
 
   aboutToDisappear(): void {
@@ -524,6 +539,10 @@ export struct GalleryDetailPage {
     if (this.historyTimer >= 0) {
       clearTimeout(this.historyTimer)
       this.historyTimer = -1
+    }
+    if (this.superResolutionPrepareTimer >= 0) {
+      clearTimeout(this.superResolutionPrepareTimer)
+      this.superResolutionPrepareTimer = -1
     }
   }
 

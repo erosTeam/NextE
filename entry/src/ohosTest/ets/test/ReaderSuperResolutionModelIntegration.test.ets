@@ -192,6 +192,43 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       done()
     })
 
+    it('preparesSelectedModelBeforeReaderInference', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const sourcePath: string =
+        context.cacheDir + '/reader-super-resolution-prepared-waifu2x-input.jpg'
+      const previousEnabled: boolean = connectReadMode().superResolutionEnabled
+      const previousModel: string = connectReadMode().superResolutionModel
+      const previousBackend: string = connectReadMode().superResolutionBackend
+      try {
+        await ReaderSuperResolutionModelService.installWaifu2x(context)
+        connectReadMode().superResolutionEnabled = true
+        connectReadMode().superResolutionModel = ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
+        connectReadMode().superResolutionBackend = ReaderSuperResolutionBackend.VULKAN
+        await ReaderSuperResolutionService.prepareSelectedModel(context)
+        await writeTestImage(sourcePath)
+        await verifyModel(
+          context,
+          ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+          ReaderSuperResolutionBackend.VULKAN,
+          sourcePath,
+          'ohos-test-prepared-waifu2x-vulkan',
+        )
+      } finally {
+        connectReadMode().superResolutionEnabled = previousEnabled
+        connectReadMode().superResolutionModel = previousModel
+        connectReadMode().superResolutionBackend = previousBackend
+        await ReaderSuperResolutionService.clear(context)
+        try {
+          fileIo.unlinkSync(sourcePath)
+        } catch (_error) {}
+      }
+      done()
+    })
+
     it('processesReaderSizedSourceAt2000Limit', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()

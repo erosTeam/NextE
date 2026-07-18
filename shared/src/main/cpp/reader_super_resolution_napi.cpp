@@ -834,6 +834,49 @@ bool RunUpscale(UpscaleTask &task)
     return RunWithBackend(task, false);
 }
 
+void WaitUntilPreparationAllowed()
+{
+    std::unique_lock<std::mutex> lock(gInteractionMutex);
+    while (gInteractionPaused) {
+        gInteractionCondition.wait_for(lock, std::chrono::milliseconds(16));
+    }
+}
+
+bool PrepareWithBackend(UpscaleTask &task, bool useVulkan)
+{
+    ncnn::Net *net = PrepareNet(task, useVulkan);
+    if (net == nullptr) {
+        return false;
+    }
+    task.backend = useVulkan ? "vulkan" : "cpu";
+    return true;
+}
+
+bool RunPrepare(UpscaleTask &task)
+{
+    if (task.threads < 1) {
+        task.error = "invalid ncnn thread configuration";
+        return false;
+    }
+    WaitUntilPreparationAllowed();
+    std::lock_guard<std::mutex> lock(gInferenceMutex);
+    const bool canUseVulkan = VulkanAvailable();
+    if (task.backendPreference == BackendPreference::Vulkan && !canUseVulkan) {
+        task.error = "Vulkan backend is unavailable";
+        return false;
+    }
+    const bool tryVulkan = task.backendPreference != BackendPreference::Cpu && canUseVulkan;
+    if (tryVulkan && PrepareWithBackend(task, true)) {
+        return true;
+    }
+    if (task.backendPreference == BackendPreference::Vulkan) {
+        return false;
+    }
+    task.error.clear();
+    task.modelLoadMs = 0;
+    return PrepareWithBackend(task, false);
+}
+
 void ExecuteUpscale(napi_env env, void *data)
 {
     (void)env;
@@ -842,6 +885,13 @@ void ExecuteUpscale(napi_env env, void *data)
     // The N-API completion callback runs on the ArkTS thread. Release the multi-megabyte source
     // copy here so cancellation cannot turn buffer destruction into a foreground input stall.
     std::vector<uint8_t>().swap(task->input);
+}
+
+void ExecutePrepare(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<UpscaleTask *>(data);
+    RunPrepare(*task);
 }
 
 napi_value StringValue(napi_env env, const std::string &value)
@@ -900,6 +950,33 @@ void CompleteUpscale(napi_env env, napi_status status, void *data)
     }
     napi_delete_async_work(env, task->work);
     SetRequestActiveState(task->requestId, true);
+    delete task;
+}
+
+void CompletePrepare(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<UpscaleTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        if (napi_create_object(env, &result) == napi_ok) {
+            napi_set_named_property(env, result, "backend", StringValue(env, task->backend));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            task->error = "failed to allocate JavaScript preparation result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native super-resolution preparation failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
     delete task;
 }
 
@@ -1004,6 +1081,70 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
     return promise;
 }
 
+napi_value PrepareModel(napi_env env, napi_callback_info info)
+{
+    size_t argc = 9;
+    napi_value argv[9] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
+        napi_throw_type_error(env, nullptr, "prepareModel expects 9 arguments");
+        return nullptr;
+    }
+
+    auto *task = new UpscaleTask();
+    int modelKind = 0;
+    int backendPreference = 0;
+    if (!GetInt(env, argv[2], modelKind) ||
+        !GetInt(env, argv[3], backendPreference) ||
+        !GetInt(env, argv[4], task->tileSize) ||
+        !GetInt(env, argv[5], task->prepadding) ||
+        !GetInt(env, argv[6], task->threads) ||
+        modelKind < static_cast<int>(ModelKind::Waifu2x) ||
+        modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
+        backendPreference < static_cast<int>(BackendPreference::Automatic) ||
+        backendPreference > static_cast<int>(BackendPreference::Cpu)) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid super-resolution preparation argument type");
+        return nullptr;
+    }
+    task->modelKind = static_cast<ModelKind>(modelKind);
+    task->backendPreference = static_cast<BackendPreference>(backendPreference);
+    task->paramPath = GetString(env, argv[0]);
+    task->modelPath = GetString(env, argv[1]);
+    task->inputName = GetString(env, argv[7]);
+    task->outputName = GetString(env, argv[8]);
+    if (task->paramPath.empty() || task->modelPath.empty() || task->tileSize < 32 || task->prepadding < 0 ||
+        task->threads < 1 ||
+        task->inputName.empty() || task->outputName.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "ncnn preparation configuration is required");
+        return nullptr;
+    }
+
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextESuperResolutionPrepare", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecutePrepare,
+            CompletePrepare,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create native super-resolution preparation task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue native super-resolution preparation task");
+        return nullptr;
+    }
+    return promise;
+}
+
 napi_value GetCapabilities(napi_env env, napi_callback_info info)
 {
     (void)info;
@@ -1027,6 +1168,7 @@ EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports)
 {
     napi_property_descriptor descriptors[] = {
+        {"prepareModel", nullptr, PrepareModel, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"upscaleRgba", nullptr, UpscaleRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},

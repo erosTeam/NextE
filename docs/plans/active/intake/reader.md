@@ -131,6 +131,26 @@ Validation, 2026-07-18:
 - Real-ESRGAN still took 109.286 seconds for the representative page. Background QoS protects
   foreground scheduling; it does not reduce model inference latency.
 
+Performance continuation, 2026-07-18:
+
+- The accepted waifu2x path now caches the ncnn network and Vulkan pipelines, keeps preprocessing and
+  output conversion on Vulkan, uses 128-pixel FP16 tiles with a one-millisecond scheduling gap, runs
+  one inference at a time, prioritizes the visible page, preempts stale prefetch, and prepares the
+  configured forward preload range. On selector `103`, a warm 800 x 1182 page reported 4,939 ms native
+  inference and 5,229 ms end to end. The matching Reader trace had no application or RenderService
+  actual frame above 16.67 ms; an auxiliary `rmrenderservice` process had one 33.376 ms sample.
+- Larger tiles were evaluated and rejected rather than shipped on timing alone. A 192-pixel tile
+  reduced a warm 800 x 1145 inference to 4,538 ms but introduced one 17.199 ms application actual
+  frame; a 160-pixel tile measured 4,758 ms and did not retain a meaningful speed advantage. The
+  accepted runtime remains at 128 pixels.
+- When enhancement is enabled and its selected model is installed, Gallery detail now starts one
+  delayed background model preparation after the detail transition settles. On selector `103`,
+  waifu2x preparation loaded the Vulkan runtime in 2,502 ms. The next 800 x 1149 Reader page reused
+  it with `modelLoadMs=0` and completed in 5,158 ms, versus 8,008 ms for the same cold page without
+  preparation. During the preparation interval, the only application actual frame above 16.67 ms was
+  22.789 ms and its main-thread trace was `FlushDirtyNodeUpdate` / `Default DecodeInterceptor`; the
+  native preparation worker remained on background QoS.
+
 ### Reader Display And Page-Turn Preferences
 
 Type: Reader settings expansion
