@@ -179,7 +179,7 @@ export struct EhSettingsPage {
             Column() {
               ConciseListRow({
                 title: $r('app.string.settings_site'),
-                leadingIcon: $r('sys.symbol.house_fill'),
+                leadingIcon: $r('sys.symbol.house'),
                 trailingText: this.siteLabel(),
                 trailingDropdown: true,
                 action: () => {
@@ -216,7 +216,7 @@ export struct EhSettingsPage {
             ConciseListRow({
               title: $r('app.string.eh_settings_toplist_hidden_filter'),
               subtitle: $r('app.string.eh_settings_toplist_hidden_filter_hint'),
-              leadingIcon: $r('sys.symbol.eye_slash'),
+              leadingIcon: $r('sys.symbol.doc_text_badge_nosign'),
               hasSwitch: true,
               checked: this.toplistFilter.applyHiddenUserTags,
               switchAction: (value: boolean) => {
@@ -227,7 +227,7 @@ export struct EhSettingsPage {
             ConciseListRow({
               title: $r('app.string.local_block_title'),
               subtitle: $r('app.string.local_block_hint'),
-              leadingIcon: $r('sys.symbol.eye_slash'),
+              leadingIcon: $r('sys.symbol.nosign'),
               trailingText: `${this.localBlock.rules.length}`,
               action: () => {
                 this.stack.pushPathByName('LocalBlockSettings', null)
@@ -235,19 +235,22 @@ export struct EhSettingsPage {
             })
             this.rowDivider()
             ConciseListRow({
-              title: $r('app.string.settings_translation'),
-              leadingIcon: $r('sys.symbol.translate'),
-              action: () => {
-                this.stack.pushPathByName('TranslationSettings', null)
-              },
-            })
-            this.rowDivider()
-            ConciseListRow({
               title: $r('app.string.image_block_title'),
               subtitle: $r('app.string.image_block_hint'),
-              leadingIcon: $r('sys.symbol.eye_slash'),
+              leadingIcon: $r('sys.symbol.picture_slash'),
               action: () => {
                 this.stack.pushPathByName('ImageBlockSettings', null)
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.settings_translation'),
+              leadingIcon: $r('sys.symbol.translation'),
+              action: () => {
+                this.stack.pushPathByName('TranslationSettings', null)
               },
             })
           }

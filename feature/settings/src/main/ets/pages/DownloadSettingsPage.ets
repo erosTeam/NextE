@@ -339,7 +339,7 @@ export struct DownloadSettingsPage {
               ConciseListRow({
                 title: $r('app.string.download_retry_count'),
                 subtitle: $r('app.string.download_retry_count_hint'),
-                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                leadingIcon: $r('sys.symbol.list_number'),
                 hasCounter: true,
                 counterValue: `${this.downloadSettings.retryCount}`,
                 counterDecreaseEnabled:
@@ -358,7 +358,7 @@ export struct DownloadSettingsPage {
               ConciseListRow({
                 title: $r('app.string.download_auto_retry_failed'),
                 subtitle: $r('app.string.download_auto_retry_failed_hint'),
-                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                leadingIcon: $r('sys.symbol.repeat'),
                 hasSwitch: true,
                 checked: this.downloadSettings.autoRetryFailed,
                 showChevron: false,

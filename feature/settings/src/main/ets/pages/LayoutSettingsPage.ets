@@ -814,7 +814,7 @@ export struct LayoutSettingsPage {
                 ConciseListRow({
                   title: $r('app.string.settings_column_width'),
                   subtitle: $r('app.string.settings_column_width_hint'),
-                  leadingIcon: $r('sys.symbol.square_grid_2x2'),
+                  leadingIcon: $r('sys.symbol.arrowtriangle_2_inward_square'),
                   action: () => {
                     this.stack.pushPathByName('ColumnDensity', null)
                   },
