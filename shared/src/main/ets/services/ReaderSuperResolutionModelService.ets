@@ -430,34 +430,38 @@ export class ReaderSuperResolutionModelService {
       `model=${definition.id}`,
     )
     try {
-      await ReaderSuperResolutionModelService.downloadAsset(definition.paramUrls, paramPart)
-      if (!ReaderSuperResolutionModelService.validateFile(
-        paramPart,
-        definition.paramBytes,
-        definition.paramSha256,
-      )) {
-        throw new Error(`${definition.id} param checksum mismatch`)
+      if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
+        await ReaderSuperResolutionModelService.downloadAsset(definition.paramUrls, paramPart)
+        if (!ReaderSuperResolutionModelService.validateFile(
+          paramPart,
+          definition.paramBytes,
+          definition.paramSha256,
+        )) {
+          throw new Error(`${definition.id} param checksum mismatch`)
+        }
+        await ReaderSuperResolutionModelService.downloadAsset(definition.modelUrls, modelPart)
+        if (!ReaderSuperResolutionModelService.validateFile(
+          modelPart,
+          definition.modelBytes,
+          definition.modelSha256,
+        )) {
+          throw new Error(`${definition.id} model checksum mismatch`)
+        }
+        ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+        ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+        fileIo.renameSync(paramPart, paths.paramPath)
+        fileIo.renameSync(modelPart, paths.modelPath)
       }
-      await ReaderSuperResolutionModelService.downloadAsset(definition.modelUrls, modelPart)
-      if (!ReaderSuperResolutionModelService.validateFile(
-        modelPart,
-        definition.modelBytes,
-        definition.modelSha256,
-      )) {
-        throw new Error(`${definition.id} model checksum mismatch`)
-      }
-      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
-      ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
-      fileIo.renameSync(paramPart, paths.paramPath)
-      fileIo.renameSync(modelPart, paths.modelPath)
+      await ReaderSuperResolutionModelService.installAcceleratedAsset(paths, definition)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_download_success',
-        `model=${definition.id} bytes=${definition.bytes()}`,
+        `model=${definition.id} bytes=${definition.downloadBytes()}`,
       )
     } catch (error) {
       ReaderSuperResolutionModelService.removeIfExists(paramPart)
       ReaderSuperResolutionModelService.removeIfExists(modelPart)
+      ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
       DiagnosticLogger.warn(
         'reader-super-resolution',
         'model_download_failed',

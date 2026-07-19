@@ -41,6 +41,7 @@ enum class ModelKind : int {
     Waifu2x = 0,
     RealEsrgan = 1,
     Luminance = 2,
+    RealCugan = 3,
 };
 
 enum class BackendPreference : int {
@@ -340,6 +341,11 @@ bool ResolveMindSporeContract(UpscaleTask &task, MindSporeContract &contract)
     if (task.modelKind == ModelKind::Luminance) {
         // ESPCN preserves the fixed input extent. Crop the 4px context on each side after 2x output.
         contract = {180, 360, 1, 1, 172, 4, 8};
+        return true;
+    }
+    if (task.modelKind == ModelKind::RealCugan) {
+        // Preserve the existing Reader 128 px tile plus 18 px context contract.
+        contract = {164, 256, 3, 3, 128, 18, 0};
         return true;
     }
     task.error = "MindSpore NNRT model kind is unsupported";
@@ -1798,7 +1804,7 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         !GetInt64(env, argv[13], requestId) ||
         requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::Luminance) ||
+        modelKind > static_cast<int>(ModelKind::RealCugan) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;
@@ -1859,7 +1865,7 @@ napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], modelKind) ||
         !GetInt64(env, argv[6], requestId) || requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::Luminance)) {
+        modelKind > static_cast<int>(ModelKind::RealCugan)) {
         delete task;
         napi_throw_type_error(env, nullptr, "invalid MindSpore NNRT upscale argument type");
         return nullptr;
@@ -1916,7 +1922,7 @@ napi_value PrepareModel(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], task->prepadding) ||
         !GetInt(env, argv[6], task->threads) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::Luminance) ||
+        modelKind > static_cast<int>(ModelKind::RealCugan) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;
@@ -1975,7 +1981,7 @@ napi_value PrepareMindSporeModelNapi(napi_env env, napi_callback_info info)
     task->modelPath = GetString(env, argv[0]);
     if (!GetInt(env, argv[1], modelKind) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::Luminance) ||
+        modelKind > static_cast<int>(ModelKind::RealCugan) ||
         task->modelPath.empty()) {
         delete task;
         napi_throw_type_error(env, nullptr, "MindSpore NNRT model path and kind are required");

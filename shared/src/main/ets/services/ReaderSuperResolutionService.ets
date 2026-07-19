@@ -1014,7 +1014,8 @@ export class ReaderSuperResolutionService {
     const nnrtSupported: boolean =
       model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
         model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
-        model === ReaderSuperResolutionModel.ESPCN_X2
+        model === ReaderSuperResolutionModel.ESPCN_X2 ||
+        model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE
     if (!nnrtSupported ||
       (backendPreference !== ReaderSuperResolutionBackend.AUTO &&
         backendPreference !== NNRT_VALIDATION_BACKEND)) {

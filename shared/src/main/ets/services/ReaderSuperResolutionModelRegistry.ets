@@ -218,12 +218,25 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   definition.modelUrls.unshift(
     `${NCNN_RUNTIME_RELEASE_BASE}/realcugan-se-2x-conservative.bin`,
   )
-  definition.pipelineVersion = `realcugan-${REAL_CUGAN_REVISION}-se-2x-conservative-syncgap0`
+  definition.acceleratedModelFileName = 'realcugan-se-2x-conservative-164-fp16.ms'
+  definition.acceleratedModelBytes = 2595776
+  definition.acceleratedModelSha256 =
+    'fd4795aa3ce7932049a280907ce4c5c01a99f1584864e8a54d869355fe4f162e'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'realcugan-se-2x-conservative-nnrt-v1/' +
+      'realcugan-se-2x-conservative-164-fp16.ms',
+  ]
+  definition.initialDownloadBytes = 5174185
+  definition.pipelineVersion =
+    `realcugan-${REAL_CUGAN_REVISION}-se-2x-conservative-syncgap0|nnrt-fp16-v1`
+  definition.nativeModelKind = ReaderNativeModelKind.REAL_CUGAN
+  definition.tileSize = 128
   definition.prepadding = 18
   definition.inputName = 'in0'
   definition.outputName = 'out0'
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_comics_conservative'
-  definition.reference800pElapsedMs = 11598
+  definition.reference800pElapsedMs = 4000
   return definition
 }
 

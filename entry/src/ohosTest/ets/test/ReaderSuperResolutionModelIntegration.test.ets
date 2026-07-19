@@ -85,6 +85,9 @@ async function installExternalMindSporeModelForBenchmark(
     fileName = 'espcn-x2-180-fp16.ms'
   } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
     fileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
+  } else if (benchmarkModel() ===
+    ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
+    fileName = 'realcugan-se-2x-conservative-164-fp16.ms'
   }
   const targetPath: string = context.filesDir + '/' + fileName
   if (sourcePath === targetPath) {
@@ -202,6 +205,12 @@ function externalMindSporeEspcnPipelineEnabled(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
   return parameters['-s superResolutionMindSporeEspcnPipeline'] === 'true'
+}
+
+function externalMindSporeRealCuganPipelineEnabled(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionMindSporeRealCuganPipeline'] === 'true'
 }
 
 function externalComparisonImagePath(): string {
@@ -664,6 +673,43 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       }
       done()
     })
+
+    it('downloadsPublishedRealCuganRuntimeAndAcceleratedAssets', 0,
+      async (done: Function) => {
+        if (!integrationEnabled()) {
+          done()
+          return
+        }
+        const context: common.UIAbilityContext = await appContext()
+        ReaderSuperResolutionModelService.remove(
+          context,
+          ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+        )
+        await ReaderSuperResolutionModelService.install(
+          context,
+          ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+        )
+        const paths: ReaderSuperResolutionModelPaths | null =
+          await ReaderSuperResolutionModelService.pathsIfReady(
+            context,
+            ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+          )
+        expect(paths !== null).assertEqual(true)
+        if (paths !== null) {
+          expect(fileIo.accessSync(paths.paramPath)).assertEqual(true)
+          expect(fileIo.accessSync(paths.modelPath)).assertEqual(true)
+        }
+        const acceleratedPath: string | null =
+          ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
+            context,
+            ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+          )
+        expect(acceleratedPath !== null).assertEqual(true)
+        if (acceleratedPath !== null) {
+          expect(fileIo.accessSync(acceleratedPath)).assertEqual(true)
+        }
+        done()
+      })
 
     it('runsWaifu2xPhotoThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
@@ -1177,6 +1223,95 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       console.info(
         'ReaderSuperResolutionMindSporeComparison source=' +
           BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          ' ncnnElapsedMs=' + ncnnElapsedMs +
+          ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
+          ' nnrtElapsedMs=' + nnrtElapsedMs +
+          ' nnrtInferenceMs=' + nnrtResult.inferenceMs +
+          ' nnrtTiles=' + nnrtResult.tileCount,
+      )
+      expect(ncnnResult.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+      expect(nnrtResult.backend).assertEqual('nnrt')
+      expect(meanAbsoluteError < 3).assertEqual(true)
+      verifyRawOutputHasSignal(nnrtResult.pixels)
+      done()
+    })
+
+    it('comparesExternalMindSporeWithRealCuganVulkan', 0, async (done: Function) => {
+      if (!integrationEnabled() || !externalMindSporeRealCuganPipelineEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const mindSporeModelPath: string = await prepareExternalMindSporeModel(context)
+      if (mindSporeModelPath.length === 0) {
+        done()
+        return
+      }
+      const installedMindSporeModelPath: string =
+        context.filesDir + '/realcugan-se-2x-conservative-164-fp16.ms'
+      if (mindSporeModelPath !== installedMindSporeModelPath) {
+        fileIo.copyFileSync(mindSporeModelPath, installedMindSporeModelPath)
+      }
+      await ReaderSuperResolutionModelService.install(
+        context,
+        ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+      )
+      const modelPaths: ReaderSuperResolutionModelPaths | null =
+        await ReaderSuperResolutionModelService.pathsIfReady(
+          context,
+          ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE,
+        )
+      expect(modelPaths !== null).assertEqual(true)
+      if (modelPaths === null) {
+        done()
+        return
+      }
+      const config: ReaderNativeSuperResolutionConfig =
+        new ReaderNativeSuperResolutionConfig()
+      config.modelKind = ReaderNativeModelKind.REAL_CUGAN
+      config.backendPreference = ReaderNativeBackendPreference.VULKAN
+      config.tileSize = 128
+      config.prepadding = 18
+      config.threads = 2
+      config.inputName = 'in0'
+      config.outputName = 'out0'
+      const input: SuperResolutionComparisonInput = await comparisonInput(context)
+      const ncnnStartedAt: number = Date.now()
+      const ncnnResult: ReaderNativeSuperResolutionResult =
+        await ReaderNativeSuperResolution.upscaleRgba(
+          input.pixels,
+          input.width,
+          input.height,
+          input.stride,
+          modelPaths.paramPath,
+          modelPaths.modelPath,
+          config,
+          900006,
+        )
+      const ncnnElapsedMs: number = Date.now() - ncnnStartedAt
+      await nextTimingTurn()
+      const nnrtInput: ArrayBuffer = input.pixels.slice(0)
+      const nnrtStartedAt: number = Date.now()
+      const nnrtResult: ReaderMindSporeSuperResolutionResult =
+        await ReaderMindSporeSuperResolution.upscaleRgba(
+          nnrtInput,
+          input.width,
+          input.height,
+          input.stride,
+          installedMindSporeModelPath,
+          ReaderNativeModelKind.REAL_CUGAN,
+          900007,
+        )
+      const nnrtElapsedMs: number = Date.now() - nnrtStartedAt
+      const meanAbsoluteError: number = compareRgbaOutputs(
+        ncnnResult.pixels,
+        nnrtResult.pixels,
+        input.width * 2,
+        input.height * 2,
+      )
+      console.info(
+        'ReaderSuperResolutionRealCuganMindSporeComparison source=' +
+          input.width + 'x' + input.height +
           ' ncnnElapsedMs=' + ncnnElapsedMs +
           ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
           ' nnrtElapsedMs=' + nnrtElapsedMs +
