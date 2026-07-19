@@ -434,6 +434,24 @@ async function verifyDownloadedModelThroughVulkan(model: string, slug: string): 
 
 export default function readerSuperResolutionModelIntegrationTest(): void {
   describe('ReaderSuperResolutionModelIntegration', () => {
+    it('downloadsPublishedWaifu2xRuntimeAsset', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      ReaderSuperResolutionModelService.remove(
+        context,
+        ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+      )
+      expect(await ReaderSuperResolutionModelService.isWaifu2xInstalled(context))
+        .assertEqual(false)
+      await ReaderSuperResolutionModelService.installWaifu2x(context)
+      expect(await ReaderSuperResolutionModelService.isWaifu2xInstalled(context))
+        .assertEqual(true)
+      done()
+    })
+
     it('runsWaifu2xPhotoThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()

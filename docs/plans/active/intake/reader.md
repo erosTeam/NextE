@@ -137,6 +137,20 @@ Backend and download-size correction, 2026-07-19:
   the persistence inventory and four-locale i18n checks passed, and `git diff --check` passed. Current
   device screenshots remain a separate visual acceptance step.
 
+Runtime-asset release integration, 2026-07-19:
+
+- ESPCN, the three waifu2x variants, and Real-CUGAN now request the checked
+  `erosTeam/NextE-Models` `ncnn-runtime-assets-v1` Release first. Their pinned official upstream
+  locations remain ordered fallbacks. Real-ESRGAN x2plus keeps its separate NNRT Release plus its
+  existing compatible-runtime source path, and animevideov3 remains on its existing pinned source.
+- Every successful asset transfer records only whether it used the primary or fallback slot, the slot
+  index, and byte count; complete URLs are not retained in diagnostics. Downloaded content still has
+  to pass the existing exact byte-size and SHA-256 checks before installation.
+- Device selector `103` resolved live to `192.168.50.103:12345`. A targeted test deleted the installed
+  waifu2x photo pair, downloaded it again, and reported `source=primary index=0` for both the 1,047-byte
+  parameter file and the 1,106,248-byte model file. Hypium reported 1 pass, 0 failures, and 0 errors in
+  approximately three seconds. The signed `entry@ohosTest` HAP build passed before installation.
+
 Maximum-height contract correction, 2026-07-18:
 
 - The prior service caps made the displayed source-height limit misleading: a hidden 3200 output-edge
@@ -206,8 +220,9 @@ Performance continuation, 2026-07-18:
   Real-CUGAN SE conservative 10,863 / 11,598 ms; Real-ESRGAN x2plus photo 87,987 / 88,766 ms.
   Model-load preparation remained outside those process times and returned `modelLoadMs=0` during
   every measured inference.
-- ESPCN 2x now enters the registry as the lightweight first option. Installation downloads the pinned
-  official Hailo Model Zoo ZIP, verifies the ZIP and ONNX hashes, deterministically converts the
+- ESPCN 2x now enters the registry as the lightweight first option. Installation downloads the checked
+  copy of the pinned official Hailo Model Zoo ZIP from the project model Release, with the official
+  location retained as fallback, verifies the ZIP and ONNX hashes, deterministically converts the
   three convolution tensors to the matching ncnn FP16 runtime pair, verifies the generated pair, and
   removes the temporary ZIP/ONNX. Nothing is added to the application package; the installed runtime
   pair is about 42 KB. Its full 800 x 1149 Reader process passed on selector `103` in the seconds tier;

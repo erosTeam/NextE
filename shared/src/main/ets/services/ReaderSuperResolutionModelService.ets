@@ -22,8 +22,6 @@ const WAIFU2X_PARAM_SHA256: string =
   '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6'
 const WAIFU2X_MODEL_SHA256: string =
   'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673'
-const SOURCE_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
-const SOURCE_PATH: string = 'models/models-upconv_7_photo'
 const REAL_ESRGAN_DIR_NAME: string = 'realesrgan-x2plus-ncnn-fp32-v1'
 const REAL_ESRGAN_SOURCE_PARAM_FILE_NAME: string = 'realesrgan_x2plus.param'
 const REAL_ESRGAN_RUNTIME_PARAM_FILE_NAME: string = 'realesrgan_x2plus.compat.param'
@@ -683,6 +681,11 @@ export class ReaderSuperResolutionModelService {
   }
 
   private static async installWaifu2xNow(context: common.UIAbilityContext): Promise<void> {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X)
+    if (definition === null) {
+      throw new Error('waifu2x model definition is missing')
+    }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.waifu2xPaths(context)
     ReaderSuperResolutionModelService.ensureDir(ReaderSuperResolutionModelService.modelDir(context))
@@ -693,7 +696,7 @@ export class ReaderSuperResolutionModelService {
     DiagnosticLogger.info('reader-super-resolution', 'model_download_start', 'model=waifu2x_photo_noise0_2x')
     try {
       await ReaderSuperResolutionModelService.downloadAsset(
-        ReaderSuperResolutionModelService.waifu2xAssetUrls(WAIFU2X_PARAM_FILE_NAME),
+        definition.paramUrls,
         paramPart,
       )
       if (!ReaderSuperResolutionModelService.validateFile(
@@ -704,7 +707,7 @@ export class ReaderSuperResolutionModelService {
         throw new Error('waifu2x param checksum mismatch')
       }
       await ReaderSuperResolutionModelService.downloadAsset(
-        ReaderSuperResolutionModelService.waifu2xAssetUrls(WAIFU2X_MODEL_FILE_NAME),
+        definition.modelUrls,
         modelPart,
       )
       if (!ReaderSuperResolutionModelService.validateFile(
@@ -1007,6 +1010,11 @@ export class ReaderSuperResolutionModelService {
         if (bytes <= 0) {
           throw new Error('model asset response is empty')
         }
+        DiagnosticLogger.info(
+          'reader-super-resolution',
+          'model_asset_download_success',
+          `source=${i === 0 ? 'primary' : 'fallback'} index=${i} bytes=${bytes}`,
+        )
         return
       } catch (error) {
         lastError = error as Error
@@ -1072,13 +1080,6 @@ export class ReaderSuperResolutionModelService {
       definition.acceleratedModelBytes,
       definition.acceleratedModelSha256,
     )
-  }
-
-  private static waifu2xAssetUrls(fileName: string): string[] {
-    return [
-      `https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/${SOURCE_REVISION}/${SOURCE_PATH}/${fileName}`,
-      `https://github.com/nihui/waifu2x-ncnn-vulkan/raw/${SOURCE_REVISION}/${SOURCE_PATH}/${fileName}`,
-    ]
   }
 
   private static realEsrganAssetUrls(fileName: string): string[] {

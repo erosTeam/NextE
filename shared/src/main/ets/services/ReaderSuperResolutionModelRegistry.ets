@@ -66,6 +66,8 @@ export class ReaderSuperResolutionModelDefinition {
 
 const WAIFU2X_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
 const REAL_CUGAN_REVISION: string = '395302c5c70f1bff604c974e92e0a87e45c9f9ee'
+const NCNN_RUNTIME_RELEASE_BASE: string =
+  'https://github.com/erosTeam/NextE-Models/releases/download/ncnn-runtime-assets-v1'
 
 function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
@@ -81,6 +83,7 @@ function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   definition.packageBytes = 80589
   definition.packageSha256 = '11a286a0a761ec78a4f0ec17b905d2dbe12a19263e6315a25c08c6aaf983410c'
   definition.packageUrls = [
+    `${NCNN_RUNTIME_RELEASE_BASE}/espcn-x2.zip`,
     'https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/SuperResolution/' +
       'espcn/espcn_x2/2022-08-02/espcn_x2.zip',
   ]
@@ -108,6 +111,7 @@ function githubRawUrls(repository: string, revision: string, path: string): stri
 function waifu2xDefinition(
   id: string,
   directoryName: string,
+  releaseBaseName: string,
   sourcePath: string,
   paramBytes: number,
   modelBytes: number,
@@ -127,16 +131,22 @@ function waifu2xDefinition(
   definition.modelBytes = modelBytes
   definition.paramSha256 = paramSha256
   definition.modelSha256 = modelSha256
-  definition.paramUrls = githubRawUrls(
-    'nihui/waifu2x-ncnn-vulkan',
-    WAIFU2X_REVISION,
-    `${sourcePath}/${definition.paramFileName}`,
-  )
-  definition.modelUrls = githubRawUrls(
-    'nihui/waifu2x-ncnn-vulkan',
-    WAIFU2X_REVISION,
-    `${sourcePath}/${definition.modelFileName}`,
-  )
+  definition.paramUrls = [
+    `${NCNN_RUNTIME_RELEASE_BASE}/${releaseBaseName}.param`,
+    ...githubRawUrls(
+      'nihui/waifu2x-ncnn-vulkan',
+      WAIFU2X_REVISION,
+      `${sourcePath}/${definition.paramFileName}`,
+    ),
+  ]
+  definition.modelUrls = [
+    `${NCNN_RUNTIME_RELEASE_BASE}/${releaseBaseName}.bin`,
+    ...githubRawUrls(
+      'nihui/waifu2x-ncnn-vulkan',
+      WAIFU2X_REVISION,
+      `${sourcePath}/${definition.modelFileName}`,
+    ),
+  ]
   definition.pipelineVersion = `waifu2x-${WAIFU2X_REVISION}-${directoryName}`
   definition.prepadding = prepadding
   definition.usageScopeStringKey = usageScopeStringKey
@@ -164,6 +174,12 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
     'nihui/realcugan-ncnn-vulkan',
     REAL_CUGAN_REVISION,
     `models/models-se/${definition.modelFileName}`,
+  )
+  definition.paramUrls.unshift(
+    `${NCNN_RUNTIME_RELEASE_BASE}/realcugan-se-2x-conservative.param`,
+  )
+  definition.modelUrls.unshift(
+    `${NCNN_RUNTIME_RELEASE_BASE}/realcugan-se-2x-conservative.bin`,
   )
   definition.pipelineVersion = `realcugan-${REAL_CUGAN_REVISION}-se-2x-conservative-syncgap0`
   definition.prepadding = 18
@@ -245,6 +261,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
     'waifu2x-photo-noise0-2x-ncnn-v1',
+    'waifu2x-photo-noise0-2x',
     'models/models-upconv_7_photo',
     1047,
     1106248,
@@ -257,6 +274,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X,
     'waifu2x-art-noise0-2x-ncnn-v1',
+    'waifu2x-art-noise0-2x',
     'models/models-upconv_7_anime_style_art_rgb',
     1047,
     1106248,
@@ -270,6 +288,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X,
     'waifu2x-cunet-noise0-2x-ncnn-v1',
+    'waifu2x-cunet-noise0-2x',
     'models/models-cunet',
     7249,
     2776400,
