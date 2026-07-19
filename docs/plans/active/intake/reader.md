@@ -70,15 +70,17 @@ Visible-catalog convergence grounding, 2026-07-19:
 1. `ReaderSettingsPage.ets` remains the installed-model selector and
    `ReaderSuperResolutionModelsPage.ets` remains neutral local-file management. No new picker,
    profile control, selected-row treatment, or Aidoku-derived structure is introduced.
-2. The primary information is no longer a flat research catalog. A new installation sees one faster
-   comic/line-art choice and one stronger restoration choice; already installed comparison models
-   remain visible only in file management so they can still be removed.
+2. The primary information is no longer a flat research catalog. A new installation sees the two
+   same-cost waifu2x content profiles and one stronger restoration choice; already installed comparison
+   models remain visible only in file management so they can still be removed.
 3. Download/delete remains the only management-row action. Choosing an installed model remains the
    secondary Reader-settings action, and the enhancement switch remains the sole enable/disable action.
-4. This lane keeps waifu2x art noise0 2x and Real-ESRGAN x2plus downloadable and selectable. ESPCN
-   remains internal; waifu2x photo, waifu2x CUNet, Real-CUGAN, and AnimeVideo v3 remain runnable
-   comparison/legacy definitions but are not offered as new downloads or Reader choices. Deleting a
-   hidden legacy model removes its management row.
+4. This lane keeps waifu2x photo noise0 2x, waifu2x art noise0 2x, and Real-ESRGAN x2plus downloadable
+   and selectable. PHOTO and ART remain separate because neither has validated perceptual dominance
+   across mixed scans, screentones, photos, and clean digital illustrations. ESPCN remains internal;
+   waifu2x CUNet, Real-CUGAN, and AnimeVideo v3 remain runnable comparison/legacy definitions but are
+   not offered as new downloads or Reader choices. Deleting a hidden legacy model removes its
+   management row.
 5. HarmonyOS expression stays within the existing `ConciseListRow`, native menu, symbol action, and
    same-sheet transition. The catalog is reduced through the typed registry and service state rather
    than by adding a new UI layer.

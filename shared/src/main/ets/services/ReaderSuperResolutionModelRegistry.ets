@@ -196,8 +196,6 @@ function waifu2xPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   ]
   definition.initialDownloadBytes = 2217823
   definition.pipelineVersion += '|nnrt-fp16-v1'
-  definition.userAvailable = false
-  definition.legacyAvailableWhenInstalled = true
   return definition
 }
 
