@@ -308,7 +308,7 @@ export struct SyncSettingsPage {
                 title: $r('app.string.sync_huawei_cloud_open_space'),
                 subtitle: this.settings.huaweiCloudLastCloudDisabled ?
                   $r('app.string.sync_huawei_cloud_disabled_status') : $r('app.string.sync_huawei_cloud_open_space_hint'),
-                leadingIcon: $r('sys.symbol.arrow_right_folder_fill'),
+                leadingIcon: $r('sys.symbol.arrow_right_folder_circle'),
                 showChevron: true,
                 action: () => {
                   this.openHuaweiCloudSpace()
