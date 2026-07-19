@@ -5,8 +5,10 @@ import {
   CommentTranslationService,
   EhConstants,
   EhGalleryComment,
+  EhGalleryCommentInlineImage,
   EhGalleryCommentLink,
   EhGalleryCommentTextSpan,
+  EhImageKnifeImage,
   EhUrlRouter,
   GalleryWebParams,
   LocalBlockService,
@@ -54,6 +56,69 @@ class CommentTextSegment {
     this.underline = underline
     this.strike = strike
     this.color = color
+  }
+}
+
+@ComponentV2
+struct GalleryCommentInlineImage {
+  @Require @Param image: EhGalleryCommentInlineImage = new EhGalleryCommentInlineImage();
+  @Event onOpenLink: (url: string) => void = () => {};
+  @Local loadedAspectRatio: number = 0;
+
+  private imageWidth(): number {
+    if (this.loadedAspectRatio <= 0) {
+      return ThemeConstants.COMMENT_INLINE_IMAGE_MAX_WIDTH
+    }
+    return Math.min(
+      ThemeConstants.COMMENT_INLINE_IMAGE_MAX_WIDTH,
+      Math.max(1, ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT * this.loadedAspectRatio),
+    )
+  }
+
+  private updateAspectRatio(width: number, height: number): void {
+    if (width > 0 && height > 0) {
+      this.loadedAspectRatio = width / height
+    }
+  }
+
+  build() {
+    EhImageKnifeImage({
+      src: this.image.src,
+      widthValue: this.imageWidth(),
+      heightValue: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT,
+      objectFit: ImageFit.Fill,
+      desiredWidth: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_WIDTH,
+      desiredHeight: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT,
+      onImageInfo: (width: number, height: number) => {
+        this.updateAspectRatio(width, height)
+      },
+    })
+      .width(this.imageWidth())
+      .height(ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT)
+      .onClick(() => {
+        if (this.image.href.length > 0) {
+          this.onOpenLink(this.image.href)
+        }
+      })
+  }
+}
+
+class CommentInlineBodyPart {
+  key: string = ''
+  textStart: number = 0
+  textEnd: number = 0
+  images: EhGalleryCommentInlineImage[] = []
+
+  constructor(
+    key: string = '',
+    textStart: number = 0,
+    textEnd: number = 0,
+    images: EhGalleryCommentInlineImage[] = [],
+  ) {
+    this.key = key
+    this.textStart = textStart
+    this.textEnd = textEnd
+    this.images = images
   }
 }
 
@@ -726,17 +791,6 @@ export struct GalleryCommentsCard {
     return this.translationEnabled() && translationShown && translationText.length > 0
   }
 
-  private activeCommentBodyText(
-    c: EhGalleryComment,
-    translationText: string,
-    translationShown: boolean,
-  ): string {
-    if (this.shouldShowTranslatedState(translationText, translationShown)) {
-      return translationText
-    }
-    return this.displayContentText(c)
-  }
-
   private translationSourceText(c: EhGalleryComment): string {
     const source: string = this.displayContentText(c)
     const segments: CommentTextSegment[] = this.commentTextSegments(source, c)
@@ -1156,8 +1210,9 @@ export struct GalleryCommentsCard {
     seq: number,
     text: string,
     c: EhGalleryComment,
+    contentOffset: number = -1,
   ): number {
-    const offset: number = this.commentLinkOffset(text, c)
+    const offset: number = contentOffset >= 0 ? contentOffset : this.commentLinkOffset(text, c)
     if (offset < 0) {
       return seq
     }
@@ -1208,8 +1263,9 @@ export struct GalleryCommentsCard {
     text: string,
     c: EhGalleryComment,
     spans: EhGalleryCommentTextSpan[],
+    contentOffset: number = -1,
   ): number {
-    const offset: number = this.commentLinkOffset(text, c)
+    const offset: number = contentOffset >= 0 ? contentOffset : this.commentLinkOffset(text, c)
     if (offset < 0 && text !== this.translationText(c)) {
       return seq
     }
@@ -1272,6 +1328,63 @@ export struct GalleryCommentsCard {
     }
     if (out.length === 0) {
       out.push(new CommentTextSegment('t0', text))
+    }
+    return out
+  }
+
+  private sourceContentOffset(c: EhGalleryComment, text: string): number {
+    if (text === c.contentText) {
+      return 0
+    }
+    return c.contentText.indexOf(text)
+  }
+
+  private inlineSourceStart(c: EhGalleryComment, text: string): number {
+    return Math.max(0, this.sourceContentOffset(c, text))
+  }
+
+  // eros_fe's simple comment card exposes image alt text (or [Image]) instead of mounting remote images.
+  // Keep that compact behavior while preserving the real source ranges for nearby links and styles.
+  private previewTextSegments(c: EhGalleryComment, text: string): CommentTextSegment[] {
+    const sourceStart: number = this.sourceContentOffset(c, text)
+    if (sourceStart < 0 || c.contentImages.length === 0) {
+      return this.commentTextSegments(text, c)
+    }
+    const sourceEnd: number = sourceStart + text.length
+    const images: EhGalleryCommentInlineImage[] = c.contentImages
+      .filter((image: EhGalleryCommentInlineImage) => {
+        const position: number = this.inlineImagePosition(c, image)
+        return image.src.length > 0 && position >= sourceStart && position <= sourceEnd
+      })
+      .slice()
+    if (images.length === 0) {
+      return this.commentTextSegments(text, c)
+    }
+    images.sort((a: EhGalleryCommentInlineImage, b: EhGalleryCommentInlineImage) => a.position - b.position)
+    const out: CommentTextSegment[] = []
+    let cursor: number = sourceStart
+    let sequence: number = 0
+    for (let i = 0; i < images.length; i++) {
+      const image: EhGalleryCommentInlineImage = images[i]
+      const position: number = this.inlineImagePosition(c, image)
+      if (position > cursor) {
+        const textSegments: CommentTextSegment[] = this.commentTextSegmentsForContentRange(c, cursor, position)
+        for (let j = 0; j < textSegments.length; j++) {
+          const segment: CommentTextSegment = textSegments[j]
+          segment.key = `preview_${sequence++}`
+          out.push(segment)
+        }
+      }
+      out.push(new CommentTextSegment(`preview_image_${sequence++}`, image.alt.length > 0 ? image.alt : '[Image]'))
+      cursor = position
+    }
+    if (cursor < sourceEnd) {
+      const textSegments: CommentTextSegment[] = this.commentTextSegmentsForContentRange(c, cursor, sourceEnd)
+      for (let i = 0; i < textSegments.length; i++) {
+        const segment: CommentTextSegment = textSegments[i]
+        segment.key = `preview_${sequence++}`
+        out.push(segment)
+      }
     }
     return out
   }
@@ -1635,9 +1748,9 @@ export struct GalleryCommentsCard {
   PendingTranslationBodyContent(c: EhGalleryComment) {
     if (!this.pendingShowTranslation) {
       // Animating back to the original.
-      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'), true)
     } else if (this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
-      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'), true)
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     } else {
@@ -1654,7 +1767,7 @@ export struct GalleryCommentsCard {
       this.localTranslationText.length > 0 &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
     ) {
-      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'), true)
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     } else if (this.parentManagedActions) {
@@ -1665,31 +1778,45 @@ export struct GalleryCommentsCard {
       ) {
         this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
       } else {
-        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
+        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'), true)
       }
     } else if (
       this.shouldShowTranslated(c) &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
     ) {
-      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'), true)
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.translationText(c), false, $r('sys.color.font_primary'))
     } else {
-      this.CommentText(
-        c,
-        this.activeCommentBodyText(c, this.translationText(c), this.isTranslationShown(c)),
-        this.max > 0,
-        $r('sys.color.font_primary'),
-      )
+      if (this.shouldShowTranslated(c)) {
+        this.CommentText(c, this.translationText(c), this.max > 0, $r('sys.color.font_primary'))
+      } else {
+        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'), true)
+      }
     }
   }
 
   @Builder
-  CommentText(c: EhGalleryComment, text: string, clamp: boolean, color: ResourceColor) {
-    if (clamp) {
+  CommentText(
+    c: EhGalleryComment,
+    text: string,
+    clamp: boolean,
+    color: ResourceColor,
+    sourceContent: boolean = false,
+  ) {
+    // eros_fe's simple/peek card deliberately falls back to text; remote images only mount in the full
+    // comment page. This keeps detail rows lightweight while preserving the full body after navigation.
+    if (!clamp && sourceContent && c.contentImages.length > 0) {
+      this.CommentTextWithInlineImages(
+        c,
+        this.inlineSourceStart(c, text),
+        this.inlineSourceStart(c, text) + text.length,
+        color,
+      )
+    } else if (clamp) {
       Text() {
         ForEach(
-          this.commentTextSegments(text, c),
+          sourceContent ? this.previewTextSegments(c, text) : this.commentTextSegments(text, c),
           (seg: CommentTextSegment) => {
             Span(seg.text)
               .fontColor(this.segmentColor(seg, color))
@@ -1735,6 +1862,139 @@ export struct GalleryCommentsCard {
       .fontColor(color)
       .width('100%')
     }
+  }
+
+  private inlineBodyParts(c: EhGalleryComment, sourceStart: number, sourceEnd: number): CommentInlineBodyPart[] {
+    const images: EhGalleryCommentInlineImage[] = c.contentImages
+      .filter((image: EhGalleryCommentInlineImage) => {
+        const position: number = this.inlineImagePosition(c, image)
+        return image.src.length > 0 && position >= sourceStart && position <= sourceEnd
+      })
+      .slice()
+    images.sort((a: EhGalleryCommentInlineImage, b: EhGalleryCommentInlineImage) => a.position - b.position)
+    const out: CommentInlineBodyPart[] = []
+    let textCursor: number = sourceStart
+    let imageCursor: number = 0
+    let sequence: number = 0
+    while (imageCursor < images.length) {
+      const position: number = this.inlineImagePosition(c, images[imageCursor])
+      if (position > textCursor) {
+        out.push(new CommentInlineBodyPart(`text_${sequence++}`, textCursor, position))
+      }
+      const group: EhGalleryCommentInlineImage[] = []
+      while (
+        imageCursor < images.length &&
+        this.inlineImagePosition(c, images[imageCursor]) === position
+      ) {
+        group.push(images[imageCursor])
+        imageCursor++
+      }
+      out.push(new CommentInlineBodyPart(`images_${sequence++}`, position, position, group))
+      textCursor = position
+    }
+    if (textCursor < sourceEnd) {
+      out.push(new CommentInlineBodyPart(`text_${sequence++}`, textCursor, sourceEnd))
+    }
+    return out
+  }
+
+  private inlineImagePosition(c: EhGalleryComment, image: EhGalleryCommentInlineImage): number {
+    return Math.max(0, Math.min(c.contentText.length, image.position))
+  }
+
+  private commentTextSegmentsForContentRange(
+    c: EhGalleryComment,
+    start: number,
+    end: number,
+  ): CommentTextSegment[] {
+    if (end <= start) {
+      return []
+    }
+    const text: string = c.contentText.substring(start, end)
+    const out: CommentTextSegment[] = []
+    if (c.contentSpans.length > 0) {
+      this.pushRichTextSegments(out, 0, text, c, c.contentSpans, start)
+    } else if (c.contentLinks.length > 0) {
+      this.pushHtmlLinkTextSegments(out, 0, text, c, start)
+    } else {
+      this.pushUrlTextSegments(out, 0, text, c)
+    }
+    if (out.length === 0 && text.length > 0) {
+      out.push(new CommentTextSegment('t0', text))
+    }
+    return out
+  }
+
+  @Builder
+  CommentTextWithInlineImages(c: EhGalleryComment, sourceStart: number, sourceEnd: number, color: ResourceColor) {
+    Column({ space: 0 }) {
+      ForEach(
+        this.inlineBodyParts(c, sourceStart, sourceEnd),
+        (part: CommentInlineBodyPart) => {
+          if (part.images.length > 0) {
+            this.CommentInlineImageGroup(part.images)
+          } else if (part.textEnd > part.textStart) {
+            Text() {
+              ForEach(
+                this.commentTextSegmentsForContentRange(c, part.textStart, part.textEnd),
+                (seg: CommentTextSegment) => {
+                  Span(seg.text)
+                    .fontColor(this.segmentColor(seg, color))
+                    .fontWeight(seg.bold ? FontWeight.Bold : FontWeight.Regular)
+                    .fontStyle(seg.italic ? FontStyle.Italic : FontStyle.Normal)
+                    .decoration({
+                      type: this.segmentDecorationType(seg),
+                      color: this.segmentDecorationColor(seg, color),
+                    })
+                    .onClick(() => {
+                      this.handleCommentTextTap(seg)
+                    })
+                },
+                (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
+              )
+            }
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(color)
+            .width('100%')
+          }
+        },
+        (part: CommentInlineBodyPart) => part.key,
+      )
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  CommentInlineImageGroup(images: EhGalleryCommentInlineImage[]) {
+    Scroll() {
+      Row({ space: 0 }) {
+        ForEach(
+          images,
+          (image: EhGalleryCommentInlineImage) => {
+            GalleryCommentInlineImage({
+              image: image,
+              onOpenLink: (url: string) => {
+                this.openCommentUrl(url)
+              },
+            })
+          },
+          (image: EhGalleryCommentInlineImage, index: number) =>
+            `${index}_${this.safeForEachKeyHash(`${image.position}:${image.src}`)}`,
+        )
+      }
+      .alignItems(VerticalAlign.Top)
+      .justifyContent(FlexAlign.Start)
+    }
+    .scrollable(ScrollDirection.Horizontal)
+    .nestedScroll({
+      scrollForward: NestedScrollMode.SELF_FIRST,
+      scrollBackward: NestedScrollMode.SELF_FIRST,
+    })
+    .scrollBar(BarState.Off)
+    .align(Alignment.Start)
+    .width('100%')
+    .height(ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT)
   }
 
   @Builder

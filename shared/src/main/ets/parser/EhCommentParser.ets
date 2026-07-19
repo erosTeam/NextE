@@ -1,6 +1,7 @@
 import {
   EhGalleryComment,
   EhGalleryCommentLink,
+  EhGalleryCommentInlineImage,
   EhGalleryCommentTextSpan,
 } from '../model/EhGalleryComment'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
@@ -9,6 +10,7 @@ class CommentBodyParseResult {
   text: string = ''
   links: EhGalleryCommentLink[] = []
   spans: EhGalleryCommentTextSpan[] = []
+  images: EhGalleryCommentInlineImage[] = []
 }
 
 class CommentInlineStyle {
@@ -52,7 +54,8 @@ class CommentInlineStyle {
  */
 export class EhCommentParser {
   private static readonly RE_BLOCK: string =
-    '<div class="c1">[\\s\\S]*?<div class="c6" id="comment_(\\d+)">([\\s\\S]*?)</div>([\\s\\S]*?)(?=<a name="c\\d+"></a><div class="c1">|$)'
+    '<div class="c1">[\\s\\S]*?(?=<a name="c\\d+"></a><div class="c1">|$)'
+  private static readonly RE_BODY_OPEN: RegExp = /<div class="c6" id="comment_(\d+)">/
   private static readonly RE_DATE: RegExp = /Posted on ([^<]+?) by:/
   private static readonly RE_AUTHOR: RegExp = /by:\s*(?:&nbsp;\s*)*<a[^>]*>([^<]+)<\/a>/
   private static readonly RE_MEMBER_ID: RegExp = /index\.php\?showuser=(\d+)/
@@ -72,31 +75,45 @@ export class EhCommentParser {
     const re: RegExp = new RegExp(EhCommentParser.RE_BLOCK, 'g')
     let m: RegExpExecArray | null = re.exec(html)
     while (m !== null) {
-      if (m[1] !== undefined && m[2] !== undefined) {
+      const block: string = m[0]
+      const bodyOpen: RegExpMatchArray | null = block.match(EhCommentParser.RE_BODY_OPEN)
+      if (bodyOpen !== null && bodyOpen[1] !== undefined && bodyOpen.index !== undefined) {
+        const bodyTagEnd: number = block.indexOf('>', bodyOpen.index)
+        const bodyCloseStart: number = bodyTagEnd < 0
+          ? -1
+          : EhCommentParser.findClosingTag(block, bodyTagEnd + 1, 'div')
+        const bodyCloseEnd: number = bodyCloseStart < 0 ? -1 : block.indexOf('>', bodyCloseStart + 1)
+        if (bodyTagEnd < 0 || bodyCloseStart < 0 || bodyCloseEnd < 0) {
+          m = re.exec(html)
+          continue
+        }
         const c: EhGalleryComment = new EhGalleryComment()
-        const body: CommentBodyParseResult = EhCommentParser.parseBody(m[2])
-        c.commentId = m[1]
+        const body: CommentBodyParseResult = EhCommentParser.parseBody(
+          block.substring(bodyTagEnd + 1, bodyCloseStart),
+        )
+        c.commentId = bodyOpen[1]
         c.contentText = body.text
         c.contentLinks = body.links
         c.contentSpans = body.spans
+        c.contentImages = body.images
         c.postedTime = EhCommentParser.localPostedTime(
-          HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_DATE).trim(),
+          HtmlSelectorUtils.group1(block, EhCommentParser.RE_DATE).trim(),
         )
-        c.author = HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_AUTHOR).trim()
-        c.memberId = HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_MEMBER_ID).trim()
-        c.score = HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_SCORE).trim()
-        const c4: string = HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_C4)
+        c.author = HtmlSelectorUtils.group1(block, EhCommentParser.RE_AUTHOR).trim()
+        c.memberId = HtmlSelectorUtils.group1(block, EhCommentParser.RE_MEMBER_ID).trim()
+        c.score = HtmlSelectorUtils.group1(block, EhCommentParser.RE_SCORE).trim()
+        const c4: string = HtmlSelectorUtils.group1(block, EhCommentParser.RE_C4)
         c.canEdit = c4.indexOf('edit_') >= 0
         c.canVote = c4.indexOf('vote_') >= 0
         c.vote = EhCommentParser.parseVote(c4)
-        c.scoreDetails = EhCommentParser.parseScoreDetails(m[3] !== undefined ? m[3] : '')
+        c.scoreDetails = EhCommentParser.parseScoreDetails(block.substring(bodyCloseEnd + 1))
         // eros_fe treats the uploader comment as the score-less row; the literal marker is not
         // guaranteed to be present on every captured page shape.
-        c.isUploader = m[0].includes('Uploader Comment') || c.score.length === 0
-        // Skip empty-body comments: a real EH comment always has text, so an empty c6 body means a
-        // bad/partial response (e.g. an interstitial/throttle page that still matched the comment shell).
-        // Keeping them rendered N blank rows.
-        if (c.contentText.length > 0) {
+        c.isUploader = block.includes('Uploader Comment') || c.score.length === 0
+        // Skip truly empty bodies: text-only comments need content text, while image-only comments are valid.
+        // A row with neither is a bad/partial response (e.g. an interstitial/throttle page that still matched
+        // the comment shell), and keeping it would render blank rows.
+        if (c.contentText.length > 0 || c.contentImages.length > 0) {
           out.push(c)
         }
       }
@@ -242,7 +259,7 @@ export class EhCommentParser {
   private static parseBody(html: string): CommentBodyParseResult {
     const result: CommentBodyParseResult = new CommentBodyParseResult()
     EhCommentParser.parseInlineHtml(html, new CommentInlineStyle(), result)
-    return EhCommentParser.trimBodyParseResult(result.text, result.links, result.spans)
+    return EhCommentParser.trimBodyParseResult(result.text, result.links, result.spans, result.images)
   }
 
   private static parseInlineHtml(html: string, style: CommentInlineStyle, result: CommentBodyParseResult): void {
@@ -272,6 +289,19 @@ export class EhCommentParser {
         cursor = tagEnd + 1
         continue
       }
+      if (name === 'img') {
+        EhCommentParser.appendInlineImage(result, tag, style)
+        cursor = tagEnd + 1
+        continue
+      }
+      // EH uses #spa as a non-content placeholder. eros_fe explicitly omits it from the recursive
+      // comment tree, so skipping the complete subtree keeps hidden helper text out of the body too.
+      if (name === 'div' && EhCommentParser.attrValue(tag, 'id') === 'spa') {
+        const spaCloseStart: number = EhCommentParser.findClosingTag(html, tagEnd + 1, name)
+        const spaCloseEnd: number = spaCloseStart < 0 ? -1 : html.indexOf('>', spaCloseStart + 1)
+        cursor = spaCloseEnd < 0 ? html.length : spaCloseEnd + 1
+        continue
+      }
       const closeStart: number = EhCommentParser.findClosingTag(html, tagEnd + 1, name)
       if (closeStart < 0 || !EhCommentParser.supportedInlineTag(name)) {
         cursor = tagEnd + 1
@@ -279,8 +309,14 @@ export class EhCommentParser {
       }
       const nextStyle: CommentInlineStyle = EhCommentParser.styleForTag(name, tag, style)
       const beforeLength: number = result.text.length
+      const beforeImageCount: number = result.images.length
       EhCommentParser.parseInlineHtml(html.substring(tagEnd + 1, closeStart), nextStyle, result)
-      if (name === 'a' && result.text.length === beforeLength && nextStyle.url.length > 0) {
+      if (
+        name === 'a' &&
+        result.text.length === beforeLength &&
+        result.images.length === beforeImageCount &&
+        nextStyle.url.length > 0
+      ) {
         EhCommentParser.appendStyledText(result, nextStyle.url, nextStyle)
       }
       const closeEnd: number = html.indexOf('>', closeStart + 1)
@@ -322,6 +358,23 @@ export class EhCommentParser {
       span.color = style.color
       result.spans.push(span)
     }
+  }
+
+  private static appendInlineImage(
+    result: CommentBodyParseResult,
+    tag: string,
+    style: CommentInlineStyle,
+  ): void {
+    const src: string = EhCommentParser.attrValue(tag, 'src')
+    if (src.length === 0) {
+      return
+    }
+    const image: EhGalleryCommentInlineImage = new EhGalleryCommentInlineImage()
+    image.position = result.text.length
+    image.src = src
+    image.href = style.url
+    image.alt = EhCommentParser.attrValue(tag, 'alt')
+    result.images.push(image)
   }
 
   private static tagName(tag: string): string {
@@ -431,6 +484,7 @@ export class EhCommentParser {
     text: string,
     links: EhGalleryCommentLink[],
     spans: EhGalleryCommentTextSpan[],
+    images: EhGalleryCommentInlineImage[],
   ): CommentBodyParseResult {
     const result: CommentBodyParseResult = new CommentBodyParseResult()
     const startTrim: number = EhCommentParser.leadingWhitespace(text)
@@ -463,6 +517,17 @@ export class EhCommentParser {
       span.strike = raw.strike
       span.color = raw.color
       result.spans.push(span)
+    }
+    for (let i = 0; i < images.length; i++) {
+      const raw: EhGalleryCommentInlineImage = images[i]
+      const image: EhGalleryCommentInlineImage = new EhGalleryCommentInlineImage()
+      // Image-only comments commonly contain indentation/newlines around the tag. Text trimming must not
+      // drop that image; clamp its anchor into the trimmed text range instead.
+      image.position = Math.max(0, Math.min(result.text.length, raw.position - startTrim))
+      image.src = raw.src
+      image.href = raw.href
+      image.alt = raw.alt
+      result.images.push(image)
     }
     return result
   }

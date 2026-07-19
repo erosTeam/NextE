@@ -1,5 +1,19 @@
 # Gallery Detail And Comments Intake
 
+### Gallery Comment Inline Image References
+
+Type: feature parity / parser-render gap
+
+Status: implemented candidate / needs device QA
+
+Grounding:
+
+1. eros_fe reference: `../eros_fe/lib/pages/gallery/view/comment_item.dart::buildComment` parses comment HTML recursively, and `buildCommentTile` renders `<img>` as an inline image span.
+2. The primary information is the full comment body, including referenced images; adjacent image slices must remain visually continuous when they form one tall composite.
+3. Reading the body is primary. Existing author, vote, reply, edit, and translation actions retain their current weight and behavior. An image nested in an existing HTML anchor uses that same URL action; a bare image has no invented viewer action.
+4. This round closes full-comments rendering for parsed `<img>` references and keeps consecutive images in one horizontally scrollable, zero-gap group. Detail-page previews remain text-only and expose `alt` or `[Image]`, matching eros_fe's `simple` comment path; reply-header removal must not remove following source images. The EH `#spa` placeholder is not comment content. Image zoom/viewer behavior is out of scope.
+5. HarmonyOS expression: preserve the existing `GalleryCommentsCard`, use `EhImageKnifeImage` for the project's remote-image pipeline, and use native `Scroll` + `Row` for each unbreakable image group; no custom drawing or overlay.
+
 Status: domain intake ledger.
 
 Purpose:

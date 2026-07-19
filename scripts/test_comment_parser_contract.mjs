@@ -3,7 +3,8 @@
 // Run: node scripts/test_comment_parser_contract.mjs   (must report 0 failure(s))
 import fs from 'fs'
 
-const RE_BLOCK = '<div class="c1">[\\s\\S]*?<div class="c6" id="comment_(\\d+)">([\\s\\S]*?)</div>([\\s\\S]*?)(?=<a name="c\\d+"></a><div class="c1">|$)'
+const RE_BLOCK = '<div class="c1">[\\s\\S]*?(?=<a name="c\\d+"></a><div class="c1">|$)'
+const RE_BODY_OPEN = /<div class="c6" id="comment_(\d+)">/
 const RE_DATE = /Posted on ([^<]+?) by:/
 const RE_AUTHOR = /by:\s*(?:&nbsp;\s*)*<a[^>]*>([^<]+)<\/a>/
 const RE_MEMBER_ID = /index\.php\?showuser=(\d+)/
@@ -34,12 +35,13 @@ function stripHtmlFragment(h) {
 function stripHtmlNoLinks(h) {
   return stripHtmlFragment(h).trim()
 }
-function trimBodyResult(text, links, spans) {
+function trimBodyResult(text, links, spans, images) {
   const startTrim = text.length - text.trimStart().length
   const endTrim = text.length - text.trimEnd().length
   const end = text.length - endTrim
+  const trimmedText = startTrim < end ? text.substring(startTrim, end) : ''
   return {
-    text: startTrim < end ? text.substring(startTrim, end) : '',
+    text: trimmedText,
     links: links
       .filter(l => l.end > startTrim && l.start < end)
       .map(l => ({ start: l.start - startTrim, end: l.end - startTrim, url: l.url })),
@@ -55,12 +57,18 @@ function trimBodyResult(text, links, spans) {
         strike: !!s.strike,
         color: s.color || '',
       })),
+    images: images.map(image => ({
+      position: Math.max(0, Math.min(trimmedText.length, image.position - startTrim)),
+      src: image.src,
+      href: image.href,
+      alt: image.alt,
+    })),
   }
 }
 function parseBody(h) {
-  const result = { text: '', links: [], spans: [] }
+  const result = { text: '', links: [], spans: [], images: [] }
   parseInlineHtml(h, {}, result)
-  return trimBodyResult(result.text, result.links, result.spans)
+  return trimBodyResult(result.text, result.links, result.spans, result.images)
 }
 function appendStyledText(result, raw, style) {
   if (!raw) return
@@ -81,6 +89,16 @@ function appendStyledText(result, raw, style) {
       color: style.color || '',
     })
   }
+}
+function appendInlineImage(result, tag, style) {
+  const src = attrValue(tag, 'src')
+  if (!src) return
+  result.images.push({
+    position: result.text.length,
+    src,
+    href: style.url || '',
+    alt: attrValue(tag, 'alt'),
+  })
 }
 function tagName(tag) {
   const m = tag.match(/^<\s*\/?\s*([A-Za-z0-9]+)/)
@@ -158,6 +176,17 @@ function parseInlineHtml(html, style, result) {
       cursor = tagEnd + 1
       continue
     }
+    if (name === 'img') {
+      appendInlineImage(result, tag, style)
+      cursor = tagEnd + 1
+      continue
+    }
+    if (name === 'div' && attrValue(tag, 'id') === 'spa') {
+      const spaCloseStart = findClosingTag(html, tagEnd + 1, name)
+      const spaCloseEnd = spaCloseStart < 0 ? -1 : html.indexOf('>', spaCloseStart + 1)
+      cursor = spaCloseEnd < 0 ? html.length : spaCloseEnd + 1
+      continue
+    }
     const closeStart = findClosingTag(html, tagEnd + 1, name)
     if (closeStart < 0 || !supportedInlineTag(name)) {
       cursor = tagEnd + 1
@@ -165,8 +194,9 @@ function parseInlineHtml(html, style, result) {
     }
     const nextStyle = styleForTag(name, tag, style)
     const before = result.text.length
+    const beforeImageCount = result.images.length
     parseInlineHtml(html.substring(tagEnd + 1, closeStart), nextStyle, result)
-    if (name === 'a' && result.text.length === before && nextStyle.url) {
+    if (name === 'a' && result.text.length === before && result.images.length === beforeImageCount && nextStyle.url) {
       appendStyledText(result, nextStyle.url, nextStyle)
     }
     const closeEnd = html.indexOf('>', closeStart + 1)
@@ -229,17 +259,25 @@ function parse(html) {
   const re = new RegExp(RE_BLOCK, 'g')
   let m
   while ((m = re.exec(html)) !== null) {
-    const c4 = g1(m[0], RE_C4)
-    const body = parseBody(m[2] || '')
-    out.push({
-      commentId: m[1], contentText: body.text, contentLinks: body.links, contentSpans: body.spans,
-      postedTime: localPostedTime(g1(m[0], RE_DATE).trim()), author: g1(m[0], RE_AUTHOR).trim(),
-      memberId: g1(m[0], RE_MEMBER_ID).trim(),
-      score: g1(m[0], RE_SCORE).trim(), vote: parseVote(c4),
+    const block = m[0] || ''
+    const bodyOpen = block.match(RE_BODY_OPEN)
+    if (!bodyOpen || bodyOpen.index === undefined || !bodyOpen[1]) continue
+    const bodyTagEnd = block.indexOf('>', bodyOpen.index)
+    const bodyCloseStart = bodyTagEnd < 0 ? -1 : findClosingTag(block, bodyTagEnd + 1, 'div')
+    const bodyCloseEnd = bodyCloseStart < 0 ? -1 : block.indexOf('>', bodyCloseStart + 1)
+    if (bodyTagEnd < 0 || bodyCloseStart < 0 || bodyCloseEnd < 0) continue
+    const c4 = g1(block, RE_C4)
+    const body = parseBody(block.substring(bodyTagEnd + 1, bodyCloseStart))
+    const comment = {
+      commentId: bodyOpen[1], contentText: body.text, contentLinks: body.links, contentSpans: body.spans, contentImages: body.images,
+      postedTime: localPostedTime(g1(block, RE_DATE).trim()), author: g1(block, RE_AUTHOR).trim(),
+      memberId: g1(block, RE_MEMBER_ID).trim(),
+      score: g1(block, RE_SCORE).trim(), vote: parseVote(c4),
       canEdit: c4.includes('edit_'), canVote: c4.includes('vote_'),
-      scoreDetails: parseScoreDetails(m[3] || ''),
-      isUploader: m[0].includes('Uploader Comment') || g1(m[0], RE_SCORE).trim().length === 0,
-    })
+      scoreDetails: parseScoreDetails(block.substring(bodyCloseEnd + 1)),
+      isUploader: block.includes('Uploader Comment') || g1(block, RE_SCORE).trim().length === 0,
+    }
+    if (comment.contentText.length > 0 || comment.contentImages.length > 0) out.push(comment)
   }
   return out
 }
@@ -288,6 +326,19 @@ if (richHtml[0]) {
   if (!hasBold || !hasItalic || !hasUnderline || !hasStrike || !hasStyle) fail(`rich html spans wrong: ${JSON.stringify(spans)}`)
 }
 
+const inlineImages = parse(`<a name="c8"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=808">g</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_13">before<a href="https://example.com/post"><img src="https://images.example/a.png" alt="A"/><img src='https://images.example/b.png' alt='B'></a>after</div></div>`)
+if (inlineImages[0] && inlineImages[0].contentText !== 'beforeafter') fail(`inline image text should remain readable: ${JSON.stringify(inlineImages[0])}`)
+if (inlineImages[0] && JSON.stringify(inlineImages[0].contentImages) !== JSON.stringify([
+  { position: 6, src: 'https://images.example/a.png', href: 'https://example.com/post', alt: 'A' },
+  { position: 6, src: 'https://images.example/b.png', href: 'https://example.com/post', alt: 'B' },
+])) fail(`adjacent inline images should retain their shared position and link: ${JSON.stringify(inlineImages[0])}`)
+
+const imageOnly = parse(`<a name="c9"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=909">h</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_14">\n  <img src="https://images.example/only.png" alt="only"/>\n</div></div>`)
+if (imageOnly.length !== 1 || imageOnly[0].contentImages.length !== 1 || imageOnly[0].contentImages[0].position !== 0) fail(`image-only comment must survive body trimming: ${JSON.stringify(imageOnly)}`)
+
+const spaPlaceholder = parse(`<a name="c10"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=1001">i</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_15">before<div id="spa">hidden<img src="https://images.example/hidden.png"/></div>after</div></div>`)
+if (spaPlaceholder[0] && (spaPlaceholder[0].contentText !== 'beforeafter' || spaPlaceholder[0].contentImages.length !== 0)) fail(`spa placeholder must not leak content: ${JSON.stringify(spaPlaceholder[0])}`)
+
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)
 if (fs.existsSync(realPath)) {
@@ -311,14 +362,17 @@ if (fs.existsSync(realPath)) {
 
 const modelSrc = fs.readFileSync(new URL('../shared/src/main/ets/model/EhGalleryComment.ets', import.meta.url), 'utf8')
 const parserSrc = fs.readFileSync(new URL('../shared/src/main/ets/parser/EhCommentParser.ets', import.meta.url), 'utf8')
-for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails', 'contentLinks']) {
+for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails', 'contentLinks', 'contentImages']) {
   if (!new RegExp(`${field}:`).test(modelSrc)) fail(`model missing ${field}`)
 }
 if (!/RE_MEMBER_ID/.test(parserSrc) || !/parseVote/.test(parserSrc) || !/parseScoreDetails/.test(parserSrc) || !/localPostedTime/.test(parserSrc) || !/parseBody/.test(parserSrc)) {
   fail('parser missing comment metadata helpers')
 }
-if (!/c\.isUploader = m\[0\]\.includes\('Uploader Comment'\) \|\| c\.score\.length === 0/.test(parserSrc)) {
-  fail('parser must mark score-less comment rows as uploader comments')
+if (!/appendInlineImage/.test(parserSrc) || !/name === 'img'/.test(parserSrc)) {
+  fail('parser must retain inline image references')
+}
+if (!/attrValue\(tag, 'id'\) === 'spa'/.test(parserSrc)) {
+  fail('parser must omit spa placeholder subtrees')
 }
 
 if (failures === 0) { console.log('✓ comment parser contract: all cases pass'); process.exit(0) }

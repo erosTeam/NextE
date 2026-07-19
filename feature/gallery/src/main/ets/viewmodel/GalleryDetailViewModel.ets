@@ -534,6 +534,7 @@ export class GalleryDetailViewModel {
     next.contentText = c.contentText
     next.contentLinks = c.contentLinks.slice()
     next.contentSpans = c.contentSpans.slice()
+    next.contentImages = c.contentImages.slice()
     next.score = c.score
     next.vote = c.vote
     next.canEdit = c.canEdit

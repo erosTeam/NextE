@@ -47,6 +47,7 @@ export { EhAssetBalance } from './model/EhAssetBalance'
 export {
   EhGalleryComment,
   EhGalleryCommentLink,
+  EhGalleryCommentInlineImage,
   EhGalleryCommentTextSpan,
 } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'

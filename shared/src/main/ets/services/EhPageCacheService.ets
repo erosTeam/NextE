@@ -6,6 +6,7 @@ import { EhGallery, EhGalleryVersion } from '../model/EhGallery'
 import {
   EhGalleryComment,
   EhGalleryCommentLink,
+  EhGalleryCommentInlineImage,
   EhGalleryCommentTextSpan,
 } from '../model/EhGalleryComment'
 import { EhGalleryImage } from '../model/EhGalleryImage'
@@ -668,6 +669,7 @@ export class EhPageCacheService {
       comment.contentText = EhPageCacheService.safeString(c.contentText)
       comment.contentLinks = EhPageCacheService.copyCommentLinks(c.contentLinks)
       comment.contentSpans = EhPageCacheService.copyCommentSpans(c.contentSpans)
+      comment.contentImages = EhPageCacheService.copyCommentImages(c.contentImages)
       comment.score = EhPageCacheService.safeString(c.score)
       comment.vote = EhPageCacheService.safeNumber(c.vote)
       comment.canEdit = EhPageCacheService.safeBoolean(c.canEdit)
@@ -719,6 +721,22 @@ export class EhPageCacheService {
       span.strike = EhPageCacheService.safeBoolean(value.strike)
       span.color = EhPageCacheService.safeString(value.color)
       out.push(span)
+    })
+    return out
+  }
+
+  private static copyCommentImages(raw: EhGalleryCommentInlineImage[]): EhGalleryCommentInlineImage[] {
+    const out: EhGalleryCommentInlineImage[] = []
+    if (raw === undefined || raw === null) {
+      return out
+    }
+    raw.forEach((value: EhGalleryCommentInlineImage) => {
+      const image: EhGalleryCommentInlineImage = new EhGalleryCommentInlineImage()
+      image.position = EhPageCacheService.safeNumber(value.position)
+      image.src = EhPageCacheService.safeString(value.src)
+      image.href = EhPageCacheService.safeString(value.href)
+      image.alt = EhPageCacheService.safeString(value.alt)
+      out.push(image)
     })
     return out
   }
