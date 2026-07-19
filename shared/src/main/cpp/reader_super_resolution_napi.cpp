@@ -52,6 +52,8 @@ enum class BackendPreference : int {
 struct MindSporeContract {
     int inputSize = 0;
     int outputSize = 0;
+    int inputChannels = 0;
+    int outputChannels = 0;
     int tileSize = 0;
     int prepadding = 0;
     int outputCrop = 0;
@@ -326,13 +328,18 @@ void ResetCachedMindSporeRuntime()
 bool ResolveMindSporeContract(UpscaleTask &task, MindSporeContract &contract)
 {
     if (task.modelKind == ModelKind::RealEsrgan) {
-        contract = {180, 360, 160, 10, 20};
+        contract = {180, 360, 3, 3, 160, 10, 20};
         return true;
     }
     if (task.modelKind == ModelKind::Waifu2x) {
         // upconv7 uses six valid 3x3 convolutions followed by a stride-2 deconvolution.
         // A 156px input therefore returns the 284px result for the centered 142px tile directly.
-        contract = {156, 284, 142, 7, 0};
+        contract = {156, 284, 3, 3, 142, 7, 0};
+        return true;
+    }
+    if (task.modelKind == ModelKind::Luminance) {
+        // ESPCN preserves the fixed input extent. Crop the 4px context on each side after 2x output.
+        contract = {180, 360, 1, 1, 172, 4, 8};
         return true;
     }
     task.error = "MindSpore NNRT model kind is unsupported";
@@ -379,7 +386,7 @@ bool ValidateMindSporeInput(
     const MindSporeContract &contract)
 {
     const int64_t expectedElements =
-        static_cast<int64_t>(contract.inputSize) * contract.inputSize * 3;
+        static_cast<int64_t>(contract.inputSize) * contract.inputSize * contract.inputChannels;
     const size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
     if (input == nullptr ||
         OH_AI_TensorGetDataType(input) != OH_AI_DATATYPE_NUMBERTYPE_FLOAT32 ||
@@ -474,6 +481,83 @@ void PrepareMindSporeTile(
     const size_t planeElements =
         static_cast<size_t>(contract.inputSize) * contract.inputSize;
     constexpr float inverseByte = 1.0f / 255.0f;
+    if (task.modelKind == ModelKind::Luminance) {
+        tile.resize(planeElements);
+        for (int localY = 0; localY < contract.inputSize; ++localY) {
+            const int sourceY =
+                std::clamp(inputY + localY - contract.prepadding, 0, task.height - 1);
+            int localX = 0;
+#if defined(__aarch64__)
+            const int sourceStartX = inputX - contract.prepadding;
+            const int contiguousStart = std::max(0, -sourceStartX);
+            const int contiguousEnd = std::min(contract.inputSize, task.width - sourceStartX);
+            for (; localX < contiguousStart; ++localX) {
+                const int sourceX = std::clamp(sourceStartX + localX, 0, task.width - 1);
+                const size_t sourceOffset =
+                    static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
+                const float red = task.input[sourceOffset] * inverseByte;
+                const float green = task.input[sourceOffset + 1] * inverseByte;
+                const float blue = task.input[sourceOffset + 2] * inverseByte;
+                tile[static_cast<size_t>(localY) * contract.inputSize + localX] =
+                    (65.481f * red + 128.553f * green + 24.966f * blue + 16.0f) *
+                    inverseByte;
+            }
+            const float32x4_t byteScale = vdupq_n_f32(inverseByte);
+            const float32x4_t redWeight = vdupq_n_f32(65.481f);
+            const float32x4_t greenWeight = vdupq_n_f32(128.553f);
+            const float32x4_t blueWeight = vdupq_n_f32(24.966f);
+            const float32x4_t bias = vdupq_n_f32(16.0f);
+            for (; localX + 8 <= contiguousEnd; localX += 8) {
+                const int sourceX = sourceStartX + localX;
+                const size_t sourceOffset =
+                    static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
+                const uint8x8x4_t rgba = vld4_u8(task.input.data() + sourceOffset);
+                const uint16x8_t red16 = vmovl_u8(rgba.val[0]);
+                const uint16x8_t green16 = vmovl_u8(rgba.val[1]);
+                const uint16x8_t blue16 = vmovl_u8(rgba.val[2]);
+                auto convertLuma = [&](uint32x4_t red32, uint32x4_t green32, uint32x4_t blue32) {
+                    const float32x4_t red =
+                        vmulq_f32(vcvtq_f32_u32(red32), byteScale);
+                    const float32x4_t green =
+                        vmulq_f32(vcvtq_f32_u32(green32), byteScale);
+                    const float32x4_t blue =
+                        vmulq_f32(vcvtq_f32_u32(blue32), byteScale);
+                    float32x4_t luma = vmlaq_f32(bias, red, redWeight);
+                    luma = vmlaq_f32(luma, green, greenWeight);
+                    luma = vmlaq_f32(luma, blue, blueWeight);
+                    return vmulq_f32(luma, byteScale);
+                };
+                const size_t tileOffset =
+                    static_cast<size_t>(localY) * contract.inputSize + localX;
+                vst1q_f32(
+                    tile.data() + tileOffset,
+                    convertLuma(
+                        vmovl_u16(vget_low_u16(red16)),
+                        vmovl_u16(vget_low_u16(green16)),
+                        vmovl_u16(vget_low_u16(blue16))));
+                vst1q_f32(
+                    tile.data() + tileOffset + 4,
+                    convertLuma(
+                        vmovl_u16(vget_high_u16(red16)),
+                        vmovl_u16(vget_high_u16(green16)),
+                        vmovl_u16(vget_high_u16(blue16))));
+            }
+#endif
+            for (; localX < contract.inputSize; ++localX) {
+                const int sourceX =
+                    std::clamp(inputX + localX - contract.prepadding, 0, task.width - 1);
+                const size_t sourceOffset =
+                    static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
+                const float red = task.input[sourceOffset] * inverseByte;
+                const float green = task.input[sourceOffset + 1] * inverseByte;
+                const float blue = task.input[sourceOffset + 2] * inverseByte;
+                tile[static_cast<size_t>(localY) * contract.inputSize + localX] =
+                    (65.481f * red + 128.553f * green + 24.966f * blue + 16.0f) *
+                    inverseByte;
+            }
+        }
+        return;
+    }
     tile.resize(planeElements * 3);
     for (int localY = 0; localY < contract.inputSize; ++localY) {
         const int sourceY =
@@ -532,6 +616,22 @@ void PrepareMindSporeTile(
     }
 }
 
+void PrepareBilinearRgbaOutput(UpscaleTask &task)
+{
+    const int outputWidth = task.width * kScale;
+    const int outputHeight = task.height * kScale;
+    task.output.resize(static_cast<size_t>(outputWidth) * outputHeight * 4);
+    ncnn::resize_bilinear_c4(
+        task.input.data(),
+        task.width,
+        task.height,
+        task.stride,
+        task.output.data(),
+        outputWidth,
+        outputHeight,
+        outputWidth * 4);
+}
+
 void WriteMindSporeTile(
     UpscaleTask &task,
     const MindSporeContract &contract,
@@ -548,6 +648,109 @@ void WriteMindSporeTile(
     const int writeHeight = tileHeight * kScale;
     const int outputX = inputX * kScale;
     const int outputY = inputY * kScale;
+    if (task.modelKind == ModelKind::Luminance) {
+        constexpr float inverseByte = 1.0f / 255.0f;
+        for (int y = 0; y < writeHeight; ++y) {
+            const size_t tensorRow =
+                static_cast<size_t>(contract.outputCrop + y) * contract.outputSize +
+                contract.outputCrop;
+            const int globalY = outputY + y;
+            int x = 0;
+#if defined(__aarch64__)
+            const float32x4_t byteScale = vdupq_n_f32(inverseByte);
+            const float32x4_t redWeight = vdupq_n_f32(65.481f);
+            const float32x4_t greenWeight = vdupq_n_f32(128.553f);
+            const float32x4_t blueWeight = vdupq_n_f32(24.966f);
+            const float32x4_t lumaBias = vdupq_n_f32(16.0f);
+            const float32x4_t lumaDeltaScale = vdupq_n_f32(255.0f / 219.0f);
+            const float32x4_t outputScale = vdupq_n_f32(255.0f);
+            const float32x4_t rounding = vdupq_n_f32(0.5f);
+            const float32x4_t minimum = vdupq_n_f32(0.0f);
+            const float32x4_t maximum = vdupq_n_f32(255.0f);
+            for (; x + 8 <= writeWidth; x += 8) {
+                const int globalX = outputX + x;
+                const size_t targetOffset =
+                    (static_cast<size_t>(globalY) * outputWidth + globalX) * 4;
+                uint8x8x4_t rgba = vld4_u8(task.output.data() + targetOffset);
+                const uint16x8_t red16 = vmovl_u8(rgba.val[0]);
+                const uint16x8_t green16 = vmovl_u8(rgba.val[1]);
+                const uint16x8_t blue16 = vmovl_u8(rgba.val[2]);
+                auto computeDelta = [&](
+                    uint32x4_t red32,
+                    uint32x4_t green32,
+                    uint32x4_t blue32,
+                    const float *enhancedLuma) {
+                    const float32x4_t red =
+                        vmulq_f32(vcvtq_f32_u32(red32), byteScale);
+                    const float32x4_t green =
+                        vmulq_f32(vcvtq_f32_u32(green32), byteScale);
+                    const float32x4_t blue =
+                        vmulq_f32(vcvtq_f32_u32(blue32), byteScale);
+                    float32x4_t luma = vmlaq_f32(lumaBias, red, redWeight);
+                    luma = vmlaq_f32(luma, green, greenWeight);
+                    luma = vmulq_f32(vmlaq_f32(luma, blue, blueWeight), byteScale);
+                    return vmulq_f32(vsubq_f32(vld1q_f32(enhancedLuma), luma), lumaDeltaScale);
+                };
+                const float32x4_t lowDelta = computeDelta(
+                    vmovl_u16(vget_low_u16(red16)),
+                    vmovl_u16(vget_low_u16(green16)),
+                    vmovl_u16(vget_low_u16(blue16)),
+                    tensor + tensorRow + x);
+                const float32x4_t highDelta = computeDelta(
+                    vmovl_u16(vget_high_u16(red16)),
+                    vmovl_u16(vget_high_u16(green16)),
+                    vmovl_u16(vget_high_u16(blue16)),
+                    tensor + tensorRow + x + 4);
+                auto convertChannel = [&](uint16x8_t channel) {
+                    float32x4_t low = vaddq_f32(
+                        vmulq_f32(
+                            vaddq_f32(
+                                vmulq_f32(
+                                    vcvtq_f32_u32(vmovl_u16(vget_low_u16(channel))),
+                                    byteScale),
+                                lowDelta),
+                            outputScale),
+                        rounding);
+                    float32x4_t high = vaddq_f32(
+                        vmulq_f32(
+                            vaddq_f32(
+                                vmulq_f32(
+                                    vcvtq_f32_u32(vmovl_u16(vget_high_u16(channel))),
+                                    byteScale),
+                                highDelta),
+                            outputScale),
+                        rounding);
+                    low = vmaxq_f32(minimum, vminq_f32(maximum, low));
+                    high = vmaxq_f32(minimum, vminq_f32(maximum, high));
+                    return vmovn_u16(vcombine_u16(
+                        vmovn_u32(vcvtq_u32_f32(low)),
+                        vmovn_u32(vcvtq_u32_f32(high))));
+                };
+                rgba.val[0] = convertChannel(red16);
+                rgba.val[1] = convertChannel(green16);
+                rgba.val[2] = convertChannel(blue16);
+                vst4_u8(task.output.data() + targetOffset, rgba);
+            }
+#endif
+            for (; x < writeWidth; ++x) {
+                const int globalX = outputX + x;
+                const size_t targetOffset =
+                    (static_cast<size_t>(globalY) * outputWidth + globalX) * 4;
+                const float red = task.output[targetOffset] * inverseByte;
+                const float green = task.output[targetOffset + 1] * inverseByte;
+                const float blue = task.output[targetOffset + 2] * inverseByte;
+                const float sourceLuma =
+                    (65.481f * red + 128.553f * green + 24.966f * blue + 16.0f) *
+                    (1.0f / 255.0f);
+                const float lumaDelta =
+                    (tensor[tensorRow + x] - sourceLuma) * (255.0f / 219.0f);
+                task.output[targetOffset] = ToByte(red + lumaDelta);
+                task.output[targetOffset + 1] = ToByte(green + lumaDelta);
+                task.output[targetOffset + 2] = ToByte(blue + lumaDelta);
+            }
+        }
+        return;
+    }
     for (int y = 0; y < writeHeight; ++y) {
         const size_t tensorRow =
             static_cast<size_t>(contract.outputCrop + y) * contract.outputSize +
@@ -614,7 +817,11 @@ bool RunMindSporeUpscale(UpscaleTask &task)
         return false;
     }
     const size_t outputBytes = static_cast<size_t>(task.width) * kScale * task.height * kScale * 4;
-    task.output.assign(outputBytes, 255);
+    if (task.modelKind == ModelKind::Luminance) {
+        PrepareBilinearRgbaOutput(task);
+    } else {
+        task.output.assign(outputBytes, 255);
+    }
     std::vector<float> tile;
     for (int inputY = 0; inputY < task.height; inputY += contract.tileSize) {
         const int tileHeight = std::min(contract.tileSize, task.height - inputY);
@@ -641,7 +848,8 @@ bool RunMindSporeUpscale(UpscaleTask &task)
             }
             OH_AI_TensorHandle output = outputs.handle_list[0];
             const int64_t expectedElements =
-                static_cast<int64_t>(contract.outputSize) * contract.outputSize * 3;
+                static_cast<int64_t>(contract.outputSize) * contract.outputSize *
+                contract.outputChannels;
             const size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
             if (output == nullptr ||
                 OH_AI_TensorGetDataType(output) != OH_AI_DATATYPE_NUMBERTYPE_FLOAT32 ||
@@ -825,45 +1033,6 @@ ncnn::Mat NormalizedLumaRoi(
         }
     }
     return luma;
-}
-
-struct RgbSample {
-    float red;
-    float green;
-    float blue;
-};
-
-RgbSample BilinearSourceRgb(const UpscaleTask &task, float x, float y)
-{
-    const float clampedX = std::clamp(x, 0.0f, static_cast<float>(task.width - 1));
-    const float clampedY = std::clamp(y, 0.0f, static_cast<float>(task.height - 1));
-    const int x0 = static_cast<int>(std::floor(clampedX));
-    const int y0 = static_cast<int>(std::floor(clampedY));
-    const int x1 = std::min(x0 + 1, task.width - 1);
-    const int y1 = std::min(y0 + 1, task.height - 1);
-    const float tx = clampedX - x0;
-    const float ty = clampedY - y0;
-    const uint8_t *topLeft = task.input.data() +
-        static_cast<size_t>(y0) * task.stride + static_cast<size_t>(x0) * 4;
-    const uint8_t *topRight = task.input.data() +
-        static_cast<size_t>(y0) * task.stride + static_cast<size_t>(x1) * 4;
-    const uint8_t *bottomLeft = task.input.data() +
-        static_cast<size_t>(y1) * task.stride + static_cast<size_t>(x0) * 4;
-    const uint8_t *bottomRight = task.input.data() +
-        static_cast<size_t>(y1) * task.stride + static_cast<size_t>(x1) * 4;
-    const float topLeftWeight = (1.0f - tx) * (1.0f - ty);
-    const float topRightWeight = tx * (1.0f - ty);
-    const float bottomLeftWeight = (1.0f - tx) * ty;
-    const float bottomRightWeight = tx * ty;
-    constexpr float normalization = 1.0f / 255.0f;
-    return {
-        (topLeft[0] * topLeftWeight + topRight[0] * topRightWeight +
-            bottomLeft[0] * bottomLeftWeight + bottomRight[0] * bottomRightWeight) * normalization,
-        (topLeft[1] * topLeftWeight + topRight[1] * topRightWeight +
-            bottomLeft[1] * bottomLeftWeight + bottomRight[1] * bottomRightWeight) * normalization,
-        (topLeft[2] * topLeftWeight + topRight[2] * topRightWeight +
-            bottomLeft[2] * bottomLeftWeight + bottomRight[2] * bottomRightWeight) * normalization,
-    };
 }
 
 bool RunVulkan(UpscaleTask &task, ncnn::Net &net)
@@ -1242,8 +1411,7 @@ bool RunRealEsrgan(UpscaleTask &task, ncnn::Net &net)
 bool RunLuminance(UpscaleTask &task, ncnn::Net &net)
 {
     const int outputWidth = task.width * kScale;
-    const int outputHeight = task.height * kScale;
-    task.output.assign(static_cast<size_t>(outputWidth) * outputHeight * 4, 255);
+    PrepareBilinearRgbaOutput(task);
     const int xTiles = (task.width + task.tileSize - 1) / task.tileSize;
     const int yTiles = (task.height + task.tileSize - 1) / task.tileSize;
 
@@ -1316,19 +1484,19 @@ bool RunLuminance(UpscaleTask &task, ncnn::Net &net)
                 for (int x = 0; x < expectedWidth; ++x) {
                     const int globalX = outputX0 + x;
                     const int globalY = outputY0 + y;
-                    const float sampleX = (globalX + 0.5f) * 0.5f - 0.5f;
-                    const float sampleY = (globalY + 0.5f) * 0.5f - 0.5f;
-                    const RgbSample source = BilinearSourceRgb(task, sampleX, sampleY);
-                    const float sourceLuma =
-                        (65.481f * source.red + 128.553f * source.green +
-                            24.966f * source.blue + 16.0f) *
-                        (1.0f / 255.0f);
-                    const float lumaDelta = (enhancedLuma[x] - sourceLuma) * (255.0f / 219.0f);
                     const size_t offset =
                         (static_cast<size_t>(globalY) * outputWidth + globalX) * 4;
-                    task.output[offset] = ToByte(source.red + lumaDelta);
-                    task.output[offset + 1] = ToByte(source.green + lumaDelta);
-                    task.output[offset + 2] = ToByte(source.blue + lumaDelta);
+                    constexpr float inverseByte = 1.0f / 255.0f;
+                    const float red = task.output[offset] * inverseByte;
+                    const float green = task.output[offset + 1] * inverseByte;
+                    const float blue = task.output[offset + 2] * inverseByte;
+                    const float sourceLuma =
+                        (65.481f * red + 128.553f * green + 24.966f * blue + 16.0f) *
+                        (1.0f / 255.0f);
+                    const float lumaDelta = (enhancedLuma[x] - sourceLuma) * (255.0f / 219.0f);
+                    task.output[offset] = ToByte(red + lumaDelta);
+                    task.output[offset + 1] = ToByte(green + lumaDelta);
+                    task.output[offset + 2] = ToByte(blue + lumaDelta);
                 }
             }
         }
@@ -1691,7 +1859,7 @@ napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], modelKind) ||
         !GetInt64(env, argv[6], requestId) || requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealEsrgan)) {
+        modelKind > static_cast<int>(ModelKind::Luminance)) {
         delete task;
         napi_throw_type_error(env, nullptr, "invalid MindSpore NNRT upscale argument type");
         return nullptr;
@@ -1807,7 +1975,7 @@ napi_value PrepareMindSporeModelNapi(napi_env env, napi_callback_info info)
     task->modelPath = GetString(env, argv[0]);
     if (!GetInt(env, argv[1], modelKind) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
+        modelKind > static_cast<int>(ModelKind::Luminance) ||
         task->modelPath.empty()) {
         delete task;
         napi_throw_type_error(env, nullptr, "MindSpore NNRT model path and kind are required");

@@ -48,7 +48,7 @@ const NNRT_VALIDATION_BACKEND: string = 'nnrt'
 // Vulkan guarantee about foreground scheduling behavior.
 const INTERACTION_SAFE_VULKAN_API_VERSION: number = 0x00403000
 const NATIVE_PIPELINE_VERSION: string =
-  'nnrt-rgb-contracts-v3|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
+  'nnrt-model-contracts-v4|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
 class ReaderSuperResolutionCacheEntry {
   path: string = ''
@@ -1013,7 +1013,8 @@ export class ReaderSuperResolutionService {
   ): string | null {
     const nnrtSupported: boolean =
       model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
-        model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
+        model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
+        model === ReaderSuperResolutionModel.ESPCN_X2
     if (!nnrtSupported ||
       (backendPreference !== ReaderSuperResolutionBackend.AUTO &&
         backendPreference !== NNRT_VALIDATION_BACKEND)) {

@@ -87,8 +87,18 @@ function espcnDefinition(): ReaderSuperResolutionModelDefinition {
     'https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/SuperResolution/' +
       'espcn/espcn_x2/2022-08-02/espcn_x2.zip',
   ]
+  definition.acceleratedModelFileName = 'espcn-x2-180-fp16.ms'
+  definition.acceleratedModelBytes = 45312
+  definition.acceleratedModelSha256 =
+    'f2e84f3ce9cfc1d326a5326c116c30b3d92a8ed91dade45c37097863e7cfc7cf'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'espcn-x2-nnrt-v1/espcn-x2-180-fp16.ms',
+  ]
+  definition.initialDownloadBytes = 125901
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP
-  definition.pipelineVersion = 'espcn-x2-hailo-onnx-20220802-ncnn-20260526'
+  definition.pipelineVersion =
+    'espcn-x2-hailo-onnx-20220802-ncnn-20260526|nnrt-fp16-v1'
   definition.nativeModelKind = ReaderNativeModelKind.LUMINANCE
   definition.tileSize = 128
   definition.prepadding = 4

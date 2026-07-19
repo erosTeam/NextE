@@ -488,6 +488,16 @@ export class ReaderSuperResolutionModelService {
       `model=${definition.id}`,
     )
     try {
+      if (ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
+        await ReaderSuperResolutionModelService.installAcceleratedAsset(paths, definition)
+        DiagnosticLogger.info(
+          'reader-super-resolution',
+          'model_download_success',
+          `model=${definition.id} downloadBytes=${definition.acceleratedModelBytes} ` +
+            `runtimeBytes=${definition.bytes()}`,
+        )
+        return
+      }
       await ReaderSuperResolutionModelService.downloadAsset(definition.packageUrls, packagePath)
       if (!ReaderSuperResolutionModelService.validateFile(
         packagePath,
@@ -531,12 +541,15 @@ export class ReaderSuperResolutionModelService {
       ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
       fileIo.renameSync(paramPart, paths.paramPath)
       fileIo.renameSync(modelPart, paths.modelPath)
+      await ReaderSuperResolutionModelService.installAcceleratedAsset(paths, definition)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_download_success',
-        `model=${definition.id} downloadBytes=${definition.packageBytes} runtimeBytes=${definition.bytes()}`,
+        `model=${definition.id} downloadBytes=${definition.initialDownloadBytes} ` +
+          `runtimeBytes=${definition.bytes()}`,
       )
     } catch (error) {
+      ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
       DiagnosticLogger.warn(
         'reader-super-resolution',
         'model_download_failed',

@@ -80,7 +80,13 @@ async function installExternalMindSporeModelForBenchmark(
   if (sourcePath.length === 0) {
     return
   }
-  const targetPath: string = context.filesDir + '/realesrgan-x2plus-180-fp16.ms'
+  let fileName: string = 'realesrgan-x2plus-180-fp16.ms'
+  if (benchmarkModel() === ReaderSuperResolutionModel.ESPCN_X2) {
+    fileName = 'espcn-x2-180-fp16.ms'
+  } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
+    fileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
+  }
+  const targetPath: string = context.filesDir + '/' + fileName
   if (sourcePath === targetPath) {
     return
   }
@@ -192,6 +198,24 @@ function externalMindSporeNativePipelineEnabled(): boolean {
   return parameters['-s superResolutionMindSporeNativePipeline'] === 'true'
 }
 
+function externalMindSporeEspcnPipelineEnabled(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionMindSporeEspcnPipeline'] === 'true'
+}
+
+function externalComparisonImagePath(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionComparisonImage'] ?? ''
+}
+
+function externalComparisonImageUrl(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionComparisonImageUrl'] ?? ''
+}
+
 function forceAcceleratedModelRedownload(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
@@ -222,6 +246,74 @@ function benchmarkPixels(width: number, height: number): ArrayBuffer {
   return buffer
 }
 
+async function nextTimingTurn(): Promise<void> {
+  await new Promise<void>((resolve: () => void): void => {
+    setTimeout(resolve, 16)
+  })
+}
+
+class SuperResolutionComparisonInput {
+  pixels: ArrayBuffer = new ArrayBuffer(0)
+  width: number = 0
+  height: number = 0
+  stride: number = 0
+}
+
+async function comparisonInput(
+  context: common.UIAbilityContext,
+): Promise<SuperResolutionComparisonInput> {
+  let path: string = externalComparisonImagePath()
+  const url: string = externalComparisonImageUrl()
+  if (url.length > 0) {
+    path = context.cacheDir + '/super-resolution-comparison-input'
+    await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+      url,
+      path,
+      (_loaded: number, _total: number): void => {},
+      15000,
+      0,
+      'image/*,*/*',
+      2,
+      120000,
+    )
+  }
+  const result: SuperResolutionComparisonInput =
+    new SuperResolutionComparisonInput()
+  if (path.length === 0) {
+    result.pixels = benchmarkPixels(BENCHMARK_INPUT_WIDTH, BENCHMARK_INPUT_HEIGHT)
+    result.width = BENCHMARK_INPUT_WIDTH
+    result.height = BENCHMARK_INPUT_HEIGHT
+    result.stride = BENCHMARK_INPUT_WIDTH * 4
+    return result
+  }
+  let source: image.ImageSource | undefined = undefined
+  let pixelMap: image.PixelMap | undefined = undefined
+  try {
+    source = image.createImageSource(path)
+    if (source === undefined) {
+      throw new Error('Comparison image source is unavailable: ' + path)
+    }
+    pixelMap = await source.createPixelMap({
+      editable: false,
+      desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+    })
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    result.pixels = new ArrayBuffer(pixelMap.getPixelBytesNumber())
+    await pixelMap.readPixelsToBuffer(result.pixels)
+    result.width = info.size.width
+    result.height = info.size.height
+    result.stride = Math.max(Math.floor(info.stride), result.width * 4)
+    return result
+  } finally {
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+    if (source !== undefined) {
+      await source.release()
+    }
+  }
+}
+
 function verifyRawOutputHasSignal(buffer: ArrayBuffer): void {
   const pixels: Uint8Array = new Uint8Array(buffer)
   let minimum: number = 255
@@ -236,12 +328,25 @@ function verifyRawOutputHasSignal(buffer: ArrayBuffer): void {
   expect(maximum - minimum).assertLarger(16)
 }
 
-function compareRgbaOutputs(reference: ArrayBuffer, candidate: ArrayBuffer): number {
+function compareRgbaOutputs(
+  reference: ArrayBuffer,
+  candidate: ArrayBuffer,
+  outputWidth: number,
+  outputHeight: number,
+): number {
   expect(candidate.byteLength).assertEqual(reference.byteLength)
   const referencePixels: Uint8Array = new Uint8Array(reference)
   const candidatePixels: Uint8Array = new Uint8Array(candidate)
   let absoluteError: number = 0
   let maximumError: number = 0
+  let overFour: number = 0
+  let overSixteen: number = 0
+  let overSixtyFour: number = 0
+  let severeMinimumX: number = outputWidth
+  let severeMinimumY: number = outputHeight
+  let severeMaximumX: number = -1
+  let severeMaximumY: number = -1
+  let severeExamples: string = ''
   let samples: number = 0
   for (let index: number = 0; index + 2 < referencePixels.length; index += 4) {
     for (let channel: number = 0; channel < 3; channel++) {
@@ -250,6 +355,29 @@ function compareRgbaOutputs(reference: ArrayBuffer, candidate: ArrayBuffer): num
       )
       absoluteError += error
       maximumError = Math.max(maximumError, error)
+      if (error > 4) {
+        overFour += 1
+      }
+      if (error > 16) {
+        overSixteen += 1
+      }
+      if (error > 64) {
+        overSixtyFour += 1
+        const pixelIndex: number = Math.floor(index / 4)
+        const x: number = pixelIndex % outputWidth
+        const y: number = Math.floor(pixelIndex / outputWidth)
+        severeMinimumX = Math.min(severeMinimumX, x)
+        severeMinimumY = Math.min(severeMinimumY, y)
+        severeMaximumX = Math.max(severeMaximumX, x)
+        severeMaximumY = Math.max(severeMaximumY, y)
+        if (overSixtyFour <= 8) {
+          severeExamples +=
+            (severeExamples.length === 0 ? '' : ';') +
+              x + ',' + y + ',' + channel + ':' +
+              referencePixels[index + channel] + '>' +
+              candidatePixels[index + channel]
+        }
+      }
       samples += 1
     }
   }
@@ -257,6 +385,12 @@ function compareRgbaOutputs(reference: ArrayBuffer, candidate: ArrayBuffer): num
   console.info(
     'ReaderSuperResolutionMindSporeComparison meanAbsoluteError=' + meanAbsoluteError +
       ' maximumError=' + maximumError +
+      ' overFour=' + overFour +
+      ' overSixteen=' + overSixteen +
+      ' overSixtyFour=' + overSixtyFour +
+      ' severeBounds=' + severeMinimumX + ',' + severeMinimumY + '-' +
+        severeMaximumX + ',' + severeMaximumY +
+      ' severeExamples=' + severeExamples +
       ' samples=' + samples,
   )
   return meanAbsoluteError
@@ -487,6 +621,42 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
           context,
           ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+        )
+      expect(acceleratedPath !== null).assertEqual(true)
+      if (acceleratedPath !== null) {
+        expect(fileIo.accessSync(acceleratedPath)).assertEqual(true)
+      }
+      done()
+    })
+
+    it('downloadsPublishedEspcnRuntimeAndAcceleratedAssets', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      ReaderSuperResolutionModelService.remove(
+        context,
+        ReaderSuperResolutionModel.ESPCN_X2,
+      )
+      await ReaderSuperResolutionModelService.install(
+        context,
+        ReaderSuperResolutionModel.ESPCN_X2,
+      )
+      const paths: ReaderSuperResolutionModelPaths | null =
+        await ReaderSuperResolutionModelService.pathsIfReady(
+          context,
+          ReaderSuperResolutionModel.ESPCN_X2,
+        )
+      expect(paths !== null).assertEqual(true)
+      if (paths !== null) {
+        expect(fileIo.accessSync(paths.paramPath)).assertEqual(true)
+        expect(fileIo.accessSync(paths.modelPath)).assertEqual(true)
+      }
+      const acceleratedPath: string | null =
+        ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
+          context,
+          ReaderSuperResolutionModel.ESPCN_X2,
         )
       expect(acceleratedPath !== null).assertEqual(true)
       if (acceleratedPath !== null) {
@@ -985,6 +1155,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
           900002,
         )
       const ncnnElapsedMs: number = Date.now() - ncnnStartedAt
+      await nextTimingTurn()
       const nnrtStartedAt: number = Date.now()
       const nnrtResult: ReaderMindSporeSuperResolutionResult =
         await ReaderMindSporeSuperResolution.upscaleRgba(
@@ -1000,10 +1171,96 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const meanAbsoluteError: number = compareRgbaOutputs(
         ncnnResult.pixels,
         nnrtResult.pixels,
+        BENCHMARK_INPUT_WIDTH * 2,
+        BENCHMARK_INPUT_HEIGHT * 2,
       )
       console.info(
         'ReaderSuperResolutionMindSporeComparison source=' +
           BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          ' ncnnElapsedMs=' + ncnnElapsedMs +
+          ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
+          ' nnrtElapsedMs=' + nnrtElapsedMs +
+          ' nnrtInferenceMs=' + nnrtResult.inferenceMs +
+          ' nnrtTiles=' + nnrtResult.tileCount,
+      )
+      expect(ncnnResult.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+      expect(nnrtResult.backend).assertEqual('nnrt')
+      expect(meanAbsoluteError < 3).assertEqual(true)
+      verifyRawOutputHasSignal(nnrtResult.pixels)
+      done()
+    })
+
+    it('comparesExternalMindSporeWithEspcnVulkan', 0, async (done: Function) => {
+      if (!integrationEnabled() || !externalMindSporeEspcnPipelineEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const mindSporeModelPath: string = await prepareExternalMindSporeModel(context)
+      if (mindSporeModelPath.length === 0) {
+        done()
+        return
+      }
+      await ReaderSuperResolutionModelService.install(
+        context,
+        ReaderSuperResolutionModel.ESPCN_X2,
+      )
+      const modelPaths: ReaderSuperResolutionModelPaths | null =
+        await ReaderSuperResolutionModelService.pathsIfReady(
+          context,
+          ReaderSuperResolutionModel.ESPCN_X2,
+        )
+      expect(modelPaths !== null).assertEqual(true)
+      if (modelPaths === null) {
+        done()
+        return
+      }
+      const config: ReaderNativeSuperResolutionConfig =
+        new ReaderNativeSuperResolutionConfig()
+      config.modelKind = ReaderNativeModelKind.LUMINANCE
+      config.backendPreference = ReaderNativeBackendPreference.VULKAN
+      config.tileSize = 128
+      config.prepadding = 4
+      config.threads = 2
+      config.inputName = 'in0'
+      config.outputName = 'out0'
+      const input: SuperResolutionComparisonInput = await comparisonInput(context)
+      const ncnnStartedAt: number = Date.now()
+      const ncnnResult: ReaderNativeSuperResolutionResult =
+        await ReaderNativeSuperResolution.upscaleRgba(
+          input.pixels,
+          input.width,
+          input.height,
+          input.stride,
+          modelPaths.paramPath,
+          modelPaths.modelPath,
+          config,
+          900004,
+        )
+      const ncnnElapsedMs: number = Date.now() - ncnnStartedAt
+      await nextTimingTurn()
+      const nnrtInput: ArrayBuffer = input.pixels.slice(0)
+      const nnrtStartedAt: number = Date.now()
+      const nnrtResult: ReaderMindSporeSuperResolutionResult =
+        await ReaderMindSporeSuperResolution.upscaleRgba(
+          nnrtInput,
+          input.width,
+          input.height,
+          input.stride,
+          mindSporeModelPath,
+          ReaderNativeModelKind.LUMINANCE,
+          900005,
+        )
+      const nnrtElapsedMs: number = Date.now() - nnrtStartedAt
+      const meanAbsoluteError: number = compareRgbaOutputs(
+        ncnnResult.pixels,
+        nnrtResult.pixels,
+        input.width * 2,
+        input.height * 2,
+      )
+      console.info(
+        'ReaderSuperResolutionEspcnMindSporeComparison source=' +
+          input.width + 'x' + input.height +
           ' ncnnElapsedMs=' + ncnnElapsedMs +
           ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
           ' nnrtElapsedMs=' + nnrtElapsedMs +
