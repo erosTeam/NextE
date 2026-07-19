@@ -23,6 +23,13 @@ export class DownloadViewState {
   @Trace searchActive: boolean = false
   @Trace searchText: string = ''
   @Trace sortMode: string = DownloadSortMode.ADDED_DESC
+  // HDS title-bar mirror state. It intentionally carries only a stable task-group id, never a
+  // rendered label or count: those derive from the live queue projection in the title builder.
+  @Trace pinnedGroup: number = -1
+  @Trace pinnedGroupVisible: boolean = false
+  // Measured lower edge of the always-visible download selector in window coordinates. This changes
+  // with HDS title-area collapse and replaces static title-bar-height assumptions in the queue.
+  @Trace hdsSelectorBottomY: number = -1
   // Title-bar action bus. The title bar cannot anchor a native Menu, so DownloadQueuePage owns it.
   @Trace cmdKind: string = ''
   @Trace cmdSeq: number = 0

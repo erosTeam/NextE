@@ -16,6 +16,8 @@ export struct PullRefreshListScaffold {
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD
   @Param topPadding: number = 0
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
+  // Opt-in only for ListItemGroup-based content such as viewed-history day sections.
+  @Param stickyHeaders: boolean = false
   // Number of real list rows, excluding the top/bottom reserve ListItems owned by this scaffold.
   @Param itemCount: number = 0
   // Gallery callers opt in because they need indexes consistent with Grid/WaterFlow scaffolds.
@@ -35,6 +37,7 @@ export struct PullRefreshListScaffold {
   @Event onUserScroll?: () => void
   @Event onScrollEnableChange?: (enabled: boolean) => void
   @Event onContentWidth?: (contentWidth: number) => void
+  @Event onListAreaChange?: (area: Area) => void
 
   build() {
     PullRefresh({
@@ -88,6 +91,7 @@ export struct PullRefreshListScaffold {
       .enableScrollInteraction(this.scrollEnabled)
       .maintainVisibleContentPosition(true)
       .backToTop(this.backToTop)
+      .sticky(this.stickyHeaders ? StickyStyle.Header : StickyStyle.None)
       .onWillScroll((_scrollOffset: number, _scrollState: ScrollState, source: ScrollSource) => {
         if (this.onUserScroll && isUserScrollSource(source)) {
           this.onUserScroll()
@@ -123,6 +127,9 @@ export struct PullRefreshListScaffold {
       .edgeEffect(EdgeEffect.None)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.measuredWidth = newValue.width as number
+        if (this.onListAreaChange) {
+          this.onListAreaChange(newValue)
+        }
         if (this.onContentWidth) {
           const contentWidth: number = this.measuredWidth - 2 * this.horizontalPadding
           this.onContentWidth(contentWidth > 0 ? contentWidth : 0)

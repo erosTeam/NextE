@@ -39,6 +39,7 @@ import {
 import { common } from '@kit.AbilityKit'
 import { LoadingDialog, SymbolGlyphModifier } from '@kit.ArkUI'
 import { DownloadQueueTaskProjection } from '../model/DownloadQueueTaskProjection'
+import { DownloadTaskGroupHeader } from '../components/DownloadTaskGroupHeader'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -70,6 +71,8 @@ export struct DownloadQueuePage {
   private swiperController: SwiperController = new SwiperController();
   private galleryScroller: Scroller = new Scroller();
   private archiverScroller: Scroller = new Scroller();
+  private galleryListGlobalY: number = -1
+  private archiverListGlobalY: number = -1
   private exportLoadingDialogController: CustomDialogController = new CustomDialogController({
     builder: LoadingDialog({ content: $r('app.string.download_export_started') }),
     autoCancel: false,
@@ -125,6 +128,7 @@ export struct DownloadQueuePage {
     const target: number = this.selectedIndex()
     if (target === this.swiperIndex) {
       this.notifyActiveScroller()
+      this.syncPinnedTaskGroup(this.downloadView.viewType)
       return
     }
     this.swiperController.changeIndex(target, true)
@@ -158,6 +162,7 @@ export struct DownloadQueuePage {
       DiagnosticLogger.info('download', 'download_type_swipe', `type=${next}`)
     }
     this.notifyActiveScroller()
+    this.syncPinnedTaskGroup(this.downloadView.viewType)
   }
 
   private rebuildTaskProjection(): void {
@@ -171,6 +176,94 @@ export struct DownloadQueuePage {
     this.archiverTaskGroups = projection.archiverGroups
     this.galleryVisibleTaskCount = projection.galleryVisibleCount
     this.archiverVisibleTaskCount = projection.archiverVisibleCount
+    this.syncPinnedTaskGroup(this.downloadView.viewType)
+  }
+
+  private visibleGroupIds(viewType: string): number[] {
+    const groups: number[] = []
+    for (let group: number = 0; group < 4; group++) {
+      if (this.groupVisibleCount(group, viewType) > 0) {
+        groups.push(group)
+      }
+    }
+    return groups
+  }
+
+  private onQueueDidScroll(viewType: string, _offset: number): void {
+    this.syncPinnedTaskGroup(viewType)
+  }
+
+  private onQueueListArea(viewType: string, area: Area): void {
+    if (viewType === DownloadViewType.ARCHIVER) {
+      this.archiverListGlobalY = area.globalPosition.y as number
+    } else {
+      this.galleryListGlobalY = area.globalPosition.y as number
+    }
+    this.syncPinnedTaskGroup(viewType)
+  }
+
+  @Monitor('downloadView.hdsSelectorBottomY')
+  private onPinnedTaskSurfaceChanged(): void {
+    this.syncPinnedTaskGroup(this.downloadView.viewType)
+  }
+
+  private taskGroupListIndex(group: number, viewType: string): number {
+    // SecondaryListScaffold contributes index 0 and QueuePage contributes its selector reserve at
+    // index 1. Every visible task status is then one ListItemGroup.
+    let listIndex: number = 2
+    for (let candidate: number = 0; candidate < 4; candidate++) {
+      if (this.groupVisibleCount(candidate, viewType) <= 0) {
+        continue
+      }
+      if (candidate === group) {
+        return listIndex
+      }
+      listIndex++
+    }
+    return -1
+  }
+
+  private syncPinnedTaskGroup(viewType: string): void {
+    if (viewType !== this.downloadView.viewType) {
+      return
+    }
+    const groupIds: number[] = this.visibleGroupIds(viewType)
+    const listGlobalY: number = viewType === DownloadViewType.ARCHIVER
+      ? this.archiverListGlobalY
+      : this.galleryListGlobalY
+    const pinSurfaceTopY: number = this.downloadView.hdsSelectorBottomY
+    if (pinSurfaceTopY < 0 || listGlobalY < 0) {
+      this.downloadView.pinnedGroupVisible = false
+      this.downloadView.pinnedGroup = -1
+      return
+    }
+    const pinSurfaceYInList: number = pinSurfaceTopY - listGlobalY
+    const scroller: Scroller = viewType === DownloadViewType.ARCHIVER
+      ? this.archiverScroller
+      : this.galleryScroller
+    let pinnedGroup: number = -1
+    let pinnedHeaderY: number = -Infinity
+    for (let index: number = 0; index < groupIds.length; index++) {
+      const group: number = groupIds[index]
+      const listIndex: number = this.taskGroupListIndex(group, viewType)
+      const groupRect = listIndex >= 0 ? scroller.getItemRect(listIndex) : undefined
+      if (
+        groupRect !== undefined &&
+        groupRect.height > 0 &&
+        groupRect.y < pinSurfaceYInList &&
+        groupRect.y > pinnedHeaderY
+      ) {
+        pinnedGroup = group
+        pinnedHeaderY = groupRect.y
+      }
+    }
+    if (pinnedGroup < 0) {
+      this.downloadView.pinnedGroupVisible = false
+      this.downloadView.pinnedGroup = -1
+      return
+    }
+    this.downloadView.pinnedGroup = pinnedGroup
+    this.downloadView.pinnedGroupVisible = true
   }
 
   @Monitor('downloadView.cmdSeq')
@@ -1029,21 +1122,23 @@ export struct DownloadQueuePage {
   @Builder
   private GalleryTaskGroup(group: number) {
     if (this.galleryTasksForGroup(group).length > 0) {
-      ListItem() {
-        this.DownloadTaskGroupHeader(group, DownloadViewType.GALLERY)
+      ListItemGroup({
+        header: this.TaskGroupHeader(group, DownloadViewType.GALLERY),
+        space: ThemeConstants.SPACE_SM - 2,
+      }) {
+        ForEach(
+          this.galleryTasksForGroup(group),
+          (task: DownloadGalleryTask) => {
+            ListItem() {
+              this.DownloadGalleryTaskCard(task)
+            }
+            .clip(false)
+          },
+          (task: DownloadGalleryTask) => this.galleryRenderKey(task),
+        )
       }
       .clip(false)
     }
-    ForEach(
-      this.galleryTasksForGroup(group),
-      (task: DownloadGalleryTask) => {
-        ListItem() {
-          this.DownloadGalleryTaskCard(task)
-        }
-        .clip(false)
-      },
-      (task: DownloadGalleryTask) => this.galleryRenderKey(task),
-    )
   }
 
   @Builder
@@ -1057,34 +1152,23 @@ export struct DownloadQueuePage {
   @Builder
   private ArchiverTaskGroup(group: number) {
     if (this.archiverTasksForGroup(group).length > 0) {
-      ListItem() {
-        this.DownloadTaskGroupHeader(group, DownloadViewType.ARCHIVER)
+      ListItemGroup({
+        header: this.TaskGroupHeader(group, DownloadViewType.ARCHIVER),
+        space: ThemeConstants.SPACE_SM - 2,
+      }) {
+        ForEach(
+          this.archiverTasksForGroup(group),
+          (task: DownloadArchiverTask) => {
+            ListItem() {
+              this.DownloadArchiverTaskCard(task)
+            }
+            .clip(false)
+          },
+          (task: DownloadArchiverTask) => this.archiverRenderKey(task),
+        )
       }
       .clip(false)
     }
-    ForEach(
-      this.archiverTasksForGroup(group),
-      (task: DownloadArchiverTask) => {
-        ListItem() {
-          this.DownloadArchiverTaskCard(task)
-        }
-        .clip(false)
-      },
-      (task: DownloadArchiverTask) => this.archiverRenderKey(task),
-    )
-  }
-
-  private groupTitle(group: number): Resource {
-    if (group === 1) {
-      return $r('app.string.download_group_paused')
-    }
-    if (group === 2) {
-      return $r('app.string.download_group_failed')
-    }
-    if (group === 3) {
-      return $r('app.string.download_group_completed')
-    }
-    return $r('app.string.download_group_active')
   }
 
   private groupVisibleCount(group: number, viewType: string): number {
@@ -1094,33 +1178,11 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private DownloadTaskGroupHeader(group: number, viewType: string) {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      Text(this.groupTitle(group))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor(ThemeConstants.BRAND_PRIMARY)
-        .fontWeight(FontWeight.Medium)
-      Text(`${this.groupVisibleCount(group, viewType)}`)
-        .fontSize(ThemeConstants.FONT_SIZE_TINY)
-        .fontColor(ThemeConstants.TEXT_ON_BRAND)
-        .fontWeight(FontWeight.Medium)
-        .padding({
-          left: ThemeConstants.SPACE_XS,
-          right: ThemeConstants.SPACE_XS,
-          top: ThemeConstants.SPACE_XS / 2,
-          bottom: ThemeConstants.SPACE_XS / 2,
-        })
-        .borderRadius(ThemeConstants.RADIUS_ROUND)
-        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_SM,
-      right: ThemeConstants.SPACE_SM,
-      top: ThemeConstants.SPACE_XS,
-      bottom: ThemeConstants.SPACE_XS,
+  private TaskGroupHeader(group: number, viewType: string) {
+    DownloadTaskGroupHeader({
+      group: group,
+      count: this.groupVisibleCount(group, viewType),
     })
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -1700,12 +1762,19 @@ export struct DownloadQueuePage {
     Column() {
       SecondaryListScaffold({
         scroller: scroller,
+        // HDS owns the visible pinned mirror. Native ListItemGroup sticky headers sit below the
+        // immersive title layer and would duplicate an obscured copy.
+        stickyHeaders: false,
         backToTop: this.galleryDetailBackToTop.primaryEnabled(),
         bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
         onDidScroll: (offset: number, state: ScrollState) => {
+          this.onQueueDidScroll(viewType, offset)
           if (viewType === this.downloadView.viewType && this.onDidScroll) {
             this.onDidScroll(offset, state)
           }
+        },
+        onListAreaChange: (area: Area) => {
+          this.onQueueListArea(viewType, area)
         },
         onUserScroll: () => {
           if (viewType === this.downloadView.viewType) {

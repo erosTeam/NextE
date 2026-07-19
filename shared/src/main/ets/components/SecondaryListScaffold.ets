@@ -20,6 +20,8 @@ export struct SecondaryListScaffold {
   @Param listSpace: number = ThemeConstants.SPACE_SM - 2
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
+  // Opt-in only for pages that emit native ListItemGroup section headers.
+  @Param stickyHeaders: boolean = false
   // Local opt-in for short, non-refresh pages such as Settings. PullRefresh scaffolds keep this off.
   @Param alwaysEnableEdgeSpring: boolean = false
   // Defaults to ArkUI's API 18+ vertical behavior. Wide gallery detail passes an explicit owner gate.
@@ -27,6 +29,7 @@ export struct SecondaryListScaffold {
   @Event onReachEnd?: () => void
   @Event onDidScroll?: (offset: number, state: ScrollState) => void
   @Event onUserScroll?: () => void
+  @Event onListAreaChange?: (area: Area) => void
 
   build() {
     List({ space: this.listSpace, scroller: this.scroller }) {
@@ -52,6 +55,7 @@ export struct SecondaryListScaffold {
     }
     .scrollBar(BarState.Off)
     .backToTop(this.backToTop)
+    .sticky(this.stickyHeaders ? StickyStyle.Header : StickyStyle.None)
     .width('100%')
     .height('100%')
     .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
@@ -72,6 +76,11 @@ export struct SecondaryListScaffold {
     .onScrollIndex((_start: number, _end: number, _center: number) => {
       if (this.onDidScroll) {
         this.onDidScroll(this.scroller.currentOffset().yOffset, ScrollState.Scroll)
+      }
+    })
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      if (this.onListAreaChange) {
+        this.onListAreaChange(newValue)
       }
     })
     .onReachEnd(() => {

@@ -4,10 +4,12 @@ import {
   DiagnosticLogger,
   DownloadViewState,
   DownloadViewType,
+  DOWNLOAD_SELECTOR_BAR_HEIGHT,
   ThemeConstants,
   connectDownloadView,
 } from 'shared'
 import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
+import { DownloadPinnedTaskGroupHeader } from 'download'
 
 /**
  * Downloads tab type switcher pinned in the HDS title bar. Mirrors eros_fe's navigation-bar
@@ -17,6 +19,10 @@ import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.Ar
 export struct DownloadTypeBar {
   @Local private downloadView: DownloadViewState = connectDownloadView();
   @Local private items: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }]);
+
+  private updateHdsSelectorBoundary(area: Area): void {
+    this.downloadView.hdsSelectorBottomY = (area.globalPosition.y as number) + (area.height as number)
+  }
 
   build() {
     if (this.downloadView.searchActive) {
@@ -43,6 +49,9 @@ export struct DownloadTypeBar {
         bottom: ThemeConstants.SPACE_XS,
         left: ThemeConstants.SPACE_MD,
         right: ThemeConstants.SPACE_MD,
+      })
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.updateHdsSelectorBoundary(newValue)
       })
     } else {
       Row() {
@@ -76,6 +85,9 @@ export struct DownloadTypeBar {
         left: ThemeConstants.SPACE_SM,
         right: ThemeConstants.SPACE_SM,
       })
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.updateHdsSelectorBoundary(newValue)
+      })
     }
   }
 
@@ -104,4 +116,32 @@ export struct DownloadTypeBar {
 @Builder
 export function DownloadTypeBarCCBuilder(_arg: Object) {
   DownloadTypeBar()
+}
+
+/**
+ * Single HDS bottomBuilder for download navigation and the crossed queue-group mirror. The HDS
+ * owner is Index, so the queue page signals only a stable group enum through DownloadViewState.
+ */
+@ComponentV2
+export struct DownloadTitleBar {
+  @Local private downloadView: DownloadViewState = connectDownloadView()
+
+  build() {
+    Column() {
+      DownloadTypeBar()
+        .width('100%')
+        .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
+      if (this.downloadView.pinnedGroupVisible) {
+        DownloadPinnedTaskGroupHeader()
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+}
+
+@Builder
+export function DownloadTitleBarCCBuilder(_arg: Object) {
+  DownloadTitleBar()
 }

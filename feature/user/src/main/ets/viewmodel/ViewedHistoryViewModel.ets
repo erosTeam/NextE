@@ -12,6 +12,21 @@ import {
 
 const HISTORY_PAGE_SIZE: number = 20
 const HISTORY_PREFETCH_DISTANCE: number = 3
+/** One native ListItemGroup day section; its data source stays stable while a cursor page appends. */
+export class ViewedHistoryDayGroup {
+  key: string = ''
+  // Calendar-day identity only. The displayed relative label must be resolved by the page at render
+  // time, otherwise a group created before midnight keeps a stale "Today" string forever.
+  dayStart: number = 0
+  dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>(
+    (gallery: EhGallery): string => `viewed_${gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
+  )
+
+  constructor(key: string = '', dayStart: number = 0) {
+    this.key = key
+    this.dayStart = dayStart
+  }
+}
 
 /** Page-owned cursor list for viewed history; rows never live in global reactive state. */
 @ObservedV2
@@ -25,6 +40,7 @@ export class ViewedHistoryViewModel {
   @Trace hasMore: boolean = true
   @Trace errorMessage: string = ''
   @Trace loaded: boolean = false
+  @Trace dayGroups: ViewedHistoryDayGroup[] = []
   private cursor: ViewedHistoryCursor | null = null
   private context: common.UIAbilityContext | null = null
   private epoch: number = 0
@@ -56,6 +72,7 @@ export class ViewedHistoryViewModel {
       }
       const rows: EhGallery[] = this.mapRows(page.items)
       this.dataSource.setData(rows)
+      this.resetDayGroups(rows)
       this.itemCount = rows.length
       this.cursor = page.nextCursor
       this.hasMore = page.hasMore
@@ -98,6 +115,7 @@ export class ViewedHistoryViewModel {
       }
       const rows: EhGallery[] = this.dedupeRows(this.mapRows(page.items))
       this.dataSource.appendData(rows)
+      this.appendDayGroups(rows)
       this.itemCount = this.dataSource.totalCount()
       this.cursor = page.nextCursor
       this.hasMore = page.hasMore
@@ -116,6 +134,10 @@ export class ViewedHistoryViewModel {
     if (index >= this.itemCount - HISTORY_PREFETCH_DISTANCE) {
       this.loadMore()
     }
+  }
+
+  loadMoreIfNearTailGallery(gid: string): void {
+    this.loadMoreIfNearTail(this.indexOfGid(gid))
   }
 
   canLoadMore(): boolean {
@@ -145,6 +167,7 @@ export class ViewedHistoryViewModel {
       const currentIndex: number = this.indexOfGid(gid)
       if (currentIndex >= 0) {
         this.dataSource.removeDataAt(currentIndex)
+        this.removeFromDayGroups(gid)
         this.itemCount = this.dataSource.totalCount()
       }
       this.observedRevision = connectViewedHistory().revision
@@ -165,6 +188,7 @@ export class ViewedHistoryViewModel {
       await ViewedHistorySettings.clear(this.context)
       this.epoch = this.epoch + 1
       this.dataSource.clear()
+      this.dayGroups = []
       this.itemCount = 0
       this.cursor = null
       this.hasMore = false
@@ -209,6 +233,69 @@ export class ViewedHistoryViewModel {
     const hour: string = `${date.getHours()}`.padStart(2, '0')
     const minute: string = `${date.getMinutes()}`.padStart(2, '0')
     return `${month}-${day} ${hour}:${minute}`
+  }
+
+  private resetDayGroups(rows: EhGallery[]): void {
+    const groups: ViewedHistoryDayGroup[] = []
+    this.appendRowsToGroups(groups, rows)
+    this.dayGroups = groups
+  }
+
+  private appendDayGroups(rows: EhGallery[]): void {
+    if (rows.length === 0) {
+      return
+    }
+    const groups: ViewedHistoryDayGroup[] = this.dayGroups.slice()
+    const groupCount: number = groups.length
+    this.appendRowsToGroups(groups, rows)
+    if (groups.length !== groupCount) {
+      this.dayGroups = groups
+    }
+  }
+
+  private appendRowsToGroups(groups: ViewedHistoryDayGroup[], rows: EhGallery[]): void {
+    let group: ViewedHistoryDayGroup | undefined = groups.length > 0 ? groups[groups.length - 1] : undefined
+    for (let i: number = 0; i < rows.length; i++) {
+      const gallery: EhGallery = rows[i]
+      const dayStart: number = this.localDayStart(gallery.lastViewTime)
+      const key: string = this.dayKey(dayStart)
+      if (group === undefined || group.key !== key) {
+        group = new ViewedHistoryDayGroup(key, dayStart)
+        groups.push(group)
+      }
+      group.dataSource.appendData([gallery])
+    }
+  }
+
+  private removeFromDayGroups(gid: string): void {
+    for (let groupIndex: number = 0; groupIndex < this.dayGroups.length; groupIndex++) {
+      const group: ViewedHistoryDayGroup = this.dayGroups[groupIndex]
+      const rows: EhGallery[] = group.dataSource.getAll()
+      for (let rowIndex: number = 0; rowIndex < rows.length; rowIndex++) {
+        if (rows[rowIndex].gid !== gid) {
+          continue
+        }
+        group.dataSource.removeDataAt(rowIndex)
+        if (group.dataSource.totalCount() === 0) {
+          const groups: ViewedHistoryDayGroup[] = this.dayGroups.slice()
+          groups.splice(groupIndex, 1)
+          this.dayGroups = groups
+        }
+        return
+      }
+    }
+  }
+
+  private dayKey(time: number): string {
+    const date: Date = new Date(time)
+    const month: string = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day: string = `${date.getDate()}`.padStart(2, '0')
+    return `${date.getFullYear()}-${month}-${day}`
+  }
+
+  private localDayStart(time: number): number {
+    const date: Date = new Date(time)
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   }
 
   private dedupeRows(rows: EhGallery[]): EhGallery[] {

@@ -85,7 +85,7 @@ import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
 import { ToplistPeriodBarCCBuilder } from '../components/ToplistPeriodBar'
 import { FavcatBarCCBuilder } from '../components/FavcatBar'
-import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
+import { DownloadTitleBarCCBuilder } from '../components/DownloadTypeBar'
 import { IndexRouteCoordinator } from '../model/IndexRouteCoordinator'
 import type { IndexDestinationFamily } from '../model/IndexRouteCoordinator'
 import { HomePage, ToplistPage, TabManagerPage, TabEditPage } from 'home'
@@ -125,7 +125,7 @@ import {
   GalleryCommentsPage,
 } from 'gallery'
 import { ReaderPage } from 'reader'
-import { DownloadQueuePage } from 'download'
+import { DownloadQueuePage, DOWNLOAD_PINNED_TASK_GROUP_HEADER_HEIGHT } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
 import { EhPasswordLoginPage } from './EhPasswordLoginPage'
@@ -461,7 +461,7 @@ struct Index {
   private sourceBarContent: ComponentContent<Object> | null = null;
   private periodBarContent: ComponentContent<Object> | null = null;
   private favcatBarContent: ComponentContent<Object> | null = null;
-  private downloadTypeBarContent: ComponentContent<Object> | null = null;
+  private downloadTitleBarContent: ComponentContent<Object> | null = null;
   private splitPlaceholderContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
   @Local clipboardCandidate: ClipboardLinkCandidateState = connectClipboardLinkCandidate();
@@ -1251,16 +1251,18 @@ struct Index {
         content['menu'] = this.topOnlyMenu()
       }
       if (tab === 3) {
-        if (this.downloadTypeBarContent === null) {
-          this.downloadTypeBarContent = new ComponentContent<Object>(
+        if (this.downloadTitleBarContent === null) {
+          this.downloadTitleBarContent = new ComponentContent<Object>(
             this.getUIContext(),
-            wrapBuilder<[Object]>(DownloadTypeBarCCBuilder),
+            wrapBuilder<[Object]>(DownloadTitleBarCCBuilder),
             new Object(),
           )
         }
         content['bottomBuilder'] = this.bottomBuilder(
-          this.downloadTypeBarContent,
-          DOWNLOAD_SELECTOR_BAR_HEIGHT,
+          this.downloadTitleBarContent,
+          DOWNLOAD_SELECTOR_BAR_HEIGHT + (this.downloadView.pinnedGroupVisible
+            ? DOWNLOAD_PINNED_TASK_GROUP_HEADER_HEIGHT
+            : 0),
         )
         content['menu'] = this.downloadMenu()
       }

@@ -10,6 +10,40 @@ Purpose:
 
 ## Items
 
+### Viewed History Day Sections And Pinned Group Headers
+
+Type: list organization / navigation context
+
+Status: implemented / device-verified on 197
+
+Grounding:
+
+1. `../eros_n_ohos/lib/pages/nav/history/history_view.dart` groups history by local calendar day and pins each day header while its rows scroll.
+2. History remains a single chronological feed; day sections expose its time context without changing storage, ordering, or deletion behavior.
+3. Recent labels use only `Today`, `Yesterday`, and `The day before yesterday`; older sections use their calendar date to avoid a hard-to-scan numeric relative range.
+4. History and download both retain only stable group identity in scroll state (local day start / task-group enum). Their header label and count derive from the current date and current queue projection; neither may cache display text. Because HDS overlays native sticky headers in this immersive layout, each page mirrors the crossed group through its HDS owner using both real scroll offset and the list-group index.
+5. ArkUI `List.sticky(StickyStyle.Header)` is available for `ListItemGroup` headers. Device QA must confirm the pinned-header geometry below the app title and download selector overlays.
+
+Candidate pseudo-sticky route, 2026-07-19:
+
+1. `../eros_n_ohos/lib/pages/nav/history/history_view.dart` uses each date's `SliverPinnedHeader`; `../eros_fe/lib/pages/tab/view/history_page.dart` confirms the current history page's title/clear-action hierarchy.
+2. The first-screen priority remains history rows; the date is contextual metadata, not a new title-level navigation control.
+3. The clear-history action remains in the title menu; the date mirror is passive and has no tap action.
+4. This lane tests only a title-bar `bottomBuilder` date mirror driven by the list's real visible section. It does not change storage, pagination, deletion, or row layout.
+5. HDS expression: cache one `ComponentContent` in `bottomBuilder`, update its V2 state from the list scroll callback, and retain the list's immersive under-title viewport.
+
+QA feedback, 2026-07-19, target `192.168.50.197:12345`:
+
+- Baseline: the immersive `TitleBar` occupies `y=124..305`, while the `List` deliberately occupies `y=124..2720`; after scroll, the native group header is pinned beneath that higher-z title layer and is not readable. This is the reported failure.
+- A/B 1, history page only: `enableComponentSafeArea: true` changes the `List` viewport to `y=305..2720` and pins `今天` to `y=305..390`, but it removes the list's intended extension under the immersive title and combines with the existing content reserve to create extra initial blank space. Rejected and reverted.
+- A/B 2, history page only: `dynamicHideTitleBar(...).bindToScrollable([scroller])` does hide HDS `TitleBar` (`[0,0]` after scroll) without changing the List viewport, but the native pinned day header still is not readable. Rejected and reverted.
+- The current SDK type contract exposes only `List.sticky(StickyStyle)` and no sticky-header offset or title-bar-below overlay API. On the same device, a forced content-layer label was either covered by HDS (`position` at title height), positioned far below its requested boundary after unit conversion, or caused HDS composition artifacts when given a full-height sibling. These are rejected probes, not shippable behavior.
+- `bottomBuilder` can instead act as a deliberately limited date-context mirror: it is cached as one V2 `ComponentContent`, hidden while the first in-flow day header is visible, and updated from the visible `ListItemGroup` index after scrolling. The list keeps its under-title immersive viewport and native sticky headers are disabled to avoid a duplicate hidden header.
+- On target `192.168.50.197:12345`, the bottomBuilder mirror was visually verified absent at the top, readable as `今天` immediately below the title after scrolling, and absent again after returning to the top. This device currently had only `今天` data, so a real `今天 → 昨天` transition remains pending device acceptance; no synthetic history rows were written.
+- Final device verification, 2026-07-20: the target contained one real 07-20 history row and multiple 07-19 rows. First entry and return/re-entry each rendered exactly one `今天` and one `昨天`; no stale duplicate remained. After crossing the real day boundary, `昨天` was visibly mirrored below the HDS title while rows continued under the immersive title. Artifact screenshots: `.hvigor/outputs/history-download-pinned-197-20260720/history-top.jpeg` and `history-scrolled.jpeg`.
+- Final download verification, 2026-07-20: the gallery queue had only two completed rows and could not scroll, so no synthetic tasks were created. The archive queue had eight real completed rows; after scrolling, its live `已完成 8` header was visibly mirrored below the HDS Gallery/Archive selector. Artifact: `.hvigor/outputs/history-download-pinned-197-20260720/download-archiver-scrolled.jpeg`.
+- The stored `viewed_at` value is already mapped to `EhGallery.lastViewTime` and to the generic card's unlabelled `postTime` slot. The history item must render it explicitly as the viewing time (normally `HH:mm` under an already-day-grouped list), rather than relying on the generic publication-time slot.
+
 ### Hidden System Symbol Reference Page
 
 Type: developer reference / system symbol discovery

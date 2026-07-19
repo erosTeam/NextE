@@ -3405,6 +3405,18 @@
       "value": "Clear all viewed history?"
     },
     {
+      "name": "history_today",
+      "value": "Today"
+    },
+    {
+      "name": "history_yesterday",
+      "value": "Yesterday"
+    },
+    {
+      "name": "history_day_before_yesterday",
+      "value": "The day before yesterday"
+    },
+    {
       "name": "settings_reader_direction",
       "value": "Page direction"
     },

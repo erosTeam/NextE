@@ -3405,6 +3405,18 @@
       "value": "清空全部浏览历史？"
     },
     {
+      "name": "history_today",
+      "value": "今天"
+    },
+    {
+      "name": "history_yesterday",
+      "value": "昨天"
+    },
+    {
+      "name": "history_day_before_yesterday",
+      "value": "前天"
+    },
+    {
       "name": "settings_reader_direction",
       "value": "翻页方向"
     },
