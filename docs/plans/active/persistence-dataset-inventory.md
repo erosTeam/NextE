@@ -66,6 +66,11 @@ Allowed `Sync` values:
 | StorageKeys.READING_FULLSCREEN | setting | plaintext | excluded | Reader fullscreen preference |
 | StorageKeys.READING_KEEP_SCREEN_ON | setting | plaintext | excluded | Reader keep-screen-on preference |
 | StorageKeys.READING_PAGE_TURN_ANIMATION | setting | plaintext | excluded | Reader page-turn animation preference |
+| StorageKeys.READING_IMAGE_SCALING_QUALITY | setting | plaintext | excluded | Reader image interpolation preference |
+| StorageKeys.READING_SUPER_RESOLUTION_ENABLED | setting | plaintext | excluded | Reader super-resolution master switch |
+| StorageKeys.READING_SUPER_RESOLUTION_MODEL | setting | plaintext | excluded | Selected local super-resolution model |
+| StorageKeys.READING_SUPER_RESOLUTION_BACKEND | setting | plaintext | excluded | Reader super-resolution backend preference |
+| StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT | setting | plaintext | excluded | Reader super-resolution input height limit |
 | StorageKeys.READER_IMAGE_CACHE_LIMIT_MB | setting | plaintext | excluded | Local reader image-cache limit |
 | StorageKeys.DOWNLOAD_CONCURRENCY | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS | setting | plaintext | excluded | Download setting |
