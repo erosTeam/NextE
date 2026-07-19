@@ -86,6 +86,9 @@ const READER_LOADING_BAR_FG: ResourceColor = Color.White
 const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
 const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
 const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
+const READER_SUPER_RESOLUTION_TOUCH_SETTLE_MS: number = 420
+const READER_SUPER_RESOLUTION_ANIMATION_SETTLE_MS: number = 80
+const READER_SUPER_RESOLUTION_INTERACTION_FALLBACK_MS: number = 2500
 const READER_TAP_ZONE_SCROLL_RATIO: number = 0.75
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
@@ -313,6 +316,8 @@ export struct ReaderPage {
   private readerTapStartY: number = 0;
   private readerTapSuppressUntilMs: number = 0;
   private readerRouteVisible: boolean = false;
+  private superResolutionInteractionResumeTimer: number = -1;
+  private superResolutionForegroundInteractionActive: boolean = false;
 
   build() {
     HdsNavDestination() {
@@ -392,6 +397,9 @@ export struct ReaderPage {
         this.viewWidth = n.width as number
         this.viewHeight = n.height as number
       })
+      .onTouch((event: TouchEvent) => {
+        this.onReaderSurfaceTouch(event)
+      })
       .onKeyEvent((event: KeyEvent): boolean => {
         return this.handleKeyEvent(event)
       })
@@ -408,7 +416,7 @@ export struct ReaderPage {
       this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
     })
     .onWillDisappear(() => {
-      ReaderSuperResolutionService.setInteractionPaused(false)
+      this.resetSuperResolutionInteractionPause()
       this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
       this.setReaderKeepScreenOn(false)
@@ -419,7 +427,7 @@ export struct ReaderPage {
       }
     })
     .onWillHide(() => {
-      ReaderSuperResolutionService.setInteractionPaused(false)
+      this.resetSuperResolutionInteractionPause()
       this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
       this.setReaderKeepScreenOn(false)
@@ -430,7 +438,7 @@ export struct ReaderPage {
       }
     })
     .onDisAppear(() => {
-      ReaderSuperResolutionService.setInteractionPaused(false)
+      this.resetSuperResolutionInteractionPause()
       this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
       connectReaderOverlayNavigation().finishClose()
@@ -470,6 +478,61 @@ export struct ReaderPage {
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
+  }
+
+  private pauseSuperResolutionForForegroundInteraction(): void {
+    if (!this.superResolutionForegroundInteractionActive) {
+      this.superResolutionForegroundInteractionActive = true
+      ReaderSuperResolutionService.setInteractionPaused(true)
+    }
+    if (this.superResolutionInteractionResumeTimer >= 0) {
+      clearTimeout(this.superResolutionInteractionResumeTimer)
+    }
+    this.superResolutionInteractionResumeTimer = setTimeout(() => {
+      this.resumeSuperResolutionAfterForegroundInteraction()
+    }, READER_SUPER_RESOLUTION_INTERACTION_FALLBACK_MS)
+  }
+
+  private scheduleSuperResolutionInteractionResume(delayMs: number): void {
+    if (this.superResolutionInteractionResumeTimer >= 0) {
+      clearTimeout(this.superResolutionInteractionResumeTimer)
+    }
+    this.superResolutionInteractionResumeTimer = setTimeout(() => {
+      this.resumeSuperResolutionAfterForegroundInteraction()
+    }, delayMs)
+  }
+
+  private resumeSuperResolutionAfterForegroundInteraction(): void {
+    if (this.superResolutionInteractionResumeTimer >= 0) {
+      clearTimeout(this.superResolutionInteractionResumeTimer)
+      this.superResolutionInteractionResumeTimer = -1
+    }
+    if (!this.superResolutionForegroundInteractionActive) {
+      return
+    }
+    this.superResolutionForegroundInteractionActive = false
+    if (!this.settingsSheetShown && this.readerRouteVisible) {
+      ReaderSuperResolutionService.setInteractionPaused(false)
+    }
+  }
+
+  private resetSuperResolutionInteractionPause(): void {
+    if (this.superResolutionInteractionResumeTimer >= 0) {
+      clearTimeout(this.superResolutionInteractionResumeTimer)
+      this.superResolutionInteractionResumeTimer = -1
+    }
+    this.superResolutionForegroundInteractionActive = false
+    ReaderSuperResolutionService.setInteractionPaused(false)
+  }
+
+  private onReaderSurfaceTouch(event: TouchEvent): void {
+    if (event.type === TouchType.Down || event.type === TouchType.Move) {
+      this.pauseSuperResolutionForForegroundInteraction()
+      return
+    }
+    if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+      this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_TOUCH_SETTLE_MS)
+    }
   }
 
   private startReaderSession(p: ReaderParams, routeEpoch: number, isEx: boolean): void {
@@ -2460,6 +2523,15 @@ export struct ReaderPage {
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
+    .onGestureSwipe((_index: number, _event: SwiperAnimationEvent) => {
+      this.pauseSuperResolutionForForegroundInteraction()
+    })
+    .onAnimationStart((_index: number, _targetIndex: number, _event: SwiperAnimationEvent) => {
+      this.pauseSuperResolutionForForegroundInteraction()
+    })
+    .onAnimationEnd((_index: number, _event: SwiperAnimationEvent) => {
+      this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_ANIMATION_SETTLE_MS)
+    })
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
@@ -2677,6 +2749,15 @@ export struct ReaderPage {
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
+    .onGestureSwipe((_index: number, _event: SwiperAnimationEvent) => {
+      this.pauseSuperResolutionForForegroundInteraction()
+    })
+    .onAnimationStart((_index: number, _targetIndex: number, _event: SwiperAnimationEvent) => {
+      this.pauseSuperResolutionForForegroundInteraction()
+    })
+    .onAnimationEnd((_index: number, _event: SwiperAnimationEvent) => {
+      this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_ANIMATION_SETTLE_MS)
+    })
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
@@ -2882,6 +2963,12 @@ export struct ReaderPage {
       this.verticalVisibleEnd = end
       this.vm.onVerticalScroll(start, end)
     })
+    .onScrollStart(() => {
+      this.pauseSuperResolutionForForegroundInteraction()
+    })
+    .onScrollStop(() => {
+      this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_ANIMATION_SETTLE_MS)
+    })
   }
 
   private isVerticalPageVisible(index: number): boolean {
@@ -3044,13 +3131,14 @@ export struct ReaderPage {
 
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
-    ReaderSuperResolutionService.setInteractionPaused(true)
     this.settingsSheetShown = true
+    this.pauseSuperResolutionForForegroundInteraction()
   }
 
   private closeReaderSettings(): void {
     this.settingsSheetShown = false
-    ReaderSuperResolutionService.setInteractionPaused(false)
+    this.pauseSuperResolutionForForegroundInteraction()
+    this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_TOUCH_SETTLE_MS)
   }
 
   private spreadPageLabel(key: string, index: number): string {
