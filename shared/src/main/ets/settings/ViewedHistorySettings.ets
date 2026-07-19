@@ -11,9 +11,6 @@ import {
 } from '../storage/ViewedHistoryRepository'
 import { SyncScheduler } from '../sync/SyncScheduler'
 
-// Keep the current NextE retention size while moving the source of truth from Preferences JSON to RDB.
-const MAX_HISTORY: number = 200
-
 /**
  * Persists recently-viewed galleries in RDB. The page owns only one bounded cursor window; the shared
  * state is an invalidation signal so startup and sync never hydrate the whole retained list.
@@ -34,7 +31,7 @@ export class ViewedHistorySettings {
     }
   }
 
-  /** Record a viewed gallery: the repository dedups by gid, promotes it, and trims the active window. */
+  /** Record a viewed gallery: the repository dedups by gid and promotes it without discarding older history. */
   static async add(context: common.UIAbilityContext, entry: ViewedGallery): Promise<void> {
     if (entry.gid.length === 0) {
       return
@@ -90,7 +87,7 @@ export class ViewedHistorySettings {
   ): Promise<void> {
     try {
       await ViewedHistorySettings.enqueueRdbWrite(async (): Promise<void> => {
-        entry.time = await ViewedHistoryRepository.upsertAndTrim(context, entry, MAX_HISTORY)
+        entry.time = await ViewedHistoryRepository.upsert(context, entry)
       })
       ViewedHistorySettings.publishChanged()
       SyncScheduler.requestAfterLocalWrite(context, 'viewed_history')
@@ -107,7 +104,7 @@ export class ViewedHistorySettings {
   static async exportForBackup(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
     await ViewedHistorySettings.migrateLegacyPreferences(context)
     await ViewedHistorySettings.flushForSync(context)
-    return ViewedHistoryRepository.load(context, MAX_HISTORY)
+    return ViewedHistoryRepository.loadAll(context)
   }
 
   static async restoreBackup(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {

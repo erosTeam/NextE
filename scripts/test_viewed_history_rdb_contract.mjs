@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract: ordinary viewed-history opens are bounded, tombstone-safe RDB mutations rather than a
- * whole-history rewrite. This mirrors the timestamp/trim rules in ViewedHistoryRepository.
+ * Contract: ordinary viewed-history opens are unbounded, tombstone-safe RDB mutations rather than a
+ * whole-history rewrite. This mirrors the timestamp rules in ViewedHistoryRepository.
  * Run: node scripts/test_viewed_history_rdb_contract.mjs
  */
 import assert from 'node:assert'
@@ -20,7 +20,7 @@ const ok = (name, condition) => {
 
 const effectiveTime = (row) => Math.max(row.viewedAt, row.deletedAt)
 
-// Pure mirror of ViewedHistoryRepository.upsertAndTrim + SQL_APPLY_VIEWED_HISTORY. It proves the
+// Pure mirror of ViewedHistoryRepository.upsert + SQL_APPLY_VIEWED_HISTORY. It proves the
 // durable rules without requiring a device RDB fixture in this Node-only contract.
 class HistoryRows {
   constructor() {
@@ -33,18 +33,11 @@ class HistoryRows {
     return Math.max(now, Math.max(0, Math.floor(requestedTime)), latest + 1)
   }
 
-  localVisit(gid, requestedTime, now, limit = 200) {
+  localVisit(gid, requestedTime, now) {
     const viewedAt = this.nextViewedAt(requestedTime, now)
     const previous = this.rows.get(gid)
     if (previous === undefined || viewedAt >= effectiveTime(previous)) {
       this.rows.set(gid, { gid, viewedAt, deletedAt: 0, payload: `local-${viewedAt}` })
-    }
-    const active = [...this.rows.values()]
-      .filter((row) => row.deletedAt === 0)
-      .sort((a, b) => b.viewedAt - a.viewedAt || b.gid.localeCompare(a.gid))
-    for (let index = limit; index < active.length; index += 1) {
-      const row = active[index]
-      if (row.viewedAt <= viewedAt) row.deletedAt = viewedAt
     }
     return viewedAt
   }
@@ -94,11 +87,9 @@ const history = new HistoryRows()
 for (let index = 0; index < 201; index += 1) {
   history.localVisit(`g${index}`, index + 1, index + 1)
 }
-ok('201 ordinary visits retain exactly 200 active rows', history.active().length === 200)
-const evicted = history.rows.get('g0')
-ok('retention trims with a sync-visible tombstone instead of deleting the evicted row',
-  evicted !== undefined && evicted.deletedAt > evicted.viewedAt)
-ok('latest visit is first after the bounded trim', history.active()[0].gid === 'g200')
+ok('201 ordinary visits retain all 201 active rows', history.active().length === 201)
+ok('oldest visit remains active after later visits', history.rows.get('g0').deletedAt === 0)
+ok('latest visit is first without a retention trim', history.active()[0].gid === 'g200')
 
 const revisitedAt = history.localVisit('g20', 1, 1)
 ok('revisiting a gid keeps one durable row and promotes it to first',
@@ -136,10 +127,10 @@ for (let index = 0; index < 250; index += 1) {
   remoteOverflow.applyRemote({ gid: `remote${index}`, viewedAt: index + 1, deletedAt: 0, payload: 'remote' })
 }
 remoteOverflow.localVisit('local', 1, 1)
-ok('the next normal visit converges an oversized synced table back to 200 active rows',
-  remoteOverflow.active().length === 200)
-ok('overflow convergence preserves discarded rows as tombstones',
-  [...remoteOverflow.rows.values()].some((row) => row.deletedAt > row.viewedAt))
+ok('the next normal visit preserves every row in a large synced history',
+  remoteOverflow.active().length === 251)
+ok('ordinary visits do not create retention tombstones',
+  [...remoteOverflow.rows.values()].every((row) => row.deletedAt === 0))
 
 const replacement = new HistoryRows()
 replacement.applyRemote({ gid: 'old-delete', viewedAt: 20, deletedAt: 9000, payload: 'remote' })
@@ -167,8 +158,9 @@ const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const addStart = settings.indexOf('static async add')
 const addEnd = settings.indexOf('\n  static async clear', addStart)
 const addMethod = settings.slice(addStart, addEnd)
-ok('ordinary add uses one upsert-and-trim mutation instead of replaceAll',
-  /ViewedHistoryRepository\.upsertAndTrim\(context, entry, MAX_HISTORY\)/.test(settings) &&
+ok('ordinary add uses one unlimited upsert mutation instead of replaceAll',
+  /ViewedHistoryRepository\.upsert\(context, entry\)/.test(settings) &&
+    !/MAX_HISTORY/.test(settings) &&
     !/replaceAll/.test(addMethod))
 ok('settings serializes history writes and drains them before exports or providers read RDB',
   /private static rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settings) &&
@@ -202,11 +194,16 @@ ok('legacy history only migrates into an empty canonical RDB and preserves its o
   /SQL_HAS_PERSISTED_STATE/.test(repository) &&
     /static async hasPersistedState/.test(repository) &&
     /migrateLegacyPreferences[\s\S]*const revision: number = ViewedHistorySettings\.mutationRevision[\s\S]*ViewedHistoryRepository\.hasPersistedState\(context\)[\s\S]*history_migrate_failed[\s\S]*Keep the only legacy copy intact/.test(settings))
-ok('ordinary history writes use a transaction, global logical time, and tombstone-only overflow trim',
-  /static async upsertAndTrim[\s\S]*store\.beginTransaction\(\)[\s\S]*nextViewedAt[\s\S]*SQL_TOMBSTONE_OVERFLOW[\s\S]*store\.commit\(\)/.test(repository) &&
+ok('ordinary history writes use a transaction and global logical time without retention trimming',
+  /static async upsert[\s\S]*store\.beginTransaction\(\)[\s\S]*nextViewedAt[\s\S]*SQL_UPSERT[\s\S]*store\.commit\(\)/.test(repository) &&
     /SQL_SELECT_MAX_EFFECTIVE_TIME/.test(repository) &&
-    /gid NOT IN \(SELECT gid FROM viewed_history/.test(repository) &&
+    !/SQL_TOMBSTONE_OVERFLOW/.test(repository) &&
+    !/DEFAULT_LIMIT/.test(repository) &&
     !/DELETE FROM viewed_history/.test(repository))
+ok('backup export and restore preserve the complete active history',
+  /exportForBackup[\s\S]*ViewedHistoryRepository\.loadAll\(context\)/.test(settings) &&
+    /static async loadAll[\s\S]*while \(hasMore\)/.test(repository) &&
+    /for \(let i: number = 0; i < items\.length; i\+\+\)/.test(repository))
 ok('normal and remote viewed-history upserts reject older effective timestamps',
   /WHERE excluded\.viewed_at >= CASE WHEN COALESCE\(viewed_history\.deleted_at, 0\) >/.test(repository) &&
     /SQL_APPLY_VIEWED_HISTORY[\s\S]*WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/.test(syncAdapter) &&

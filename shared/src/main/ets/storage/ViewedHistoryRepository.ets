@@ -4,7 +4,6 @@ import { ViewedGallery } from '../model/ViewedGallery'
 import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
-const DEFAULT_LIMIT: number = 200
 const MAX_PAGE_SIZE: number = 100
 const SQL_SELECT_ACTIVE: string =
   'SELECT gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at ' +
@@ -46,11 +45,6 @@ const SQL_SELECT_MAX_EFFECTIVE_TIME: string =
   'FROM viewed_history WHERE scope_key = ?'
 const SQL_HAS_PERSISTED_STATE: string =
   'SELECT 1 AS has_state FROM viewed_history WHERE scope_key = ? LIMIT 1'
-const SQL_TOMBSTONE_OVERFLOW: string =
-  'UPDATE viewed_history SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
-  'AND gid NOT IN (SELECT gid FROM viewed_history WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
-  'ORDER BY viewed_at DESC, gid DESC LIMIT ?) AND COALESCE(viewed_at, 0) <= ?'
-
 export class ViewedHistoryCursor {
   viewedAt: number
   gid: string
@@ -79,14 +73,12 @@ export class ViewedHistoryRepository {
     }
   }
 
-  static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<ViewedGallery[]> {
-    const target: number = Math.max(1, Math.floor(limit))
+  static async loadAll(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
     const out: ViewedGallery[] = []
     let cursor: ViewedHistoryCursor | null = null
     let hasMore: boolean = true
-    while (hasMore && out.length < target) {
-      const pageSize: number = Math.min(MAX_PAGE_SIZE, target - out.length)
-      const page: ViewedHistoryPage = await ViewedHistoryRepository.loadPage(context, pageSize, cursor)
+    while (hasMore) {
+      const page: ViewedHistoryPage = await ViewedHistoryRepository.loadPage(context, MAX_PAGE_SIZE, cursor)
       page.items.forEach((item: ViewedGallery) => out.push(item))
       cursor = page.nextCursor
       hasMore = page.hasMore && cursor !== null
@@ -168,7 +160,7 @@ export class ViewedHistoryRepository {
       // observed future deletion during the next cross-device merge.
       const replacedAt: number = await ViewedHistoryRepository.nextViewedAt(store, Date.now())
       await store.executeSql(SQL_TOMBSTONE_SCOPE, [replacedAt, SCOPE_GLOBAL])
-      for (let i: number = 0; i < items.length && i < DEFAULT_LIMIT; i++) {
+      for (let i: number = 0; i < items.length; i++) {
         const item: ViewedGallery = items[i]
         if (item.gid.length > 0) {
           // Keep a genuinely future backup timestamp, but otherwise rebase every restored row above
@@ -190,31 +182,19 @@ export class ViewedHistoryRepository {
     }
   }
 
-  /**
-   * Ordinary detail opens write one row. The same transaction converts only rows outside the retained
-   * newest-first window into tombstones, so old devices cannot resurrect them during a later sync.
-   */
-  static async upsertAndTrim(
+  /** Ordinary detail opens write one row without imposing a retention limit. */
+  static async upsert(
     context: common.UIAbilityContext,
     item: ViewedGallery,
-    limit: number = DEFAULT_LIMIT,
   ): Promise<number> {
     if (item.gid.length === 0) {
       return 0
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const retained: number = Math.max(1, Math.floor(limit))
     store.beginTransaction()
     try {
       const viewedAt: number = await ViewedHistoryRepository.nextViewedAt(store, item.time)
       await ViewedHistoryRepository.writeItem(store, item, viewedAt, SQL_UPSERT)
-      await store.executeSql(SQL_TOMBSTONE_OVERFLOW, [
-        viewedAt,
-        SCOPE_GLOBAL,
-        SCOPE_GLOBAL,
-        retained,
-        viewedAt,
-      ])
       store.commit()
       return viewedAt
     } catch (error) {

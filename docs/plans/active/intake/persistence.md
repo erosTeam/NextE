@@ -34,10 +34,9 @@ Current NextE evidence:
   into AppStorageV2 through `SettingsBootstrap`.
 - Search history is stored as a JSON array in Preferences by
   `shared/src/main/ets/settings/SearchHistorySettings.ets`, capped at 100.
-- Viewed history is stored as a JSON list in Preferences by
-  `shared/src/main/ets/settings/ViewedHistorySettings.ets`, capped at 200. Its code comment explicitly notes
-  that `eros_fe` history is DB-backed and that the cap exists only because NextE currently uses a Preferences
-  blob.
+- Viewed history is stored in the RDB `viewed_history` table and read with keyset pagination. The former
+  Preferences-era 200-record retention cap has been removed; ordinary visits, backup export, and backup
+  restore preserve the complete active history.
 - Reader progress is stored as a Preferences JSON array by
   `shared/src/main/ets/settings/GalleryReadProgressSettings.ets`, with a 3s debounce and flush-on-close.
 - Local favorites are stored as a Preferences JSON snapshot by

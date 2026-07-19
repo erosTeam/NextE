@@ -41,11 +41,9 @@ Current evidence:
   is no shared HTML cache policy with freshness rules, auth/site partitioning, or invalidation after writes.
 - Gallery detail data is fetched through view models/parsers. There is no explicit gallery-detail repository
   cache that can quickly reopen a gallery while refreshing in the background.
-- Search history, viewed history, and reading progress are stored as Preferences JSON blobs:
-  `SearchHistorySettings` caps search history at 100, `ViewedHistorySettings` caps viewed history at 200,
-  and `GalleryReadProgressSettings` stores a JSON array with debounced writes. This is acceptable as a small
-  early slice, but it is not a scalable history/cache repository model. The durable-data migration and
-  settings backup concerns are tracked in `persistence.md`.
+- Search history, viewed history, and reading progress have moved to RDB-backed repositories. Search history
+  remains capped at 100; viewed history has no retention cap and is read with keyset pagination. The durable
+  data and settings-backup boundaries are tracked in `persistence.md`.
 - The roadmap already names the missing target shape: `ImageDiskCache`, `ReaderResumeStore`,
   `GalleryCacheRepository`, and RDB-backed local data repositories. Current code only covers fragments.
 
