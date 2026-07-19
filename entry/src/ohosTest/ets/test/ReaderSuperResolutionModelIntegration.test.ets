@@ -85,6 +85,8 @@ async function installExternalMindSporeModelForBenchmark(
     fileName = 'espcn-x2-180-fp16.ms'
   } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
     fileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
+  } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X) {
+    fileName = 'waifu2x-art-noise0-x2-156-fp16.ms'
   } else if (benchmarkModel() ===
     ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
     fileName = 'realcugan-se-2x-conservative-164-fp16.ms'
@@ -711,6 +713,32 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
       })
 
+    it('downloadsPublishedWaifu2xArtRuntimeAndAcceleratedAssets', 0,
+      async (done: Function) => {
+        if (!integrationEnabled()) {
+          done()
+          return
+        }
+        const context: common.UIAbilityContext = await appContext()
+        const model: string = ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X
+        ReaderSuperResolutionModelService.remove(context, model)
+        await ReaderSuperResolutionModelService.install(context, model)
+        const paths: ReaderSuperResolutionModelPaths | null =
+          await ReaderSuperResolutionModelService.pathsIfReady(context, model)
+        expect(paths !== null).assertEqual(true)
+        if (paths !== null) {
+          expect(fileIo.accessSync(paths.paramPath)).assertEqual(true)
+          expect(fileIo.accessSync(paths.modelPath)).assertEqual(true)
+        }
+        const acceleratedPath: string | null =
+          ReaderSuperResolutionModelService.acceleratedModelPathIfReady(context, model)
+        expect(acceleratedPath !== null).assertEqual(true)
+        if (acceleratedPath !== null) {
+          expect(fileIo.accessSync(acceleratedPath)).assertEqual(true)
+        }
+        done()
+      })
+
     it('runsWaifu2xPhotoThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
@@ -1167,9 +1195,10 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
         return
       }
-      await ReaderSuperResolutionModelService.installWaifu2x(context)
+      const model: string = benchmarkModel()
+      await ReaderSuperResolutionModelService.install(context, model)
       const modelPaths: ReaderSuperResolutionModelPaths | null =
-        await ReaderSuperResolutionModelService.waifu2xPathsIfReady(context)
+        await ReaderSuperResolutionModelService.pathsIfReady(context, model)
       expect(modelPaths !== null).assertEqual(true)
       if (modelPaths === null) {
         done()
@@ -1184,17 +1213,14 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       config.threads = 2
       config.inputName = 'Input1'
       config.outputName = 'Eltwise4'
-      const input: ArrayBuffer = benchmarkPixels(
-        BENCHMARK_INPUT_WIDTH,
-        BENCHMARK_INPUT_HEIGHT,
-      )
+      const input: SuperResolutionComparisonInput = await comparisonInput(context)
       const ncnnStartedAt: number = Date.now()
       const ncnnResult: ReaderNativeSuperResolutionResult =
         await ReaderNativeSuperResolution.upscaleRgba(
-          input,
-          BENCHMARK_INPUT_WIDTH,
-          BENCHMARK_INPUT_HEIGHT,
-          BENCHMARK_INPUT_WIDTH * 4,
+          input.pixels,
+          input.width,
+          input.height,
+          input.stride,
           modelPaths.paramPath,
           modelPaths.modelPath,
           config,
@@ -1205,10 +1231,10 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const nnrtStartedAt: number = Date.now()
       const nnrtResult: ReaderMindSporeSuperResolutionResult =
         await ReaderMindSporeSuperResolution.upscaleRgba(
-          input,
-          BENCHMARK_INPUT_WIDTH,
-          BENCHMARK_INPUT_HEIGHT,
-          BENCHMARK_INPUT_WIDTH * 4,
+          input.pixels.slice(0),
+          input.width,
+          input.height,
+          input.stride,
           mindSporeModelPath,
           ReaderNativeModelKind.WAIFU2X,
           900003,
@@ -1217,12 +1243,12 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const meanAbsoluteError: number = compareRgbaOutputs(
         ncnnResult.pixels,
         nnrtResult.pixels,
-        BENCHMARK_INPUT_WIDTH * 2,
-        BENCHMARK_INPUT_HEIGHT * 2,
+        input.width * 2,
+        input.height * 2,
       )
       console.info(
         'ReaderSuperResolutionMindSporeComparison source=' +
-          BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          input.width + 'x' + input.height +
           ' ncnnElapsedMs=' + ncnnElapsedMs +
           ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
           ' nnrtElapsedMs=' + nnrtElapsedMs +

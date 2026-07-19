@@ -191,6 +191,33 @@ function waifu2xPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   return definition
 }
 
+function waifu2xArtDefinition(): ReaderSuperResolutionModelDefinition {
+  const definition: ReaderSuperResolutionModelDefinition = waifu2xDefinition(
+    ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X,
+    'waifu2x-art-noise0-2x-ncnn-v1',
+    'waifu2x-art-noise0-2x',
+    'models/models-upconv_7_anime_style_art_rgb',
+    1047,
+    1106248,
+    '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
+    'e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189',
+    7,
+    'settings_reader_super_resolution_scope_comics_illustrations',
+    3000,
+  )
+  definition.acceleratedModelFileName = 'waifu2x-art-noise0-x2-156-fp16.ms'
+  definition.acceleratedModelBytes = 1110528
+  definition.acceleratedModelSha256 =
+    '1ee87330e366afb0ad84752ab7e1acecbbcdbc17ee15ed18e546f336fe85bf52'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'waifu2x-art-noise0-x2-nnrt-v1/waifu2x-art-noise0-x2-156-fp16.ms',
+  ]
+  definition.initialDownloadBytes = 2217823
+  definition.pipelineVersion += '|nnrt-fp16-v1'
+  return definition
+}
+
 function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
@@ -309,19 +336,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
 const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   espcnDefinition(),
   waifu2xPhotoDefinition(),
-  waifu2xDefinition(
-    ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X,
-    'waifu2x-art-noise0-2x-ncnn-v1',
-    'waifu2x-art-noise0-2x',
-    'models/models-upconv_7_anime_style_art_rgb',
-    1047,
-    1106248,
-    '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
-    'e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189',
-    7,
-    'settings_reader_super_resolution_scope_comics_illustrations',
-    7643,
-  ),
+  waifu2xArtDefinition(),
   realEsrganAnimeDefinition(),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X,
