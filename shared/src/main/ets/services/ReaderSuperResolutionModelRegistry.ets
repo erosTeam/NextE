@@ -22,6 +22,10 @@ export class ReaderSuperResolutionModelDefinition {
   packageBytes: number = 0
   packageSha256: string = ''
   packageUrls: string[] = []
+  acceleratedModelFileName: string = ''
+  acceleratedModelBytes: number = 0
+  acceleratedModelSha256: string = ''
+  acceleratedModelUrls: string[] = []
   installStrategy: string = ReaderSuperResolutionInstallStrategy.DIRECT
   pipelineVersion: string = ''
   nativeModelKind: number = ReaderNativeModelKind.WAIFU2X
@@ -34,7 +38,7 @@ export class ReaderSuperResolutionModelDefinition {
   reference800pElapsedMs: number = 0
 
   bytes(): number {
-    return this.paramBytes + this.modelBytes
+    return this.paramBytes + this.modelBytes + this.acceleratedModelBytes
   }
 
   nativeConfig(): ReaderNativeSuperResolutionConfig {
@@ -203,6 +207,14 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   definition.modelBytes = 66814088
   definition.paramSha256 = 'b17f57a46574e28bbe405ed1d95edc99d6fa2abc777b477a2ba8399ffa3ea4dd'
   definition.modelSha256 = '80154ed738cd609c639fed031e9d2bc5d612f4895b91b73e623e88fa0c19f8b9'
+  definition.acceleratedModelFileName = 'realesrgan-x2plus-180-fp16.ms'
+  definition.acceleratedModelBytes = 33735064
+  definition.acceleratedModelSha256 =
+    'b6ee78c1e01d79fa5fb4ccb0b1bca039f804eb9c8f77e6c37b065869eb25866a'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'realesrgan-x2plus-nnrt-v1/realesrgan-x2plus-180-fp16.ms',
+  ]
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT
   definition.pipelineVersion = 'realesrgan-x2plus-ncnn-fp32-compat-v1'
   definition.nativeModelKind = ReaderNativeModelKind.REAL_ESRGAN

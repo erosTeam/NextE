@@ -6,6 +6,7 @@ import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   connectReadMode,
+  EhHttpClient,
   ReaderMindSporeSuperResolution,
   ReaderNativeBackendPreference,
   ReaderNativeModelKind,
@@ -70,10 +71,10 @@ function benchmarkOutputPath(): string {
   return parameters['-s superResolutionBenchmarkOutput'] ?? ''
 }
 
-function installExternalMindSporeModelForBenchmark(
+async function installExternalMindSporeModelForBenchmark(
   context: common.UIAbilityContext,
-): void {
-  const sourcePath: string = externalMindSporeModelPath()
+): Promise<void> {
+  const sourcePath: string = await prepareExternalMindSporeModel(context)
   if (sourcePath.length === 0) {
     return
   }
@@ -128,6 +129,37 @@ function externalMindSporeModelPath(): string {
   return parameters['-s superResolutionExternalMindSporeModel'] ?? ''
 }
 
+function externalMindSporeModelUrl(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionExternalMindSporeUrl'] ?? ''
+}
+
+async function prepareExternalMindSporeModel(
+  context: common.UIAbilityContext,
+): Promise<string> {
+  const existingPath: string = externalMindSporeModelPath()
+  if (existingPath.length > 0 && fileIo.accessSync(existingPath)) {
+    return existingPath
+  }
+  const url: string = externalMindSporeModelUrl()
+  if (url.length === 0) {
+    return existingPath
+  }
+  const targetPath: string = context.cacheDir + '/external-mindspore-model.ms'
+  await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+    url,
+    targetPath,
+    (_loaded: number, _total: number): void => {},
+    15000,
+    0,
+    'application/octet-stream,*/*',
+    2,
+    120000,
+  )
+  return targetPath
+}
+
 function externalMindSporeRepeats(): number {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
@@ -144,6 +176,18 @@ function externalMindSporeConcurrency(): number {
     1,
     Number.parseInt(parameters['-s superResolutionMindSporeConcurrency'] ?? '1'),
   )
+}
+
+function externalMindSporeTarget(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionMindSporeTarget'] ?? 'nnrt'
+}
+
+function forceAcceleratedModelRedownload(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionForceAcceleratedDownload'] === 'true'
 }
 
 function describeTensor(tensor: mindSporeLite.MSTensor): string {
@@ -576,7 +620,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       const previousMaxHeight: number = connectReadMode().superResolutionMaxHeight
       try {
         await ReaderSuperResolutionService.clear(context)
-        installExternalMindSporeModelForBenchmark(context)
+        await installExternalMindSporeModelForBenchmark(context)
         if (!benchmarkSkipModelInstall()) {
           await ReaderSuperResolutionModelService.install(context, model)
         }
@@ -706,7 +750,8 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
         return
       }
-      const modelPath: string = externalMindSporeModelPath()
+      const app: common.UIAbilityContext = await appContext()
+      const modelPath: string = await prepareExternalMindSporeModel(app)
       if (modelPath.length === 0) {
         done()
         return
@@ -732,13 +777,24 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
         return
       }
-      const context: mindSporeLite.Context = {
-        target: ['nnrt'],
-        nnrt: {
-          deviceID: selectedDevice.deviceID(),
-          performanceMode: mindSporeLite.PerformanceMode.PERFORMANCE_HIGH,
-          priority: mindSporeLite.Priority.PRIORITY_LOW,
+      const target: string = externalMindSporeTarget()
+      let context: mindSporeLite.Context = {
+        target: ['cpu'],
+        cpu: {
+          threadNum: 4,
+          threadAffinityMode: mindSporeLite.ThreadAffinityMode.BIG_CORES_FIRST,
+          precisionMode: 'preferred_fp16',
         },
+      }
+      if (target === 'nnrt') {
+        context = {
+          target: ['nnrt'],
+          nnrt: {
+            deviceID: selectedDevice.deviceID(),
+            performanceMode: mindSporeLite.PerformanceMode.PERFORMANCE_HIGH,
+            priority: mindSporeLite.Priority.PRIORITY_LOW,
+          },
+        }
       }
       const repeats: number = externalMindSporeRepeats()
       const concurrency: number = Math.min(externalMindSporeConcurrency(), repeats)
@@ -749,6 +805,12 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         const model: mindSporeLite.Model =
           await mindSporeLite.loadModelFromFile(modelPath, context)
         const inputs: mindSporeLite.MSTensor[] = model.getInputs()
+        if (inputs === undefined || inputs === null) {
+          throw new Error(
+            'MindSpore model inputs unavailable after load target=' + target +
+              ' model=' + modelPath,
+          )
+        }
         expect(inputs.length).assertEqual(1)
         models.push(model)
         modelInputs.push(inputs)
@@ -803,6 +865,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       }
       console.info(
         'ReaderSuperResolutionMindSporeBenchmark model=' + modelPath +
+          ' target=' + target +
           ' device=' + selectedDevice.deviceName() +
           ' modelLoadMs=' + modelLoadMs +
           ' repeats=' + repeats +
@@ -825,6 +888,29 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS,
         'realesrgan-photo',
       )
+      done()
+    })
+
+    it('downloadsRealEsrganAcceleratedAsset', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const existingPath: string | null =
+        ReaderSuperResolutionModelService.realEsrganNnrtPathIfReady(context)
+      if (forceAcceleratedModelRedownload() && existingPath !== null) {
+        fileIo.unlinkSync(existingPath)
+      }
+      await ReaderSuperResolutionModelService.installRealEsrgan(context)
+      const installedPath: string | null =
+        ReaderSuperResolutionModelService.realEsrganNnrtPathIfReady(context)
+      expect(installedPath !== null).assertEqual(true)
+      if (installedPath !== null) {
+        expect(fileIo.accessSync(installedPath)).assertEqual(true)
+      }
+      expect(await ReaderSuperResolutionModelService.isRealEsrganInstalled(context))
+        .assertEqual(true)
       done()
     })
 

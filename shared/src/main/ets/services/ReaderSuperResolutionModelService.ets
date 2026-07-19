@@ -41,10 +41,6 @@ const REAL_ESRGAN_SOURCE_MODEL_SHA256: string =
   '119cbbcf701a976a016d03fc5c457157e52a94f5e3e929e562e9ec87596d782b'
 const REAL_ESRGAN_RUNTIME_MODEL_SHA256: string =
   '80154ed738cd609c639fed031e9d2bc5d612f4895b91b73e623e88fa0c19f8b9'
-const REAL_ESRGAN_NNRT_MODEL_FILE_NAME: string = 'realesrgan-x2plus-180-fp16.ms'
-const REAL_ESRGAN_NNRT_MODEL_BYTES: number = 33735064
-const REAL_ESRGAN_NNRT_MODEL_SHA256: string =
-  'b6ee78c1e01d79fa5fb4ccb0b1bca039f804eb9c8f77e6c37b065869eb25866a'
 // The pinned NCNN pair was audited locally against the official RealESRGAN_x2plus
 // params_ema checkpoint: all 351 convolution weights and biases matched bit-for-bit.
 const REAL_ESRGAN_SOURCE_REVISION: string = '2533a62c56b4f080eb90a039250752bc21e96259'
@@ -100,7 +96,7 @@ export class ReaderSuperResolutionModelService {
     }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.paths(context, definition)
-    return ReaderSuperResolutionModelService.validateFile(
+    const runtimeInstalled: boolean = ReaderSuperResolutionModelService.validateFile(
       paths.paramPath,
       definition.paramBytes,
       definition.paramSha256,
@@ -108,6 +104,10 @@ export class ReaderSuperResolutionModelService {
       paths.modelPath,
       definition.modelBytes,
       definition.modelSha256,
+    )
+    return runtimeInstalled && ReaderSuperResolutionModelService.acceleratedAssetInstalled(
+      paths,
+      definition,
     )
   }
 
@@ -209,7 +209,9 @@ export class ReaderSuperResolutionModelService {
   }
 
   static realEsrganModelBytes(): number {
-    return REAL_ESRGAN_RUNTIME_PARAM_BYTES + REAL_ESRGAN_RUNTIME_MODEL_BYTES
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    return definition === null ? 0 : definition.bytes()
   }
 
   static async isWaifu2xInstalled(context: common.UIAbilityContext): Promise<boolean> {
@@ -238,32 +240,45 @@ export class ReaderSuperResolutionModelService {
   static async realEsrganPathsIfReady(
     context: common.UIAbilityContext,
   ): Promise<ReaderSuperResolutionModelPaths | null> {
-    if (!await ReaderSuperResolutionModelService.isRealEsrganInstalled(context) &&
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    if (definition === null) {
+      return null
+    }
+    let paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.realEsrganPaths(context)
+    if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition) &&
       ReaderSuperResolutionModelService.hasRealEsrganSourceAssets(context)) {
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_migration_start',
         'model=realesrgan_x2plus',
       )
-      await ReaderSuperResolutionModelService.installRealEsrgan(context)
+      await ReaderSuperResolutionModelService.installRealEsrganRuntime(context, definition, paths)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_migration_success',
         'model=realesrgan_x2plus',
       )
+      paths = ReaderSuperResolutionModelService.realEsrganPaths(context)
     }
-    if (!await ReaderSuperResolutionModelService.isRealEsrganInstalled(context)) {
+    if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
       return null
     }
-    return ReaderSuperResolutionModelService.realEsrganPaths(context)
+    return paths
   }
 
   static realEsrganNnrtPathIfReady(context: common.UIAbilityContext): string | null {
-    const path: string = ReaderSuperResolutionModelService.realEsrganNnrtModelPath(context)
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    if (definition === null) {
+      return null
+    }
+    const path: string = ReaderSuperResolutionModelService.realEsrganPaths(context).acceleratedModelPath
     return ReaderSuperResolutionModelService.validateFile(
       path,
-      REAL_ESRGAN_NNRT_MODEL_BYTES,
-      REAL_ESRGAN_NNRT_MODEL_SHA256,
+      definition.acceleratedModelBytes,
+      definition.acceleratedModelSha256,
     ) ? path : null
   }
 
@@ -693,11 +708,51 @@ export class ReaderSuperResolutionModelService {
   }
 
   private static async installRealEsrganNow(context: common.UIAbilityContext): Promise<void> {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    if (definition === null) {
+      throw new Error('Real-ESRGAN model definition is missing')
+    }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.realEsrganPaths(context)
     ReaderSuperResolutionModelService.ensureDir(
       ReaderSuperResolutionModelService.realEsrganModelDir(context),
     )
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'model_download_start',
+      'model=realesrgan_x2plus',
+    )
+    try {
+      if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
+        await ReaderSuperResolutionModelService.installRealEsrganRuntime(
+          context,
+          definition,
+          paths,
+        )
+      }
+      await ReaderSuperResolutionModelService.installAcceleratedAsset(paths, definition)
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'model_download_success',
+        `model=realesrgan_x2plus bytes=${definition.bytes()}`,
+      )
+    } catch (error) {
+      ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'model_download_failed',
+        (error as Error).message,
+      )
+      throw error as Error
+    }
+  }
+
+  private static async installRealEsrganRuntime(
+    context: common.UIAbilityContext,
+    definition: ReaderSuperResolutionModelDefinition,
+    paths: ReaderSuperResolutionModelPaths,
+  ): Promise<void> {
     const sourceParamPath: string =
       ReaderSuperResolutionModelService.realEsrganSourceParamPath(context)
     const sourceParamPart: string = sourceParamPath + '.part'
@@ -706,11 +761,6 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(sourceParamPart)
     ReaderSuperResolutionModelService.removeIfExists(runtimeParamPart)
     ReaderSuperResolutionModelService.removeIfExists(modelPart)
-    DiagnosticLogger.info(
-      'reader-super-resolution',
-      'model_download_start',
-      'model=realesrgan_x2plus',
-    )
     try {
       if (!ReaderSuperResolutionModelService.validateFile(
         sourceParamPath,
@@ -781,21 +831,13 @@ export class ReaderSuperResolutionModelService {
       ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
       fileIo.renameSync(runtimeParamPart, paths.paramPath)
       ReaderSuperResolutionModelService.removeIfExists(sourceParamPath)
-      DiagnosticLogger.info(
-        'reader-super-resolution',
-        'model_download_success',
-        'model=realesrgan_x2plus bytes=' +
-          (REAL_ESRGAN_SOURCE_PARAM_BYTES + REAL_ESRGAN_SOURCE_MODEL_BYTES),
-      )
+      if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
+        throw new Error('Real-ESRGAN runtime pair validation failed')
+      }
     } catch (error) {
       ReaderSuperResolutionModelService.removeIfExists(sourceParamPart)
       ReaderSuperResolutionModelService.removeIfExists(runtimeParamPart)
       ReaderSuperResolutionModelService.removeIfExists(modelPart)
-      DiagnosticLogger.warn(
-        'reader-super-resolution',
-        'model_download_failed',
-        (error as Error).message,
-      )
       throw error as Error
     }
   }
@@ -946,6 +988,64 @@ export class ReaderSuperResolutionModelService {
     throw lastError !== null ? lastError : new Error('model asset download failed')
   }
 
+  private static async installAcceleratedAsset(
+    paths: ReaderSuperResolutionModelPaths,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): Promise<void> {
+    if (ReaderSuperResolutionModelService.acceleratedAssetInstalled(paths, definition)) {
+      return
+    }
+    if (definition.acceleratedModelFileName.length === 0 ||
+      definition.acceleratedModelUrls.length === 0) {
+      throw new Error(`${definition.id} accelerated model source is missing`)
+    }
+    const partPath: string = `${paths.acceleratedModelPath}.part`
+    ReaderSuperResolutionModelService.removeIfExists(partPath)
+    await ReaderSuperResolutionModelService.downloadAsset(
+      definition.acceleratedModelUrls,
+      partPath,
+    )
+    if (!ReaderSuperResolutionModelService.validateFile(
+      partPath,
+      definition.acceleratedModelBytes,
+      definition.acceleratedModelSha256,
+    )) {
+      ReaderSuperResolutionModelService.removeIfExists(partPath)
+      throw new Error(`${definition.id} accelerated model checksum mismatch`)
+    }
+    ReaderSuperResolutionModelService.removeIfExists(paths.acceleratedModelPath)
+    fileIo.renameSync(partPath, paths.acceleratedModelPath)
+  }
+
+  private static runtimePairInstalled(
+    paths: ReaderSuperResolutionModelPaths,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): boolean {
+    return ReaderSuperResolutionModelService.validateFile(
+      paths.paramPath,
+      definition.paramBytes,
+      definition.paramSha256,
+    ) && ReaderSuperResolutionModelService.validateFile(
+      paths.modelPath,
+      definition.modelBytes,
+      definition.modelSha256,
+    )
+  }
+
+  private static acceleratedAssetInstalled(
+    paths: ReaderSuperResolutionModelPaths,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): boolean {
+    if (definition.acceleratedModelFileName.length === 0) {
+      return true
+    }
+    return ReaderSuperResolutionModelService.validateFile(
+      paths.acceleratedModelPath,
+      definition.acceleratedModelBytes,
+      definition.acceleratedModelSha256,
+    )
+  }
+
   private static waifu2xAssetUrls(fileName: string): string[] {
     return [
       `https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/${SOURCE_REVISION}/${SOURCE_PATH}/${fileName}`,
@@ -1023,7 +1123,11 @@ export class ReaderSuperResolutionModelService {
   }
 
   private static realEsrganNnrtModelPath(context: common.UIAbilityContext): string {
-    return `${context.filesDir}/${REAL_ESRGAN_NNRT_MODEL_FILE_NAME}`
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+    return definition === null || definition.acceleratedModelFileName.length === 0
+      ? ''
+      : `${context.filesDir}/${definition.acceleratedModelFileName}`
   }
 
   private static realEsrganSourceParamPath(context: common.UIAbilityContext): string {
@@ -1087,6 +1191,9 @@ export class ReaderSuperResolutionModelService {
     const paths: ReaderSuperResolutionModelPaths = new ReaderSuperResolutionModelPaths()
     paths.paramPath = `${dir}/${definition.paramFileName}`
     paths.modelPath = `${dir}/${definition.modelFileName}`
+    if (definition.acceleratedModelFileName.length > 0) {
+      paths.acceleratedModelPath = `${context.filesDir}/${definition.acceleratedModelFileName}`
+    }
     return paths
   }
 
