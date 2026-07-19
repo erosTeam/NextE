@@ -1,6 +1,6 @@
 {
   "name": "home",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "NextE home module - multi-source gallery list",
   "main": "src/main/ets/Index.ets",
   "dependencies": {
