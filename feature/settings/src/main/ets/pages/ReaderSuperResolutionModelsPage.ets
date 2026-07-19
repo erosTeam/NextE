@@ -21,9 +21,11 @@ class ReaderSuperResolutionModelFileState {
   definition: ReaderSuperResolutionModelDefinition
   @Trace installed: boolean = false
   @Trace downloading: boolean = false
+  @Trace remainingDownloadBytes: number = 0
 
   constructor(definition: ReaderSuperResolutionModelDefinition) {
     this.definition = definition
+    this.remainingDownloadBytes = definition.downloadBytes()
   }
 }
 
@@ -66,6 +68,11 @@ export struct ReaderSuperResolutionModelsPage {
         this.context(),
         this.modelStates[i].definition.id,
       )
+      this.modelStates[i].remainingDownloadBytes =
+        ReaderSuperResolutionModelService.remainingDownloadBytes(
+          this.context(),
+          this.modelStates[i].definition.id,
+        )
     }
   }
 
@@ -119,7 +126,8 @@ export struct ReaderSuperResolutionModelsPage {
     }
   }
 
-  private modelSubtitle(definition: ReaderSuperResolutionModelDefinition): string {
+  private modelSubtitle(state: ReaderSuperResolutionModelFileState): string {
+    const definition: ReaderSuperResolutionModelDefinition = state.definition
     const scope: string = AppStrings.get(definition.usageScopeStringKey)
     let performanceKey: string = 'settings_reader_super_resolution_performance_seconds'
     if (definition.reference800pElapsedMs >= 60000) {
@@ -128,11 +136,17 @@ export struct ReaderSuperResolutionModelsPage {
       performanceKey = 'settings_reader_super_resolution_performance_tens_seconds'
     }
     const performance: string = AppStrings.get(performanceKey)
-    const bytes: number = definition.bytes()
+    const bytes: number = state.installed
+      ? definition.bytes()
+      : state.remainingDownloadBytes
     const size: string = bytes < 1024 * 1024
       ? `${Math.round(bytes / 1024)} KB`
-      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    return `${scope} · ${performance} · ${size}`
+      : `${Math.round(bytes / (1024 * 1024))} MB`
+    const sizeKey: string = state.installed
+      ? 'settings_reader_super_resolution_installed_size'
+      : 'settings_reader_super_resolution_download_size'
+    const sizeLabel: string = AppStrings.get(sizeKey).replace('%s', size)
+    return `${scope} · ${performance} · ${sizeLabel}`
   }
 
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {
@@ -143,6 +157,7 @@ export struct ReaderSuperResolutionModelsPage {
     try {
       await ReaderSuperResolutionModelService.install(this.context(), state.definition.id)
       state.installed = true
+      state.remainingDownloadBytes = 0
       if (this.readMode.superResolutionModel === ReaderSuperResolutionModel.NONE) {
         ReadModeSettings.setSuperResolutionModel(this.context(), state.definition.id)
       }
@@ -180,6 +195,7 @@ export struct ReaderSuperResolutionModelsPage {
     }
     ReaderSuperResolutionModelService.remove(this.context(), state.definition.id)
     state.installed = false
+    state.remainingDownloadBytes = state.definition.downloadBytes()
     if (this.readMode.superResolutionModel === state.definition.id) {
       let replacement: string = ReaderSuperResolutionModel.NONE
       for (let i: number = 0; i < this.modelStates.length; i++) {
@@ -241,7 +257,7 @@ export struct ReaderSuperResolutionModelsPage {
   private ModelRow(state: ReaderSuperResolutionModelFileState) {
     ConciseListRow({
       title: this.modelTitle(state.definition.id),
-      subtitle: this.modelSubtitle(state.definition),
+      subtitle: this.modelSubtitle(state),
       showChevron: false,
       suffixPaddingRight: 0,
       suffixBuilderParam: () => {

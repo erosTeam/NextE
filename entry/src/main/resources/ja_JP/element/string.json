@@ -3173,6 +3173,14 @@
       "value": "800p 分単位"
     },
     {
+      "name": "settings_reader_super_resolution_download_size",
+      "value": "ダウンロード約%s"
+    },
+    {
+      "name": "settings_reader_super_resolution_installed_size",
+      "value": "使用容量約%s"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "オフ"
     },
@@ -3255,6 +3263,10 @@
     {
       "name": "settings_reader_super_resolution_backend_cpu",
       "value": "CPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_npu",
+      "value": "NPU"
     },
     {
       "name": "settings_reader_super_resolution_max_height",

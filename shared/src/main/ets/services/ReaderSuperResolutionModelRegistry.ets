@@ -36,9 +36,20 @@ export class ReaderSuperResolutionModelDefinition {
   outputName: string = 'Eltwise4'
   usageScopeStringKey: string = ''
   reference800pElapsedMs: number = 0
+  initialDownloadBytes: number = 0
 
   bytes(): number {
     return this.paramBytes + this.modelBytes + this.acceleratedModelBytes
+  }
+
+  downloadBytes(): number {
+    if (this.initialDownloadBytes > 0) {
+      return this.initialDownloadBytes
+    }
+    const runtimeDownloadBytes: number = this.packageBytes > 0
+      ? this.packageBytes
+      : this.paramBytes + this.modelBytes
+    return runtimeDownloadBytes + this.acceleratedModelBytes
   }
 
   nativeConfig(): ReaderNativeSuperResolutionConfig {
@@ -215,6 +226,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
     'https://github.com/erosTeam/NextE-Models/releases/download/' +
       'realesrgan-x2plus-nnrt-v1/realesrgan-x2plus-180-fp16.ms',
   ]
+  definition.initialDownloadBytes = 100841392
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT
   definition.pipelineVersion = 'realesrgan-x2plus-ncnn-fp32-compat-v1'
   definition.nativeModelKind = ReaderNativeModelKind.REAL_ESRGAN

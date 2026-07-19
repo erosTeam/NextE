@@ -3173,6 +3173,14 @@
       "value": "800p 分钟级"
     },
     {
+      "name": "settings_reader_super_resolution_download_size",
+      "value": "下载约 %s"
+    },
+    {
+      "name": "settings_reader_super_resolution_installed_size",
+      "value": "占用约 %s"
+    },
+    {
       "name": "settings_reader_super_resolution_off",
       "value": "关闭"
     },
@@ -3255,6 +3263,10 @@
     {
       "name": "settings_reader_super_resolution_backend_cpu",
       "value": "CPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_npu",
+      "value": "NPU"
     },
     {
       "name": "settings_reader_super_resolution_max_height",

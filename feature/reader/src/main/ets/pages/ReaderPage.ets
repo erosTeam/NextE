@@ -948,6 +948,9 @@ export struct ReaderPage {
   }
 
   private imageEnhancementModelLabel(model: string): string {
+    if (model === ReaderSuperResolutionModel.ESPCN_X2) {
+      return AppStrings.get('settings_reader_super_resolution_espcn_2x')
+    }
     if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
       return AppStrings.get('settings_reader_super_resolution_realesrgan_x2plus')
     }
@@ -970,6 +973,9 @@ export struct ReaderPage {
   }
 
   private imageEnhancementBackendLabel(reason: string): string {
+    if (reason.endsWith(':nnrt')) {
+      return AppStrings.get('settings_reader_super_resolution_backend_npu')
+    }
     if (reason.endsWith(':vulkan')) {
       return AppStrings.get('settings_reader_super_resolution_backend_vulkan')
     }

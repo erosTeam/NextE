@@ -27,8 +27,8 @@ Grounding:
    Aidoku is capability reference only; its screen structure and selection treatment are not a UI
    source for NextE.
 2. The active reading image is primary. Reader settings only expose the enhancement switch, selected
-   installed model, execution backend, and maximum input height; model-management rows expose local
-   file identity and size.
+   installed model, and maximum input height; runtime backend selection remains automatic.
+   Model-management rows expose local file identity and download or installed size.
 3. The switch is the primary enable/disable control. Model choice is a secondary installed-model menu.
    The management-page row action is a native circular download/delete symbol and becomes an in-place
    `LoadingProgress` while the file is being fetched.
@@ -50,6 +50,9 @@ State semantics:
 - Installing the first model selects it without enabling enhancement. Deleting the selected model
   selects another installed model; deleting the last installed model disables enhancement.
 - Model management has no selected-row color, checkmark, pressed-state imitation, or text action.
+- Backend selection is runtime-owned: an available published NNRT asset is attempted first, then ncnn
+  automatically tries Vulkan and falls back to CPU. The retired CPU/Vulkan preference is ignored on
+  restore so an old hidden value cannot disable NPU execution.
 
 Candidate boundary:
 
@@ -68,9 +71,9 @@ Model subtitle extension grounding, 2026-07-19:
    NextE's existing `ReaderSuperResolutionModelsPage.ModelRow` and reuses the established
    `ConciseListRow` model-management pattern rather than inventing an Aidoku-style screen.
 2. The model name remains the primary row information. The first scan should distinguish the seven
-   technical model identities; applicability, a device-dependent 800p time tier, and file size remain
-   one subordinate line. Exact test seconds are evidence only and never presented as a portable
-   estimate across devices.
+   technical model identities; applicability, a device-dependent 800p time tier, and explicitly
+   labelled approximate download or installed size remain one subordinate line. Exact test seconds
+   are evidence only and never presented as a portable estimate across devices.
 3. Download/delete remains the only row action and keeps its existing icon weight. The subtitle is
    informational only; it does not become a picker, badge, selected state, or hit target.
 4. The usable loop is model-management entry -> compare scope/performance/size -> download or delete ->
@@ -118,6 +121,21 @@ Validation, 2026-07-18:
   checksum validation, model load, and Vulkan processing on the small integration fixture.
 - The fixture proves model/runtime connectivity only. It does not establish 800p Reader latency or
   perceptual quality; those remain the separate representative-page evaluation requested by the user.
+
+Backend and download-size correction, 2026-07-19:
+
+- The user-facing Auto/Vulkan/CPU row was removed. `ReadModeSettings.restore` now always publishes the
+  automatic backend, so a previously persisted CPU or Vulkan choice cannot silently bypass the
+  published Real-ESRGAN x2plus NNRT asset. Internal backend values remain available for runtime
+  fallback, cache identity, diagnostics, and controlled tests.
+- Model rows now label their final segment as approximate download or installed size. ESPCN uses its
+  approximately 79 KB source ZIP rather than its approximately 42 KB generated runtime pair;
+  Real-ESRGAN x2plus uses its approximately 96 MB complete first-install transfer and reports only the
+  remaining approximately 32 MB NNRT asset when the compatible ncnn pair already exists.
+- Applied-image information now names ESPCN correctly and reports `NPU` for cached or freshly processed
+  NNRT results. The signed application build passed; the V1 decorator inventory reported `0 file(s)`,
+  the persistence inventory and four-locale i18n checks passed, and `git diff --check` passed. Current
+  device screenshots remain a separate visual acceptance step.
 
 Maximum-height contract correction, 2026-07-18:
 

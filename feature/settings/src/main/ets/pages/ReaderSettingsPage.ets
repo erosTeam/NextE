@@ -9,12 +9,9 @@ import {
   ReadMode,
   ReaderBackgroundMode,
   ReaderImageScalingQuality,
-  ReaderSuperResolutionBackend,
   READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
-  ReaderSuperResolutionCapabilities,
   ReaderSuperResolutionModel,
   ReaderSuperResolutionModelService,
-  ReaderSuperResolutionService,
   ReadSpreadLayout,
   ReaderTapZoneInvert,
   ReaderTapZoneLayout,
@@ -51,10 +48,8 @@ export struct ReaderSettingsPage {
   @Local backgroundMenuShown: boolean = false;
   @Local imageScalingQualityMenuShown: boolean = false;
   @Local superResolutionModelMenuShown: boolean = false;
-  @Local superResolutionBackendMenuShown: boolean = false;
   @Local superResolutionMaxHeightMenuShown: boolean = false;
   @Local installedSuperResolutionModels: string[] = [];
-  @Local vulkanAvailable: boolean = false;
   @Local superResolutionModelsPanelShown: boolean = false;
   @Local sheetPanelWidth: number = 0;
   @Local navStackHolder: NavStackHolder = connectNavStack();
@@ -63,9 +58,6 @@ export struct ReaderSettingsPage {
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
-    const capabilities: ReaderSuperResolutionCapabilities =
-      ReaderSuperResolutionService.capabilities()
-    this.vulkanAvailable = capabilities.vulkanAvailable
     this.refreshSuperResolutionModels()
   }
 
@@ -186,12 +178,6 @@ export struct ReaderSettingsPage {
     }, () => {
       this.superResolutionModelsPanelShown = false
     })
-  }
-
-  private setSuperResolutionBackend(backend: string): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    ReadModeSettings.setSuperResolutionBackend(ctx, backend)
   }
 
   private setSuperResolutionMaxHeight(maxHeight: number): void {
@@ -345,18 +331,6 @@ export struct ReaderSettingsPage {
       return $r('app.string.settings_reader_super_resolution_realcugan_se_2x_conservative')
     }
     return $r('app.string.settings_reader_super_resolution_waifu2x_photo_noise0_2x')
-  }
-
-  private superResolutionBackendLabel(): Resource {
-    if (this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.VULKAN) {
-      return $r('app.string.settings_reader_super_resolution_backend_vulkan')
-    }
-    if (this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.CPU) {
-      return $r('app.string.settings_reader_super_resolution_backend_cpu')
-    }
-    return this.vulkanAvailable
-      ? $r('app.string.settings_reader_super_resolution_backend_auto_vulkan')
-      : $r('app.string.settings_reader_super_resolution_backend_auto_cpu')
   }
 
   private superResolutionMaxHeightLabel(): string {
@@ -764,46 +738,6 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  SuperResolutionBackendMenu() {
-    Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_super_resolution_backend_auto'),
-        symbolEndIcon:
-          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.AUTO
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setSuperResolutionBackend(ReaderSuperResolutionBackend.AUTO)
-        this.superResolutionBackendMenuShown = false
-      })
-      MenuItem({
-        content: $r('app.string.settings_reader_super_resolution_backend_vulkan'),
-        symbolEndIcon:
-          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.VULKAN
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      })
-        .enabled(this.vulkanAvailable)
-        .onClick(() => {
-          if (this.vulkanAvailable) {
-            this.setSuperResolutionBackend(ReaderSuperResolutionBackend.VULKAN)
-            this.superResolutionBackendMenuShown = false
-          }
-        })
-      MenuItem({
-        content: $r('app.string.settings_reader_super_resolution_backend_cpu'),
-        symbolEndIcon:
-          this.readMode.superResolutionBackend === ReaderSuperResolutionBackend.CPU
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setSuperResolutionBackend(ReaderSuperResolutionBackend.CPU)
-        this.superResolutionBackendMenuShown = false
-      })
-    }
-  }
-
-  @Builder
   SuperResolutionMaxHeightMenu() {
     Menu() {
       ForEach([1000, 1500, READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT], (maxHeight: number) => {
@@ -1070,28 +1004,6 @@ export struct ReaderSettingsPage {
             title: $r('app.string.settings_reader_super_resolution_models'),
             action: () => {
               this.openSuperResolutionModelManagement()
-            },
-          })
-          this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_super_resolution_backend'),
-              trailingText: this.superResolutionBackendLabel(),
-              trailingDropdown: true,
-              isEnabled: this.readMode.superResolutionEnabled &&
-                this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
-              action: () => {
-                if (this.readMode.superResolutionEnabled &&
-                  this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE) {
-                  this.superResolutionBackendMenuShown = true
-                }
-              },
-            })
-          }
-          .bindMenu(this.superResolutionBackendMenuShown, this.SuperResolutionBackendMenu, {
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.superResolutionBackendMenuShown = false
             },
           })
           this.rowDivider()

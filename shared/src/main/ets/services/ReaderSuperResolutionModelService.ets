@@ -88,6 +88,34 @@ export class ReaderSuperResolutionModelService {
     return definition === null ? 0 : definition.bytes()
   }
 
+  static remainingDownloadBytes(context: common.UIAbilityContext, model: string): number {
+    const definition: ReaderSuperResolutionModelDefinition | null =
+      ReaderSuperResolutionModelRegistry.find(model)
+    if (definition === null) {
+      return 0
+    }
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    const runtimeInstalled: boolean = ReaderSuperResolutionModelService.validateFile(
+      paths.paramPath,
+      definition.paramBytes,
+      definition.paramSha256,
+    ) && ReaderSuperResolutionModelService.validateFile(
+      paths.modelPath,
+      definition.modelBytes,
+      definition.modelSha256,
+    )
+    let bytes: number = 0
+    if (!runtimeInstalled) {
+      const fullDownloadBytes: number = definition.downloadBytes()
+      bytes += Math.max(0, fullDownloadBytes - definition.acceleratedModelBytes)
+    }
+    if (!ReaderSuperResolutionModelService.acceleratedAssetInstalled(paths, definition)) {
+      bytes += definition.acceleratedModelBytes
+    }
+    return bytes
+  }
+
   static async isInstalled(context: common.UIAbilityContext, model: string): Promise<boolean> {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)

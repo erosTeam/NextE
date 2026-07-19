@@ -96,14 +96,6 @@ export class ReadModeSettings {
     return ReaderSuperResolutionModel.NONE
   }
 
-  private static normalizeSuperResolutionBackend(backend: string): string {
-    if (backend === ReaderSuperResolutionBackend.VULKAN ||
-      backend === ReaderSuperResolutionBackend.CPU) {
-      return backend
-    }
-    return ReaderSuperResolutionBackend.AUTO
-  }
-
   private static normalizeSuperResolutionMaxHeight(value: number): number {
     if (!Number.isFinite(value)) {
       return READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT
@@ -167,12 +159,6 @@ export class ReadModeSettings {
         StorageKeys.READING_SUPER_RESOLUTION_ENABLED,
         superResolutionModel !== ReaderSuperResolutionModel.NONE,
       ) as boolean
-      const superResolutionBackend: string = ReadModeSettings.normalizeSuperResolutionBackend(
-        store.getSync(
-          StorageKeys.READING_SUPER_RESOLUTION_BACKEND,
-          ReaderSuperResolutionBackend.AUTO,
-        ) as string
-      )
       const superResolutionMaxHeight: number = ReadModeSettings.normalizeSuperResolutionMaxHeight(
         store.getSync(
           StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT,
@@ -202,7 +188,9 @@ export class ReadModeSettings {
       connectReadMode().imageScalingQuality = imageScalingQuality
       connectReadMode().superResolutionEnabled = superResolutionEnabled
       connectReadMode().superResolutionModel = superResolutionModel
-      connectReadMode().superResolutionBackend = superResolutionBackend
+      // Backend selection is runtime-owned. Ignoring the retired preference also migrates users who
+      // previously forced CPU or Vulkan and would otherwise silently bypass an available NPU model.
+      connectReadMode().superResolutionBackend = ReaderSuperResolutionBackend.AUTO
       connectReadMode().superResolutionMaxHeight = superResolutionMaxHeight
       connectReadMode().showPageNumber = showPageNumber
       connectReadMode().fullscreen = fullscreen
@@ -409,24 +397,6 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_super_resolution_enabled_save_failed', (error as Error).message)
-    }
-  }
-
-  static async setSuperResolutionBackend(
-    context: common.UIAbilityContext,
-    backend: string,
-  ): Promise<void> {
-    const normalized: string = ReadModeSettings.normalizeSuperResolutionBackend(backend)
-    connectReadMode().superResolutionBackend = normalized
-    try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.READING_SUPER_RESOLUTION_BACKEND, normalized)
-      store.flushSync()
-    } catch (error) {
-      DiagnosticLogger.warn('settings', 'read_super_resolution_backend_save_failed', (error as Error).message)
     }
   }
 

@@ -69,7 +69,6 @@ Allowed `Sync` values:
 | StorageKeys.READING_IMAGE_SCALING_QUALITY | setting | plaintext | excluded | Reader image interpolation preference |
 | StorageKeys.READING_SUPER_RESOLUTION_ENABLED | setting | plaintext | excluded | Reader super-resolution master switch |
 | StorageKeys.READING_SUPER_RESOLUTION_MODEL | setting | plaintext | excluded | Selected local super-resolution model |
-| StorageKeys.READING_SUPER_RESOLUTION_BACKEND | setting | plaintext | excluded | Reader super-resolution backend preference |
 | StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT | setting | plaintext | excluded | Reader super-resolution input height limit |
 | StorageKeys.READER_IMAGE_CACHE_LIMIT_MB | setting | plaintext | excluded | Local reader image-cache limit |
 | StorageKeys.DOWNLOAD_CONCURRENCY | setting | plaintext | excluded | Download setting |

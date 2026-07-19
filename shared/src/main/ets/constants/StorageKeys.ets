@@ -51,7 +51,6 @@ export class StorageKeys {
   static readonly READING_IMAGE_SCALING_QUALITY: string = 'reading.imageScalingQuality'
   static readonly READING_SUPER_RESOLUTION_ENABLED: string = 'reading.superResolutionEnabled'
   static readonly READING_SUPER_RESOLUTION_MODEL: string = 'reading.superResolutionModel'
-  static readonly READING_SUPER_RESOLUTION_BACKEND: string = 'reading.superResolutionBackend'
   static readonly READING_SUPER_RESOLUTION_MAX_HEIGHT: string = 'reading.superResolutionMaxHeight'
   static readonly READING_SHOW_PAGE_NUMBER: string = 'reading.showPageNumber'
   static readonly READING_FULLSCREEN: string = 'reading.fullscreen'
