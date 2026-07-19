@@ -617,6 +617,41 @@ async function verifyDownloadedModelThroughVulkan(model: string, slug: string): 
 
 export default function readerSuperResolutionModelIntegrationTest(): void {
   describe('ReaderSuperResolutionModelIntegration', () => {
+    it('downloadsEverySelectableModelFromUnifiedPack', 0, async (done: Function) => {
+      if (!integrationEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const definitions: ReaderSuperResolutionModelDefinition[] =
+        ReaderSuperResolutionModelRegistry.all()
+      for (let i: number = 0; i < definitions.length; i++) {
+        const definition: ReaderSuperResolutionModelDefinition = definitions[i]
+        ReaderSuperResolutionModelService.remove(context, definition.id)
+        await ReaderSuperResolutionModelService.install(context, definition.id)
+        const paths: ReaderSuperResolutionModelPaths | null =
+          await ReaderSuperResolutionModelService.pathsIfReady(context, definition.id)
+        expect(paths !== null).assertEqual(true)
+        if (paths !== null) {
+          expect(fileIo.accessSync(paths.paramPath)).assertEqual(true)
+          expect(fileIo.accessSync(paths.modelPath)).assertEqual(true)
+        }
+        const acceleratedPath: string | null =
+          ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
+            context,
+            definition.id,
+          )
+        expect(acceleratedPath !== null)
+          .assertEqual(definition.acceleratedModelFileName.length > 0)
+        console.info(
+          'ReaderSuperResolutionModelPackDownload model=' + definition.id +
+            ' bytes=' + definition.downloadBytes() +
+            ' accelerated=' + (acceleratedPath !== null),
+        )
+      }
+      done()
+    })
+
     it('downloadsPublishedWaifu2xRuntimeAsset', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()

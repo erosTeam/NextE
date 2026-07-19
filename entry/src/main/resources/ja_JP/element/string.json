@@ -3161,6 +3161,10 @@
       "value": "800p 数秒級"
     },
     {
+      "name": "settings_reader_super_resolution_performance_around_one_second",
+      "value": "800p 約1秒"
+    },
+    {
       "name": "settings_reader_super_resolution_scope_fast_general",
       "value": "高速な汎用/軽めの補正"
     },
@@ -3169,16 +3173,40 @@
       "value": "800p 10秒級"
     },
     {
-      "name": "settings_reader_super_resolution_performance_minutes",
-      "value": "800p 分単位"
+      "name": "settings_reader_super_resolution_performance_device_dependent",
+      "value": "800p 数秒～10秒級（端末依存）"
     },
     {
-      "name": "settings_reader_super_resolution_download_size",
-      "value": "ダウンロード約%s"
+      "name": "settings_reader_super_resolution_details_espcn",
+      "value": "特徴：輝度チャンネルの軽量補正。メリット：高速で小容量。デメリット：細部の改善は控えめで、色の質感は主に通常拡大に依存します。"
     },
     {
-      "name": "settings_reader_super_resolution_installed_size",
-      "value": "使用容量約%s"
+      "name": "settings_reader_super_resolution_details_waifu2x_photo",
+      "value": "特徴：写真とスキャン画像のノイズ除去拡大。メリット：安定したノイズ低減と比較的高速な処理。デメリット：細かな質感が軟らかくなる場合があります。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_art",
+      "value": "特徴：漫画、イラスト、線画の補正。メリット：線が明瞭で処理が高速。デメリット：写真や複雑な質感が過度にシャープになる場合があります。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_cunet",
+      "value": "特徴：漫画の細部とノイズ除去を重視。メリット：線画の細部が強い。デメリット：端末差が大きく、一部端末では汎用処理へ切り替わります。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realcugan",
+      "value": "特徴：控えめな漫画修復。メリット：線が安定し、過度なシャープ化が少ない。デメリット：補正は控えめで、写真には不向きです。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_animevideov3",
+      "value": "特徴：軽量なアニメ・漫画補正。メリット：小容量で自然な線。デメリット：現在はNPUを使用せず、処理が遅めです。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realesrgan_x2plus",
+      "value": "特徴：写真と複雑な質感の汎用補正。メリット：細部の復元力が高い。デメリット：大容量で遅く、規則的な網点をノイズとして均し、目立つタイル差が出る場合があります。"
+    },
+    {
+      "name": "settings_reader_super_resolution_tiling_limit_description",
+      "value": "規則的な網点、反復ノイズ、線の手掛かりがない領域は、隣接タイルごとに異なる強さで均され、目立つタイル差が生じる場合があります。"
     },
     {
       "name": "settings_reader_super_resolution_off",

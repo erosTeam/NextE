@@ -84,8 +84,7 @@ export class ReadModeSettings {
   }
 
   private static normalizeSuperResolutionModel(model: string): string {
-    if (model === ReaderSuperResolutionModel.ESPCN_X2 ||
-      model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
+    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
       model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X ||
       model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X ||
       model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE ||
@@ -155,10 +154,12 @@ export class ReadModeSettings {
           ReaderSuperResolutionModel.NONE,
         ) as string
       )
-      const superResolutionEnabled: boolean = store.getSync(
+      const storedSuperResolutionEnabled: boolean = store.getSync(
         StorageKeys.READING_SUPER_RESOLUTION_ENABLED,
         superResolutionModel !== ReaderSuperResolutionModel.NONE,
       ) as boolean
+      const superResolutionEnabled: boolean =
+        superResolutionModel !== ReaderSuperResolutionModel.NONE && storedSuperResolutionEnabled
       const superResolutionMaxHeight: number = ReadModeSettings.normalizeSuperResolutionMaxHeight(
         store.getSync(
           StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT,

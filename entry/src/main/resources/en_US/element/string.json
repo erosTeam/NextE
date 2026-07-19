@@ -3161,6 +3161,10 @@
       "value": "800p: seconds"
     },
     {
+      "name": "settings_reader_super_resolution_performance_around_one_second",
+      "value": "800p: about 1 second"
+    },
+    {
       "name": "settings_reader_super_resolution_scope_fast_general",
       "value": "Fast general use/light enhancement"
     },
@@ -3169,16 +3173,40 @@
       "value": "800p: tens of seconds"
     },
     {
-      "name": "settings_reader_super_resolution_performance_minutes",
-      "value": "800p: minutes"
+      "name": "settings_reader_super_resolution_performance_device_dependent",
+      "value": "800p: seconds to around 10s (device-dependent)"
     },
     {
-      "name": "settings_reader_super_resolution_download_size",
-      "value": "Download ~%s"
+      "name": "settings_reader_super_resolution_details_espcn",
+      "value": "Traits: Lightweight luminance enhancement. Pros: Very fast and tiny. Cons: Limited detail gains; color texture mostly uses conventional scaling."
     },
     {
-      "name": "settings_reader_super_resolution_installed_size",
-      "value": "Uses ~%s"
+      "name": "settings_reader_super_resolution_details_waifu2x_photo",
+      "value": "Traits: Denoising upscale for photos and scans. Pros: Stable noise reduction and relatively fast. Cons: Fine textures may be softened."
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_art",
+      "value": "Traits: Enhancement for comics, illustrations, and line art. Pros: Clear lines and fast processing. Cons: Photos and complex textures may look oversharpened."
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_cunet",
+      "value": "Traits: Detail and denoising for comics. Pros: Strong line-art detail. Cons: Performance varies widely; some devices fall back to general compute."
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realcugan",
+      "value": "Traits: Conservative comic restoration. Pros: Stable lines with less oversharpening. Cons: Subtle enhancement and less suitable for photos."
+    },
+    {
+      "name": "settings_reader_super_resolution_details_animevideov3",
+      "value": "Traits: Lightweight animation and comic enhancement. Pros: Small model with natural lines. Cons: NPU is not currently used, so processing is slower."
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realesrgan_x2plus",
+      "value": "Traits: General enhancement for photos and complex textures. Pros: Strong detail recovery. Cons: Large and slower; regular halftones may be flattened as noise and create visible tile differences."
+    },
+    {
+      "name": "settings_reader_super_resolution_tiling_limit_description",
+      "value": "Regular halftones, repeating noise, or areas without line references may be smoothed at different strengths by adjacent tiles, producing visible tile differences."
     },
     {
       "name": "settings_reader_super_resolution_off",

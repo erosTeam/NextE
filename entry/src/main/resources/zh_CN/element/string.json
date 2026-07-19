@@ -3161,6 +3161,10 @@
       "value": "800p 数秒级"
     },
     {
+      "name": "settings_reader_super_resolution_performance_around_one_second",
+      "value": "800p 约 1 秒级"
+    },
+    {
       "name": "settings_reader_super_resolution_scope_fast_general",
       "value": "快速通用/轻度增强"
     },
@@ -3169,16 +3173,40 @@
       "value": "800p 十秒级"
     },
     {
-      "name": "settings_reader_super_resolution_performance_minutes",
-      "value": "800p 分钟级"
+      "name": "settings_reader_super_resolution_performance_device_dependent",
+      "value": "800p 数秒～十秒级（设备相关）"
     },
     {
-      "name": "settings_reader_super_resolution_download_size",
-      "value": "下载约 %s"
+      "name": "settings_reader_super_resolution_details_espcn",
+      "value": "特点：亮度通道轻量增强；优点：速度快、体积小；缺点：细节提升有限，彩色纹理主要依赖常规缩放。"
     },
     {
-      "name": "settings_reader_super_resolution_installed_size",
-      "value": "占用约 %s"
+      "name": "settings_reader_super_resolution_details_waifu2x_photo",
+      "value": "特点：照片与扫描图降噪放大；优点：噪点抑制稳定、速度较快；缺点：细小纹理可能被软化。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_art",
+      "value": "特点：漫画、插画和线稿增强；优点：线条清晰、速度快；缺点：照片与复杂纹理可能显得过锐。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_waifu2x_cunet",
+      "value": "特点：偏重漫画细节和降噪；优点：线稿细节较强；缺点：设备差异较大，部分设备会回退通用计算。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realcugan",
+      "value": "特点：保守的漫画修复；优点：线条稳定、较少过度锐化；缺点：增强较克制，照片处理不占优。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_animevideov3",
+      "value": "特点：轻量动画、漫画增强；优点：模型较小、线条自然；缺点：当前未使用 NPU，处理较慢。"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_realesrgan_x2plus",
+      "value": "特点：照片与复杂纹理通用增强；优点：细节恢复能力强；缺点：体积和耗时较大，规则网点可能被当作噪点抹平并产生明显块差。"
+    },
+    {
+      "name": "settings_reader_super_resolution_tiling_limit_description",
+      "value": "规则网点、重复噪点或缺少线条参照的区域，可能被相邻分块以不同强度抹平，形成可见块差。"
     },
     {
       "name": "settings_reader_super_resolution_off",

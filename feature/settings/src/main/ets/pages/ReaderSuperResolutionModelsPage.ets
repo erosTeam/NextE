@@ -44,7 +44,7 @@ export struct ReaderSuperResolutionModelsPage {
   aboutToAppear(): void {
     if (this.modelStates.length === 0) {
       const definitions: ReaderSuperResolutionModelDefinition[] =
-        ReaderSuperResolutionModelService.definitions()
+        ReaderSuperResolutionModelService.userAvailableDefinitions()
       const states: ReaderSuperResolutionModelFileState[] = []
       for (let i: number = 0; i < definitions.length; i++) {
         states.push(new ReaderSuperResolutionModelFileState(definitions[i]))
@@ -129,24 +129,13 @@ export struct ReaderSuperResolutionModelsPage {
   private modelSubtitle(state: ReaderSuperResolutionModelFileState): string {
     const definition: ReaderSuperResolutionModelDefinition = state.definition
     const scope: string = AppStrings.get(definition.usageScopeStringKey)
-    let performanceKey: string = 'settings_reader_super_resolution_performance_seconds'
-    if (definition.reference800pElapsedMs >= 60000) {
-      performanceKey = 'settings_reader_super_resolution_performance_minutes'
-    } else if (definition.reference800pElapsedMs >= 10000) {
-      performanceKey = 'settings_reader_super_resolution_performance_tens_seconds'
-    }
-    const performance: string = AppStrings.get(performanceKey)
-    const bytes: number = state.installed
-      ? definition.bytes()
-      : state.remainingDownloadBytes
+    const performance: string = AppStrings.get(definition.performanceStringKey)
+    const details: string = AppStrings.get(definition.detailsStringKey)
+    const bytes: number = definition.downloadBytes()
     const size: string = bytes < 1024 * 1024
       ? `${Math.round(bytes / 1024)} KB`
       : `${Math.round(bytes / (1024 * 1024))} MB`
-    const sizeKey: string = state.installed
-      ? 'settings_reader_super_resolution_installed_size'
-      : 'settings_reader_super_resolution_download_size'
-    const sizeLabel: string = AppStrings.get(sizeKey).replace('%s', size)
-    return `${scope} · ${performance} · ${sizeLabel}`
+    return `${scope} · ${performance} · ${size}\n${details}`
   }
 
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {
@@ -258,6 +247,7 @@ export struct ReaderSuperResolutionModelsPage {
     ConciseListRow({
       title: this.modelTitle(state.definition.id),
       subtitle: this.modelSubtitle(state),
+      subtitleMaxLines: 6,
       showChevron: false,
       suffixPaddingRight: 0,
       suffixBuilderParam: () => {
@@ -277,18 +267,27 @@ export struct ReaderSuperResolutionModelsPage {
   @Builder
   private ModelFileList() {
     ListItem() {
-      GroupedListSection() {
-        ForEach(
-          this.modelStates,
-          (state: ReaderSuperResolutionModelFileState, index: number) => {
-            this.ModelRow(state)
-            if (index < this.modelStates.length - 1) {
-              this.rowDivider()
-            }
-          },
-          (state: ReaderSuperResolutionModelFileState): string => state.definition.id,
-        )
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        GroupedListSection() {
+          ForEach(
+            this.modelStates,
+            (state: ReaderSuperResolutionModelFileState, index: number) => {
+              this.ModelRow(state)
+              if (index < this.modelStates.length - 1) {
+                this.rowDivider()
+              }
+            },
+            (state: ReaderSuperResolutionModelFileState): string => state.definition.id,
+          )
+        }
+        Text($r('app.string.settings_reader_super_resolution_tiling_limit_description'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+          .width('100%')
       }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
     }
   }
 

@@ -80,6 +80,10 @@ export class ReaderSuperResolutionModelService {
     return ReaderSuperResolutionModelRegistry.all()
   }
 
+  static userAvailableDefinitions(): ReaderSuperResolutionModelDefinition[] {
+    return ReaderSuperResolutionModelRegistry.userAvailable()
+  }
+
   static modelBytes(model: string): number {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
@@ -140,7 +144,7 @@ export class ReaderSuperResolutionModelService {
   static async installedModels(context: common.UIAbilityContext): Promise<string[]> {
     const installed: string[] = []
     const definitions: ReaderSuperResolutionModelDefinition[] =
-      ReaderSuperResolutionModelRegistry.all()
+      ReaderSuperResolutionModelRegistry.userAvailable()
     for (let i: number = 0; i < definitions.length; i++) {
       if (await ReaderSuperResolutionModelService.isInstalled(context, definitions[i].id)) {
         installed.push(definitions[i].id)
@@ -1127,6 +1131,8 @@ export class ReaderSuperResolutionModelService {
 
   private static realEsrganAssetUrls(fileName: string): string[] {
     return [
+      `https://github.com/erosTeam/NextE-Models/releases/download/` +
+        `model-pack-v1.0.0/${fileName}`,
       `https://huggingface.co/${REAL_ESRGAN_SOURCE_REPOSITORY}/resolve/` +
         `${REAL_ESRGAN_SOURCE_REVISION}/${fileName}`,
     ]

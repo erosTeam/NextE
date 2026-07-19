@@ -35,7 +35,9 @@ export class ReaderSuperResolutionModelDefinition {
   inputName: string = 'Input1'
   outputName: string = 'Eltwise4'
   usageScopeStringKey: string = ''
-  reference800pElapsedMs: number = 0
+  performanceStringKey: string = ''
+  detailsStringKey: string = ''
+  userAvailable: boolean = true
   initialDownloadBytes: number = 0
 
   bytes(): number {
@@ -66,13 +68,14 @@ export class ReaderSuperResolutionModelDefinition {
 
 const WAIFU2X_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
 const REAL_CUGAN_REVISION: string = '395302c5c70f1bff604c974e92e0a87e45c9f9ee'
-const NCNN_RUNTIME_RELEASE_BASE: string =
-  'https://github.com/erosTeam/NextE-Models/releases/download/ncnn-runtime-assets-v1'
+const MODEL_PACK_RELEASE_BASE: string =
+  'https://github.com/erosTeam/NextE-Models/releases/download/model-pack-v1.0.0'
 
 function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
   definition.id = ReaderSuperResolutionModel.ESPCN_X2
+  definition.userAvailable = false
   definition.directoryName = 'espcn-2x-ncnn-v1'
   definition.paramFileName = 'espcn_x2.ncnn.param'
   definition.modelFileName = 'espcn_x2.ncnn.bin'
@@ -83,7 +86,7 @@ function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   definition.packageBytes = 80589
   definition.packageSha256 = '11a286a0a761ec78a4f0ec17b905d2dbe12a19263e6315a25c08c6aaf983410c'
   definition.packageUrls = [
-    `${NCNN_RUNTIME_RELEASE_BASE}/espcn-x2.zip`,
+    `${MODEL_PACK_RELEASE_BASE}/espcn-x2.zip`,
     'https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/SuperResolution/' +
       'espcn/espcn_x2/2022-08-02/espcn_x2.zip',
   ]
@@ -92,8 +95,7 @@ function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   definition.acceleratedModelSha256 =
     'f2e84f3ce9cfc1d326a5326c116c30b3d92a8ed91dade45c37097863e7cfc7cf'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'espcn-x2-nnrt-v1/espcn-x2-180-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/espcn-x2-180-fp16.ms`,
   ]
   definition.initialDownloadBytes = 125901
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP
@@ -106,8 +108,9 @@ function espcnDefinition(): ReaderSuperResolutionModelDefinition {
   definition.inputName = 'in0'
   definition.outputName = 'out0'
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_fast_general'
-  // Internal reference used only to select a device-dependent UI time tier.
-  definition.reference800pElapsedMs = 5000
+  definition.performanceStringKey =
+    'settings_reader_super_resolution_performance_around_one_second'
+  definition.detailsStringKey = 'settings_reader_super_resolution_details_espcn'
   return definition
 }
 
@@ -129,7 +132,8 @@ function waifu2xDefinition(
   modelSha256: string,
   prepadding: number,
   usageScopeStringKey: string,
-  reference800pElapsedMs: number,
+  performanceStringKey: string,
+  detailsStringKey: string,
 ): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
@@ -142,7 +146,7 @@ function waifu2xDefinition(
   definition.paramSha256 = paramSha256
   definition.modelSha256 = modelSha256
   definition.paramUrls = [
-    `${NCNN_RUNTIME_RELEASE_BASE}/${releaseBaseName}.param`,
+    `${MODEL_PACK_RELEASE_BASE}/${releaseBaseName}.param`,
     ...githubRawUrls(
       'nihui/waifu2x-ncnn-vulkan',
       WAIFU2X_REVISION,
@@ -150,7 +154,7 @@ function waifu2xDefinition(
     ),
   ]
   definition.modelUrls = [
-    `${NCNN_RUNTIME_RELEASE_BASE}/${releaseBaseName}.bin`,
+    `${MODEL_PACK_RELEASE_BASE}/${releaseBaseName}.bin`,
     ...githubRawUrls(
       'nihui/waifu2x-ncnn-vulkan',
       WAIFU2X_REVISION,
@@ -160,7 +164,8 @@ function waifu2xDefinition(
   definition.pipelineVersion = `waifu2x-${WAIFU2X_REVISION}-${directoryName}`
   definition.prepadding = prepadding
   definition.usageScopeStringKey = usageScopeStringKey
-  definition.reference800pElapsedMs = reference800pElapsedMs
+  definition.performanceStringKey = performanceStringKey
+  definition.detailsStringKey = detailsStringKey
   return definition
 }
 
@@ -176,15 +181,15 @@ function waifu2xPhotoDefinition(): ReaderSuperResolutionModelDefinition {
     'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673',
     7,
     'settings_reader_super_resolution_scope_scans_photos',
-    3000,
+    'settings_reader_super_resolution_performance_seconds',
+    'settings_reader_super_resolution_details_waifu2x_photo',
   )
   definition.acceleratedModelFileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
   definition.acceleratedModelBytes = 1110528
   definition.acceleratedModelSha256 =
     'f39e877d84c3555e2150f63098fe0e21c6d426c7e054a5a32f2371d5e5f8e2c9'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'waifu2x-photo-noise0-x2-nnrt-v4/waifu2x-photo-noise0-x2-156-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/waifu2x-photo-noise0-x2-156-fp16.ms`,
   ]
   definition.initialDownloadBytes = 2217823
   definition.pipelineVersion += '|nnrt-fp16-v1'
@@ -203,15 +208,15 @@ function waifu2xArtDefinition(): ReaderSuperResolutionModelDefinition {
     'e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189',
     7,
     'settings_reader_super_resolution_scope_comics_illustrations',
-    3000,
+    'settings_reader_super_resolution_performance_seconds',
+    'settings_reader_super_resolution_details_waifu2x_art',
   )
   definition.acceleratedModelFileName = 'waifu2x-art-noise0-x2-156-fp16.ms'
   definition.acceleratedModelBytes = 1110528
   definition.acceleratedModelSha256 =
     '1ee87330e366afb0ad84752ab7e1acecbbcdbc17ee15ed18e546f336fe85bf52'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'waifu2x-art-noise0-x2-nnrt-v1/waifu2x-art-noise0-x2-156-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/waifu2x-art-noise0-x2-156-fp16.ms`,
   ]
   definition.initialDownloadBytes = 2217823
   definition.pipelineVersion += '|nnrt-fp16-v1'
@@ -230,7 +235,8 @@ function waifu2xCunetDefinition(): ReaderSuperResolutionModelDefinition {
     '5329a9375c9cfb64a60a2903fd8ae6e2851d9b069556bf025dbab9d0216fb27c',
     18,
     'settings_reader_super_resolution_scope_comics_detail',
-    11882,
+    'settings_reader_super_resolution_performance_device_dependent',
+    'settings_reader_super_resolution_details_waifu2x_cunet',
   )
   definition.nativeModelKind = ReaderNativeModelKind.WAIFU2X_CUNET
   definition.tileSize = 128
@@ -239,12 +245,10 @@ function waifu2xCunetDefinition(): ReaderSuperResolutionModelDefinition {
   definition.acceleratedModelSha256 =
     'b1863d489cd99428bf61f9d9302ef310ba72008d61621726fa480199f1bfc5b1'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'waifu2x-cunet-noise0-x2-nnrt-v1/waifu2x-cunet-noise0-x2-164-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/waifu2x-cunet-noise0-x2-164-fp16.ms`,
   ]
   definition.initialDownloadBytes = 5380001
   definition.pipelineVersion += '|nnrt-fp16-self-test-v1'
-  definition.reference800pElapsedMs = 6000
   return definition
 }
 
@@ -270,19 +274,17 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
     `models/models-se/${definition.modelFileName}`,
   )
   definition.paramUrls.unshift(
-    `${NCNN_RUNTIME_RELEASE_BASE}/realcugan-se-2x-conservative.param`,
+    `${MODEL_PACK_RELEASE_BASE}/realcugan-se-2x-conservative.param`,
   )
   definition.modelUrls.unshift(
-    `${NCNN_RUNTIME_RELEASE_BASE}/realcugan-se-2x-conservative.bin`,
+    `${MODEL_PACK_RELEASE_BASE}/realcugan-se-2x-conservative.bin`,
   )
   definition.acceleratedModelFileName = 'realcugan-se-2x-conservative-164-fp16.ms'
   definition.acceleratedModelBytes = 2595776
   definition.acceleratedModelSha256 =
     'fd4795aa3ce7932049a280907ce4c5c01a99f1584864e8a54d869355fe4f162e'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'realcugan-se-2x-conservative-nnrt-v1/' +
-      'realcugan-se-2x-conservative-164-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/realcugan-se-2x-conservative-164-fp16.ms`,
   ]
   definition.initialDownloadBytes = 5174185
   definition.pipelineVersion =
@@ -293,7 +295,8 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   definition.inputName = 'in0'
   definition.outputName = 'out0'
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_comics_conservative'
-  definition.reference800pElapsedMs = 4000
+  definition.performanceStringKey = 'settings_reader_super_resolution_performance_seconds'
+  definition.detailsStringKey = 'settings_reader_super_resolution_details_realcugan'
   return definition
 }
 
@@ -311,10 +314,12 @@ function realEsrganAnimeDefinition(): ReaderSuperResolutionModelDefinition {
   // The pair is byte-verified against the official v0.2.5.0 ncnn release archive. This mirror keeps
   // the two files independently downloadable; the immutable hashes remain the trust boundary.
   definition.paramUrls = [
+    `${MODEL_PACK_RELEASE_BASE}/${definition.paramFileName}`,
     'https://huggingface.co/datasets/Pratofeitoo/sd-upscalers/resolve/main/' +
       definition.paramFileName,
   ]
   definition.modelUrls = [
+    `${MODEL_PACK_RELEASE_BASE}/${definition.modelFileName}`,
     'https://huggingface.co/datasets/Pratofeitoo/sd-upscalers/resolve/main/' +
       definition.modelFileName,
   ]
@@ -326,7 +331,9 @@ function realEsrganAnimeDefinition(): ReaderSuperResolutionModelDefinition {
   definition.inputName = 'data'
   definition.outputName = 'output'
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_animation_comics'
-  definition.reference800pElapsedMs = 10597
+  definition.performanceStringKey =
+    'settings_reader_super_resolution_performance_tens_seconds'
+  definition.detailsStringKey = 'settings_reader_super_resolution_details_animevideov3'
   return definition
 }
 
@@ -346,8 +353,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   definition.acceleratedModelSha256 =
     'b6ee78c1e01d79fa5fb4ccb0b1bca039f804eb9c8f77e6c37b065869eb25866a'
   definition.acceleratedModelUrls = [
-    'https://github.com/erosTeam/NextE-Models/releases/download/' +
-      'realesrgan-x2plus-nnrt-v1/realesrgan-x2plus-180-fp16.ms',
+    `${MODEL_PACK_RELEASE_BASE}/realesrgan-x2plus-180-fp16.ms`,
   ]
   definition.initialDownloadBytes = 100841392
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT
@@ -359,7 +365,8 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   definition.inputName = 'input'
   definition.outputName = 'output'
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_photos_textures'
-  definition.reference800pElapsedMs = 88766
+  definition.performanceStringKey = 'settings_reader_super_resolution_performance_seconds'
+  definition.detailsStringKey = 'settings_reader_super_resolution_details_realesrgan_x2plus'
   return definition
 }
 
@@ -376,6 +383,16 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
 export class ReaderSuperResolutionModelRegistry {
   static all(): ReaderSuperResolutionModelDefinition[] {
     return MODEL_DEFINITIONS
+  }
+
+  static userAvailable(): ReaderSuperResolutionModelDefinition[] {
+    const definitions: ReaderSuperResolutionModelDefinition[] = []
+    for (let i: number = 0; i < MODEL_DEFINITIONS.length; i++) {
+      if (MODEL_DEFINITIONS[i].userAvailable) {
+        definitions.push(MODEL_DEFINITIONS[i])
+      }
+    }
+    return definitions
   }
 
   static find(model: string): ReaderSuperResolutionModelDefinition | null {
