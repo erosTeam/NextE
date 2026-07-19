@@ -12,6 +12,7 @@ export { InternalQaRoutes } from './constants/InternalQaRoutes'
 // model
 export { SimpleTag } from './model/SimpleTag'
 export { EhTagSuggestion } from './model/EhTagSuggestion'
+export { EhTagSuggestionDisplay } from './utils/EhTagSuggestionDisplay'
 export { TagGroup } from './model/TagGroup'
 export { EhGallery, EhGalleryVersion } from './model/EhGallery'
 export { CookieJarEntry } from './model/CookieJarEntry'

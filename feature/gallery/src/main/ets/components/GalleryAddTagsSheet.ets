@@ -9,6 +9,7 @@ import {
   EhCookieStore,
   EhErrorText,
   EhTagSuggestion,
+  EhTagSuggestionDisplay,
   TagTranslationService,
   TagTranslationSettingsState,
   ThemeConstants,
@@ -120,8 +121,9 @@ export struct GalleryAddTagsSheet {
   }
 
   private suggestionTitle(suggestion: EhTagSuggestion): string {
-    if (suggestion.displayName.length > 0) {
-      return suggestion.displayName
+    const localizedTitle: string = EhTagSuggestionDisplay.localizedTitle(suggestion)
+    if (localizedTitle.length > 0) {
+      return localizedTitle
     }
     return `${EhConstants.expandNamespace(suggestion.namespace)}:${suggestion.text}`
   }
