@@ -44,6 +44,9 @@ const MAX_CACHE_BYTES: number = 256 * 1024 * 1024
 const HASH_CHUNK_BYTES: number = 256 * 1024
 const SUPER_RESOLUTION_SUPERSEDED_ERROR: string = 'super-resolution request superseded'
 const NNRT_VALIDATION_BACKEND: string = 'nnrt'
+// VkVersion encoding for Vulkan 1.3. This is a conservative proxy from the tested devices, not a
+// Vulkan guarantee about foreground scheduling behavior.
+const INTERACTION_SAFE_VULKAN_API_VERSION: number = 0x00403000
 const NATIVE_PIPELINE_VERSION: string =
   'nnrt-realesrgan-x2plus-tile160-pad10-fp16-v2|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
@@ -153,6 +156,7 @@ class ReaderSuperResolutionEventLoopProbe {
 export class ReaderSuperResolutionCapabilities {
   vulkanAvailable: boolean = false
   nnrtAvailable: boolean = false
+  vulkanApiVersion: number = 0
   gpuName: string = ''
   ncnnVersion: string = ''
 }
@@ -176,13 +180,16 @@ export class ReaderSuperResolutionService {
   private static activeTask: ReaderSuperResolutionInFlightTask | null = null
   private static pruneChain: Promise<void> = Promise.resolve()
   private static preparationInFlight: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static interactionPauseRequested: boolean = false
   private static interactionPaused: boolean = false
+  private static interactionProtectionRequired: boolean = true
 
   static capabilities(): ReaderSuperResolutionCapabilities {
     const native: ReaderNativeSuperResolutionCapabilities =
       ReaderNativeSuperResolution.capabilities()
     const result: ReaderSuperResolutionCapabilities = new ReaderSuperResolutionCapabilities()
     result.vulkanAvailable = native.vulkanAvailable
+    result.vulkanApiVersion = native.vulkanApiVersion
     try {
       result.nnrtAvailable = ReaderMindSporeSuperResolution.acceleratorAvailable()
     } catch (_error) {
@@ -247,6 +254,7 @@ export class ReaderSuperResolutionService {
         'prepare_start',
         `model=${model} backendPreference=${backendPreference}`,
       )
+      ReaderSuperResolutionService.setInteractionProtectionRequired(true)
       if (nnrtModelPath !== null) {
         try {
           const nnrtResult: ReaderMindSporeSuperResolutionPrepareResult =
@@ -256,6 +264,7 @@ export class ReaderSuperResolutionService {
             'prepare_success',
             `model=${model} backend=${nnrtResult.backend} modelLoadMs=${nnrtResult.modelLoadMs}`,
           )
+          ReaderSuperResolutionService.configureInteractionProtection(nnrtResult.backend)
           return
         } catch (error) {
           DiagnosticLogger.warn(
@@ -282,6 +291,7 @@ export class ReaderSuperResolutionService {
         'prepare_success',
         `model=${model} backend=${result.backend} modelLoadMs=${result.modelLoadMs}`,
       )
+      ReaderSuperResolutionService.configureInteractionProtection(result.backend)
     } catch (error) {
       DiagnosticLogger.warn(
         'reader-super-resolution',
@@ -487,8 +497,47 @@ export class ReaderSuperResolutionService {
   }
 
   static setInteractionPaused(paused: boolean): void {
-    ReaderSuperResolutionService.interactionPaused = paused
-    ReaderNativeSuperResolution.setInteractionPaused(paused)
+    ReaderSuperResolutionService.interactionPauseRequested = paused
+    ReaderSuperResolutionService.applyInteractionPause()
+  }
+
+  private static configureInteractionProtection(backend: string): void {
+    let gpuName: string = ''
+    let vulkanApiVersion: number = 0
+    try {
+      const capabilities: ReaderNativeSuperResolutionCapabilities =
+        ReaderNativeSuperResolution.capabilities()
+      gpuName = capabilities.gpuName.trim()
+      vulkanApiVersion = capabilities.vulkanApiVersion
+    } catch (_error) {
+      gpuName = ''
+      vulkanApiVersion = 0
+    }
+    const supportsConcurrentVulkanInteraction: boolean = backend === 'vulkan' &&
+      vulkanApiVersion >= INTERACTION_SAFE_VULKAN_API_VERSION
+    ReaderSuperResolutionService.setInteractionProtectionRequired(!supportsConcurrentVulkanInteraction)
+    DiagnosticLogger.info(
+      'reader-super-resolution',
+      'interaction_policy',
+      `backend=${backend} gpu=${gpuName.length > 0 ? gpuName : 'unknown'} ` +
+        `vulkanApiVersion=${vulkanApiVersion} ` +
+        `pauseDuringInteraction=${!supportsConcurrentVulkanInteraction}`,
+    )
+  }
+
+  private static setInteractionProtectionRequired(required: boolean): void {
+    ReaderSuperResolutionService.interactionProtectionRequired = required
+    ReaderSuperResolutionService.applyInteractionPause()
+  }
+
+  private static applyInteractionPause(): void {
+    const effectivePaused: boolean = ReaderSuperResolutionService.interactionPauseRequested &&
+      ReaderSuperResolutionService.interactionProtectionRequired
+    if (ReaderSuperResolutionService.interactionPaused === effectivePaused) {
+      return
+    }
+    ReaderSuperResolutionService.interactionPaused = effectivePaused
+    ReaderNativeSuperResolution.setInteractionPaused(effectivePaused)
   }
 
   private static claimOwner(

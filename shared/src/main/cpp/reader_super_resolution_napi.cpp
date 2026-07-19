@@ -83,6 +83,7 @@ std::once_flag gGpuInitFlag;
 int gGpuInitResult = -1;
 int gGpuCount = 0;
 uint32_t gGpuHeapBudget = 0;
+uint32_t gGpuApiVersion = 0;
 std::string gGpuName;
 std::mutex gInferenceMutex;
 std::mutex gRequestStateMutex;
@@ -121,7 +122,9 @@ void InitializeGpuRuntime()
         if (gGpuInitResult == 0) {
             gGpuCount = ncnn::get_gpu_count();
             if (gGpuCount > 0) {
-                const char *name = ncnn::get_gpu_info(0).device_name();
+                const ncnn::GpuInfo &gpuInfo = ncnn::get_gpu_info(0);
+                gGpuApiVersion = gpuInfo.api_version();
+                const char *name = gpuInfo.device_name();
                 if (name != nullptr) {
                     gGpuName = name;
                 }
@@ -129,6 +132,23 @@ void InitializeGpuRuntime()
                 if (device != nullptr) {
                     gGpuHeapBudget = device->get_heap_budget();
                 }
+                OH_LOG_Print(
+                    LOG_APP,
+                    LOG_INFO,
+                    0x0,
+                    "NextESuperResolution",
+                    "ncnn Vulkan properties api=%{public}u driver=%{public}u vendor=%{public}u "
+                    "device=%{public}u score=%{public}u computeQueues=%{public}u "
+                    "transferQueues=%{public}u unifiedQueue=%{public}d subgroup=%{public}u",
+                    gpuInfo.api_version(),
+                    gpuInfo.driver_version(),
+                    gpuInfo.vendor_id(),
+                    gpuInfo.device_id(),
+                    gpuInfo.rough_score(),
+                    gpuInfo.compute_queue_count(),
+                    gpuInfo.transfer_queue_count(),
+                    gpuInfo.unified_compute_transfer_queue() ? 1 : 0,
+                    gpuInfo.subgroup_size());
             }
         }
         OH_LOG_Print(
@@ -1768,11 +1788,14 @@ napi_value GetCapabilities(napi_env env, napi_callback_info info)
     napi_value result = nullptr;
     napi_value vulkanAvailable = nullptr;
     napi_value gpuCount = nullptr;
+    napi_value vulkanApiVersion = nullptr;
     napi_create_object(env, &result);
     napi_get_boolean(env, VulkanAvailable(), &vulkanAvailable);
     napi_create_int32(env, gGpuCount, &gpuCount);
+    napi_create_uint32(env, gGpuApiVersion, &vulkanApiVersion);
     napi_set_named_property(env, result, "vulkanAvailable", vulkanAvailable);
     napi_set_named_property(env, result, "gpuCount", gpuCount);
+    napi_set_named_property(env, result, "vulkanApiVersion", vulkanApiVersion);
     napi_set_named_property(env, result, "gpuName", StringValue(env, gGpuName));
     napi_set_named_property(env, result, "ncnnVersion", StringValue(env, NCNN_VERSION_STRING));
     return result;

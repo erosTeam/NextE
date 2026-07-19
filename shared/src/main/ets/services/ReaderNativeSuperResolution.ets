@@ -66,6 +66,7 @@ interface NativeSuperResolutionResult {
 interface NativeSuperResolutionCapabilities {
   vulkanAvailable: boolean
   gpuCount: number
+  vulkanApiVersion: number
   gpuName: string
   ncnnVersion: string
 }
@@ -108,6 +109,7 @@ export class ReaderNativeSuperResolutionPrepareResult {
 export class ReaderNativeSuperResolutionCapabilities {
   vulkanAvailable: boolean = false
   gpuCount: number = 0
+  vulkanApiVersion: number = 0
   gpuName: string = ''
   ncnnVersion: string = ''
 }
@@ -123,6 +125,7 @@ export class ReaderNativeSuperResolution {
       new ReaderNativeSuperResolutionCapabilities()
     result.vulkanAvailable = native.vulkanAvailable
     result.gpuCount = native.gpuCount
+    result.vulkanApiVersion = native.vulkanApiVersion
     result.gpuName = native.gpuName
     result.ncnnVersion = native.ncnnVersion
     return result
