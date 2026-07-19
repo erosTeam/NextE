@@ -65,6 +65,36 @@ Candidate boundary:
 - SwinIR, HAT, and OmniSR require a separately validated mobile graph/runtime and are not allowed to
   appear as nonfunctional placeholders.
 
+Visible-catalog convergence grounding, 2026-07-19:
+
+1. `ReaderSettingsPage.ets` remains the installed-model selector and
+   `ReaderSuperResolutionModelsPage.ets` remains neutral local-file management. No new picker,
+   profile control, selected-row treatment, or Aidoku-derived structure is introduced.
+2. The primary information is no longer a flat research catalog. A new installation sees one faster
+   comic/line-art choice and one stronger restoration choice; already installed comparison models
+   remain visible only in file management so they can still be removed.
+3. Download/delete remains the only management-row action. Choosing an installed model remains the
+   secondary Reader-settings action, and the enhancement switch remains the sole enable/disable action.
+4. This lane keeps waifu2x art noise0 2x and Real-ESRGAN x2plus downloadable and selectable. ESPCN
+   remains internal; waifu2x photo, waifu2x CUNet, Real-CUGAN, and AnimeVideo v3 remain runnable
+   comparison/legacy definitions but are not offered as new downloads or Reader choices. Deleting a
+   hidden legacy model removes its management row.
+5. HarmonyOS expression stays within the existing `ConciseListRow`, native menu, symbol action, and
+   same-sheet transition. The catalog is reduced through the typed registry and service state rather
+   than by adding a new UI layer.
+
+Real-ESRGAN restraint decision, 2026-07-19:
+
+- Real-ESRGAN x2plus remains the strong-restoration option because it materially helps heavily
+  degraded pages. Its output now uses 80% of the learned residual over a bilinear 2x source baseline,
+  restoring 20% of the source structure without another model inference.
+- The rejected overlapping-tile candidate is not retained: the page-8 comparison only softened the
+  hard boundary, did not recover the flattened halftone, and increased representative processing time
+  by roughly one fifth. Residual-strength mixing is one linear output pass and applies consistently to
+  NNRT, Vulkan, and CPU execution.
+- The strength is part of the model pipeline identity so previously cached full-strength outputs are
+  not reused after the change. It is intentionally not exposed as another user setting in this lane.
+
 Model subtitle extension grounding, 2026-07-19:
 
 1. `eros_fe` has no local super-resolution model-file manager. This extension therefore stays inside

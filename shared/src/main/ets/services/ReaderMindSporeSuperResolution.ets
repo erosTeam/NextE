@@ -63,6 +63,7 @@ export class ReaderMindSporeSuperResolution {
     modelPath: string,
     modelKind: number,
     requestId: number,
+    effectStrengthPercent: number = 100,
   ): Promise<ReaderMindSporeSuperResolutionResult> {
     if (width <= 0 || height <= 0 || stride < width * 4 ||
       pixels.byteLength < stride * height) {
@@ -76,6 +77,7 @@ export class ReaderMindSporeSuperResolution {
       modelPath,
       modelKind,
       requestId,
+      effectStrengthPercent,
     )
     const result: ReaderMindSporeSuperResolutionResult =
       new ReaderMindSporeSuperResolutionResult()

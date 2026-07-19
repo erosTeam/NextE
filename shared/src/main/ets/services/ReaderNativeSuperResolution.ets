@@ -28,6 +28,7 @@ interface NativeSuperResolutionModule {
     inputName: string,
     outputName: string,
     requestId: number,
+    effectStrengthPercent: number,
   ): Promise<NativeSuperResolutionResult>
 
   prepareMindSporeModel(
@@ -43,6 +44,7 @@ interface NativeSuperResolutionModule {
     modelPath: string,
     modelKind: number,
     requestId: number,
+    effectStrengthPercent: number,
   ): Promise<NativeSuperResolutionResult>
 
   setRequestActive(requestId: number, active: boolean): void
@@ -95,6 +97,7 @@ export class ReaderNativeSuperResolutionConfig {
   threads: number = 2
   inputName: string = 'Input1'
   outputName: string = 'Eltwise4'
+  effectStrengthPercent: number = 100
 }
 
 export class ReaderNativeSuperResolutionResult {
@@ -183,6 +186,7 @@ export class ReaderNativeSuperResolution {
       config.inputName,
       config.outputName,
       requestId,
+      config.effectStrengthPercent,
     )
     const result: ReaderNativeSuperResolutionResult = new ReaderNativeSuperResolutionResult()
     result.pixels = native.pixels
@@ -214,6 +218,7 @@ export class ReaderNativeSuperResolution {
     modelPath: string,
     modelKind: number,
     requestId: number,
+    effectStrengthPercent: number = 100,
   ): Promise<ReaderNativeSuperResolutionResult> {
     const native: NativeSuperResolutionResult = await nativeRuntime.upscaleMindSporeRgba(
       pixels,
@@ -223,6 +228,7 @@ export class ReaderNativeSuperResolution {
       modelPath,
       modelKind,
       requestId,
+      effectStrengthPercent,
     )
     const result: ReaderNativeSuperResolutionResult = new ReaderNativeSuperResolutionResult()
     result.pixels = native.pixels

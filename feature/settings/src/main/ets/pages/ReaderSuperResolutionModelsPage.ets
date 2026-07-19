@@ -52,6 +52,7 @@ export struct ReaderSuperResolutionModelsPage {
       this.modelStates = states
     }
     this.refreshInstallState()
+    this.appendInstalledLegacyModels()
   }
 
   private context(): common.UIAbilityContext {
@@ -74,6 +75,45 @@ export struct ReaderSuperResolutionModelsPage {
           this.modelStates[i].definition.id,
         )
     }
+  }
+
+  private async appendInstalledLegacyModels(): Promise<void> {
+    const definitions: ReaderSuperResolutionModelDefinition[] =
+      ReaderSuperResolutionModelService.definitions()
+    const states: ReaderSuperResolutionModelFileState[] = this.modelStates.slice()
+    let changed: boolean = false
+    for (let i: number = 0; i < definitions.length; i++) {
+      const definition: ReaderSuperResolutionModelDefinition = definitions[i]
+      if (!definition.legacyAvailableWhenInstalled ||
+        this.hasModelState(definition.id)) {
+        continue
+      }
+      const installed: boolean = await ReaderSuperResolutionModelService.isInstalled(
+        this.context(),
+        definition.id,
+      )
+      if (!installed) {
+        continue
+      }
+      const state: ReaderSuperResolutionModelFileState =
+        new ReaderSuperResolutionModelFileState(definition)
+      state.installed = true
+      state.remainingDownloadBytes = 0
+      states.push(state)
+      changed = true
+    }
+    if (changed) {
+      this.modelStates = states
+    }
+  }
+
+  private hasModelState(model: string): boolean {
+    for (let i: number = 0; i < this.modelStates.length; i++) {
+      if (this.modelStates[i].definition.id === model) {
+        return true
+      }
+    }
+    return false
   }
 
   private modelTitle(model: string): ResourceStr {
@@ -188,7 +228,8 @@ export struct ReaderSuperResolutionModelsPage {
     if (this.readMode.superResolutionModel === state.definition.id) {
       let replacement: string = ReaderSuperResolutionModel.NONE
       for (let i: number = 0; i < this.modelStates.length; i++) {
-        if (this.modelStates[i].installed) {
+        if (this.modelStates[i].installed &&
+          this.modelStates[i].definition.userAvailable) {
           replacement = this.modelStates[i].definition.id
           break
         }
@@ -197,6 +238,15 @@ export struct ReaderSuperResolutionModelsPage {
       if (replacement === ReaderSuperResolutionModel.NONE) {
         ReadModeSettings.setSuperResolutionEnabled(this.context(), false)
       }
+    }
+    if (!state.definition.userAvailable) {
+      const visibleStates: ReaderSuperResolutionModelFileState[] = []
+      for (let i: number = 0; i < this.modelStates.length; i++) {
+        if (this.modelStates[i].definition.id !== state.definition.id) {
+          visibleStates.push(this.modelStates[i])
+        }
+      }
+      this.modelStates = visibleStates
     }
     this.notifyModelsChanged()
     this.toast($r('app.string.settings_reader_super_resolution_model_deleted'))

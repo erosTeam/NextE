@@ -818,6 +818,8 @@ export class ReaderSuperResolutionService {
       let modelLoadMs: number = 0
       let inferenceMs: number = 0
       let tileCount: number = 0
+      const nativeConfig: ReaderNativeSuperResolutionConfig =
+        ReaderSuperResolutionService.nativeConfig(model, backendPreference)
       if (nnrtModelPath !== null) {
         try {
           const nnrtResult: ReaderMindSporeSuperResolutionResult =
@@ -827,8 +829,9 @@ export class ReaderSuperResolutionService {
               sourceHeight,
               stride,
               nnrtModelPath,
-              ReaderSuperResolutionService.nativeConfig(model, backendPreference).modelKind,
+              nativeConfig.modelKind,
               inFlight.requestId,
+              nativeConfig.effectStrengthPercent,
             )
           enhancedPixels = nnrtResult.pixels
           actualBackend = nnrtResult.backend
@@ -859,7 +862,7 @@ export class ReaderSuperResolutionService {
             stride,
             modelPaths.paramPath,
             modelPaths.modelPath,
-            ReaderSuperResolutionService.nativeConfig(model, backendPreference),
+            nativeConfig,
             inFlight.requestId,
           )
         enhancedPixels = nativeResult.pixels

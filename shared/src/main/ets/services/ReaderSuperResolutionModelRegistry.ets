@@ -34,10 +34,12 @@ export class ReaderSuperResolutionModelDefinition {
   threads: number = 2
   inputName: string = 'Input1'
   outputName: string = 'Eltwise4'
+  effectStrengthPercent: number = 100
   usageScopeStringKey: string = ''
   performanceStringKey: string = ''
   detailsStringKey: string = ''
   userAvailable: boolean = true
+  legacyAvailableWhenInstalled: boolean = false
   initialDownloadBytes: number = 0
 
   bytes(): number {
@@ -62,6 +64,7 @@ export class ReaderSuperResolutionModelDefinition {
     config.threads = this.threads
     config.inputName = this.inputName
     config.outputName = this.outputName
+    config.effectStrengthPercent = this.effectStrengthPercent
     return config
   }
 }
@@ -193,6 +196,8 @@ function waifu2xPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   ]
   definition.initialDownloadBytes = 2217823
   definition.pipelineVersion += '|nnrt-fp16-v1'
+  definition.userAvailable = false
+  definition.legacyAvailableWhenInstalled = true
   return definition
 }
 
@@ -249,6 +254,8 @@ function waifu2xCunetDefinition(): ReaderSuperResolutionModelDefinition {
   ]
   definition.initialDownloadBytes = 5380001
   definition.pipelineVersion += '|nnrt-fp16-self-test-v1'
+  definition.userAvailable = false
+  definition.legacyAvailableWhenInstalled = true
   return definition
 }
 
@@ -297,6 +304,8 @@ function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_comics_conservative'
   definition.performanceStringKey = 'settings_reader_super_resolution_performance_seconds'
   definition.detailsStringKey = 'settings_reader_super_resolution_details_realcugan'
+  definition.userAvailable = false
+  definition.legacyAvailableWhenInstalled = true
   return definition
 }
 
@@ -334,6 +343,8 @@ function realEsrganAnimeDefinition(): ReaderSuperResolutionModelDefinition {
   definition.performanceStringKey =
     'settings_reader_super_resolution_performance_tens_seconds'
   definition.detailsStringKey = 'settings_reader_super_resolution_details_animevideov3'
+  definition.userAvailable = false
+  definition.legacyAvailableWhenInstalled = true
   return definition
 }
 
@@ -357,15 +368,17 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
   ]
   definition.initialDownloadBytes = 100841392
   definition.installStrategy = ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT
-  definition.pipelineVersion = 'realesrgan-x2plus-ncnn-fp32-compat-v1'
+  definition.pipelineVersion = 'realesrgan-x2plus-ncnn-fp32-compat-v1|residual-strength80-v1'
   definition.nativeModelKind = ReaderNativeModelKind.REAL_ESRGAN
   definition.tileSize = 128
   definition.prepadding = 10
   definition.threads = 4
   definition.inputName = 'input'
   definition.outputName = 'output'
+  definition.effectStrengthPercent = 80
   definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_photos_textures'
-  definition.performanceStringKey = 'settings_reader_super_resolution_performance_seconds'
+  definition.performanceStringKey =
+    'settings_reader_super_resolution_performance_device_dependent'
   definition.detailsStringKey = 'settings_reader_super_resolution_details_realesrgan_x2plus'
   return definition
 }

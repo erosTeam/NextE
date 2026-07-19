@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit'
+import { application, common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { mindSporeLite } from '@kit.MindSporeLiteKit'
@@ -207,6 +207,12 @@ function externalMindSporeNativePipelineEnabled(): boolean {
   return parameters['-s superResolutionMindSporeNativePipeline'] === 'true'
 }
 
+function externalMindSporeExportEnabled(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionMindSporeExport'] === 'true'
+}
+
 function externalMindSporeEspcnPipelineEnabled(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
@@ -229,6 +235,12 @@ function externalComparisonImageUrl(): string {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
   return parameters['-s superResolutionComparisonImageUrl'] ?? ''
+}
+
+function externalComparisonRawFile(): string {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionComparisonRawFile'] ?? ''
 }
 
 function forceAcceleratedModelRedownload(): boolean {
@@ -279,6 +291,7 @@ async function comparisonInput(
 ): Promise<SuperResolutionComparisonInput> {
   let path: string = externalComparisonImagePath()
   const url: string = externalComparisonImageUrl()
+  const rawFile: string = externalComparisonRawFile()
   if (url.length > 0) {
     path = context.cacheDir + '/super-resolution-comparison-input'
     await EhHttpClient.getInstance().downloadBinaryToFileInStream(
@@ -294,7 +307,7 @@ async function comparisonInput(
   }
   const result: SuperResolutionComparisonInput =
     new SuperResolutionComparisonInput()
-  if (path.length === 0) {
+  if (path.length === 0 && rawFile.length === 0) {
     result.pixels = benchmarkPixels(BENCHMARK_INPUT_WIDTH, BENCHMARK_INPUT_HEIGHT)
     result.width = BENCHMARK_INPUT_WIDTH
     result.height = BENCHMARK_INPUT_HEIGHT
@@ -304,7 +317,13 @@ async function comparisonInput(
   let source: image.ImageSource | undefined = undefined
   let pixelMap: image.PixelMap | undefined = undefined
   try {
-    source = image.createImageSource(path)
+    if (rawFile.length > 0) {
+      const testContext = await application.createModuleContext(context, 'entry_test')
+      const bytes: Uint8Array = await testContext.resourceManager.getRawFileContent(rawFile)
+      source = image.createImageSource(bytes.buffer)
+    } else {
+      source = image.createImageSource(path)
+    }
     if (source === undefined) {
       throw new Error('Comparison image source is unavailable: ' + path)
     }
@@ -507,6 +526,45 @@ async function writeTestImage(
     )
     packer = image.createImagePacker()
     await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/jpeg', quality: 95 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+  }
+}
+
+async function writeRgbaImage(
+  path: string,
+  pixels: ArrayBuffer,
+  width: number,
+  height: number,
+): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const options: image.InitializationOptions = {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    }
+    pixelMap = await image.createPixelMap(pixels, options)
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, {
+      format: 'image/png',
+      quality: 100,
+    })
   } finally {
     if (outputFile !== null) {
       fileIo.closeSync(outputFile)
@@ -1325,6 +1383,90 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       expect(meanAbsoluteError < 3).assertEqual(true)
       verifyRawOutputHasSignal(nnrtResult.pixels)
       done()
+    })
+
+    it('exportsExternalMindSporeOutput', 0, async (done: Function) => {
+      if (!integrationEnabled() || !externalMindSporeExportEnabled()) {
+        done()
+        return
+      }
+      try {
+        const context: common.UIAbilityContext = await appContext()
+        const model: string = benchmarkModel()
+        const definition: ReaderSuperResolutionModelDefinition | null =
+          ReaderSuperResolutionModelRegistry.find(model)
+        expect(definition !== null).assertEqual(true)
+        if (definition === null) {
+          done()
+          return
+        }
+        console.info(
+          'ReaderSuperResolutionMindSporeExport stage=install model=' + model,
+        )
+        await ReaderSuperResolutionModelService.install(context, model)
+        console.info(
+          'ReaderSuperResolutionMindSporeExport stage=model-installed model=' + model,
+        )
+        const modelPath: string | null =
+          ReaderSuperResolutionModelService.acceleratedModelPathIfReady(context, model)
+        expect(modelPath !== null).assertEqual(true)
+        if (modelPath === null) {
+          done()
+          return
+        }
+        console.info(
+          'ReaderSuperResolutionMindSporeExport stage=load-input source=' +
+            (externalComparisonImageUrl().length > 0
+              ? 'url'
+              : (externalComparisonRawFile().length > 0 ? 'rawfile' : 'path')),
+        )
+        const input: SuperResolutionComparisonInput = await comparisonInput(context)
+        console.info(
+          'ReaderSuperResolutionMindSporeExport stage=input-ready source=' +
+            input.width + 'x' + input.height,
+        )
+        const startedAt: number = Date.now()
+        const result: ReaderMindSporeSuperResolutionResult =
+          await ReaderMindSporeSuperResolution.upscaleRgba(
+            input.pixels,
+            input.width,
+            input.height,
+            input.stride,
+            modelPath,
+            definition.nativeModelKind,
+            900004,
+            definition.effectStrengthPercent,
+          )
+        const upscaleElapsedMs: number = Date.now() - startedAt
+        const outputPath: string = context.cacheDir +
+          '/super-resolution-mindspore-comparison-output.png'
+        await writeRgbaImage(
+          outputPath,
+          result.pixels,
+          input.width * 2,
+          input.height * 2,
+        )
+        console.info(
+          'ReaderSuperResolutionMindSporeExport model=' + model +
+            ' source=' + input.width + 'x' + input.height +
+            ' output=' + input.width * 2 + 'x' + input.height * 2 +
+            ' elapsedMs=' + (Date.now() - startedAt) +
+            ' upscaleElapsedMs=' + upscaleElapsedMs +
+            ' inferenceMs=' + result.inferenceMs +
+            ' tiles=' + result.tileCount +
+            ' path=' + outputPath,
+        )
+        verifyRawOutputHasSignal(result.pixels)
+        expect(fileIo.accessSync(outputPath)).assertEqual(true)
+        done()
+      } catch (error) {
+        const cause: Error = error as Error
+        console.error(
+          'ReaderSuperResolutionMindSporeExport failed message=' + cause.message +
+            ' stack=' + cause.stack,
+        )
+        throw cause
+      }
     })
 
     it('comparesExternalMindSporeWithRealCuganVulkan', 0, async (done: Function) => {

@@ -73,6 +73,7 @@ struct UpscaleTask {
     int tileSize = 142;
     int prepadding = 7;
     int threads = 2;
+    int effectStrengthPercent = 100;
     ModelKind modelKind = ModelKind::Waifu2x;
     BackendPreference backendPreference = BackendPreference::Automatic;
     std::string paramPath;
@@ -734,6 +735,77 @@ void PrepareBilinearRgbaOutput(UpscaleTask &task)
         outputWidth * 4);
 }
 
+struct BilinearAxisSample {
+    int first = 0;
+    int second = 0;
+    int secondWeight = 0;
+};
+
+std::vector<BilinearAxisSample> ResolveBilinearAxisSamples(int sourceExtent)
+{
+    const int outputExtent = sourceExtent * kScale;
+    std::vector<BilinearAxisSample> samples(static_cast<size_t>(outputExtent));
+    for (int output = 1; output < outputExtent; ++output) {
+        const int quarterPosition = output * 2 - 1;
+        BilinearAxisSample &sample = samples[static_cast<size_t>(output)];
+        sample.first = std::min(quarterPosition / 4, sourceExtent - 1);
+        sample.second = std::min(sample.first + 1, sourceExtent - 1);
+        sample.secondWeight = quarterPosition % 4;
+    }
+    return samples;
+}
+
+bool ApplyEffectStrength(UpscaleTask &task)
+{
+    if (task.effectStrengthPercent >= 100) {
+        return true;
+    }
+    const int outputWidth = task.width * kScale;
+    const int outputHeight = task.height * kScale;
+    const size_t expectedBytes = static_cast<size_t>(outputWidth) * outputHeight * 4;
+    if (task.output.size() != expectedBytes) {
+        task.error = "super-resolution output is unavailable for effect-strength mixing";
+        return false;
+    }
+    const int sourceStrength = 100 - task.effectStrengthPercent;
+    const std::vector<BilinearAxisSample> xSamples = ResolveBilinearAxisSamples(task.width);
+    const std::vector<BilinearAxisSample> ySamples = ResolveBilinearAxisSamples(task.height);
+    for (int outputY = 0; outputY < outputHeight; ++outputY) {
+        if (!EnsureRequestActive(task)) {
+            return false;
+        }
+        const BilinearAxisSample &ySample = ySamples[static_cast<size_t>(outputY)];
+        const int topWeight = 4 - ySample.secondWeight;
+        const uint8_t *topRow = task.input.data() + static_cast<size_t>(ySample.first) * task.stride;
+        const uint8_t *bottomRow =
+            task.input.data() + static_cast<size_t>(ySample.second) * task.stride;
+        uint8_t *outputRow =
+            task.output.data() + static_cast<size_t>(outputY) * outputWidth * 4;
+        for (int outputX = 0; outputX < outputWidth; ++outputX) {
+            const BilinearAxisSample &xSample = xSamples[static_cast<size_t>(outputX)];
+            const int leftWeight = 4 - xSample.secondWeight;
+            const size_t leftOffset = static_cast<size_t>(xSample.first) * 4;
+            const size_t rightOffset = static_cast<size_t>(xSample.second) * 4;
+            const size_t outputOffset = static_cast<size_t>(outputX) * 4;
+            for (size_t channel = 0; channel < 3; ++channel) {
+                const int top =
+                    topRow[leftOffset + channel] * leftWeight +
+                    topRow[rightOffset + channel] * xSample.secondWeight;
+                const int bottom =
+                    bottomRow[leftOffset + channel] * leftWeight +
+                    bottomRow[rightOffset + channel] * xSample.secondWeight;
+                const int baseline =
+                    (top * topWeight + bottom * ySample.secondWeight + 8) / 16;
+                outputRow[outputOffset + channel] = static_cast<uint8_t>(
+                    (outputRow[outputOffset + channel] * task.effectStrengthPercent +
+                        baseline * sourceStrength + 50) /
+                    100);
+            }
+        }
+    }
+    return true;
+}
+
 void WriteMindSporeTile(
     UpscaleTask &task,
     const MindSporeContract &contract,
@@ -994,6 +1066,10 @@ bool ValidateTask(UpscaleTask &task)
     }
     if (task.tileSize < 32 || task.prepadding < 0 || task.threads < 1) {
         task.error = "invalid ncnn tile configuration";
+        return false;
+    }
+    if (task.effectStrengthPercent < 0 || task.effectStrengthPercent > 100) {
+        task.error = "invalid super-resolution effect strength";
         return false;
     }
     return true;
@@ -1726,7 +1802,9 @@ void ExecuteUpscale(napi_env env, void *data)
 {
     (void)env;
     auto *task = static_cast<UpscaleTask *>(data);
-    RunUpscale(*task);
+    if (RunUpscale(*task)) {
+        ApplyEffectStrength(*task);
+    }
     // The N-API completion callback runs on the ArkTS thread. Release the multi-megabyte source
     // copy here so cancellation cannot turn buffer destruction into a foreground input stall.
     std::vector<uint8_t>().swap(task->input);
@@ -1743,7 +1821,9 @@ void ExecuteMindSporeUpscale(napi_env env, void *data)
 {
     (void)env;
     auto *task = static_cast<UpscaleTask *>(data);
-    RunMindSporeUpscale(*task);
+    if (RunMindSporeUpscale(*task)) {
+        ApplyEffectStrength(*task);
+    }
     std::vector<uint8_t>().swap(task->input);
 }
 
@@ -1877,10 +1957,10 @@ napi_value SetInteractionPaused(napi_env env, napi_callback_info info)
 
 napi_value UpscaleRgba(napi_env env, napi_callback_info info)
 {
-    size_t argc = 14;
-    napi_value argv[14] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 14) {
-        napi_throw_type_error(env, nullptr, "upscaleRgba expects 14 arguments");
+    size_t argc = 15;
+    napi_value argv[15] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 15) {
+        napi_throw_type_error(env, nullptr, "upscaleRgba expects 15 arguments");
         return nullptr;
     }
 
@@ -1898,6 +1978,7 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[9], task->prepadding) ||
         !GetInt(env, argv[10], task->threads) ||
         !GetInt64(env, argv[13], requestId) ||
+        !GetInt(env, argv[14], task->effectStrengthPercent) ||
         requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
         modelKind > static_cast<int>(ModelKind::Waifu2xCunet) ||
@@ -1944,10 +2025,10 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
 
 napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
 {
-    size_t argc = 7;
-    napi_value argv[7] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 7) {
-        napi_throw_type_error(env, nullptr, "upscaleMindSporeRgba expects 7 arguments");
+    size_t argc = 8;
+    napi_value argv[8] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 8) {
+        napi_throw_type_error(env, nullptr, "upscaleMindSporeRgba expects 8 arguments");
         return nullptr;
     }
 
@@ -1960,6 +2041,7 @@ napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[3], task->stride) ||
         !GetInt(env, argv[5], modelKind) ||
         !GetInt64(env, argv[6], requestId) || requestId <= 0 ||
+        !GetInt(env, argv[7], task->effectStrengthPercent) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
         modelKind > static_cast<int>(ModelKind::Waifu2xCunet)) {
         delete task;
