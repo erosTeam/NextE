@@ -218,6 +218,36 @@ function waifu2xArtDefinition(): ReaderSuperResolutionModelDefinition {
   return definition
 }
 
+function waifu2xCunetDefinition(): ReaderSuperResolutionModelDefinition {
+  const definition: ReaderSuperResolutionModelDefinition = waifu2xDefinition(
+    ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X,
+    'waifu2x-cunet-noise0-2x-ncnn-v1',
+    'waifu2x-cunet-noise0-2x',
+    'models/models-cunet',
+    7249,
+    2776400,
+    'ccc3b2f1c9fad829ecdda40cac8dc853fcddf14917170efba888b256fbf9074a',
+    '5329a9375c9cfb64a60a2903fd8ae6e2851d9b069556bf025dbab9d0216fb27c',
+    18,
+    'settings_reader_super_resolution_scope_comics_detail',
+    11882,
+  )
+  definition.nativeModelKind = ReaderNativeModelKind.WAIFU2X_CUNET
+  definition.tileSize = 128
+  definition.acceleratedModelFileName = 'waifu2x-cunet-noise0-x2-164-fp16.ms'
+  definition.acceleratedModelBytes = 2596352
+  definition.acceleratedModelSha256 =
+    'b1863d489cd99428bf61f9d9302ef310ba72008d61621726fa480199f1bfc5b1'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'waifu2x-cunet-noise0-x2-nnrt-v1/waifu2x-cunet-noise0-x2-164-fp16.ms',
+  ]
+  definition.initialDownloadBytes = 5380001
+  definition.pipelineVersion += '|nnrt-fp16-self-test-v1'
+  definition.reference800pElapsedMs = 6000
+  return definition
+}
+
 function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
@@ -338,19 +368,7 @@ const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   waifu2xPhotoDefinition(),
   waifu2xArtDefinition(),
   realEsrganAnimeDefinition(),
-  waifu2xDefinition(
-    ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X,
-    'waifu2x-cunet-noise0-2x-ncnn-v1',
-    'waifu2x-cunet-noise0-2x',
-    'models/models-cunet',
-    7249,
-    2776400,
-    'ccc3b2f1c9fad829ecdda40cac8dc853fcddf14917170efba888b256fbf9074a',
-    '5329a9375c9cfb64a60a2903fd8ae6e2851d9b069556bf025dbab9d0216fb27c',
-    18,
-    'settings_reader_super_resolution_scope_comics_detail',
-    11882,
-  ),
+  waifu2xCunetDefinition(),
   realCuganDefinition(),
   realEsrganPhotoDefinition(),
 ]

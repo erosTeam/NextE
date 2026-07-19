@@ -78,6 +78,7 @@ export enum ReaderNativeModelKind {
   REAL_ESRGAN = 1,
   LUMINANCE = 2,
   REAL_CUGAN = 3,
+  WAIFU2X_CUNET = 4,
 }
 
 export enum ReaderNativeBackendPreference {

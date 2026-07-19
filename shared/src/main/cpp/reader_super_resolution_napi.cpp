@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -42,6 +43,7 @@ enum class ModelKind : int {
     RealEsrgan = 1,
     Luminance = 2,
     RealCugan = 3,
+    Waifu2xCunet = 4,
 };
 
 enum class BackendPreference : int {
@@ -107,6 +109,7 @@ OH_AI_ModelHandle gCachedMindSporeModel = nullptr;
 std::string gCachedMindSporeModelPath;
 std::string gCachedMindSporeDeviceName;
 int gCachedMindSporeModelKind = -1;
+std::unordered_set<std::string> gRejectedMindSporeModelDevices;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -348,6 +351,11 @@ bool ResolveMindSporeContract(UpscaleTask &task, MindSporeContract &contract)
         contract = {164, 256, 3, 3, 128, 18, 0};
         return true;
     }
+    if (task.modelKind == ModelKind::Waifu2xCunet) {
+        // CUNet returns the centered 256 px result for the Reader's 128 px tile plus 18 px context.
+        contract = {164, 256, 3, 3, 128, 18, 0};
+        return true;
+    }
     task.error = "MindSpore NNRT model kind is unsupported";
     return false;
 }
@@ -405,6 +413,85 @@ bool ValidateMindSporeInput(
     return true;
 }
 
+bool ValidateMindSporeCunetDevice(
+    UpscaleTask &task,
+    OH_AI_ModelHandle model,
+    const OH_AI_TensorHandleArray &inputs,
+    const MindSporeContract &contract,
+    const std::string &rejectionKey)
+{
+    if (task.modelKind != ModelKind::Waifu2xCunet) {
+        return true;
+    }
+    auto *inputData = static_cast<float *>(OH_AI_TensorGetMutableData(inputs.handle_list[0]));
+    const int64_t inputElements = OH_AI_TensorGetElementNum(inputs.handle_list[0]);
+    if (inputData == nullptr || inputElements <= 0) {
+        task.error = "MindSpore NNRT CUNet self-test input is unavailable";
+        return false;
+    }
+    for (int64_t index = 0; index < inputElements; ++index) {
+        inputData[index] = static_cast<float>(index % 251) / 250.0f;
+    }
+    OH_AI_TensorHandleArray outputs = {0, nullptr};
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    const OH_AI_Status status = OH_AI_ModelPredict(model, inputs, &outputs, nullptr, nullptr);
+    const int64_t elapsedMs = ElapsedMilliseconds(startedAt);
+    const int64_t expectedElements =
+        static_cast<int64_t>(contract.outputSize) * contract.outputSize * contract.outputChannels;
+    if (status != OH_AI_STATUS_SUCCESS || outputs.handle_num < 1 || outputs.handle_list == nullptr ||
+        outputs.handle_list[0] == nullptr ||
+        OH_AI_TensorGetDataType(outputs.handle_list[0]) != OH_AI_DATATYPE_NUMBERTYPE_FLOAT32 ||
+        OH_AI_TensorGetElementNum(outputs.handle_list[0]) != expectedElements) {
+        gRejectedMindSporeModelDevices.insert(rejectionKey);
+        task.error = "MindSpore NNRT CUNet self-test prediction failed";
+        return false;
+    }
+    const auto *outputData = static_cast<const float *>(OH_AI_TensorGetData(outputs.handle_list[0]));
+    if (outputData == nullptr) {
+        gRejectedMindSporeModelDevices.insert(rejectionKey);
+        task.error = "MindSpore NNRT CUNet self-test output is unavailable";
+        return false;
+    }
+    float minimum = outputData[0];
+    float maximum = outputData[0];
+    for (int64_t index = 1; index < expectedElements; ++index) {
+        minimum = std::min(minimum, outputData[index]);
+        maximum = std::max(maximum, outputData[index]);
+    }
+    constexpr size_t probeIndices[] = {
+        0, 127, 128, 255, 32768, 65535, 65536,
+        65663, 98304, 131071, 131072, 163840, 196607,
+    };
+    constexpr float probeExpected[] = {
+        0.762309f, 0.099176f, 0.123463f, 0.408622f, 0.772172f, 0.436751f,
+        0.946322f, 0.259907f, 0.699357f, 0.372145f, 0.241364f, 0.842830f, 0.520484f,
+    };
+    float maximumProbeError = 0.0f;
+    for (size_t index = 0; index < std::size(probeIndices); ++index) {
+        maximumProbeError = std::max(
+            maximumProbeError,
+            std::abs(outputData[probeIndices[index]] - probeExpected[index]));
+    }
+    const bool valid = std::isfinite(minimum) && std::isfinite(maximum) &&
+        minimum > -0.15f && maximum < 1.2f && maximumProbeError < 0.15f;
+    OH_LOG_Print(
+        LOG_APP,
+        valid ? LOG_INFO : LOG_WARN,
+        0x0,
+        "NextESuperResolution",
+        "MindSpore NNRT CUNet self-test valid=%{public}d range=%{public}.6f..%{public}.6f maxProbeError=%{public}.6f elapsedMs=%{public}lld",
+        valid ? 1 : 0,
+        minimum,
+        maximum,
+        maximumProbeError,
+        static_cast<long long>(elapsedMs));
+    if (!valid) {
+        gRejectedMindSporeModelDevices.insert(rejectionKey);
+        task.error = "MindSpore NNRT CUNet self-test rejected this accelerator";
+    }
+    return valid;
+}
+
 OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
 {
     MindSporeContract contract;
@@ -420,6 +507,11 @@ OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
     const std::string deviceName = SelectMindSporeAccelerator();
     if (deviceName.empty()) {
         task.error = "NNRT accelerator is unavailable";
+        return nullptr;
+    }
+    const std::string rejectionKey = task.modelPath + "|" + deviceName;
+    if (gRejectedMindSporeModelDevices.find(rejectionKey) != gRejectedMindSporeModelDevices.end()) {
+        task.error = "MindSpore NNRT model was rejected by the device self-test";
         return nullptr;
     }
     OH_AI_ContextHandle context = OH_AI_ContextCreate();
@@ -457,6 +549,10 @@ OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
     const OH_AI_TensorHandleArray inputs = OH_AI_ModelGetInputs(model);
     if (inputs.handle_num != 1 || inputs.handle_list == nullptr ||
         !ValidateMindSporeInput(task, inputs.handle_list[0], contract)) {
+        OH_AI_ModelDestroy(&model);
+        return nullptr;
+    }
+    if (!ValidateMindSporeCunetDevice(task, model, inputs, contract, rejectionKey)) {
         OH_AI_ModelDestroy(&model);
         return nullptr;
     }
@@ -1804,7 +1900,7 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         !GetInt64(env, argv[13], requestId) ||
         requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealCugan) ||
+        modelKind > static_cast<int>(ModelKind::Waifu2xCunet) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;
@@ -1865,7 +1961,7 @@ napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], modelKind) ||
         !GetInt64(env, argv[6], requestId) || requestId <= 0 ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealCugan)) {
+        modelKind > static_cast<int>(ModelKind::Waifu2xCunet)) {
         delete task;
         napi_throw_type_error(env, nullptr, "invalid MindSpore NNRT upscale argument type");
         return nullptr;
@@ -1922,7 +2018,7 @@ napi_value PrepareModel(napi_env env, napi_callback_info info)
         !GetInt(env, argv[5], task->prepadding) ||
         !GetInt(env, argv[6], task->threads) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealCugan) ||
+        modelKind > static_cast<int>(ModelKind::Waifu2xCunet) ||
         backendPreference < static_cast<int>(BackendPreference::Automatic) ||
         backendPreference > static_cast<int>(BackendPreference::Cpu)) {
         delete task;
@@ -1981,7 +2077,7 @@ napi_value PrepareMindSporeModelNapi(napi_env env, napi_callback_info info)
     task->modelPath = GetString(env, argv[0]);
     if (!GetInt(env, argv[1], modelKind) ||
         modelKind < static_cast<int>(ModelKind::Waifu2x) ||
-        modelKind > static_cast<int>(ModelKind::RealCugan) ||
+        modelKind > static_cast<int>(ModelKind::Waifu2xCunet) ||
         task->modelPath.empty()) {
         delete task;
         napi_throw_type_error(env, nullptr, "MindSpore NNRT model path and kind are required");

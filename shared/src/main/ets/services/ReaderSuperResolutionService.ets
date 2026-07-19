@@ -1015,6 +1015,7 @@ export class ReaderSuperResolutionService {
       model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
         model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X ||
         model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X ||
+        model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X ||
         model === ReaderSuperResolutionModel.ESPCN_X2 ||
         model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE
     if (!nnrtSupported ||

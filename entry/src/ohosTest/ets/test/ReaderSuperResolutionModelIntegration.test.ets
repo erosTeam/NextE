@@ -17,7 +17,9 @@ import {
   ReaderNativeSuperResolutionResult,
   ReaderSuperResolutionBackend,
   ReaderSuperResolutionModel,
+  ReaderSuperResolutionModelDefinition,
   ReaderSuperResolutionModelPaths,
+  ReaderSuperResolutionModelRegistry,
   ReaderSuperResolutionModelService,
   ReaderSuperResolutionResult,
   ReaderSuperResolutionService,
@@ -87,6 +89,8 @@ async function installExternalMindSporeModelForBenchmark(
     fileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
   } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X) {
     fileName = 'waifu2x-art-noise0-x2-156-fp16.ms'
+  } else if (benchmarkModel() === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X) {
+    fileName = 'waifu2x-cunet-noise0-x2-164-fp16.ms'
   } else if (benchmarkModel() ===
     ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
     fileName = 'realcugan-se-2x-conservative-164-fp16.ms'
@@ -739,6 +743,32 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
       })
 
+    it('downloadsPublishedWaifu2xCunetRuntimeAndAcceleratedAssets', 0,
+      async (done: Function) => {
+        if (!integrationEnabled()) {
+          done()
+          return
+        }
+        const context: common.UIAbilityContext = await appContext()
+        const model: string = ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X
+        ReaderSuperResolutionModelService.remove(context, model)
+        await ReaderSuperResolutionModelService.install(context, model)
+        const paths: ReaderSuperResolutionModelPaths | null =
+          await ReaderSuperResolutionModelService.pathsIfReady(context, model)
+        expect(paths !== null).assertEqual(true)
+        if (paths !== null) {
+          expect(fileIo.accessSync(paths.paramPath)).assertEqual(true)
+          expect(fileIo.accessSync(paths.modelPath)).assertEqual(true)
+        }
+        const acceleratedPath: string | null =
+          ReaderSuperResolutionModelService.acceleratedModelPathIfReady(context, model)
+        expect(acceleratedPath !== null).assertEqual(true)
+        if (acceleratedPath !== null) {
+          expect(fileIo.accessSync(acceleratedPath)).assertEqual(true)
+        }
+        done()
+      })
+
     it('runsWaifu2xPhotoThroughVulkan', 0, async (done: Function) => {
       if (!integrationEnabled()) {
         done()
@@ -1196,6 +1226,13 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         return
       }
       const model: string = benchmarkModel()
+      const definition: ReaderSuperResolutionModelDefinition | null =
+        ReaderSuperResolutionModelRegistry.find(model)
+      expect(definition !== null).assertEqual(true)
+      if (definition === null) {
+        done()
+        return
+      }
       await ReaderSuperResolutionModelService.install(context, model)
       const modelPaths: ReaderSuperResolutionModelPaths | null =
         await ReaderSuperResolutionModelService.pathsIfReady(context, model)
@@ -1204,15 +1241,8 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         done()
         return
       }
-      const config: ReaderNativeSuperResolutionConfig =
-        new ReaderNativeSuperResolutionConfig()
-      config.modelKind = ReaderNativeModelKind.WAIFU2X
+      const config: ReaderNativeSuperResolutionConfig = definition.nativeConfig()
       config.backendPreference = ReaderNativeBackendPreference.VULKAN
-      config.tileSize = 142
-      config.prepadding = 7
-      config.threads = 2
-      config.inputName = 'Input1'
-      config.outputName = 'Eltwise4'
       const input: SuperResolutionComparisonInput = await comparisonInput(context)
       const ncnnStartedAt: number = Date.now()
       const ncnnResult: ReaderNativeSuperResolutionResult =
@@ -1236,7 +1266,7 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
           input.height,
           input.stride,
           mindSporeModelPath,
-          ReaderNativeModelKind.WAIFU2X,
+          definition.nativeModelKind,
           900003,
         )
       const nnrtElapsedMs: number = Date.now() - nnrtStartedAt
