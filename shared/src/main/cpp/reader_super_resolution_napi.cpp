@@ -36,10 +36,6 @@ namespace {
 
 constexpr const char *kModuleName = "nexte_super_resolution";
 constexpr int kScale = 2;
-constexpr int kNnrtTileSize = 160;
-constexpr int kNnrtPrepadding = 10;
-constexpr int kNnrtInputSize = kNnrtTileSize + kNnrtPrepadding * 2;
-constexpr int kNnrtOutputSize = kNnrtInputSize * kScale;
 
 enum class ModelKind : int {
     Waifu2x = 0,
@@ -51,6 +47,14 @@ enum class BackendPreference : int {
     Automatic = 0,
     Vulkan = 1,
     Cpu = 2,
+};
+
+struct MindSporeContract {
+    int inputSize = 0;
+    int outputSize = 0;
+    int tileSize = 0;
+    int prepadding = 0;
+    int outputCrop = 0;
 };
 
 struct UpscaleTask {
@@ -99,6 +103,7 @@ std::mutex gMindSporeMutex;
 OH_AI_ModelHandle gCachedMindSporeModel = nullptr;
 std::string gCachedMindSporeModelPath;
 std::string gCachedMindSporeDeviceName;
+int gCachedMindSporeModelKind = -1;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -315,6 +320,23 @@ void ResetCachedMindSporeRuntime()
     }
     gCachedMindSporeModelPath.clear();
     gCachedMindSporeDeviceName.clear();
+    gCachedMindSporeModelKind = -1;
+}
+
+bool ResolveMindSporeContract(UpscaleTask &task, MindSporeContract &contract)
+{
+    if (task.modelKind == ModelKind::RealEsrgan) {
+        contract = {180, 360, 160, 10, 20};
+        return true;
+    }
+    if (task.modelKind == ModelKind::Waifu2x) {
+        // upconv7 uses six valid 3x3 convolutions followed by a stride-2 deconvolution.
+        // A 156px input therefore returns the 284px result for the centered 142px tile directly.
+        contract = {156, 284, 142, 7, 0};
+        return true;
+    }
+    task.error = "MindSpore NNRT model kind is unsupported";
+    return false;
 }
 
 std::string SelectMindSporeAccelerator()
@@ -351,11 +373,14 @@ std::string SelectMindSporeAccelerator()
     return preferred.empty() ? fallback : preferred;
 }
 
-bool ValidateMindSporeInput(UpscaleTask &task, OH_AI_TensorHandle input)
+bool ValidateMindSporeInput(
+    UpscaleTask &task,
+    OH_AI_TensorHandle input,
+    const MindSporeContract &contract)
 {
-    constexpr int64_t expectedElements =
-        static_cast<int64_t>(kNnrtInputSize) * kNnrtInputSize * 3;
-    constexpr size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
+    const int64_t expectedElements =
+        static_cast<int64_t>(contract.inputSize) * contract.inputSize * 3;
+    const size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
     if (input == nullptr ||
         OH_AI_TensorGetDataType(input) != OH_AI_DATATYPE_NUMBERTYPE_FLOAT32 ||
         OH_AI_TensorGetFormat(input) != OH_AI_FORMAT_NCHW ||
@@ -369,7 +394,12 @@ bool ValidateMindSporeInput(UpscaleTask &task, OH_AI_TensorHandle input)
 
 OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
 {
-    if (gCachedMindSporeModel != nullptr && gCachedMindSporeModelPath == task.modelPath) {
+    MindSporeContract contract;
+    if (!ResolveMindSporeContract(task, contract)) {
+        return nullptr;
+    }
+    if (gCachedMindSporeModel != nullptr && gCachedMindSporeModelPath == task.modelPath &&
+        gCachedMindSporeModelKind == static_cast<int>(task.modelKind)) {
         task.modelLoadMs = 0;
         task.backend = "nnrt";
         return gCachedMindSporeModel;
@@ -413,7 +443,7 @@ OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
     }
     const OH_AI_TensorHandleArray inputs = OH_AI_ModelGetInputs(model);
     if (inputs.handle_num != 1 || inputs.handle_list == nullptr ||
-        !ValidateMindSporeInput(task, inputs.handle_list[0])) {
+        !ValidateMindSporeInput(task, inputs.handle_list[0], contract)) {
         OH_AI_ModelDestroy(&model);
         return nullptr;
     }
@@ -421,6 +451,7 @@ OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
     gCachedMindSporeModel = model;
     gCachedMindSporeModelPath = task.modelPath;
     gCachedMindSporeDeviceName = deviceName;
+    gCachedMindSporeModelKind = static_cast<int>(task.modelKind);
     task.backend = "nnrt";
     OH_LOG_Print(
         LOG_APP,
@@ -435,24 +466,27 @@ OH_AI_ModelHandle PrepareMindSporeModel(UpscaleTask &task)
 
 void PrepareMindSporeTile(
     const UpscaleTask &task,
+    const MindSporeContract &contract,
     int inputX,
     int inputY,
     std::vector<float> &tile)
 {
-    constexpr size_t planeElements = static_cast<size_t>(kNnrtInputSize) * kNnrtInputSize;
+    const size_t planeElements =
+        static_cast<size_t>(contract.inputSize) * contract.inputSize;
     constexpr float inverseByte = 1.0f / 255.0f;
     tile.resize(planeElements * 3);
-    for (int localY = 0; localY < kNnrtInputSize; ++localY) {
-        const int sourceY = std::clamp(inputY + localY - kNnrtPrepadding, 0, task.height - 1);
+    for (int localY = 0; localY < contract.inputSize; ++localY) {
+        const int sourceY =
+            std::clamp(inputY + localY - contract.prepadding, 0, task.height - 1);
         int localX = 0;
 #if defined(__aarch64__)
-        const int sourceStartX = inputX - kNnrtPrepadding;
+        const int sourceStartX = inputX - contract.prepadding;
         const int contiguousStart = std::max(0, -sourceStartX);
-        const int contiguousEnd = std::min(kNnrtInputSize, task.width - sourceStartX);
+        const int contiguousEnd = std::min(contract.inputSize, task.width - sourceStartX);
         for (; localX < contiguousStart; ++localX) {
             const int sourceX = std::clamp(sourceStartX + localX, 0, task.width - 1);
             const size_t sourceOffset = static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
-            const size_t tileOffset = static_cast<size_t>(localY) * kNnrtInputSize + localX;
+            const size_t tileOffset = static_cast<size_t>(localY) * contract.inputSize + localX;
             tile[tileOffset] = task.input[sourceOffset] * inverseByte;
             tile[planeElements + tileOffset] = task.input[sourceOffset + 1] * inverseByte;
             tile[planeElements * 2 + tileOffset] = task.input[sourceOffset + 2] * inverseByte;
@@ -461,7 +495,7 @@ void PrepareMindSporeTile(
         for (; localX + 8 <= contiguousEnd; localX += 8) {
             const int sourceX = sourceStartX + localX;
             const size_t sourceOffset = static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
-            const size_t tileOffset = static_cast<size_t>(localY) * kNnrtInputSize + localX;
+            const size_t tileOffset = static_cast<size_t>(localY) * contract.inputSize + localX;
             const uint8x8x4_t rgba = vld4_u8(task.input.data() + sourceOffset);
             const uint16x8_t red16 = vmovl_u8(rgba.val[0]);
             const uint16x8_t green16 = vmovl_u8(rgba.val[1]);
@@ -486,10 +520,11 @@ void PrepareMindSporeTile(
                 vmulq_f32(vcvtq_f32_u32(vmovl_u16(vget_high_u16(blue16))), scale));
         }
 #endif
-        for (; localX < kNnrtInputSize; ++localX) {
-            const int sourceX = std::clamp(inputX + localX - kNnrtPrepadding, 0, task.width - 1);
+        for (; localX < contract.inputSize; ++localX) {
+            const int sourceX =
+                std::clamp(inputX + localX - contract.prepadding, 0, task.width - 1);
             const size_t sourceOffset = static_cast<size_t>(sourceY) * task.stride + sourceX * 4;
-            const size_t tileOffset = static_cast<size_t>(localY) * kNnrtInputSize + localX;
+            const size_t tileOffset = static_cast<size_t>(localY) * contract.inputSize + localX;
             tile[tileOffset] = task.input[sourceOffset] * inverseByte;
             tile[planeElements + tileOffset] = task.input[sourceOffset + 1] * inverseByte;
             tile[planeElements * 2 + tileOffset] = task.input[sourceOffset + 2] * inverseByte;
@@ -499,21 +534,24 @@ void PrepareMindSporeTile(
 
 void WriteMindSporeTile(
     UpscaleTask &task,
+    const MindSporeContract &contract,
     const float *tensor,
     int inputX,
     int inputY,
     int tileWidth,
     int tileHeight)
 {
-    constexpr size_t planeElements = static_cast<size_t>(kNnrtOutputSize) * kNnrtOutputSize;
-    constexpr int crop = kNnrtPrepadding * kScale;
+    const size_t planeElements =
+        static_cast<size_t>(contract.outputSize) * contract.outputSize;
     const int outputWidth = task.width * kScale;
     const int writeWidth = tileWidth * kScale;
     const int writeHeight = tileHeight * kScale;
     const int outputX = inputX * kScale;
     const int outputY = inputY * kScale;
     for (int y = 0; y < writeHeight; ++y) {
-        const size_t tensorRow = static_cast<size_t>(crop + y) * kNnrtOutputSize + crop;
+        const size_t tensorRow =
+            static_cast<size_t>(contract.outputCrop + y) * contract.outputSize +
+            contract.outputCrop;
         const size_t targetRow =
             (static_cast<size_t>(outputY + y) * outputWidth + outputX) * 4;
         int x = 0;
@@ -562,26 +600,30 @@ bool RunMindSporeUpscale(UpscaleTask &task)
         return false;
     }
     std::lock_guard<std::mutex> lock(gMindSporeMutex);
+    MindSporeContract contract;
+    if (!ResolveMindSporeContract(task, contract)) {
+        return false;
+    }
     OH_AI_ModelHandle model = PrepareMindSporeModel(task);
     if (model == nullptr) {
         return false;
     }
     const OH_AI_TensorHandleArray inputs = OH_AI_ModelGetInputs(model);
     if (inputs.handle_num != 1 || inputs.handle_list == nullptr ||
-        !ValidateMindSporeInput(task, inputs.handle_list[0])) {
+        !ValidateMindSporeInput(task, inputs.handle_list[0], contract)) {
         return false;
     }
     const size_t outputBytes = static_cast<size_t>(task.width) * kScale * task.height * kScale * 4;
     task.output.assign(outputBytes, 255);
     std::vector<float> tile;
-    for (int inputY = 0; inputY < task.height; inputY += kNnrtTileSize) {
-        const int tileHeight = std::min(kNnrtTileSize, task.height - inputY);
-        for (int inputX = 0; inputX < task.width; inputX += kNnrtTileSize) {
+    for (int inputY = 0; inputY < task.height; inputY += contract.tileSize) {
+        const int tileHeight = std::min(contract.tileSize, task.height - inputY);
+        for (int inputX = 0; inputX < task.width; inputX += contract.tileSize) {
             if (!WaitUntilInferenceAllowed(task)) {
                 return false;
             }
-            const int tileWidth = std::min(kNnrtTileSize, task.width - inputX);
-            PrepareMindSporeTile(task, inputX, inputY, tile);
+            const int tileWidth = std::min(contract.tileSize, task.width - inputX);
+            PrepareMindSporeTile(task, contract, inputX, inputY, tile);
             void *inputData = OH_AI_TensorGetMutableData(inputs.handle_list[0]);
             if (inputData == nullptr) {
                 task.error = "MindSpore NNRT input buffer is unavailable";
@@ -598,9 +640,9 @@ bool RunMindSporeUpscale(UpscaleTask &task)
                 return false;
             }
             OH_AI_TensorHandle output = outputs.handle_list[0];
-            constexpr int64_t expectedElements =
-                static_cast<int64_t>(kNnrtOutputSize) * kNnrtOutputSize * 3;
-            constexpr size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
+            const int64_t expectedElements =
+                static_cast<int64_t>(contract.outputSize) * contract.outputSize * 3;
+            const size_t expectedBytes = static_cast<size_t>(expectedElements) * sizeof(float);
             if (output == nullptr ||
                 OH_AI_TensorGetDataType(output) != OH_AI_DATATYPE_NUMBERTYPE_FLOAT32 ||
                 OH_AI_TensorGetFormat(output) != OH_AI_FORMAT_NCHW ||
@@ -614,7 +656,14 @@ bool RunMindSporeUpscale(UpscaleTask &task)
                 task.error = "MindSpore NNRT output buffer is unavailable";
                 return false;
             }
-            WriteMindSporeTile(task, outputData, inputX, inputY, tileWidth, tileHeight);
+            WriteMindSporeTile(
+                task,
+                contract,
+                outputData,
+                inputX,
+                inputY,
+                tileWidth,
+                tileHeight);
             task.tileCount += 1;
         }
     }
@@ -1625,25 +1674,30 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
 
 napi_value UpscaleMindSporeRgba(napi_env env, napi_callback_info info)
 {
-    size_t argc = 6;
-    napi_value argv[6] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 6) {
-        napi_throw_type_error(env, nullptr, "upscaleMindSporeRgba expects 6 arguments");
+    size_t argc = 7;
+    napi_value argv[7] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 7) {
+        napi_throw_type_error(env, nullptr, "upscaleMindSporeRgba expects 7 arguments");
         return nullptr;
     }
 
     auto *task = new UpscaleTask();
+    int modelKind = 0;
     int64_t requestId = 0;
     if (!GetBytes(env, argv[0], task->input) ||
         !GetInt(env, argv[1], task->width) ||
         !GetInt(env, argv[2], task->height) ||
         !GetInt(env, argv[3], task->stride) ||
-        !GetInt64(env, argv[5], requestId) || requestId <= 0) {
+        !GetInt(env, argv[5], modelKind) ||
+        !GetInt64(env, argv[6], requestId) || requestId <= 0 ||
+        modelKind < static_cast<int>(ModelKind::Waifu2x) ||
+        modelKind > static_cast<int>(ModelKind::RealEsrgan)) {
         delete task;
         napi_throw_type_error(env, nullptr, "invalid MindSpore NNRT upscale argument type");
         return nullptr;
     }
     task->modelPath = GetString(env, argv[4]);
+    task->modelKind = static_cast<ModelKind>(modelKind);
     task->requestId = static_cast<uint64_t>(requestId);
     if (task->modelPath.empty()) {
         delete task;
@@ -1742,19 +1796,24 @@ napi_value PrepareModel(napi_env env, napi_callback_info info)
 
 napi_value PrepareMindSporeModelNapi(napi_env env, napi_callback_info info)
 {
-    size_t argc = 1;
-    napi_value argv[1] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 1) {
-        napi_throw_type_error(env, nullptr, "prepareMindSporeModel expects a model path");
+    size_t argc = 2;
+    napi_value argv[2] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 2) {
+        napi_throw_type_error(env, nullptr, "prepareMindSporeModel expects a model path and kind");
         return nullptr;
     }
     auto *task = new UpscaleTask();
+    int modelKind = 0;
     task->modelPath = GetString(env, argv[0]);
-    if (task->modelPath.empty()) {
+    if (!GetInt(env, argv[1], modelKind) ||
+        modelKind < static_cast<int>(ModelKind::Waifu2x) ||
+        modelKind > static_cast<int>(ModelKind::RealEsrgan) ||
+        task->modelPath.empty()) {
         delete task;
-        napi_throw_type_error(env, nullptr, "MindSpore NNRT model path is required");
+        napi_throw_type_error(env, nullptr, "MindSpore NNRT model path and kind are required");
         return nullptr;
     }
+    task->modelKind = static_cast<ModelKind>(modelKind);
 
     napi_value promise = nullptr;
     napi_create_promise(env, &task->deferred, &promise);

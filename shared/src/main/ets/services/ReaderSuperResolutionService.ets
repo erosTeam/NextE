@@ -48,7 +48,7 @@ const NNRT_VALIDATION_BACKEND: string = 'nnrt'
 // Vulkan guarantee about foreground scheduling behavior.
 const INTERACTION_SAFE_VULKAN_API_VERSION: number = 0x00403000
 const NATIVE_PIPELINE_VERSION: string =
-  'nnrt-realesrgan-x2plus-tile160-pad10-fp16-v2|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
+  'nnrt-rgb-contracts-v3|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
 class ReaderSuperResolutionCacheEntry {
   path: string = ''
@@ -258,7 +258,10 @@ export class ReaderSuperResolutionService {
       if (nnrtModelPath !== null) {
         try {
           const nnrtResult: ReaderMindSporeSuperResolutionPrepareResult =
-            await ReaderMindSporeSuperResolution.prepareModel(nnrtModelPath)
+            await ReaderMindSporeSuperResolution.prepareModel(
+              nnrtModelPath,
+              ReaderSuperResolutionService.nativeConfig(model, backendPreference).modelKind,
+            )
           DiagnosticLogger.info(
             'reader-super-resolution',
             'prepare_success',
@@ -824,6 +827,7 @@ export class ReaderSuperResolutionService {
               sourceHeight,
               stride,
               nnrtModelPath,
+              ReaderSuperResolutionService.nativeConfig(model, backendPreference).modelKind,
               inFlight.requestId,
             )
           enhancedPixels = nnrtResult.pixels
@@ -1007,7 +1011,10 @@ export class ReaderSuperResolutionService {
     model: string,
     backendPreference: string,
   ): string | null {
-    if (model !== ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
+    const nnrtSupported: boolean =
+      model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS ||
+        model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X
+    if (!nnrtSupported ||
       (backendPreference !== ReaderSuperResolutionBackend.AUTO &&
         backendPreference !== NNRT_VALIDATION_BACKEND)) {
       return null
@@ -1016,12 +1023,12 @@ export class ReaderSuperResolutionService {
       const acceleratorAvailable: boolean =
         ReaderMindSporeSuperResolution.acceleratorAvailable()
       const modelPath: string | null = acceleratorAvailable
-        ? ReaderSuperResolutionModelService.realEsrganNnrtPathIfReady(context)
+        ? ReaderSuperResolutionModelService.acceleratedModelPathIfReady(context, model)
         : null
       DiagnosticLogger.info(
         'reader-super-resolution',
         'nnrt_probe',
-        `accelerator=${acceleratorAvailable} modelReady=${modelPath !== null} filesDir=${context.filesDir}`,
+        `model=${model} accelerator=${acceleratorAvailable} modelReady=${modelPath !== null}`,
       )
       if (!acceleratorAvailable) {
         return null

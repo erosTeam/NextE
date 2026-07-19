@@ -32,6 +32,7 @@ interface NativeSuperResolutionModule {
 
   prepareMindSporeModel(
     modelPath: string,
+    modelKind: number,
   ): Promise<NativeSuperResolutionPrepareResult>
 
   upscaleMindSporeRgba(
@@ -40,6 +41,7 @@ interface NativeSuperResolutionModule {
     height: number,
     stride: number,
     modelPath: string,
+    modelKind: number,
     requestId: number,
   ): Promise<NativeSuperResolutionResult>
 
@@ -191,9 +193,10 @@ export class ReaderNativeSuperResolution {
 
   static async prepareMindSporeModel(
     modelPath: string,
+    modelKind: number,
   ): Promise<ReaderNativeSuperResolutionPrepareResult> {
     const native: NativeSuperResolutionPrepareResult =
-      await nativeRuntime.prepareMindSporeModel(modelPath)
+      await nativeRuntime.prepareMindSporeModel(modelPath, modelKind)
     const result: ReaderNativeSuperResolutionPrepareResult =
       new ReaderNativeSuperResolutionPrepareResult()
     result.backend = native.backend
@@ -207,6 +210,7 @@ export class ReaderNativeSuperResolution {
     height: number,
     stride: number,
     modelPath: string,
+    modelKind: number,
     requestId: number,
   ): Promise<ReaderNativeSuperResolutionResult> {
     const native: NativeSuperResolutionResult = await nativeRuntime.upscaleMindSporeRgba(
@@ -215,6 +219,7 @@ export class ReaderNativeSuperResolution {
       height,
       stride,
       modelPath,
+      modelKind,
       requestId,
     )
     const result: ReaderNativeSuperResolutionResult = new ReaderNativeSuperResolutionResult()

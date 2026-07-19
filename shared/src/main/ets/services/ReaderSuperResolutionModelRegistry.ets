@@ -154,6 +154,33 @@ function waifu2xDefinition(
   return definition
 }
 
+function waifu2xPhotoDefinition(): ReaderSuperResolutionModelDefinition {
+  const definition: ReaderSuperResolutionModelDefinition = waifu2xDefinition(
+    ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+    'waifu2x-photo-noise0-2x-ncnn-v1',
+    'waifu2x-photo-noise0-2x',
+    'models/models-upconv_7_photo',
+    1047,
+    1106248,
+    '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
+    'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673',
+    7,
+    'settings_reader_super_resolution_scope_scans_photos',
+    3000,
+  )
+  definition.acceleratedModelFileName = 'waifu2x-photo-noise0-x2-156-fp16.ms'
+  definition.acceleratedModelBytes = 1110528
+  definition.acceleratedModelSha256 =
+    'f39e877d84c3555e2150f63098fe0e21c6d426c7e054a5a32f2371d5e5f8e2c9'
+  definition.acceleratedModelUrls = [
+    'https://github.com/erosTeam/NextE-Models/releases/download/' +
+      'waifu2x-photo-noise0-x2-nnrt-v4/waifu2x-photo-noise0-x2-156-fp16.ms',
+  ]
+  definition.initialDownloadBytes = 2217823
+  definition.pipelineVersion += '|nnrt-fp16-v1'
+  return definition
+}
+
 function realCuganDefinition(): ReaderSuperResolutionModelDefinition {
   const definition: ReaderSuperResolutionModelDefinition =
     new ReaderSuperResolutionModelDefinition()
@@ -258,19 +285,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
 
 const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
   espcnDefinition(),
-  waifu2xDefinition(
-    ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
-    'waifu2x-photo-noise0-2x-ncnn-v1',
-    'waifu2x-photo-noise0-2x',
-    'models/models-upconv_7_photo',
-    1047,
-    1106248,
-    '413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6',
-    'fbfc8d57e4333748c9c6db2ec4d5454c98cd1c6aa53289f2989c3bdb4e84b673',
-    7,
-    'settings_reader_super_resolution_scope_scans_photos',
-    6605,
-  ),
+  waifu2xPhotoDefinition(),
   waifu2xDefinition(
     ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X,
     'waifu2x-art-noise0-2x-ncnn-v1',

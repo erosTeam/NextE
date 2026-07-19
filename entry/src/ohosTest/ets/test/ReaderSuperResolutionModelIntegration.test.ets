@@ -8,6 +8,7 @@ import {
   connectReadMode,
   EhHttpClient,
   ReaderMindSporeSuperResolution,
+  ReaderMindSporeSuperResolutionResult,
   ReaderNativeBackendPreference,
   ReaderNativeModelKind,
   ReaderNativeSuperResolution,
@@ -16,6 +17,7 @@ import {
   ReaderNativeSuperResolutionResult,
   ReaderSuperResolutionBackend,
   ReaderSuperResolutionModel,
+  ReaderSuperResolutionModelPaths,
   ReaderSuperResolutionModelService,
   ReaderSuperResolutionResult,
   ReaderSuperResolutionService,
@@ -184,6 +186,12 @@ function externalMindSporeTarget(): string {
   return parameters['-s superResolutionMindSporeTarget'] ?? 'nnrt'
 }
 
+function externalMindSporeNativePipelineEnabled(): boolean {
+  const parameters: Record<string, string> =
+    abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s superResolutionMindSporeNativePipeline'] === 'true'
+}
+
 function forceAcceleratedModelRedownload(): boolean {
   const parameters: Record<string, string> =
     abilityDelegatorRegistry.getArguments().parameters
@@ -226,6 +234,32 @@ function verifyRawOutputHasSignal(buffer: ArrayBuffer): void {
     'ReaderSuperResolutionExternalBenchmark outputSignal=' + minimum + '..' + maximum,
   )
   expect(maximum - minimum).assertLarger(16)
+}
+
+function compareRgbaOutputs(reference: ArrayBuffer, candidate: ArrayBuffer): number {
+  expect(candidate.byteLength).assertEqual(reference.byteLength)
+  const referencePixels: Uint8Array = new Uint8Array(reference)
+  const candidatePixels: Uint8Array = new Uint8Array(candidate)
+  let absoluteError: number = 0
+  let maximumError: number = 0
+  let samples: number = 0
+  for (let index: number = 0; index + 2 < referencePixels.length; index += 4) {
+    for (let channel: number = 0; channel < 3; channel++) {
+      const error: number = Math.abs(
+        referencePixels[index + channel] - candidatePixels[index + channel],
+      )
+      absoluteError += error
+      maximumError = Math.max(maximumError, error)
+      samples += 1
+    }
+  }
+  const meanAbsoluteError: number = samples === 0 ? 0 : absoluteError / samples
+  console.info(
+    'ReaderSuperResolutionMindSporeComparison meanAbsoluteError=' + meanAbsoluteError +
+      ' maximumError=' + maximumError +
+      ' samples=' + samples,
+  )
+  return meanAbsoluteError
 }
 
 async function appContext(): Promise<common.UIAbilityContext> {
@@ -449,6 +483,15 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
       await ReaderSuperResolutionModelService.installWaifu2x(context)
       expect(await ReaderSuperResolutionModelService.isWaifu2xInstalled(context))
         .assertEqual(true)
+      const acceleratedPath: string | null =
+        ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
+          context,
+          ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X,
+        )
+      expect(acceleratedPath !== null).assertEqual(true)
+      if (acceleratedPath !== null) {
+        expect(fileIo.accessSync(acceleratedPath)).assertEqual(true)
+      }
       done()
     })
 
@@ -894,6 +937,83 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
           ' outputSignal=' + minimum + '..' + maximum,
       )
       expect(maximum > minimum).assertEqual(true)
+      done()
+    })
+
+    it('comparesExternalMindSporeWithWaifu2xVulkan', 0, async (done: Function) => {
+      if (!integrationEnabled() || !externalMindSporeNativePipelineEnabled()) {
+        done()
+        return
+      }
+      const context: common.UIAbilityContext = await appContext()
+      const mindSporeModelPath: string = await prepareExternalMindSporeModel(context)
+      if (mindSporeModelPath.length === 0) {
+        done()
+        return
+      }
+      await ReaderSuperResolutionModelService.installWaifu2x(context)
+      const modelPaths: ReaderSuperResolutionModelPaths | null =
+        await ReaderSuperResolutionModelService.waifu2xPathsIfReady(context)
+      expect(modelPaths !== null).assertEqual(true)
+      if (modelPaths === null) {
+        done()
+        return
+      }
+      const config: ReaderNativeSuperResolutionConfig =
+        new ReaderNativeSuperResolutionConfig()
+      config.modelKind = ReaderNativeModelKind.WAIFU2X
+      config.backendPreference = ReaderNativeBackendPreference.VULKAN
+      config.tileSize = 142
+      config.prepadding = 7
+      config.threads = 2
+      config.inputName = 'Input1'
+      config.outputName = 'Eltwise4'
+      const input: ArrayBuffer = benchmarkPixels(
+        BENCHMARK_INPUT_WIDTH,
+        BENCHMARK_INPUT_HEIGHT,
+      )
+      const ncnnStartedAt: number = Date.now()
+      const ncnnResult: ReaderNativeSuperResolutionResult =
+        await ReaderNativeSuperResolution.upscaleRgba(
+          input,
+          BENCHMARK_INPUT_WIDTH,
+          BENCHMARK_INPUT_HEIGHT,
+          BENCHMARK_INPUT_WIDTH * 4,
+          modelPaths.paramPath,
+          modelPaths.modelPath,
+          config,
+          900002,
+        )
+      const ncnnElapsedMs: number = Date.now() - ncnnStartedAt
+      const nnrtStartedAt: number = Date.now()
+      const nnrtResult: ReaderMindSporeSuperResolutionResult =
+        await ReaderMindSporeSuperResolution.upscaleRgba(
+          input,
+          BENCHMARK_INPUT_WIDTH,
+          BENCHMARK_INPUT_HEIGHT,
+          BENCHMARK_INPUT_WIDTH * 4,
+          mindSporeModelPath,
+          ReaderNativeModelKind.WAIFU2X,
+          900003,
+        )
+      const nnrtElapsedMs: number = Date.now() - nnrtStartedAt
+      const meanAbsoluteError: number = compareRgbaOutputs(
+        ncnnResult.pixels,
+        nnrtResult.pixels,
+      )
+      console.info(
+        'ReaderSuperResolutionMindSporeComparison source=' +
+          BENCHMARK_INPUT_WIDTH + 'x' + BENCHMARK_INPUT_HEIGHT +
+          ' ncnnElapsedMs=' + ncnnElapsedMs +
+          ' ncnnInferenceMs=' + ncnnResult.inferenceMs +
+          ' nnrtElapsedMs=' + nnrtElapsedMs +
+          ' nnrtInferenceMs=' + nnrtResult.inferenceMs +
+          ' nnrtTiles=' + nnrtResult.tileCount,
+      )
+      expect(ncnnResult.backend).assertEqual(ReaderSuperResolutionBackend.VULKAN)
+      expect(nnrtResult.backend).assertEqual('nnrt')
+      expect(meanAbsoluteError < 3).assertEqual(true)
+      verifyRawOutputHasSignal(nnrtResult.pixels)
       done()
     })
 

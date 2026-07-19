@@ -173,6 +173,7 @@ export {
 } from './services/ReaderSuperResolutionModelRegistry'
 export {
   ReaderMindSporeSuperResolution,
+  ReaderMindSporeSuperResolutionResult,
 } from './services/ReaderMindSporeSuperResolution'
 export {
   ReaderNativeBackendPreference,

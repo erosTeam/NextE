@@ -162,10 +162,12 @@ export class ReaderSuperResolutionModelService {
       ReaderSuperResolutionInstallStrategy.REAL_ESRGAN_X2PLUS_COMPAT) {
       return ReaderSuperResolutionModelService.realEsrganPathsIfReady(context)
     }
-    if (!await ReaderSuperResolutionModelService.isInstalled(context, model)) {
+    const paths: ReaderSuperResolutionModelPaths =
+      ReaderSuperResolutionModelService.paths(context, definition)
+    if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
       return null
     }
-    return ReaderSuperResolutionModelService.paths(context, definition)
+    return paths
   }
 
   static async install(context: common.UIAbilityContext, model: string): Promise<void> {
@@ -225,6 +227,8 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(paths.acceleratedModelPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
     if (definition.installStrategy === ReaderSuperResolutionInstallStrategy.ESPCN_ONNX_ZIP) {
       ReaderSuperResolutionModelService.cleanupEspcnTemporaryFiles(context, definition)
     }
@@ -295,12 +299,28 @@ export class ReaderSuperResolutionModelService {
   }
 
   static realEsrganNnrtPathIfReady(context: common.UIAbilityContext): string | null {
+    return ReaderSuperResolutionModelService.acceleratedModelPathIfReady(
+      context,
+      ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS,
+    )
+  }
+
+  static acceleratedModelPathIfReady(
+    context: common.UIAbilityContext,
+    model: string,
+  ): string | null {
     const definition: ReaderSuperResolutionModelDefinition | null =
-      ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
+      ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
       return null
     }
-    const path: string = ReaderSuperResolutionModelService.realEsrganPaths(context).acceleratedModelPath
+    const path: string = ReaderSuperResolutionModelService.paths(
+      context,
+      definition,
+    ).acceleratedModelPath
+    if (path.length === 0) {
+      return null
+    }
     return ReaderSuperResolutionModelService.validateFile(
       path,
       definition.acceleratedModelBytes,
@@ -370,6 +390,8 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.paramPath}.part`)
     ReaderSuperResolutionModelService.removeIfExists(`${paths.modelPath}.part`)
+    ReaderSuperResolutionModelService.removeIfExists(paths.acceleratedModelPath)
+    ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
   }
 
   static removeRealEsrgan(context: common.UIAbilityContext): void {
@@ -695,40 +717,44 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(modelPart)
     DiagnosticLogger.info('reader-super-resolution', 'model_download_start', 'model=waifu2x_photo_noise0_2x')
     try {
-      await ReaderSuperResolutionModelService.downloadAsset(
-        definition.paramUrls,
-        paramPart,
-      )
-      if (!ReaderSuperResolutionModelService.validateFile(
-        paramPart,
-        WAIFU2X_PARAM_BYTES,
-        WAIFU2X_PARAM_SHA256,
-      )) {
-        throw new Error('waifu2x param checksum mismatch')
+      if (!ReaderSuperResolutionModelService.runtimePairInstalled(paths, definition)) {
+        await ReaderSuperResolutionModelService.downloadAsset(
+          definition.paramUrls,
+          paramPart,
+        )
+        if (!ReaderSuperResolutionModelService.validateFile(
+          paramPart,
+          WAIFU2X_PARAM_BYTES,
+          WAIFU2X_PARAM_SHA256,
+        )) {
+          throw new Error('waifu2x param checksum mismatch')
+        }
+        await ReaderSuperResolutionModelService.downloadAsset(
+          definition.modelUrls,
+          modelPart,
+        )
+        if (!ReaderSuperResolutionModelService.validateFile(
+          modelPart,
+          WAIFU2X_MODEL_BYTES,
+          WAIFU2X_MODEL_SHA256,
+        )) {
+          throw new Error('waifu2x model checksum mismatch')
+        }
+        ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
+        ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
+        fileIo.renameSync(paramPart, paths.paramPath)
+        fileIo.renameSync(modelPart, paths.modelPath)
       }
-      await ReaderSuperResolutionModelService.downloadAsset(
-        definition.modelUrls,
-        modelPart,
-      )
-      if (!ReaderSuperResolutionModelService.validateFile(
-        modelPart,
-        WAIFU2X_MODEL_BYTES,
-        WAIFU2X_MODEL_SHA256,
-      )) {
-        throw new Error('waifu2x model checksum mismatch')
-      }
-      ReaderSuperResolutionModelService.removeIfExists(paths.paramPath)
-      ReaderSuperResolutionModelService.removeIfExists(paths.modelPath)
-      fileIo.renameSync(paramPart, paths.paramPath)
-      fileIo.renameSync(modelPart, paths.modelPath)
+      await ReaderSuperResolutionModelService.installAcceleratedAsset(paths, definition)
       DiagnosticLogger.info(
         'reader-super-resolution',
         'model_download_success',
-        `model=waifu2x_photo_noise0_2x bytes=${WAIFU2X_PARAM_BYTES + WAIFU2X_MODEL_BYTES}`,
+        `model=waifu2x_photo_noise0_2x bytes=${definition.bytes()}`,
       )
     } catch (error) {
       ReaderSuperResolutionModelService.removeIfExists(paramPart)
       ReaderSuperResolutionModelService.removeIfExists(modelPart)
+      ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
       DiagnosticLogger.warn(
         'reader-super-resolution',
         'model_download_failed',

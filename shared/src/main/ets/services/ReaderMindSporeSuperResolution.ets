@@ -27,7 +27,7 @@ class ReaderMindSporeAccelerator {
 }
 
 /**
- * Fixed-shape Real-ESRGAN x2plus runner for HarmonyOS NNRT accelerators.
+ * Fixed-shape model runner for HarmonyOS NNRT accelerators.
  *
  * Model loading, tile prediction, preprocessing, and stitching run in one native background task. This keeps the
  * ArkTS event loop responsive while preserving per-request cancellation and interaction-pause checks.
@@ -42,8 +42,12 @@ export class ReaderMindSporeSuperResolution {
 
   static async prepareModel(
     modelPath: string,
+    modelKind: number,
   ): Promise<ReaderMindSporeSuperResolutionPrepareResult> {
-    const native = await ReaderNativeSuperResolution.prepareMindSporeModel(modelPath)
+    const native = await ReaderNativeSuperResolution.prepareMindSporeModel(
+      modelPath,
+      modelKind,
+    )
     const result: ReaderMindSporeSuperResolutionPrepareResult =
       new ReaderMindSporeSuperResolutionPrepareResult()
     result.backend = native.backend
@@ -57,6 +61,7 @@ export class ReaderMindSporeSuperResolution {
     height: number,
     stride: number,
     modelPath: string,
+    modelKind: number,
     requestId: number,
   ): Promise<ReaderMindSporeSuperResolutionResult> {
     if (width <= 0 || height <= 0 || stride < width * 4 ||
@@ -69,6 +74,7 @@ export class ReaderMindSporeSuperResolution {
       height,
       stride,
       modelPath,
+      modelKind,
       requestId,
     )
     const result: ReaderMindSporeSuperResolutionResult =
