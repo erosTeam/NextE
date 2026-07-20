@@ -3,6 +3,7 @@ import { taskpool, util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
+import { connectSyncSettings } from '../state/SyncSettingsState'
 import {
   SYNC_APP_ID,
   SYNC_FILE_NAME,
@@ -400,6 +401,7 @@ export class WebDavSyncService {
     }
     const run: Promise<void> = WebDavSyncService.runTracked(runKey, context, config, deviceId)
     WebDavSyncService.activeRuns.set(runKey, run)
+    WebDavSyncService.publishActiveRunState()
     return run
   }
 
@@ -413,7 +415,12 @@ export class WebDavSyncService {
       await WebDavSyncService.syncOnce(context, config, deviceId)
     } finally {
       WebDavSyncService.activeRuns.delete(runKey)
+      WebDavSyncService.publishActiveRunState()
     }
+  }
+
+  private static publishActiveRunState(): void {
+    connectSyncSettings().webdavSyncing = WebDavSyncService.activeRuns.size > 0
   }
 
   private static async syncOnce(
@@ -422,6 +429,7 @@ export class WebDavSyncService {
     deviceId: string,
   ): Promise<void> {
     const rootUrl: string = WebDavSyncService.syncRootUrl(config.directoryUrl)
+    await WebDavSyncService.probeTransport(rootUrl, config)
 
     for (let attempt: number = 0; attempt < MAX_MANIFEST_SYNC_ATTEMPTS; attempt++) {
       const manifestStartedAt: number = Date.now()
@@ -581,6 +589,31 @@ export class WebDavSyncService {
 
   private static async readRemoteOptional(url: string, config: WebDavSyncConfig): Promise<string> {
     return WebDavSyncService.readRemote(url, config)
+  }
+
+  private static async probeTransport(rootUrl: string, config: WebDavSyncConfig): Promise<void> {
+    const startedAt: number = Date.now()
+    DiagnosticLogger.info('sync', 'webdav_options_probe_start', 'provider=webdav')
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      rootUrl,
+      'OPTIONS',
+      WebDavSyncService.headers(config),
+      '',
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    const code: number = resp.statusCode
+    DiagnosticLogger.info(
+      'sync',
+      'webdav_options_probe_done',
+      `status=${code},durationMs=${Date.now() - startedAt}`,
+    )
+    if (code === 401 || code === 403) {
+      throw new Error(`WebDAV authentication failed: HTTP ${code}`)
+    }
+    if (code >= 500) {
+      throw new Error(`WebDAV OPTIONS failed: HTTP ${code}`)
+    }
   }
 
   private static async ensureCollections(

@@ -177,6 +177,9 @@ selected table subset to the same sync mode. History has no separate provider pa
 or correction loop. Disabling Huawei Cloud disables native automatic sync and stops scheduled provider runs.
 Backup restore pauses both the app scheduler and native automatic sync before durable rows are replaced,
 then restores both from the current provider and dataset selection after the transaction.
+The UI running state is the union of explicit app sync and native `autoSyncProgress`: `SYNC_BEGIN` and
+`SYNC_IN_PROGRESS` mark native activity, while `SYNC_FINISH` clears only the native side. This prevents one
+lane from hiding another lane that is still active.
 
 No dataset may add a cloud-first snapshot, shadow table, second dirty-state tracker, or app-managed repair
 loop to override HarmonyOS cloud ownership. No image-block first-upload exception remains.
@@ -244,12 +247,17 @@ shards created before the optional `columnMode` field do not remain permanent fa
 
 Manual and scheduled WebDAV entry points share one process-wide single-flight keyed by normalized sync
 root plus username. A second request for the same account/root joins the active promise instead of starting
-another manifest/shard lane. Directory setup accepts WebDAV `405 Method Not Allowed` as the normal
+another manifest/shard lane. The active-run collection publishes one transient `webdavSyncing` state to
+both the sync overview and WebDAV detail page; pages do not own a separate manual-only running flag.
+Directory setup accepts WebDAV `405 Method Not Allowed` as the normal
 "collection already exists" result and does not retry it. Normal runs GET `manifest.json` before directory
 setup: an existing manifest proves the root layout exists, so the provider skips repeated root and dataset
 `MKCOL` requests. A missing manifest initializes the full selected layout, while an existing manifest only
 creates a newly enabled dataset directory that is not yet represented in the manifest. Bootstrap diagnostics
 record the manifest fetch and any required `MKCOL` separately so a transport timeout identifies its stage.
+Before the manifest GET, one authenticated, read-only `OPTIONS` request warms and verifies the WebDAV
+transport without mutating the remote layout. This replaces the accidental connection warm-up previously
+provided by repeated `MKCOL` calls and records its own status and duration in diagnostics.
 
 When the WebDAV server returns an `ETag` for `manifest.json`, the provider replaces that manifest with
 `If-Match`; a first manifest uses `If-None-Match: *`. A `409`/`412` precondition conflict re-reads,

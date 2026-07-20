@@ -131,6 +131,8 @@ ok('sync service normalizes remote JSON records before RDB apply',
 const webdav = read('shared/src/main/ets/sync/WebDavSyncService.ets')
 const webdavScheduler = read('shared/src/main/ets/sync/WebDavSyncScheduler.ets')
 const syncScheduler = read('shared/src/main/ets/sync/SyncScheduler.ets')
+const webdavSettingsPage = read('feature/settings/src/main/ets/pages/WebDavSyncSettingsPage.ets')
+const syncSettingsPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
 ok('WebDAV provider uses manifest plus hashed dataset shards',
     /SYNC_WEBDAV_MANIFEST_FILE/.test(webdav) &&
     /SYNC_WEBDAV_ROOT_DIR/.test(webdav) &&
@@ -155,6 +157,12 @@ ok('WebDAV provider coalesces manual and scheduled runs for the same account and
     /syncRunKey\(config\)/.test(webdav) &&
     /webdav_sync_joined/.test(webdav) &&
     /activeRuns\.delete\(runKey\)/.test(webdav))
+ok('WebDAV provider publishes active runs to every settings surface',
+  /connectSyncSettings\(\)\.webdavSyncing = WebDavSyncService\.activeRuns\.size > 0/.test(webdav) &&
+    /@Trace webdavSyncing: boolean = false/.test(read('shared/src/main/ets/state/SyncSettingsState.ets')) &&
+    /this\.settings\.webdavSyncing/.test(webdavSettingsPage) &&
+    /this\.settings\.webdavSyncing/.test(syncSettingsPage) &&
+    !/@Local private syncing: boolean/.test(webdavSettingsPage))
 ok('WebDAV provider uses manifest hashes to skip unchanged shard downloads',
   /localShardMatchesManifest/.test(webdav) &&
     /webdav_shard_download_skipped/.test(webdav) &&
@@ -168,7 +176,10 @@ ok('WebDAV provider reads the legacy single-file path only when the manifest is 
   /const legacyRaw: string = manifestRemote\.exists \? '' :/.test(webdav) &&
     /legacyFileUrl/.test(webdav))
 ok('WebDAV provider reads the manifest before directory setup and skips known collections',
-  /webdav_manifest_fetch_start/.test(webdav) &&
+  /probeTransport\(rootUrl, config\)[\s\S]*?webdav_manifest_fetch_start/.test(webdav) &&
+    /webdav_options_probe_start/.test(webdav) &&
+    /'OPTIONS'/.test(webdav) &&
+    /webdav_manifest_fetch_start/.test(webdav) &&
     /readRemoteFile\(rootUrl \+ SYNC_WEBDAV_MANIFEST_FILE, config\)[\s\S]*?ensureCollections\([\s\S]*?manifestRemote\.exists \? manifest : null/.test(webdav) &&
     /manifest !== null && WebDavSyncService\.findManifestDataset\(manifest, DATASET_IDS\[i\]\) !== null[\s\S]*?continue/.test(webdav) &&
     /webdav_mkcol_start/.test(webdav) &&

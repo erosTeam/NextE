@@ -100,6 +100,12 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
     /relationalStore\.DistributedType\.DISTRIBUTED_CLOUD/.test(service) &&
     /relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /cloudSync/.test(service))
+ok('Huawei cloud publishes both explicit and native automatic sync activity',
+  /explicitSyncing: boolean = false/.test(service) &&
+    /automaticSyncing: boolean = false/.test(service) &&
+    /HuaweiCloudSyncService\.explicitSyncing \|\| HuaweiCloudSyncService\.automaticSyncing/.test(service) &&
+    /progress\.schedule !== relationalStore\.Progress\.SYNC_FINISH/.test(service) &&
+    /publishSyncingState/.test(service))
 ok('Huawei cloud enables system auto sync uniformly for selected tables and disables deselected tables',
   /const configured: boolean = await HuaweiCloudSyncService\.configureAutomaticSync\([\s\S]*if \(!configured\)[\s\S]*if \(tables\.includes\(IMAGE_BLOCK_USER_RULES_TABLE\)\)[\s\S]*await SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(service) &&
     /const disabledConfig: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(service) &&

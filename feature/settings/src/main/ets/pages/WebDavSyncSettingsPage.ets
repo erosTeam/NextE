@@ -25,7 +25,6 @@ export struct WebDavSyncSettingsPage {
   @Local private webdavUrlDraft: string = '';
   @Local private webdavUsernameDraft: string = '';
   @Local private webdavPasswordDraft: string = '';
-  @Local private syncing: boolean = false;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -67,15 +66,16 @@ export struct WebDavSyncSettingsPage {
   }
 
   private canSync(): boolean {
-    return !this.syncing && this.settings.webdavEnabled && this.webdavUrlDraft.trim().length > 0
+    return !this.settings.webdavSyncing && this.settings.webdavEnabled &&
+      this.webdavUrlDraft.trim().length > 0
   }
 
   private statusText(): ResourceStr {
+    if (this.settings.webdavSyncing) {
+      return $r('app.string.sync_status_running')
+    }
     if (!this.settings.webdavEnabled) {
       return $r('app.string.sync_provider_disabled')
-    }
-    if (this.syncing) {
-      return $r('app.string.sync_status_running')
     }
     if (this.webdavUrlDraft.trim().length <= 0) {
       return $r('app.string.sync_webdav_url_required')
@@ -112,7 +112,6 @@ export struct WebDavSyncSettingsPage {
       }
       return
     }
-    this.syncing = true
     SyncSettings.flushWebDavConfig(this.ctx(), this.snapshot())
     const config = new WebDavSyncConfig()
     config.directoryUrl = this.webdavUrlDraft.trim()
@@ -130,9 +129,6 @@ export struct WebDavSyncSettingsPage {
         SyncSettings.markRun(this.ctx(), SYNC_STATUS_FAILED, error.message)
         DiagnosticLogger.warn('sync', 'manual_webdav_sync_failed', error.message)
         this.toast(`${AppStrings.get('sync_now_failed')}: ${error.message}`)
-      })
-      .finally(() => {
-        this.syncing = false
       })
   }
 
@@ -229,7 +225,7 @@ export struct WebDavSyncSettingsPage {
               },
             })
             this.rowDivider()
-            if (this.syncing) {
+            if (this.settings.webdavSyncing) {
               ConciseListRow({
                 title: $r('app.string.sync_webdav_now'),
                 subtitle: this.statusText(),

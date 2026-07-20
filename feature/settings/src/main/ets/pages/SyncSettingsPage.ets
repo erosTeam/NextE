@@ -88,6 +88,9 @@ export struct SyncSettingsPage {
   }
 
   private webdavStatusText(): ResourceStr {
+    if (this.settings.webdavSyncing) {
+      return $r('app.string.sync_status_running')
+    }
     if (!this.settings.webdavEnabled) {
       return $r('app.string.sync_provider_disabled')
     }

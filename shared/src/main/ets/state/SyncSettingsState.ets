@@ -11,6 +11,7 @@ export class SyncSettingsState {
   @Trace webdavUsername: string = ''
   @Trace webdavPassword: string = ''
   @Trace webdavEnabled: boolean = false
+  @Trace webdavSyncing: boolean = false
   @Trace datasetReadProgress: boolean = true
   @Trace datasetViewedHistory: boolean = true
   @Trace datasetLocalFavorites: boolean = true

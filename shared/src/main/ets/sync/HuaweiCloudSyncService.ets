@@ -26,6 +26,8 @@ export class HuaweiCloudSyncService {
   private static cloudListenerStore: relationalStore.RdbStore | null = null
   private static automaticSyncSuppressionDepth: number = 0
   private static lastRunDetail: string = ''
+  private static explicitSyncing: boolean = false
+  private static automaticSyncing: boolean = false
 
   static available(): boolean {
     return HUAWEI_CLOUD_SYNC_BUILD_ENABLED
@@ -142,7 +144,8 @@ export class HuaweiCloudSyncService {
     }
     HuaweiCloudSyncService.lastRunDetail = ''
     const state = connectSyncSettings()
-    state.huaweiCloudSyncing = true
+    HuaweiCloudSyncService.explicitSyncing = true
+    HuaweiCloudSyncService.publishSyncingState()
     state.huaweiCloudLastCloudDisabled = false
     state.huaweiCloudLastDetail = ''
     try {
@@ -221,8 +224,14 @@ export class HuaweiCloudSyncService {
       DiagnosticLogger.warn('sync', 'huawei_cloud_sync_failed', HuaweiCloudSyncService.lastRunDetail)
       return false
     } finally {
-      state.huaweiCloudSyncing = false
+      HuaweiCloudSyncService.explicitSyncing = false
+      HuaweiCloudSyncService.publishSyncingState()
     }
+  }
+
+  private static publishSyncingState(): void {
+    connectSyncSettings().huaweiCloudSyncing =
+      HuaweiCloudSyncService.explicitSyncing || HuaweiCloudSyncService.automaticSyncing
   }
 
   static async runScheduledSync(context: common.UIAbilityContext, reason: string): Promise<boolean> {
@@ -356,6 +365,9 @@ export class HuaweiCloudSyncService {
       return
     }
     store.on('autoSyncProgress', (progress: relationalStore.ProgressDetails) => {
+      HuaweiCloudSyncService.automaticSyncing =
+        progress.schedule !== relationalStore.Progress.SYNC_FINISH
+      HuaweiCloudSyncService.publishSyncingState()
       DiagnosticLogger.info(
         'sync',
         'huawei_cloud_auto_progress',
