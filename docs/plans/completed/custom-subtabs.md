@@ -1,9 +1,7 @@
 # Custom home sub-tabs (eros_fe-style customizable gallery tabs)
 
-Status: in progress. Make the home (画廊) sub-tab row fully user-customizable — each tab is a saved
-profile (name + search + categories + list type + advanced search + display mode), modeled on eros_fe
-("F1"). Built-in 默认/热门/订阅 become default profiles. Phase 1 (model + persistence + migration)
-done and device-smoke-verified; Phases 2-6 in progress.
+Status: completed. All six implementation phases landed; this file preserves the original phased design and
+evidence, not current product state or a follow-up queue.
 
 Reference implementation: eros_fe `lib/models/custom_profile.dart` (`CustomProfile` 13 fields),
 `custom_tab_config.dart`, `advance_search.dart`, `pages/tab/controller/group/custom_tabbar_controller.dart`

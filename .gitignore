@@ -31,3 +31,6 @@ assets/app-icons/_scratch/
 build-profile.local.json5
 # Legacy migration backup; public config is build-profile.json5.
 build-profile.json5.github
+
+# Local agent incident notes; never commit their contents or per-file index.
+docs/agent-guides/incidents/

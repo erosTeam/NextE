@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# harness-kit VCS gate — runs the same verify orchestrator before each commit.
-# Tries PATH only. Do not fall back to a machine-specific plugin cache path: the
-# project moved from the old Linux desktop to macOS, and stale absolute paths can
-# hide the real harness setup problem.
-if command -v harness-verify >/dev/null 2>&1; then exec harness-verify; fi
-echo "harness-verify not found in PATH." >&2
-echo "Install/activate harness-kit for this shell, or run the gates listed in .harness/config.json manually." >&2
-exit 127

@@ -1,4 +1,7 @@
-# Huawei Cloud Image Block Sync Debug Ledger
+# ARCHIVED: Huawei Cloud Image Block Sync Debug Ledger
+
+> Historical troubleshooting evidence only. The recorded device, schema version and failure state are not current
+> facts. Use `docs/plans/active/sync-design.md` and live AGC/device evidence for new work.
 
 Updated: 2026-07-02
 

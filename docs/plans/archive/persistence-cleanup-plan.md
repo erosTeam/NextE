@@ -1,4 +1,8 @@
-# Persistence Cleanup Plan
+# ARCHIVED: Persistence Cleanup Plan
+
+> The phase ledger is no longer the current next-action source. Current classification lives in
+> `docs/plans/active/persistence-dataset-inventory.md`; sync semantics live in
+> `docs/plans/active/sync-design.md`.
 
 Status: active plan.
 

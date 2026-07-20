@@ -1,5 +1,7 @@
 # eros_fe Parity Gap Audit
 
+Research reference only. It is not a current plan, rule set or authorization source.
+
 Status: planning reference, not an active implementation lane.
 
 Last reviewed: 2026-06-22
@@ -21,7 +23,7 @@ Source inventory:
 - NextE modules: `feature/*`, `shared/src/main/ets/**`.
 - Existing roadmap: `docs/roadmap.md`.
 - Existing post-stabilization lanes:
-  `docs/plans/active/project-current-state-and-next-plan.md#post-stabilization-eros_fe-feature-lanes`.
+  archived `docs/plans/archive/project-current-state-and-next-plan.md` snapshot.
 
 ## Summary
 

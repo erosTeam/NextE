@@ -90,9 +90,10 @@ The cloud schema must include only syncable durable user tables. Cache tables, g
 download queues, diagnostics, cookie jars, API keys, and WebDAV credentials stay local-only. Every synced table
 column is nullable because RDB cloud sync rejects NOT NULL cloud fields.
 
-Active image-block Huawei Cloud debugging evidence is tracked in
-[huawei-cloud-image-block-sync-debug-ledger.md](huawei-cloud-image-block-sync-debug-ledger.md). Read that
-ledger before changing `image_block_user_rules` sync behavior so failed routes are not repeated.
+Historical image-block Huawei Cloud debugging evidence is archived in
+[huawei-cloud-image-block-sync-debug-ledger.md](../archive/huawei-cloud-image-block-sync-debug-ledger.md).
+Treat it as past evidence only; current AGC schema and device behavior must be verified live before changing
+`image_block_user_rules` sync behavior.
 
 Earlier Huawei Cloud schema/data state was not accepted. Verification on 2026-07-01 showed:
 

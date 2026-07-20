@@ -1,5 +1,7 @@
 # EhViewer / JHenTai Feature Research
 
+Research reference only. It is not a current plan, rule set or authorization source.
+
 Status: recovered source-backed research note, not a direct implementation queue.
 
 Use this file as research evidence only. The user's latest explicit request decides what to do next. Before
@@ -8,7 +10,7 @@ implementation, re-open the exact source path and current NextE code.
 ## What Was Missing
 
 The earlier comparison was not preserved as a complete document. It existed only as scattered chat context plus
-some notes inside [Image Block Community Rules](image-block-community-rules.md). This file is the repaired
+some notes inside [Image Block Community Rules](../plans/active/image-block-community-rules.md). This file is the repaired
 research record.
 
 ## Good Candidates

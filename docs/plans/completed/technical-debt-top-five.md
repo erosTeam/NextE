@@ -1,8 +1,10 @@
 # Technical-Debt Top Five
 
-Status: active. This is the fixed scope for the current cleanup pass.
+Status: implementation complete. All five scoped items have fixing commits; item 4 still records a broader
+two-device acceptance gap and is not a current task.
 
-Rule: do not start another debt item until these five are complete or the user reprioritizes them.
+Historical scope rule: while this lane was active, no sixth debt item was to be started. That instruction expired
+when the plan moved to completed.
 
 | # | Priority | Item | Status | Commit / boundary |
 | --- | --- | --- | --- | --- |

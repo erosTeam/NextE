@@ -1,4 +1,7 @@
-# Current Mac/Codex handoff
+# ARCHIVED: Current Mac/Codex handoff (2026-06-21)
+
+> Historical snapshot only. Device targets, branches, worktrees, tools and task state below are stale and must be
+> rediscovered live. Current local rules are in `docs/agent-guides/local-development.md`.
 
 Last updated: 2026-06-21 after local main sync.
 
@@ -120,7 +123,7 @@ There is no default physical-device target. The user or current active plan must
 device, but an unambiguous shorthand such as `237` is sufficient. Resolve shorthand only from the live
 `hdc list targets -v` output, echo the unique full target, and continue without asking the user to repeat
 it. Historical handoffs, lease records, artifacts, and other tasks are not resolution sources. Follow
-[the device lease and selector procedure](../device-lease.md).
+[the device lease and selector procedure](../../device-lease.md).
 
 ## Build profile / secret boundary
 

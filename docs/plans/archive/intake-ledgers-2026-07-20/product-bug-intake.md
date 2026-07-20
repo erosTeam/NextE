@@ -1,4 +1,7 @@
-# Product Bug / Feature Intake
+# ARCHIVED: Product Bug / Feature Intake And Domain Ledgers
+
+> This append-only intake structure was retired on 2026-07-20. It is historical evidence, not a current queue.
+> Current process: `docs/agent-guides/product-work.md`.
 
 Status: index and writing rules.
 
@@ -65,6 +68,6 @@ Operating rule:
 ## Current Entry
 
 - Start from the user's latest explicit request.
-- Use [EhViewer / JHenTai Feature Research](ehviewer-jhentai-feature-comparison.md) only as a source-backed
+- Use [EhViewer / JHenTai Feature Research](../../../research/ehviewer-jhentai-feature-comparison.md) only as a source-backed
   comparison/candidate record; verify current NextE implementation before acting from it.
 - Treat the domain intake files as evidence ledgers, not direct priority queues.

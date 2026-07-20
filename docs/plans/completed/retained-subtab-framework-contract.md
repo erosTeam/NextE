@@ -304,4 +304,5 @@ Gates: retained-tab + selector-reload + harness-verify **17/17** (V1 inventory 0
 
 **Orthogonal note (NOT this task):** Home 订阅 (watched) showed "无法解析此页面" — a watched-source parse error, separate from activation. Flag for later triage.
 
-**Queued for later (do NOT start yet):** `docs/plans/active/gallery-auth-cookie-completeness-404-gate.md`.
+Historical next item at the time was the auth/cookie completeness gate, now recorded in
+`docs/plans/completed/gallery-auth-cookie-completeness-404-gate.md`. This line is not a current queue.

@@ -53,7 +53,8 @@ Verified without printing secret values:
 12. Remediation completed after explicit path-level authorization:
    - quarantined the four exact local secret/package artifacts to `/home/gamer/.nexte-secret-quarantine/20260616-160432/` with redacted `manifest.txt` metadata only.
    - removed app-startup legacy bundled credential injection from `CookieJarSettings.ets` and `SettingsBootstrap.ets`.
-   - added `scripts/test_secret_safety_contract.mjs`, wired into `.harness/config.json`, and listed in `docs/loop.md`.
+   - added `scripts/test_secret_safety_contract.mjs` and wired it into `.harness/config.json`; the old
+     `docs/loop.md` workflow is now archived.
    - rebuilt debug unsigned HAP successfully with `bash dev.sh --build-only` after exporting Harmony command-line-tools PATH.
    - verified new `entry/build/default/outputs/default/entry-default-unsigned.hap` does **not** package `resources/rawfile/legacy bundled credential rawfile`.
 
@@ -75,7 +76,9 @@ Resolved freeze rules (historical):
 
 - Do not push, publish, upload, or send any old pre-remediation HAP from this workspace.
 - Do not run release packaging from this workspace without `secret-safety` + package-content verification.
-- Do not let Claude continue feature work unless it reads this incident and `docs/plans/active/gallery-visual-navigation-regression-contract.md`.
+- Historical containment at the time required reading this incident and the gallery regression record. That
+  task-specific reading rule is retired; the durable credential boundary now lives in `AGENTS.md`, the EH guide,
+  and `scripts/test_secret_safety_contract.mjs`.
 - Do not print cookie values, account password, raw `.env.local`, raw `legacy bundled credential rawfile`, or raw HAP contents.
 - Do not delete ignored/untracked secret files without explicit path-level authorization from the user; preserve evidence with redaction.
 
@@ -154,7 +157,7 @@ If the HAP or cookie file has ever left the local machine/device boundary, rotat
 
 - 2026-06-16 — Created after user reported hardcoded login info. Verified the raw cookie file is ignored/untracked but packaged locally; verified committed auto-injection code path from initial commit. No secret values printed.
 - 2026-06-16 — User confirmed HAP has not leaked beyond installing on a new device. Ran full local history scan across all refs + reflogs + dangling/unreachable objects. No tracked live session rawfile, no HAP/package artifact, and no secret-bearing EH session rawfile verified in git history. Added result above without printing secret values.
-- 2026-06-16 — Removed the app-startup legacy bundled credential injection code path from `CookieJarSettings.ets` and `SettingsBootstrap.ets`; added `scripts/test_secret_safety_contract.mjs`; wired it into `.harness/config.json` and `docs/loop.md`. Current gate result: source-code injection path is gone, V1 and cookie contracts pass.
+- 2026-06-16 — Removed the app-startup legacy bundled credential injection code path from `CookieJarSettings.ets` and `SettingsBootstrap.ets`; added `scripts/test_secret_safety_contract.mjs`; wired it into `.harness/config.json` and the then-current loop workflow. The loop workflow is archived; the security gate remains.
 - 2026-06-16 16:08:08 +0800 — User authorized quarantine of the four exact local artifacts. Quarantined them to `/home/gamer/.nexte-secret-quarantine/20260616-160432/`; reran `test_secret_safety_contract`, V1 inventory, cookie contract, `bash dev.sh --build-only`, package listing, and `.harness/hooks/pre-commit`. All security/build/harness gates passed; new unsigned HAP does not contain `resources/rawfile/legacy bundled credential rawfile`.
 - 2026-06-16 16:22:17 +0800 — Re-checked the same four exact paths after context handoff. The rawfile source/intermediate paths were absent; two existing HAPs under `entry/build/default/outputs/default/` were quarantined to `/home/gamer/.nexte-secret-quarantine/20260616-162217-+0800/`. Rebuilt with `hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon` → BUILD SUCCESSFUL; new `entry-default-unsigned.hap` package listing shows `NO_CREDENTIAL_RAWFILE`. `node scripts/test_secret_safety_contract.mjs`, V1 inventory, cookie contract, and `.harness/hooks/pre-commit` all pass; harness reports 9 gates including `secret-safety`.
 - 2026-06-16 17:29:49 +0800 — Prepared non-destructive public-safe push path: `public-safe-main` is a one-commit orphan branch (`1d7c283`, no parents) built in `/home/gamer/git/NextE-public-safe-20260616-171841`. It removes the legacy bundled credential injection path, scrubs public docs of legacy bundled credential/account-specific markers, removes the legacy rawfile ignore, and adds a stricter `secret-safety` gate. Verified in the public-safe worktree: `test_secret_safety_contract` PASS, `.harness/hooks/pre-commit` PASS, `bash dev.sh --build-only` BUILD SUCCESSFUL, HAP listing `NO_CREDENTIAL_RAWFILE`. Created `/tmp/nexte-public-safe-main-20260616-172747.bundle`, cloned it to `/tmp/nexte-public-safe-clone-20260616-172747`, and verified standalone history count=1, no forbidden paths, no unsafe markers outside the gate script, no non-allowlisted secret patterns, and harness PASS. Installed a local `.git/hooks/pre-push` fuse that blocks pushing old `main` and permits only `public-safe-main` by default.

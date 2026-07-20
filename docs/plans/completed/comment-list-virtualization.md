@@ -1,6 +1,6 @@
 # Comment list virtualization + per-comment reactive translation
 
-Status: in progress. Fixes auto-translate scroll jank on comment-heavy galleries.
+Status: implementation completed in `e373a649`; retained as historical implementation evidence.
 
 ## Problem (root cause)
 

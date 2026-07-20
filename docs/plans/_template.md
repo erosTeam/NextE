@@ -1,38 +1,32 @@
 # {{TITLE}}
 
-- **{{STATUS_FIELD}}**: active
+- **status**: active
 - **created**: {{DATE}}
+- **last reviewed**: {{DATE}}
 - **source**: {{SOURCE}}
 
-## 背景
+## Goal And Non-Goals
 
-（填写：为什么要做这次改动？解决什么问题？预期结果是什么？）
+- Goal: {{EXPECTED_RESULT}}
+- Non-goals: {{OUT_OF_SCOPE}}
 
-## 目标 / 非目标
+## Current Evidence
 
-- ✅（目标——本计划要交付什么）
-- ❌（非目标——明确不做什么，避免范围蔓延）
+- NextE source/data path: `{{REL_PATH}}`
+- Reference or reproduction: {{EVIDENCE}}
 
-## 影响文件
+## Decisions Requiring User Input
 
-- `{{REL_PATH}}`
+- None, or list the product/data/remote trade-off and stop before implementation.
 
-## 步骤
+## Work And Validation
 
-| # | 动作 | 验证 |
-|---|---|---|
-| 1 | 实现改动 | （定义这一步如何验证） |
-| 2 | 运行验证 | `harness-verify` |
+- [ ] Implement the bounded change.
+- [ ] Run scope-appropriate static/build checks.
+- [ ] Verify the real user/runtime path where applicable.
+- [ ] Record remaining acceptance gaps without overstating completion.
 
-## 进度日志
+## Completion
 
-- `{{TIMESTAMP}}` — 首次编辑 `{{REL_PATH}}` 时自动创建脚手架计划
-
-## 决策日志
-
-## 完成判据
-
-- [ ] 改动按预期工作
-- [ ] `harness-verify` 退出码为 0
-- [ ] 已验证运行时/行为（不只静态阅读）
-- [ ] 本计划已移入 completed/ 目录
+- [ ] The requested result and declared counterstates pass.
+- [ ] Move this file to `completed/`, or to `archive/` if superseded/parked/no longer active.

@@ -59,6 +59,7 @@ jobs:
           node scripts/test_remote_write_retry_contract.mjs
           node scripts/test_persistence_inventory_contract.mjs
           node scripts/test_public_clipboard_build_contract.mjs
+          node scripts/test_local_only_incident_boundary_contract.mjs
 
       - name: Disable Huawei Cloud sync for public CI builds
         shell: bash

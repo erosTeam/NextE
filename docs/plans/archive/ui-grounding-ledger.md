@@ -1,4 +1,7 @@
-# UI Grounding Ledger
+# ARCHIVED: UI Grounding Ledger
+
+> This append-only ledger is retired. Its entries are task-time evidence, not active requirements. Current product
+> work uses `docs/agent-guides/product-work.md` and a bounded task plan when needed.
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
