@@ -14,6 +14,8 @@ const CODEX_MODELS_URL: string =
 const MODEL_CATALOG_CONNECT_TIMEOUT_MS: number = 15000
 const MODEL_CATALOG_READ_TIMEOUT_MS: number = 20000
 const MODEL_CATALOG_MAX_BODY_CHARS: number = 2 * 1024 * 1024
+const MODEL_CATALOG_MAX_ENTRIES: number = 512
+const MODEL_IDENTIFIER_MAX_CHARS: number = 160
 
 class ApiModelEntry {
   id: string = ''
@@ -91,11 +93,13 @@ export class ComicTranslationModelCatalogService {
     if (!Array.isArray(envelope.data)) {
       throw new Error('Model catalog returned no data array')
     }
+    ComicTranslationModelCatalogService.requireBoundedEntries(envelope.data.length)
     const models: string[] = []
     for (let index: number = 0; index < envelope.data.length; index++) {
-      const id: string = typeof envelope.data[index].id === 'string'
-        ? envelope.data[index].id.trim()
-        : ''
+      const item: ApiModelEntry | null = envelope.data[index]
+      const id: string = item === null
+        ? ''
+        : ComicTranslationModelCatalogService.normalizeModelId(item.id)
       if (id.length > 0 && models.indexOf(id) < 0) {
         models.push(id)
       }
@@ -110,10 +114,14 @@ export class ComicTranslationModelCatalogService {
     if (!Array.isArray(envelope.models)) {
       throw new Error('Codex model catalog returned no models array')
     }
+    ComicTranslationModelCatalogService.requireBoundedEntries(envelope.models.length)
     const ranked: RankedModel[] = []
     for (let index: number = 0; index < envelope.models.length; index++) {
-      const item: CodexModelEntry = envelope.models[index]
-      const slug: string = typeof item.slug === 'string' ? item.slug.trim() : ''
+      const item: CodexModelEntry | null = envelope.models[index]
+      if (item === null) {
+        continue
+      }
+      const slug: string = ComicTranslationModelCatalogService.normalizeModelId(item.slug)
       const visibility: string = typeof item.visibility === 'string'
         ? item.visibility.trim().toLowerCase()
         : ''
@@ -230,6 +238,29 @@ export class ComicTranslationModelCatalogService {
     if (rawText.length === 0 || rawText.length > MODEL_CATALOG_MAX_BODY_CHARS) {
       throw new Error('Model catalog response size is invalid')
     }
+  }
+
+  private static requireBoundedEntries(entryCount: number): void {
+    if (entryCount > MODEL_CATALOG_MAX_ENTRIES) {
+      throw new Error('Model catalog entry count is invalid')
+    }
+  }
+
+  private static normalizeModelId(value: string | null | undefined): string {
+    if (typeof value !== 'string') {
+      return ''
+    }
+    const normalized: string = value.trim()
+    if (normalized.length === 0 || normalized.length > MODEL_IDENTIFIER_MAX_CHARS) {
+      return ''
+    }
+    for (let index: number = 0; index < normalized.length; index++) {
+      const code: number = normalized.charCodeAt(index)
+      if (code <= 31 || code === 127) {
+        return ''
+      }
+    }
+    return normalized
   }
 
   private static containsRanked(models: RankedModel[], id: string): boolean {

@@ -676,6 +676,37 @@ export default function comicTranslationProvidersTest(): void {
       done()
     })
 
+    it('bounds model catalog entries and drops invalid identifiers', 0, (done: Function) => {
+      const entries: string[] = []
+      for (let index: number = 0; index < 513; index++) {
+        entries.push('{}')
+      }
+      let countMessage: string = ''
+      try {
+        ComicTranslationModelCatalogService.parseApiModels(
+          '{"data":[' + entries.join(',') + ']}',
+        )
+      } catch (error) {
+        countMessage = (error as Error).message
+      }
+      expect(countMessage).assertEqual('Model catalog entry count is invalid')
+
+      const longId: string = 'm'.repeat(161)
+      const apiModels: string[] = ComicTranslationModelCatalogService.parseApiModels(
+        '{"data":[null,{"id":"valid-api"},{"id":"bad\\nmodel"},{"id":"' + longId + '"}]}',
+      )
+      expect(apiModels.length).assertEqual(1)
+      expect(apiModels[0]).assertEqual('valid-api')
+
+      const codexModels: string[] = ComicTranslationModelCatalogService.parseCodexModels(
+        '{"models":[null,{"slug":"valid-codex","priority":1},' +
+          '{"slug":"bad\\tmodel","priority":0},{"slug":"' + longId + '","priority":0}]}',
+      )
+      expect(codexModels.length).assertEqual(1)
+      expect(codexModels[0]).assertEqual('valid-codex')
+      done()
+    })
+
     it('normalizes the Codex five-hour and weekly usage windows', 0, (done: Function) => {
       const usage = ComicTranslationCodexUsageService.parse(
         '{"plan_type":"pro","rate_limit":{"allowed":true,"limit_reached":false,' +
