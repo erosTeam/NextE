@@ -10,13 +10,19 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
+const GIT_ROOT = ROOT.endsWith('/') ? ROOT.slice(0, -1) : ROOT
 const INCIDENT_DIR = 'docs/agent-guides/incidents/'
 const SELF = 'scripts/test_local_only_incident_boundary_contract.mjs'
 const TRACKED_TEXT = /\.(md|txt|json|json5|ya?ml)$/i
 const INCIDENT_FILE_REFERENCE = /(?:docs\/agent-guides\/)?incidents\/[^\s)"'<>]+\.md/gi
 
-const tracked = execFileSync('git', ['ls-files', '-z'], {
-  cwd: ROOT,
+const tracked = execFileSync('git', [
+  '-c', `safe.directory=${GIT_ROOT}`,
+  '-C', GIT_ROOT,
+  'ls-files',
+  '-z',
+], {
+  cwd: GIT_ROOT,
   encoding: 'utf8',
 }).split('\0').filter(Boolean)
 const errors = []
