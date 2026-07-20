@@ -22,6 +22,7 @@ export class AxiosHttpClient {
     body: string,
     connectTimeoutMs: number,
     readTimeoutMs: number,
+    maxResponseBytes: number = -1,
   ): Promise<AxiosTextResponse> {
     const config: AxiosRequestConfig<string> = {
       url: url,
@@ -31,6 +32,7 @@ export class AxiosHttpClient {
       connectTimeout: connectTimeoutMs,
       readTimeout: readTimeoutMs,
       timeout: readTimeoutMs,
+      maxContentLength: maxResponseBytes,
       validateStatus: AxiosHttpClient.acceptStatus,
     }
     if (body.length > 0) {

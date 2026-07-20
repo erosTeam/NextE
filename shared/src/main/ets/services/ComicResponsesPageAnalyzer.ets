@@ -22,6 +22,7 @@ import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
 
 const COMIC_RESPONSES_PROMPT_VERSION: string = 'comic-page-responses-v2'
 const COMIC_RESPONSES_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
+const COMIC_RESPONSES_MAX_RESPONSE_BYTES: number = 8 * 1024 * 1024
 const COMIC_RESPONSES_CONNECT_TIMEOUT_MS: number = 20000
 const COMIC_RESPONSES_READ_TIMEOUT_MS: number = 120000
 const CODEX_RESPONSES_BASE_URL: string = 'https://chatgpt.com/backend-api/codex'
@@ -129,6 +130,7 @@ export class DefaultComicResponsesHttpTransport implements ComicResponsesHttpTra
       body,
       connectTimeoutMs,
       readTimeoutMs,
+      COMIC_RESPONSES_MAX_RESPONSE_BYTES,
     )
   }
 }

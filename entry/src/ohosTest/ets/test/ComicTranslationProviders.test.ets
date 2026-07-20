@@ -516,6 +516,17 @@ export default function comicTranslationProvidersTest(): void {
       done()
     })
 
+    it('rejects an oversized Responses body before protocol parsing', 0, (done: Function) => {
+      let message: string = ''
+      try {
+        ComicResponsesProtocol.extractAssistantJson('x'.repeat(8 * 1024 * 1024 + 1), false)
+      } catch (error) {
+        message = (error as Error).message
+      }
+      expect(message).assertEqual('Comic provider response size is invalid')
+      done()
+    })
+
     it('classifies provider request errors without retaining response details', 0, (done: Function) => {
       const error: ComicProviderHttpError = new ComicProviderHttpError(
         400,

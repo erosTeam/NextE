@@ -54,6 +54,8 @@
 - [ComicResponsesPageAnalyzer.ets](../shared/src/main/ets/services/ComicResponsesPageAnalyzer.ets) 已提供公开
   Responses API 与实验性 Codex OAuth 两条整页分析路径，并共同输出 `ComicPageDocument`；Codex 路径已
   用原创两页样例取得真实结构与质量证据，也已由 Reader 的显式当前页动作通过 orchestrator 调用。
+  默认 Responses transport 会在 Axios/平台 HTTP 接收阶段把响应限制为 8 MiB，协议解析层保留相同上限；
+  远端异常大响应不会等到完整进入应用内存后才被拒绝，自定义 transport 也仍受协议层二次校验。
 - [ComicTranslationSettingsPage.ets](../feature/settings/src/main/ets/pages/ComicTranslationSettingsPage.ets)
   提供独立 provider 设置。API Key 和 Codex OAuth 凭据不复用评论翻译配置。
 - [ComicTranslationRepository.ets](../shared/src/main/ets/services/ComicTranslationRepository.ets) 与
