@@ -207,6 +207,7 @@ export { ComicResponsesProtocol } from './services/ComicResponsesProtocol'
 export {
   ComicPageAnalyzerFactory,
   ComicProviderHttpError,
+  ComicResponsesRequestBuilder,
   ComicResponsesHttpTransport,
   DefaultComicResponsesHttpTransport,
   ExperimentalCodexComicPageAnalyzer,
@@ -229,6 +230,11 @@ export {
   ComicTranslationCodexUsageService,
   DefaultCodexUsageHttpTransport,
 } from './services/ComicTranslationCodexUsageService'
+export {
+  ComicTranslationLiveEvaluationPageReport,
+  ComicTranslationLiveEvaluationReport,
+  ComicTranslationLiveEvaluationService,
+} from './services/ComicTranslationLiveEvaluationService'
 export {
   ReaderSuperResolutionCapabilities,
   ReaderSuperResolutionResult,

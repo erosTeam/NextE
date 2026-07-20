@@ -38,7 +38,7 @@ export class ComicResponsesProtocol {
     lines.push('Return exactly one JSON object. Do not use Markdown fences or commentary.')
     lines.push('Preserve every visible text block in reading order; do not invent unreadable text.')
     lines.push('When text or order is uncertain, add a qualitySignals entry instead of guessing silently.')
-    lines.push('Use original-image pixel coordinates for polygon, or [] when geometry is uncertain.')
+    lines.push('Set polygon=[] for every block. Geometry is not requested in this text-only phase.')
     lines.push('Use sourceOrigin="vision". Use translationOrigin="vision" when translatedText is present, otherwise "none".')
     lines.push('Allowed kind values: dialogue, narration, sfx, annotation, other.')
     lines.push('Allowed quality severity values: info, warning, error.')

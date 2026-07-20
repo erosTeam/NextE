@@ -4979,6 +4979,42 @@
     {
       "name": "comic_translation_codex_experimental_hint",
       "value": "该通道复刻第三方客户端的设备码流程与 ChatGPT Codex 私有后端，并非公开 Platform API；端点、模型权限和风控均可能变化。OAuth 凭据仅保存在本设备，不进入备份或同步。"
+    },
+    {
+      "name": "comic_translation_live_evaluation_title",
+      "value": "提供方评测"
+    },
+    {
+      "name": "comic_translation_live_evaluation_hint",
+      "value": "2 张原创样例 · 执行前确认"
+    },
+    {
+      "name": "comic_translation_live_evaluation_running",
+      "value": "正在上传原创样例并评测…"
+    },
+    {
+      "name": "comic_translation_live_evaluation_confirm",
+      "value": "将向当前提供方上传 2 张内置原创样例并消耗额度；不包含真实画廊页面，只记录聚合指标。是否继续？"
+    },
+    {
+      "name": "comic_translation_live_evaluation_start",
+      "value": "开始评测"
+    },
+    {
+      "name": "comic_translation_live_evaluation_result",
+      "value": "%s 页有效 · 文本 %s · %s · %s"
+    },
+    {
+      "name": "comic_translation_live_evaluation_failed",
+      "value": "%s · %s 页有效"
+    },
+    {
+      "name": "comic_translation_live_evaluation_passed",
+      "value": "通过"
+    },
+    {
+      "name": "comic_translation_live_evaluation_not_passed",
+      "value": "待复核"
     }
   ]
 }

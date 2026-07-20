@@ -316,7 +316,7 @@ export default function comicTranslationPhase0Test(): void {
         expect(fixtureHash(bytes)).assertEqual(page.sha256)
         expect(page.width).assertEqual(1024)
         expect(page.height).assertEqual(1536)
-        expect(page.blocks.length).assertEqual(5)
+        expect(page.blocks.length).assertEqual(index === 0 ? 5 : 6)
       }
       done()
     })
@@ -359,7 +359,7 @@ export default function comicTranslationPhase0Test(): void {
         ComicTranslationEvaluator.accuracy(document, reference)
       expect(snapshot.missingSourceBlocks).assertEqual(1)
       expect(snapshot.unexpectedSourceBlocks).assertEqual(1)
-      expect(snapshot.transcriptMatchPercent()).assertEqual(80)
+      expect(snapshot.transcriptMatchPercent()).assertEqual(83.33)
       expect(snapshot.passed()).assertEqual(false)
       done()
     })

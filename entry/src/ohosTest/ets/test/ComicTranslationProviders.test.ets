@@ -6,8 +6,11 @@ import {
   ComicGlossaryTerm,
   ComicGlossaryTermStatus,
   ComicImagePreparationProfile,
+  ComicProviderHttpError,
+  ComicResponsesRequestBuilder,
   ComicTranslationCodexUsageService,
   ComicTranslationModelCatalogService,
+  ComicTranslationLiveEvaluationService,
   ComicPageAnalysisRequest,
   ComicPreviousPageContext,
   ComicResponsesProtocol,
@@ -127,6 +130,7 @@ export default function comicTranslationProvidersTest(): void {
       expect(prompt.includes('projectId="provider-fixture:zh-CN"')).assertEqual(true)
       expect(prompt.includes('source="優" target="优" status=locked')).assertEqual(true)
       expect(prompt.includes('translation="我在找哥哥。"')).assertEqual(true)
+      expect(prompt.includes('Set polygon=[] for every block.')).assertEqual(true)
       done()
     })
 
@@ -147,6 +151,59 @@ export default function comicTranslationProvidersTest(): void {
       const terminalEvent: string = JSON.stringify(new FixtureCompletedEvent())
       const stream: string = 'data: ' + doneEvent + '\n\n' + 'data: ' + terminalEvent + '\n\n'
       expect(ComicResponsesProtocol.extractAssistantJson(stream, true)).assertEqual(pageJson)
+      done()
+    })
+
+    it('classifies provider request errors without retaining response details', 0, (done: Function) => {
+      const error: ComicProviderHttpError = new ComicProviderHttpError(
+        400,
+        '{"error":{"message":"Unsupported parameter: max_output_tokens"}}',
+      )
+      expect(error.detailCode).assertEqual('unsupported_max_output_tokens')
+      expect(error.message.includes('max_output_tokens')).assertEqual(false)
+      expect(ComicProviderHttpError.classifyResponse(
+        '{"detail":"Missing required field: tool_choice"}',
+      )).assertEqual('missing_tool_choice')
+      expect(ComicProviderHttpError.classifyResponse('opaque upstream failure')).assertEqual('')
+      done()
+    })
+
+    it('keeps public and Codex Responses request fields separate', 0, (done: Function) => {
+      const codexBody: string = ComicResponsesRequestBuilder.build(
+        'codex-fixture',
+        'Analyze the page.',
+        'data:image/jpeg;base64,fixture',
+        true,
+        true,
+      )
+      expect(codexBody.includes('"max_output_tokens"')).assertEqual(false)
+      expect(codexBody.includes('"tool_choice":"auto"')).assertEqual(true)
+      expect(codexBody.includes('"parallel_tool_calls":false')).assertEqual(true)
+      expect(codexBody.includes('"reasoning":null')).assertEqual(true)
+      expect(codexBody.includes('"include":[]')).assertEqual(true)
+
+      const publicBody: string = ComicResponsesRequestBuilder.build(
+        'api-fixture',
+        'Analyze the page.',
+        'data:image/jpeg;base64,fixture',
+        false,
+        false,
+      )
+      expect(publicBody.includes('"max_output_tokens":8192')).assertEqual(true)
+      expect(publicBody.includes('"tool_choice"')).assertEqual(false)
+      done()
+    })
+
+    it('maps live-evaluation parser failures to fixed diagnostic codes', 0, (done: Function) => {
+      expect(ComicTranslationLiveEvaluationService.classifyError(
+        new Error('Comic analysis image identity mismatch'),
+      )).assertEqual('output_identity_image')
+      expect(ComicTranslationLiveEvaluationService.classifyError(
+        new Error('Comic analysis reading order must be unique'),
+      )).assertEqual('output_reading_order_invalid')
+      expect(ComicTranslationLiveEvaluationService.classifyError(
+        new Error('socket disconnected'),
+      )).assertEqual('provider_transport_failed')
       done()
     })
 

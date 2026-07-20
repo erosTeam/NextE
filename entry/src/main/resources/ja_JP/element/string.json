@@ -4979,6 +4979,42 @@
     {
       "name": "comic_translation_codex_experimental_hint",
       "value": "これは第三者クライアントのデバイスコード方式と非公開 ChatGPT Codex バックエンドを再現するもので、公開 Platform API ではありません。エンドポイント、モデル権限、リスク制御は変更される可能性があります。OAuth 認証情報は端末内だけに保存され、バックアップや同期から除外されます。"
+    },
+    {
+      "name": "comic_translation_live_evaluation_title",
+      "value": "プロバイダー評価"
+    },
+    {
+      "name": "comic_translation_live_evaluation_hint",
+      "value": "オリジナルサンプル 2 ページ · 実行前に確認"
+    },
+    {
+      "name": "comic_translation_live_evaluation_running",
+      "value": "オリジナルサンプルを送信して評価中…"
+    },
+    {
+      "name": "comic_translation_live_evaluation_confirm",
+      "value": "内蔵のオリジナルサンプル 2 ページを現在のプロバイダーへ送信し、利用枠を消費します。実際のギャラリーページは含まず、集計指標のみ記録します。続行しますか？"
+    },
+    {
+      "name": "comic_translation_live_evaluation_start",
+      "value": "評価を開始"
+    },
+    {
+      "name": "comic_translation_live_evaluation_result",
+      "value": "%s ページ有効 · テキスト %s · %s · %s"
+    },
+    {
+      "name": "comic_translation_live_evaluation_failed",
+      "value": "%s · %s ページ有効"
+    },
+    {
+      "name": "comic_translation_live_evaluation_passed",
+      "value": "合格"
+    },
+    {
+      "name": "comic_translation_live_evaluation_not_passed",
+      "value": "要確認"
     }
   ]
 }

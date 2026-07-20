@@ -4979,6 +4979,42 @@
     {
       "name": "comic_translation_codex_experimental_hint",
       "value": "This reproduces a third-party device-code flow and the private ChatGPT Codex backend, not the public Platform API. Endpoints, model access, and risk controls may change. OAuth credentials stay device-local and are excluded from backup and sync."
+    },
+    {
+      "name": "comic_translation_live_evaluation_title",
+      "value": "Provider evaluation"
+    },
+    {
+      "name": "comic_translation_live_evaluation_hint",
+      "value": "2 original sample pages · confirmation required"
+    },
+    {
+      "name": "comic_translation_live_evaluation_running",
+      "value": "Uploading the original samples and evaluating…"
+    },
+    {
+      "name": "comic_translation_live_evaluation_confirm",
+      "value": "This uploads 2 bundled original sample pages to the current provider and consumes quota. No real gallery page is included, and only aggregate metrics are recorded. Continue?"
+    },
+    {
+      "name": "comic_translation_live_evaluation_start",
+      "value": "Start evaluation"
+    },
+    {
+      "name": "comic_translation_live_evaluation_result",
+      "value": "%s pages valid · text %s · %s · %s"
+    },
+    {
+      "name": "comic_translation_live_evaluation_failed",
+      "value": "%s · %s pages valid"
+    },
+    {
+      "name": "comic_translation_live_evaluation_passed",
+      "value": "Passed"
+    },
+    {
+      "name": "comic_translation_live_evaluation_not_passed",
+      "value": "Needs review"
     }
   ]
 }

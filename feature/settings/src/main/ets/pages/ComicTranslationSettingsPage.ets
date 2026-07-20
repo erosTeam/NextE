@@ -10,6 +10,8 @@ import {
   CodexUsageSnapshot,
   CodexUsageWindow,
   ComicTranslationCodexUsageService,
+  ComicTranslationLiveEvaluationReport,
+  ComicTranslationLiveEvaluationService,
   ComicTranslationModelCatalogService,
   ComicTranslationProviderSettings,
   ComicTranslationProviderSettingsSnapshot,
@@ -41,6 +43,8 @@ export struct ComicTranslationSettingsPage {
   @Local private codexLoginBusy: boolean = false;
   @Local private codexUserCode: string = '';
   @Local private codexVerificationUrl: string = '';
+  @Local private liveEvaluationRunning: boolean = false;
+  @Local private liveEvaluationReport: ComicTranslationLiveEvaluationReport | null = null;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -268,6 +272,99 @@ export struct ComicTranslationSettingsPage {
       .replace('%d', `${hours}`)
   }
 
+  private liveEvaluationAvailable(): boolean {
+    if (this.settings.provider === COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH) {
+      return this.settings.codexConnected && this.codexModelDraft.trim().length > 0
+    }
+    return this.apiUrlDraft.trim().length > 0 && this.apiKeyDraft.trim().length > 0 &&
+      this.apiModelDraft.trim().length > 0
+  }
+
+  private liveEvaluationSubtitle(): ResourceStr {
+    if (this.liveEvaluationRunning) {
+      return $r('app.string.comic_translation_live_evaluation_running')
+    }
+    if (this.liveEvaluationReport === null) {
+      return $r('app.string.comic_translation_live_evaluation_hint')
+    }
+    const report: ComicTranslationLiveEvaluationReport = this.liveEvaluationReport
+    const pageText: string = `${report.completedPages()}/2`
+    if (report.errorCode.length > 0) {
+      return AppStrings.get('comic_translation_live_evaluation_failed')
+        .replace('%s', report.errorCode)
+        .replace('%s', pageText)
+    }
+    return AppStrings.get('comic_translation_live_evaluation_result')
+      .replace('%s', pageText)
+      .replace('%s', `${report.matchedBlocks()}/${report.expectedBlocks()}`)
+      .replace('%s', this.liveEvaluationBytes(report.totalImageBytes))
+      .replace('%s', this.liveEvaluationElapsed(report.elapsedMs()))
+  }
+
+  private liveEvaluationTrailingText(): ResourceStr {
+    if (this.liveEvaluationReport === null || this.liveEvaluationRunning) {
+      return ''
+    }
+    return this.liveEvaluationReport.passed()
+      ? $r('app.string.comic_translation_live_evaluation_passed')
+      : $r('app.string.comic_translation_live_evaluation_not_passed')
+  }
+
+  private liveEvaluationBytes(bytes: number): string {
+    if (bytes >= 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
+    return `${Math.max(0, Math.round(bytes / 1024))} KB`
+  }
+
+  private liveEvaluationElapsed(elapsedMs: number): string {
+    if (elapsedMs >= 1000) {
+      return `${(elapsedMs / 1000).toFixed(1)} s`
+    }
+    return `${Math.max(0, elapsedMs)} ms`
+  }
+
+  private confirmLiveEvaluation(): void {
+    if (!this.liveEvaluationAvailable() || this.liveEvaluationRunning) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.comic_translation_live_evaluation_title'),
+      message: $r('app.string.comic_translation_live_evaluation_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.comic_translation_live_evaluation_start'),
+        action: () => {
+          this.runLiveEvaluation()
+        },
+      },
+    })
+  }
+
+  private async runLiveEvaluation(): Promise<void> {
+    if (!this.liveEvaluationAvailable() || this.liveEvaluationRunning) {
+      return
+    }
+    this.liveEvaluationRunning = true
+    try {
+      await ComicTranslationProviderSettings.save(this.ctx(), this.snapshot())
+      const report: ComicTranslationLiveEvaluationReport =
+        await ComicTranslationLiveEvaluationService.run(this.ctx())
+      this.liveEvaluationReport = report
+      this.toast(report.passed()
+        ? $r('app.string.comic_translation_live_evaluation_passed')
+        : $r('app.string.comic_translation_live_evaluation_not_passed'))
+    } catch (error) {
+      DiagnosticLogger.warn('comic-translation', 'live_evaluation_failed', (error as Error).message)
+      this.toast($r('app.string.comic_translation_live_evaluation_not_passed'))
+    } finally {
+      this.liveEvaluationRunning = false
+    }
+  }
+
   private startCodexLogin(): void {
     if (this.codexLoginBusy) {
       return
@@ -437,6 +534,22 @@ export struct ComicTranslationSettingsPage {
       .color(ThemeConstants.BRAND_PRIMARY)
   }
 
+  @Builder
+  private LiveEvaluationRow() {
+    ConciseListRow({
+      title: $r('app.string.comic_translation_live_evaluation_title'),
+      subtitle: this.liveEvaluationSubtitle(),
+      subtitleMaxLines: 2,
+      leadingIcon: $r('sys.symbol.checkmark_circle'),
+      trailingText: this.liveEvaluationTrailingText(),
+      showChevron: false,
+      isEnabled: this.liveEvaluationAvailable() && !this.liveEvaluationRunning,
+      action: () => {
+        this.confirmLiveEvaluation()
+      },
+    })
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -518,6 +631,8 @@ export struct ComicTranslationSettingsPage {
                 leadingIcon: $r('sys.symbol.exclamationmark_circle'),
                 showChevron: false,
               })
+              this.rowDivider()
+              this.LiveEvaluationRow()
             }
           }
         } else {
@@ -610,6 +725,8 @@ export struct ComicTranslationSettingsPage {
                     this.fetchCodexUsage()
                   },
                 })
+                this.rowDivider()
+                this.LiveEvaluationRow()
               }
               Text($r('app.string.comic_translation_codex_experimental_hint'))
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)

@@ -1,6 +1,6 @@
 # NextE Planning Index
 
-Last reviewed: 2026-07-20.
+Last reviewed: 2026-07-21.
 
 This file is a planning index, not a priority queue. The user's latest explicit request decides what to work on.
 The old milestone snapshot is archived at
@@ -9,8 +9,8 @@ The old milestone snapshot is archived at
 ## Current Maintained Sources
 
 - [Manga Translation Design](manga-translation-design.md) — provider-neutral page documents, gallery context,
-  progressive multimodal/OCR integration and staged acceptance; Phase 0 schema plus API/Codex OAuth provider spike
-  exists, while Reader and real-provider evaluation remain open.
+  progressive multimodal/OCR integration and staged acceptance; Phase 0 is closed with a real two-page Codex fixture
+  run and explicit review boundary, while repository/orchestrator and Reader V1 remain open.
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.

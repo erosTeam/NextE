@@ -45,12 +45,60 @@ class ResponsesInputMessage {
   content: ResponsesInputContent[] = []
 }
 
-class ResponsesRequestBody {
+class PublicResponsesRequestBody {
   model: string = ''
   input: ResponsesInputMessage[] = []
   stream: boolean = false
   store: boolean = false
   max_output_tokens: number = 8192
+}
+
+class CodexResponsesReasoning {
+}
+
+class CodexResponsesRequestBody {
+  model: string = ''
+  instructions: string = ''
+  input: ResponsesInputMessage[] = []
+  tool_choice: string = 'auto'
+  parallel_tool_calls: boolean = false
+  reasoning: CodexResponsesReasoning | null = null
+  store: boolean = false
+  stream: boolean = true
+  include: string[] = []
+}
+
+export class ComicResponsesRequestBuilder {
+  static build(
+    model: string,
+    prompt: string,
+    imageDataUrl: string,
+    eventStream: boolean,
+    codexCompatibility: boolean,
+  ): string {
+    const message: ResponsesInputMessage = new ResponsesInputMessage()
+    const promptItem: ResponsesInputText = {
+      type: 'input_text',
+      text: prompt,
+    }
+    const imageItem: ResponsesInputImage = {
+      type: 'input_image',
+      image_url: imageDataUrl,
+      detail: 'high',
+    }
+    message.content = [promptItem, imageItem]
+    if (codexCompatibility) {
+      const body: CodexResponsesRequestBody = new CodexResponsesRequestBody()
+      body.model = model
+      body.input = [message]
+      return JSON.stringify(body)
+    }
+    const body: PublicResponsesRequestBody = new PublicResponsesRequestBody()
+    body.model = model
+    body.stream = eventStream
+    body.input = [message]
+    return JSON.stringify(body)
+  }
 }
 
 export interface ComicResponsesHttpTransport {
@@ -86,10 +134,51 @@ export class DefaultComicResponsesHttpTransport implements ComicResponsesHttpTra
 
 export class ComicProviderHttpError extends Error {
   readonly statusCode: number
+  readonly detailCode: string
 
-  constructor(statusCode: number) {
+  constructor(statusCode: number, responseBody: string = '') {
     super('Comic provider request failed (HTTP ' + statusCode + ')')
     this.statusCode = statusCode
+    this.detailCode = ComicProviderHttpError.classifyResponse(responseBody)
+  }
+
+  static classifyResponse(responseBody: string): string {
+    const normalized: string = responseBody.toLowerCase()
+    const fields: string[] = [
+      'max_output_tokens',
+      'instructions',
+      'tools',
+      'tool_choice',
+      'parallel_tool_calls',
+      'reasoning',
+      'include',
+      'store',
+      'stream',
+      'input',
+      'image_url',
+      'model',
+      'text',
+      'prompt_cache_key',
+    ]
+    let category: string = ''
+    if (normalized.includes('unsupported') || normalized.includes('unrecognized') ||
+      normalized.includes('unknown field') || normalized.includes('not permitted') ||
+      normalized.includes('extra_forbidden')) {
+      category = 'unsupported'
+    } else if (normalized.includes('missing') || normalized.includes('required')) {
+      category = 'missing'
+    } else if (normalized.includes('invalid') || normalized.includes('expected')) {
+      category = 'invalid'
+    }
+    if (category.length === 0) {
+      return ''
+    }
+    for (let index: number = 0; index < fields.length; index++) {
+      if (normalized.includes(fields[index])) {
+        return category + '_' + fields[index]
+      }
+    }
+    return category + '_request'
   }
 }
 
@@ -120,31 +209,23 @@ class ComicResponsesPageAnalyzerCore {
     if (config.model.length === 0) {
       throw new Error('Comic translation provider model is missing')
     }
-    const body: ResponsesRequestBody = new ResponsesRequestBody()
-    body.model = config.model
-    body.stream = config.eventStream
-    const message: ResponsesInputMessage = new ResponsesInputMessage()
-    const promptItem: ResponsesInputText = {
-      type: 'input_text',
-      text: ComicResponsesProtocol.buildPrompt(request),
-    }
-    const imageItem: ResponsesInputImage = {
-      type: 'input_image',
-      image_url: ComicResponsesPageAnalyzerCore.imageDataUrl(request),
-      detail: 'high',
-    }
-    message.content = [promptItem, imageItem]
-    body.input = [message]
+    const body: string = ComicResponsesRequestBuilder.build(
+      config.model,
+      ComicResponsesProtocol.buildPrompt(request),
+      ComicResponsesPageAnalyzerCore.imageDataUrl(request),
+      config.eventStream,
+      config.codexCompatibility,
+    )
     const response: AxiosTextResponse = await this.transport.requestText(
       ComicResponsesPageAnalyzerCore.responsesUrl(config.baseUrl),
       'POST',
       ComicResponsesPageAnalyzerCore.headers(config),
-      JSON.stringify(body),
+      body,
       COMIC_RESPONSES_CONNECT_TIMEOUT_MS,
       COMIC_RESPONSES_READ_TIMEOUT_MS,
     )
     if (response.statusCode !== 200) {
-      throw new ComicProviderHttpError(response.statusCode)
+      throw new ComicProviderHttpError(response.statusCode, response.body)
     }
     const providerJson: string = ComicResponsesProtocol.extractAssistantJson(
       response.body,
