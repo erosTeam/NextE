@@ -10,8 +10,10 @@ import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
 } from './ComicTranslationRepository'
-
-const MAX_PREVIOUS_PAGE_CONTEXT: number = 2
+import {
+  ComicPreviousPageContextPolicy,
+  MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
+} from './ComicPreviousPageContextPolicy'
 
 export class ComicTranslationRunResult {
   identity: ComicTranslationRequestIdentity = new ComicTranslationRequestIdentity()
@@ -35,19 +37,21 @@ export class ComicTranslationOrchestrator {
     forceRefresh: boolean = false,
   ): Promise<ComicTranslationRunResult> {
     const request: ComicPageAnalysisRequest = ComicTranslationOrchestrator.copyRequest(sourceRequest)
+    request.context.previousPages = ComicPreviousPageContextPolicy.normalize(
+      request.context.previousPages,
+      request.pageIndex,
+    )
     const baseIdentity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
-    const remainingContext: number = Math.max(
-      0,
-      MAX_PREVIOUS_PAGE_CONTEXT - request.context.previousPages.length,
+    const previous: ComicPageDocument[] = await this.repository.loadPrevious(
+      baseIdentity,
+      MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
     )
-    if (remainingContext > 0) {
-      const previous: ComicPageDocument[] = await this.repository.loadPrevious(
-        baseIdentity,
-        remainingContext,
-      )
-      ComicTranslationOrchestrator.mergePreviousContext(request.context, previous)
-    }
+    ComicTranslationOrchestrator.mergePreviousContext(
+      request.context,
+      previous,
+      request.pageIndex,
+    )
     ComicTranslationOrchestrator.fillRollingSummary(request.context, request.pageIndex)
     const identity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
@@ -111,25 +115,18 @@ export class ComicTranslationOrchestrator {
   private static mergePreviousContext(
     context: ComicPageAnalysisContext,
     documents: ComicPageDocument[],
+    currentPageIndex: number,
   ): void {
-    for (let documentIndex: number = 0;
-      documentIndex < documents.length && context.previousPages.length < MAX_PREVIOUS_PAGE_CONTEXT;
-      documentIndex++) {
-      const document: ComicPageDocument = documents[documentIndex]
-      let alreadyPresent: boolean = false
-      for (let contextIndex: number = 0; contextIndex < context.previousPages.length; contextIndex++) {
-        if (context.previousPages[contextIndex].pageIndex === document.pageIndex) {
-          alreadyPresent = true
-          break
-        }
-      }
-      if (!alreadyPresent) {
-        context.previousPages.push(ComicTranslationOrchestrator.previousContext(document))
-      }
+    const combined: ComicPreviousPageContext[] = []
+    for (let documentIndex: number = 0; documentIndex < documents.length; documentIndex++) {
+      combined.push(ComicTranslationOrchestrator.previousContext(documents[documentIndex]))
     }
-    context.previousPages.sort(
-      (left: ComicPreviousPageContext, right: ComicPreviousPageContext): number =>
-        left.pageIndex - right.pageIndex,
+    for (let contextIndex: number = 0; contextIndex < context.previousPages.length; contextIndex++) {
+      combined.push(context.previousPages[contextIndex].copy())
+    }
+    context.previousPages = ComicPreviousPageContextPolicy.normalize(
+      combined,
+      currentPageIndex,
     )
   }
 

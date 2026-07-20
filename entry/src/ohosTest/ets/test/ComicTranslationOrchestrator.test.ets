@@ -7,6 +7,7 @@ import {
   ComicPageAnalyzer,
   ComicPageAnalyzerCapabilities,
   ComicPageDocument,
+  ComicPreviousPageContext,
   ComicTextBlock,
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
@@ -44,6 +45,19 @@ function request(
   value.context.styleGuideRevision = 1
   value.context.contextRevision = pageIndex + 1
   return value
+}
+
+function previousContext(
+  pageIndex: number,
+  translatedText: string,
+  pageSummary: string = '',
+): ComicPreviousPageContext {
+  const previous: ComicPreviousPageContext = new ComicPreviousPageContext()
+  previous.pageIndex = pageIndex
+  previous.sourceText = `caller-source-${pageIndex}`
+  previous.translatedText = translatedText
+  previous.pageSummary = pageSummary
+  return previous
 }
 
 class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
@@ -213,6 +227,47 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.capturedRollingSummary).assertEqual('summary-1')
       done()
     })
+
+    it('normalizes caller context before repository merge and cache identity', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        await orchestrator.run(request(0, HASH_A))
+        await orchestrator.run(request(1, HASH_B))
+        await orchestrator.run(request(2, HASH_A))
+
+        const first: ComicPageAnalysisRequest = request(3, HASH_B)
+        first.context.previousPages = [
+          previousContext(3, 'current-page-must-not-pass'),
+          previousContext(0, 'stale-caller-page'),
+          previousContext(2, 'caller-page-2-old'),
+          previousContext(-1, 'negative-page-must-not-pass'),
+          previousContext(2, 'caller-page-2', 'caller-summary-2'),
+          previousContext(4, 'future-page-must-not-pass'),
+        ]
+        const firstResult: ComicTranslationRunResult = await orchestrator.run(first)
+        expect(firstResult.cacheHit).assertEqual(false)
+        expect(analyzer.capturedPreviousPages.length).assertEqual(2)
+        expect(analyzer.capturedPreviousPages[0]).assertEqual(1)
+        expect(analyzer.capturedPreviousPages[1]).assertEqual(2)
+        expect(analyzer.capturedPreviousTranslations[0]).assertEqual('translation-1')
+        expect(analyzer.capturedPreviousTranslations[1]).assertEqual('caller-page-2')
+        expect(analyzer.capturedRollingSummary).assertEqual('caller-summary-2')
+
+        const second: ComicPageAnalysisRequest = request(3, HASH_B)
+        second.context.previousPages = [
+          previousContext(0, 'changed-but-still-omitted'),
+          previousContext(2, 'caller-page-2', 'caller-summary-2'),
+          previousContext(99, 'changed-future-page'),
+        ]
+        const secondResult: ComicTranslationRunResult = await orchestrator.run(second)
+        expect(secondResult.cacheHit).assertEqual(true)
+        expect(analyzer.analyzeCount).assertEqual(4)
+        done()
+      })
 
     it('preserves an explicit rolling summary instead of replacing it from page cache', 0,
       async (done: Function) => {

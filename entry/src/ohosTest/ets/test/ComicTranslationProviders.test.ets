@@ -124,6 +124,18 @@ function providerPageJson(): string {
     '"hasText":false,"pageSummary":"","blocks":[],"qualitySignals":[]}'
 }
 
+function providerPreviousContext(
+  pageIndex: number,
+  translatedText: string,
+): ComicPreviousPageContext {
+  const previous: ComicPreviousPageContext = new ComicPreviousPageContext()
+  previous.pageIndex = pageIndex
+  previous.sourceText = `source-${pageIndex}`
+  previous.translatedText = translatedText
+  previous.pageSummary = `summary-${pageIndex}`
+  return previous
+}
+
 export default function comicTranslationProvidersTest(): void {
   describe('ComicTranslationProviders', () => {
     it('assembles glossary and previous-page context without changing page identity', 0, (done: Function) => {
@@ -140,6 +152,7 @@ export default function comicTranslationProvidersTest(): void {
     it('bounds adversarial long context without dropping locked terms or newest pages', 0,
       (done: Function) => {
         const request: ComicPageAnalysisRequest = providerRequest()
+        request.pageIndex = 3
         const hostile: string = 'quote=" slash=\\ newline=\n'.repeat(12000)
         request.context.rollingSummary = hostile
         request.context.styleGuide = hostile
@@ -171,6 +184,29 @@ export default function comicTranslationProvidersTest(): void {
         expect(prompt.includes('pageIndex=2')).assertEqual(true)
         expect(prompt.includes('pageIndex=0')).assertEqual(false)
         expect(prompt.includes('additional glossary terms omitted by prompt budget')).assertEqual(true)
+        done()
+      })
+
+    it('normalizes direct provider previous-page context defensively', 0,
+      (done: Function) => {
+        const request: ComicPageAnalysisRequest = providerRequest()
+        request.pageIndex = 3
+        request.context.previousPages = [
+          providerPreviousContext(2, 'duplicate-old'),
+          providerPreviousContext(1, 'page-one'),
+          providerPreviousContext(3, 'current-page'),
+          providerPreviousContext(2, 'duplicate-new'),
+          providerPreviousContext(4, 'future-page'),
+          providerPreviousContext(1.5, 'fractional-page'),
+        ]
+        const prompt: string = ComicResponsesProtocol.buildPrompt(request)
+        expect(prompt.includes('- pageIndex=1 source=')).assertEqual(true)
+        expect(prompt.includes('- pageIndex=2 source=')).assertEqual(true)
+        expect(prompt.includes('- pageIndex=3 source=')).assertEqual(false)
+        expect(prompt.includes('- pageIndex=4 source=')).assertEqual(false)
+        expect(prompt.includes('fractional-page')).assertEqual(false)
+        expect(prompt.includes('duplicate-old')).assertEqual(false)
+        expect(prompt.includes('duplicate-new')).assertEqual(true)
         done()
       })
 

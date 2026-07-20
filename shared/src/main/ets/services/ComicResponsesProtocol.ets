@@ -1,5 +1,9 @@
 import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPreviousPageContext } from './ComicPageAnalyzer'
+import {
+  ComicPreviousPageContextPolicy,
+  MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
+} from './ComicPreviousPageContextPolicy'
 
 const MAX_COMIC_RESPONSES_BODY_CHARS: number = 8 * 1024 * 1024
 const MAX_COMIC_PROMPT_CONTEXT_CHARS: number = 48000
@@ -15,7 +19,6 @@ const MAX_PREVIOUS_PAGE_LINE_CHARS: number = 15000
 const MAX_PREVIOUS_SOURCE_JSON_CHARS: number = 6000
 const MAX_PREVIOUS_TRANSLATION_JSON_CHARS: number = 6000
 const MAX_PREVIOUS_SUMMARY_JSON_CHARS: number = 2500
-const MAX_PREVIOUS_PAGES: number = 2
 
 class RawResponsesContentPart {
   type: string = ''
@@ -89,7 +92,10 @@ export class ComicResponsesProtocol {
       MAX_STYLE_GUIDE_LINE_CHARS,
     )
     ComicResponsesProtocol.appendGlossary(lines, request.context.glossary)
-    ComicResponsesProtocol.appendPreviousPages(lines, request.context.previousPages)
+    ComicResponsesProtocol.appendPreviousPages(
+      lines,
+      ComicPreviousPageContextPolicy.normalize(request.context.previousPages, request.pageIndex),
+    )
     const prompt: string = lines.join('\n')
     if (prompt.length > MAX_COMIC_PROMPT_CONTEXT_CHARS) {
       throw new Error('Comic analysis context is too large')
@@ -159,7 +165,7 @@ export class ComicResponsesProtocol {
       return
     }
     lines.push('Previous-page context for name, address, tone, and reference consistency:')
-    const startIndex: number = Math.max(0, pages.length - MAX_PREVIOUS_PAGES)
+    const startIndex: number = Math.max(0, pages.length - MAX_COMIC_PREVIOUS_PAGE_CONTEXT)
     for (let index: number = startIndex; index < pages.length; index++) {
       const page: ComicPreviousPageContext = pages[index]
       const line: string =
