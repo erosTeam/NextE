@@ -6,6 +6,7 @@ import {
   ComicPageAnalyzer,
   ComicPreviousPageContext,
 } from './ComicPageAnalyzer'
+import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
@@ -36,6 +37,7 @@ export class ComicTranslationOrchestrator {
     sourceRequest: ComicPageAnalysisRequest,
     forceRefresh: boolean = false,
   ): Promise<ComicTranslationRunResult> {
+    ComicPageAnalysisParser.validateRequest(sourceRequest)
     const request: ComicPageAnalysisRequest = ComicTranslationOrchestrator.copyRequest(sourceRequest)
     request.context.previousPages = ComicPreviousPageContextPolicy.normalize(
       request.context.previousPages,

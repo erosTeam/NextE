@@ -468,6 +468,10 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     return COMIC_RESPONSES_PROMPT_VERSION
   }
 
+  contextFingerprint(request: ComicPageAnalysisRequest): string {
+    return ComicResponsesProtocol.contextFingerprint(request)
+  }
+
   capabilities(): ComicPageAnalyzerCapabilities {
     return ComicResponsesPageAnalyzerCore.capabilities()
   }
@@ -502,6 +506,10 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
 
   analysisPromptVersion(): string {
     return COMIC_RESPONSES_PROMPT_VERSION
+  }
+
+  contextFingerprint(request: ComicPageAnalysisRequest): string {
+    return ComicResponsesProtocol.contextFingerprint(request)
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {

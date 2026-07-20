@@ -1,5 +1,3 @@
-import { util } from '@kit.ArkTS'
-import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicPageDocument, ComicTranslationState } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
@@ -33,15 +31,23 @@ export class ComicTranslationRequestIdentity {
     analyzer: ComicPageAnalyzer,
   ): ComicTranslationRequestIdentity {
     ComicPageAnalysisParser.validateRequest(request)
+    const providerId: string = analyzer.providerId()
+    const modelId: string = analyzer.modelId()
+    const analysisPromptVersion: string = analyzer.analysisPromptVersion()
+    ComicPageAnalysisParser.validateAnalyzerIdentity(
+      providerId,
+      modelId,
+      analysisPromptVersion,
+    )
     const identity: ComicTranslationRequestIdentity = new ComicTranslationRequestIdentity()
     identity.projectId = request.projectId
     identity.pageIndex = request.pageIndex
     identity.imageHash = request.imageHash
     identity.imageWidth = request.sourceWidth
     identity.imageHeight = request.sourceHeight
-    identity.providerId = analyzer.providerId()
-    identity.modelId = analyzer.modelId()
-    identity.analysisPromptVersion = analyzer.analysisPromptVersion()
+    identity.providerId = providerId
+    identity.modelId = modelId
+    identity.analysisPromptVersion = analysisPromptVersion
     identity.sourceLanguage = request.context.sourceLanguage
     identity.targetLanguage = request.context.targetLanguage
     identity.analysisRevision = request.requestedAnalysisRevision
@@ -50,7 +56,7 @@ export class ComicTranslationRequestIdentity {
     identity.glossaryRevision = request.context.glossaryRevision
     identity.styleGuideRevision = request.context.styleGuideRevision
     identity.contextRevision = request.context.contextRevision
-    identity.contextFingerprint = ComicTranslationRequestIdentity.contextFingerprint(request)
+    identity.contextFingerprint = analyzer.contextFingerprint(request)
     identity.validate()
     return identity
   }
@@ -173,43 +179,6 @@ export class ComicTranslationRequestIdentity {
       ComicTranslationRequestIdentity.nonNegativeSafeInteger(value)
   }
 
-  private static contextFingerprint(request: ComicPageAnalysisRequest): string {
-    const values: string[] = [
-      request.context.rollingSummary,
-      request.context.styleGuide,
-    ]
-    for (let index: number = 0; index < request.context.glossary.length; index++) {
-      const term = request.context.glossary[index]
-      values.push(JSON.stringify([
-        term.sourceTerm,
-        JSON.stringify(term.aliases),
-        term.targetTerm,
-        term.status,
-        term.provenance,
-        `${term.firstSeenPageIndex}`,
-        `${term.updatedRevision}`,
-        term.notes,
-      ]))
-    }
-    for (let index: number = 0; index < request.context.previousPages.length; index++) {
-      const page = request.context.previousPages[index]
-      values.push(JSON.stringify([
-        `${page.pageIndex}`,
-        page.sourceText,
-        page.translatedText,
-        page.pageSummary,
-      ]))
-    }
-    const encoded: Uint8Array = new util.TextEncoder().encodeInto(JSON.stringify(values))
-    const md = cryptoFramework.createMd('SHA256')
-    md.updateSync({ data: encoded })
-    const digest: Uint8Array = md.digestSync().data
-    const parts: string[] = []
-    for (let index: number = 0; index < digest.length; index++) {
-      parts.push(digest[index].toString(16).padStart(2, '0'))
-    }
-    return parts.join('')
-  }
 }
 
 export interface ComicTranslationRepository {

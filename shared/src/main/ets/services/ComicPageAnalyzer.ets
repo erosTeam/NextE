@@ -86,6 +86,8 @@ export interface ComicPageAnalyzer {
 
   analysisPromptVersion(): string
 
+  contextFingerprint(request: ComicPageAnalysisRequest): string
+
   capabilities(): ComicPageAnalyzerCapabilities
 
   analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult>

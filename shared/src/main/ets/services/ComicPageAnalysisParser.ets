@@ -28,6 +28,9 @@ const MAX_COMIC_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_IMAGE_PATH_CHARS: number = 4096
 const MAX_COMIC_IMAGE_EDGE: number = 100000
 const MAX_COMIC_IMAGE_TILES: number = 4096
+const MAX_COMIC_CONTEXT_GLOSSARY_TERMS: number = 256
+const MAX_COMIC_CONTEXT_ALIASES_PER_TERM: number = 64
+const MAX_COMIC_CONTEXT_PREVIOUS_PAGES: number = 64
 
 class RawComicPoint {
   x: number = 0
@@ -296,6 +299,17 @@ export class ComicPageAnalysisParser {
       ComicPageAnalysisParser.safeInteger(request.context.styleGuideRevision, -1) < 0 ||
       ComicPageAnalysisParser.safeInteger(request.context.contextRevision, -1) < 0) {
       throw new Error('Comic analysis context revision is invalid')
+    }
+    if (request.context.glossary.length > MAX_COMIC_CONTEXT_GLOSSARY_TERMS) {
+      throw new Error('Comic analysis context glossary is too large')
+    }
+    for (let index: number = 0; index < request.context.glossary.length; index++) {
+      if (request.context.glossary[index].aliases.length > MAX_COMIC_CONTEXT_ALIASES_PER_TERM) {
+        throw new Error('Comic analysis context glossary aliases are too large')
+      }
+    }
+    if (request.context.previousPages.length > MAX_COMIC_CONTEXT_PREVIOUS_PAGES) {
+      throw new Error('Comic analysis previous-page context is too large')
     }
   }
 

@@ -167,6 +167,31 @@ export default function comicTranslationProvidersTest(): void {
       done()
     })
 
+    it('fingerprints only context that remains visible in the bounded prompt', 0,
+      (done: Function) => {
+        const first: ComicPageAnalysisRequest = providerRequest()
+        const second: ComicPageAnalysisRequest = providerRequest()
+        const sharedPrefix: string = 'visible-prefix-' + 'x'.repeat(6000)
+        first.context.rollingSummary = sharedPrefix + '-omitted-a'
+        second.context.rollingSummary = sharedPrefix + '-omitted-b'
+        first.context.glossary[0].notes = 'not sent a'
+        second.context.glossary[0].notes = 'not sent b'
+        first.context.glossary[0].updatedRevision = 1
+        second.context.glossary[0].updatedRevision = 99
+
+        const firstPrompt: string = ComicResponsesProtocol.buildPrompt(first)
+        const secondPrompt: string = ComicResponsesProtocol.buildPrompt(second)
+        const firstFingerprint: string = ComicResponsesProtocol.contextFingerprint(first)
+        const secondFingerprint: string = ComicResponsesProtocol.contextFingerprint(second)
+        expect(firstPrompt).assertEqual(secondPrompt)
+        expect(firstFingerprint).assertEqual(secondFingerprint)
+
+        second.context.rollingSummary = 'changed-visible-prefix-' + 'x'.repeat(6000)
+        expect(ComicResponsesProtocol.contextFingerprint(second) === firstFingerprint)
+          .assertEqual(false)
+        done()
+      })
+
     it('bounds adversarial long context without dropping locked terms or newest pages', 0,
       (done: Function) => {
         const request: ComicPageAnalysisRequest = providerRequest()

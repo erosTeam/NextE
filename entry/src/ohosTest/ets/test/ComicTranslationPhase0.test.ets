@@ -16,6 +16,7 @@ import {
   ComicPageAnalyzerCapabilities,
   ComicPageDocument,
   ComicPreviousPageContext,
+  ComicResponsesProtocol,
   ComicTextBlock,
   ComicTranslationAccuracySnapshot,
   ComicTranslationEvaluationSnapshot,
@@ -193,6 +194,10 @@ class FakeComicPageAnalyzer implements ComicPageAnalyzer {
 
   analysisPromptVersion(): string {
     return 'phase0-fixture-v1'
+  }
+
+  contextFingerprint(request: ComicPageAnalysisRequest): string {
+    return ComicResponsesProtocol.contextFingerprint(request)
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {

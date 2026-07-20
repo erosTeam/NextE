@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@ohos/hypium'
 import {
   ComicAnalysisState,
+  ComicGlossaryTerm,
   ComicImagePreparationProfile,
   ComicPageAnalysisRequest,
   ComicPageAnalysisResult,
@@ -8,6 +9,7 @@ import {
   ComicPageAnalyzerCapabilities,
   ComicPageDocument,
   ComicPreviousPageContext,
+  ComicResponsesProtocol,
   ComicTextBlock,
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
@@ -92,6 +94,10 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
 
   analysisPromptVersion(): string {
     return this.prompt
+  }
+
+  contextFingerprint(request: ComicPageAnalysisRequest): string {
+    return ComicResponsesProtocol.contextFingerprint(request)
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {
@@ -212,6 +218,32 @@ export default function comicTranslationOrchestratorTest(): void {
       done()
     })
 
+    it('reuses cache when only prompt-omitted context tails change', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        const sharedPrefix: string = 'visible-prefix-' + 'x'.repeat(6000)
+        const first: ComicPageAnalysisRequest = request()
+        first.context.rollingSummary = sharedPrefix + '-omitted-a'
+        const firstResult: ComicTranslationRunResult = await orchestrator.run(first)
+        const second: ComicPageAnalysisRequest = request()
+        second.context.rollingSummary = sharedPrefix + '-omitted-b'
+        const secondResult: ComicTranslationRunResult = await orchestrator.run(second)
+        expect(firstResult.cacheHit).assertEqual(false)
+        expect(secondResult.cacheHit).assertEqual(true)
+        expect(analyzer.analyzeCount).assertEqual(1)
+
+        const changed: ComicPageAnalysisRequest = request()
+        changed.context.rollingSummary = 'changed-visible-prefix-' + 'x'.repeat(6000)
+        const changedResult: ComicTranslationRunResult = await orchestrator.run(changed)
+        expect(changedResult.cacheHit).assertEqual(false)
+        expect(analyzer.analyzeCount).assertEqual(2)
+        done()
+      })
+
     it('rejects malformed numeric identity before analyzer work', 0,
       async (done: Function) => {
         const repository: InMemoryComicTranslationRepository =
@@ -232,6 +264,45 @@ export default function comicTranslationOrchestratorTest(): void {
         const invalidContextRevision: ComicPageAnalysisRequest = request()
         invalidContextRevision.context.contextRevision = Number.POSITIVE_INFINITY
         invalid.push(invalidContextRevision)
+        let rejected: number = 0
+        for (let index: number = 0; index < invalid.length; index++) {
+          try {
+            await orchestrator.run(invalid[index])
+          } catch (_error) {
+            rejected++
+          }
+        }
+        expect(rejected).assertEqual(invalid.length)
+        expect(analyzer.analyzeCount).assertEqual(0)
+        done()
+      })
+
+    it('rejects oversized context collections before analyzer work', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        const oversizedGlossary: ComicPageAnalysisRequest = request()
+        for (let index: number = 0; index < 257; index++) {
+          oversizedGlossary.context.glossary.push(new ComicGlossaryTerm())
+        }
+        const oversizedAliases: ComicPageAnalysisRequest = request()
+        const aliasedTerm: ComicGlossaryTerm = new ComicGlossaryTerm()
+        for (let index: number = 0; index < 65; index++) {
+          aliasedTerm.aliases.push(`alias-${index}`)
+        }
+        oversizedAliases.context.glossary.push(aliasedTerm)
+        const oversizedPrevious: ComicPageAnalysisRequest = request(65)
+        for (let index: number = 0; index < 65; index++) {
+          oversizedPrevious.context.previousPages.push(previousContext(index, `page-${index}`))
+        }
+        const invalid: ComicPageAnalysisRequest[] = [
+          oversizedGlossary,
+          oversizedAliases,
+          oversizedPrevious,
+        ]
         let rejected: number = 0
         for (let index: number = 0; index < invalid.length; index++) {
           try {

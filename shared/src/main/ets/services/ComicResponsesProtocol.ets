@@ -1,3 +1,5 @@
+import { util } from '@kit.ArkTS'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPreviousPageContext } from './ComicPageAnalyzer'
 import {
@@ -79,6 +81,33 @@ export class ComicResponsesProtocol {
     lines.push('imageHeight=' + request.sourceHeight)
     lines.push('sourceLanguage=' + JSON.stringify(request.context.sourceLanguage))
     lines.push('targetLanguage=' + JSON.stringify(request.context.targetLanguage))
+    const contextLines: string[] = ComicResponsesProtocol.contextLines(request)
+    for (let index: number = 0; index < contextLines.length; index++) {
+      lines.push(contextLines[index])
+    }
+    const prompt: string = lines.join('\n')
+    if (prompt.length > MAX_COMIC_PROMPT_CONTEXT_CHARS) {
+      throw new Error('Comic analysis context is too large')
+    }
+    return prompt
+  }
+
+  static contextFingerprint(request: ComicPageAnalysisRequest): string {
+    const encoded: Uint8Array = new util.TextEncoder().encodeInto(
+      JSON.stringify(ComicResponsesProtocol.contextLines(request)),
+    )
+    const md = cryptoFramework.createMd('SHA256')
+    md.updateSync({ data: encoded })
+    const digest: Uint8Array = md.digestSync().data
+    const parts: string[] = []
+    for (let index: number = 0; index < digest.length; index++) {
+      parts.push(digest[index].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
+  }
+
+  private static contextLines(request: ComicPageAnalysisRequest): string[] {
+    const lines: string[] = []
     ComicResponsesProtocol.appendContextLine(
       lines,
       'rollingSummary',
@@ -96,11 +125,7 @@ export class ComicResponsesProtocol {
       lines,
       ComicPreviousPageContextPolicy.normalize(request.context.previousPages, request.pageIndex),
     )
-    const prompt: string = lines.join('\n')
-    if (prompt.length > MAX_COMIC_PROMPT_CONTEXT_CHARS) {
-      throw new Error('Comic analysis context is too large')
-    }
-    return prompt
+    return lines
   }
 
   static extractAssistantJson(body: string, eventStream: boolean): string {
