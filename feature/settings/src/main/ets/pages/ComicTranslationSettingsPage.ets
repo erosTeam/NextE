@@ -486,6 +486,7 @@ export struct ComicTranslationSettingsPage {
       if (field === 'apiUrl') {
         TextInput({ text: $$this.apiUrlDraft, placeholder: placeholder })
           .type(secret ? InputType.Password : InputType.Normal)
+          .maxLength(ComicTranslationProviderSettings.API_URL_MAX_CHARS)
           .width('100%')
           .height(48)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -494,6 +495,7 @@ export struct ComicTranslationSettingsPage {
       } else if (field === 'apiKey') {
         TextInput({ text: $$this.apiKeyDraft, placeholder: placeholder })
           .type(secret ? InputType.Password : InputType.Normal)
+          .maxLength(ComicTranslationProviderSettings.API_KEY_MAX_CHARS)
           .width('100%')
           .height(48)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -502,6 +504,7 @@ export struct ComicTranslationSettingsPage {
       } else if (field === 'apiModel') {
         TextInput({ text: $$this.apiModelDraft, placeholder: placeholder })
           .type(secret ? InputType.Password : InputType.Normal)
+          .maxLength(ComicTranslationProviderSettings.MODEL_ID_MAX_CHARS)
           .width('100%')
           .height(48)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -510,6 +513,7 @@ export struct ComicTranslationSettingsPage {
       } else {
         TextInput({ text: $$this.codexModelDraft, placeholder: placeholder })
           .type(secret ? InputType.Password : InputType.Normal)
+          .maxLength(ComicTranslationProviderSettings.MODEL_ID_MAX_CHARS)
           .width('100%')
           .height(48)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)

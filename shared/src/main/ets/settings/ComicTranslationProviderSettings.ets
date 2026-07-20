@@ -24,6 +24,10 @@ class RawCodexOAuthTokenSet {
 }
 
 export class ComicTranslationProviderSettings {
+  static readonly API_URL_MAX_CHARS: number = 2048
+  static readonly API_KEY_MAX_CHARS: number = 16 * 1024
+  static readonly MODEL_ID_MAX_CHARS: number = 160
+
   static normalizeProvider(provider: string): string {
     return provider === COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH
       ? COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH
@@ -80,11 +84,7 @@ export class ComicTranslationProviderSettings {
     context: common.UIAbilityContext,
     snapshot: ComicTranslationProviderSettingsSnapshot,
   ): Promise<void> {
-    snapshot.provider = ComicTranslationProviderSettings.normalizeProvider(snapshot.provider)
-    snapshot.apiBaseUrl = snapshot.apiBaseUrl.trim()
-    snapshot.apiKey = snapshot.apiKey.trim()
-    snapshot.apiModel = snapshot.apiModel.trim()
-    snapshot.codexModel = snapshot.codexModel.trim()
+    ComicTranslationProviderSettings.normalizeSnapshot(snapshot)
     ComicTranslationProviderSettings.apply(snapshot)
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -100,6 +100,26 @@ export class ComicTranslationProviderSettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'comic_translation_provider_save_failed', (error as Error).message)
     }
+  }
+
+  static normalizeSnapshot(snapshot: ComicTranslationProviderSettingsSnapshot): void {
+    snapshot.provider = ComicTranslationProviderSettings.normalizeProvider(snapshot.provider)
+    snapshot.apiBaseUrl = ComicTranslationProviderSettings.boundedSetting(
+      snapshot.apiBaseUrl,
+      ComicTranslationProviderSettings.API_URL_MAX_CHARS,
+    )
+    snapshot.apiKey = ComicTranslationProviderSettings.boundedSetting(
+      snapshot.apiKey,
+      ComicTranslationProviderSettings.API_KEY_MAX_CHARS,
+    )
+    snapshot.apiModel = ComicTranslationProviderSettings.boundedSetting(
+      snapshot.apiModel,
+      ComicTranslationProviderSettings.MODEL_ID_MAX_CHARS,
+    )
+    snapshot.codexModel = ComicTranslationProviderSettings.boundedSetting(
+      snapshot.codexModel,
+      ComicTranslationProviderSettings.MODEL_ID_MAX_CHARS,
+    )
   }
 
   static async readCodexTokens(context: common.UIAbilityContext): Promise<CodexOAuthTokenSet | null> {
@@ -151,6 +171,7 @@ export class ComicTranslationProviderSettings {
   }
 
   private static apply(snapshot: ComicTranslationProviderSettingsSnapshot): void {
+    ComicTranslationProviderSettings.normalizeSnapshot(snapshot)
     const state = connectComicTranslationProviderSettings()
     state.provider = ComicTranslationProviderSettings.normalizeProvider(snapshot.provider)
     state.apiBaseUrl = snapshot.apiBaseUrl
@@ -222,6 +243,18 @@ export class ComicTranslationProviderSettings {
       }
     }
     return false
+  }
+
+  private static boundedSetting(value: string | null | undefined, maxChars: number): string {
+    if (typeof value !== 'string') {
+      return ''
+    }
+    const normalized: string = value.trim()
+    if (normalized.length > maxChars ||
+      ComicTranslationProviderSettings.containsControlCharacter(normalized)) {
+      return ''
+    }
+    return normalized
   }
 
   private static validTimestamp(value: number): boolean {

@@ -21,6 +21,7 @@ import {
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
   ComicTranslationProviderSettings,
+  ComicTranslationProviderSettingsSnapshot,
   ComicPageAnalysisRequest,
   ComicPreviousPageContext,
   ComicResponsesProtocol,
@@ -687,6 +688,27 @@ export default function comicTranslationProvidersTest(): void {
       expect(ComicTranslationProviderSettings.parseCodexTokens(
         'x'.repeat(512 * 1024 + 1),
       )).assertEqual(null)
+      done()
+    })
+
+    it('normalizes bounded comic provider settings before use', 0, (done: Function) => {
+      const snapshot: ComicTranslationProviderSettingsSnapshot =
+        new ComicTranslationProviderSettingsSnapshot()
+      snapshot.apiBaseUrl = '  https://example.com/v1  '
+      snapshot.apiKey = ' key-fixture '
+      snapshot.apiModel = ' model-fixture '
+      snapshot.codexModel = 'c'.repeat(161)
+      ComicTranslationProviderSettings.normalizeSnapshot(snapshot)
+      expect(snapshot.apiBaseUrl).assertEqual('https://example.com/v1')
+      expect(snapshot.apiKey).assertEqual('key-fixture')
+      expect(snapshot.apiModel).assertEqual('model-fixture')
+      expect(snapshot.codexModel).assertEqual('')
+
+      snapshot.apiBaseUrl = 'u'.repeat(2049)
+      snapshot.apiKey = 'bad\nkey'
+      ComicTranslationProviderSettings.normalizeSnapshot(snapshot)
+      expect(snapshot.apiBaseUrl).assertEqual('')
+      expect(snapshot.apiKey).assertEqual('')
       done()
     })
 
