@@ -16,6 +16,8 @@ import {
   ComicPageAnalyzerCapabilities,
   ComicPageDocument,
   ComicPreviousPageContext,
+  ComicQualitySeverity,
+  ComicQualitySignal,
   ComicResponsesProtocol,
   ComicTextBlock,
   ComicTranslationAccuracySnapshot,
@@ -24,6 +26,7 @@ import {
   ComicTranslationReferenceBlock,
   ComicTranslationReferencePage,
   ComicTranslationOrigin,
+  ComicTranslationReviewService,
   ComicTranslationState,
 } from 'shared'
 
@@ -313,6 +316,64 @@ export default function comicTranslationPhase0Test(): void {
       expect(result.document.translationState).assertEqual(ComicTranslationState.MISSING)
       done()
     })
+
+    it('routes only actionable quality signals to page and block review state', 0,
+      (done: Function) => {
+        const document: ComicPageDocument = new ComicPageDocument()
+        document.translationState = ComicTranslationState.PROVISIONAL
+        const translated: ComicTextBlock = new ComicTextBlock()
+        translated.blockId = 'translated'
+        translated.translatedText = 'ready'
+        const missing: ComicTextBlock = new ComicTextBlock()
+        missing.blockId = 'missing'
+        document.blocks.push(translated)
+        document.blocks.push(missing)
+
+        const informational: ComicQualitySignal = new ComicQualitySignal()
+        informational.code = 'provider_note'
+        informational.severity = ComicQualitySeverity.INFO
+        informational.blockId = translated.blockId
+        informational.message = 'provider-authored detail must not drive Reader review UI'
+        document.qualitySignals.push(informational)
+        expect(ComicTranslationReviewService.documentNeedsReview(document)).assertEqual(false)
+        expect(ComicTranslationReviewService.blockNeedsReview(
+          document,
+          translated.blockId,
+        )).assertEqual(false)
+
+        const warning: ComicQualitySignal = new ComicQualitySignal()
+        warning.code = 'uncertain_text'
+        warning.severity = ComicQualitySeverity.WARNING
+        warning.blockId = translated.blockId
+        warning.message = 'provider-authored warning detail'
+        document.qualitySignals.push(warning)
+        expect(ComicTranslationReviewService.documentNeedsReview(document)).assertEqual(true)
+        expect(ComicTranslationReviewService.blockNeedsReview(
+          document,
+          translated.blockId,
+        )).assertEqual(true)
+        expect(ComicTranslationReviewService.blockNeedsReview(document, 'other')).assertEqual(false)
+
+        const pageError: ComicQualitySignal = new ComicQualitySignal()
+        pageError.code = 'page_structure'
+        pageError.severity = ComicQualitySeverity.ERROR
+        pageError.message = 'provider-authored page detail'
+        document.qualitySignals = [informational, pageError]
+        expect(ComicTranslationReviewService.documentNeedsReview(document)).assertEqual(true)
+        expect(ComicTranslationReviewService.blockNeedsReview(
+          document,
+          translated.blockId,
+        )).assertEqual(false)
+
+        document.qualitySignals = [informational]
+        document.translationState = ComicTranslationState.REVIEW_REQUIRED
+        expect(ComicTranslationReviewService.documentNeedsReview(document)).assertEqual(true)
+        expect(ComicTranslationReviewService.blockNeedsReview(
+          document,
+          missing.blockId,
+        )).assertEqual(true)
+        done()
+      })
 
     it('derives translation provenance when provider metadata disagrees with translated text', 0, async (done: Function) => {
       const rawText: string = await loadComicTranslationFixture()

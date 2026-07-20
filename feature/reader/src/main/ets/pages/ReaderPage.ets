@@ -59,6 +59,7 @@ import {
   ComicTranslationConsistencyService,
   ComicTranslationErrorClassifier,
   ComicTranslationReaderPageInput,
+  ComicTranslationReviewService,
   ComicTranslationRuntimeService,
   ComicTranslationRunResult,
   ComicTranslationState,
@@ -1492,15 +1493,18 @@ export struct ReaderPage {
   }
 
   private comicTranslationNeedsReview(): boolean {
-    if (this.comicTranslationDocument === null) {
-      return false
-    }
-    return this.comicTranslationDocument.translationState === ComicTranslationState.REVIEW_REQUIRED ||
-      this.comicTranslationDocument.qualitySignals.length > 0
+    return ComicTranslationReviewService.documentNeedsReview(this.comicTranslationDocument)
   }
 
   private comicTranslationBlockHasConsistencyConflict(blockId: string): boolean {
     return ComicTranslationConsistencyService.hasConflict(
+      this.comicTranslationDocument,
+      blockId,
+    )
+  }
+
+  private comicTranslationBlockNeedsReview(blockId: string): boolean {
+    return ComicTranslationReviewService.blockNeedsReview(
       this.comicTranslationDocument,
       blockId,
     )
@@ -1546,6 +1550,11 @@ export struct ReaderPage {
         .width('100%')
       if (this.comicTranslationBlockHasConsistencyConflict(block.blockId)) {
         Text($r('app.string.reader_comic_translation_consistency_conflict'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(ThemeConstants.TEXT_SECONDARY)
+          .width('100%')
+      } else if (this.comicTranslationBlockNeedsReview(block.blockId)) {
+        Text($r('app.string.reader_comic_translation_block_review_required'))
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor(ThemeConstants.TEXT_SECONDARY)
           .width('100%')

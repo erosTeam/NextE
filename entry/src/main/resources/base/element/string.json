@@ -5069,6 +5069,10 @@
       "value": "Translation differs from a previous page"
     },
     {
+      "name": "reader_comic_translation_block_review_required",
+      "value": "This text block needs review"
+    },
+    {
       "name": "reader_comic_translation_ready",
       "value": "Complete"
     },

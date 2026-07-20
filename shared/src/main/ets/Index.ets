@@ -238,6 +238,7 @@ export {
   ComicTranslationConsistencyService,
 } from './services/ComicTranslationConsistencyService'
 export { ComicTranslationMemoryService } from './services/ComicTranslationMemoryService'
+export { ComicTranslationReviewService } from './services/ComicTranslationReviewService'
 export { ComicTranslationErrorClassifier } from './services/ComicTranslationErrorClassifier'
 export {
   ComicTranslationReaderPageInput,

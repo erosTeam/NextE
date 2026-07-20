@@ -5069,6 +5069,10 @@
       "value": "前のページと翻訳が異なります"
     },
     {
+      "name": "reader_comic_translation_block_review_required",
+      "value": "このテキストブロックは確認が必要です"
+    },
+    {
       "name": "reader_comic_translation_ready",
       "value": "完了"
     },

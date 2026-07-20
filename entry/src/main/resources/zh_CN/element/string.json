@@ -5069,6 +5069,10 @@
       "value": "与前页译法不一致"
     },
     {
+      "name": "reader_comic_translation_block_review_required",
+      "value": "此文本块需要复核"
+    },
+    {
       "name": "reader_comic_translation_ready",
       "value": "已完成"
     },
