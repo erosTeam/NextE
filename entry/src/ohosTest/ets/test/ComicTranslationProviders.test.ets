@@ -5,6 +5,7 @@ import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
+  CodexOAuthTokenSet,
   CodexOAuthDeviceSession,
   CodexOAuthHttpTransport,
   ComicGlossaryTerm,
@@ -19,6 +20,7 @@ import {
   ComicTranslationLiveEvaluationService,
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
+  ComicTranslationProviderSettings,
   ComicPageAnalysisRequest,
   ComicPreviousPageContext,
   ComicResponsesProtocol,
@@ -85,6 +87,28 @@ class OversizedCodexOAuthTransport implements CodexOAuthHttpTransport {
     const response: AxiosTextResponse = new AxiosTextResponse()
     response.statusCode = 200
     response.body = 'x'.repeat(512 * 1024 + 1)
+    return Promise.resolve(response)
+  }
+}
+
+class FixedCodexOAuthTransport implements CodexOAuthHttpTransport {
+  private body: string
+
+  constructor(body: string) {
+    this.body = body
+  }
+
+  requestText(
+    _url: string,
+    _method: string,
+    _headers: Record<string, string>,
+    _body: string,
+    _connectTimeoutMs: number,
+    _readTimeoutMs: number,
+  ): Promise<AxiosTextResponse> {
+    const response: AxiosTextResponse = new AxiosTextResponse()
+    response.statusCode = 200
+    response.body = this.body
     return Promise.resolve(response)
   }
 }
@@ -611,6 +635,58 @@ export default function comicTranslationProvidersTest(): void {
       const approved = await ExperimentalCodexOAuthService.pollDeviceCodeOnce(session, transport)
       expect(approved.pending).assertEqual(false)
       expect(approved.exchange?.authorizationCode).assertEqual('authorization-fixture')
+      done()
+    })
+
+    it('bounds Codex OAuth fields and polling intervals', 0, async (done: Function) => {
+      const capped: CodexOAuthDeviceSession = await ExperimentalCodexOAuthService.requestDeviceCode(
+        new FixedCodexOAuthTransport(
+          '{"user_code":"ABCD-EFGH","device_auth_id":"device-fixture","interval":999}',
+        ),
+      )
+      expect(capped.pollIntervalSeconds).assertEqual(60)
+
+      let deviceCodeMessage: string = ''
+      try {
+        await ExperimentalCodexOAuthService.requestDeviceCode(
+          new FixedCodexOAuthTransport(
+            '{"user_code":"' + 'u'.repeat(129) + '","device_auth_id":"device-fixture"}',
+          ),
+        )
+      } catch (error) {
+        deviceCodeMessage = (error as Error).message
+      }
+      expect(deviceCodeMessage).assertEqual('Codex device login returned an incomplete code')
+
+      let exchangeMessage: string = ''
+      try {
+        await ExperimentalCodexOAuthService.pollDeviceCodeOnce(
+          capped,
+          new FixedCodexOAuthTransport(
+            '{"authorization_code":"' + 'a'.repeat(4097) + '","code_verifier":"valid"}',
+          ),
+        )
+      } catch (error) {
+        exchangeMessage = (error as Error).message
+      }
+      expect(exchangeMessage).assertEqual(
+        'Codex device login returned an incomplete authorization',
+      )
+      done()
+    })
+
+    it('rejects invalid persisted Codex token sets before use', 0, (done: Function) => {
+      const tokens: CodexOAuthTokenSet = new CodexOAuthTokenSet()
+      tokens.accessToken = 'access-fixture'
+      tokens.refreshToken = 'refresh-fixture'
+      tokens.accountId = 'account-fixture'
+      expect(ComicTranslationProviderSettings.isValidCodexTokens(tokens)).assertEqual(true)
+
+      tokens.accessToken = 'x'.repeat(128 * 1024 + 1)
+      expect(ComicTranslationProviderSettings.isValidCodexTokens(tokens)).assertEqual(false)
+      expect(ComicTranslationProviderSettings.parseCodexTokens(
+        'x'.repeat(512 * 1024 + 1),
+      )).assertEqual(null)
       done()
     })
 

@@ -21,6 +21,11 @@ const CODEX_OAUTH_REFRESH_SKEW_MS: number = 2 * 60 * 1000
 const CODEX_OAUTH_CONNECT_TIMEOUT_MS: number = 15000
 const CODEX_OAUTH_READ_TIMEOUT_MS: number = 20000
 const CODEX_OAUTH_MAX_BODY_CHARS: number = 512 * 1024
+const CODEX_OAUTH_USER_CODE_MAX_CHARS: number = 128
+const CODEX_OAUTH_DEVICE_AUTH_ID_MAX_CHARS: number = 4096
+const CODEX_OAUTH_EXCHANGE_FIELD_MAX_CHARS: number = 4096
+const CODEX_OAUTH_MAX_POLL_INTERVAL_SECONDS: number = 60
+const CODEX_OAUTH_MAX_TOKEN_LIFETIME_SECONDS: number = 30 * 24 * 60 * 60
 const CODEX_OAUTH_USER_AGENT: string = 'NextE/1.2.4 experimental-codex-oauth'
 
 class DeviceCodeResponse {
@@ -93,18 +98,26 @@ export class ExperimentalCodexOAuthService {
     if (response.statusCode !== 200) {
       throw new Error('Codex device login request failed (HTTP ' + response.statusCode + ')')
     }
-    const raw: DeviceCodeResponse = JSON.parse(response.body) as DeviceCodeResponse
-    if (typeof raw.user_code !== 'string' || raw.user_code.length === 0 ||
-      typeof raw.device_auth_id !== 'string' || raw.device_auth_id.length === 0) {
+    const raw: DeviceCodeResponse | null = JSON.parse(response.body) as DeviceCodeResponse | null
+    const userCode: string = raw === null ? '' : ExperimentalCodexOAuthService.boundedField(
+      raw.user_code,
+      CODEX_OAUTH_USER_CODE_MAX_CHARS,
+    )
+    const deviceAuthId: string = raw === null ? '' : ExperimentalCodexOAuthService.boundedField(
+      raw.device_auth_id,
+      CODEX_OAUTH_DEVICE_AUTH_ID_MAX_CHARS,
+    )
+    if (userCode.length === 0 || deviceAuthId.length === 0) {
       throw new Error('Codex device login returned an incomplete code')
     }
     const session: CodexOAuthDeviceSession = new CodexOAuthDeviceSession()
-    session.userCode = raw.user_code
-    session.deviceAuthId = raw.device_auth_id
+    session.userCode = userCode
+    session.deviceAuthId = deviceAuthId
     session.verificationUrl = CODEX_OAUTH_VERIFICATION_URL
-    session.pollIntervalSeconds = Math.max(
-      3,
-      ExperimentalCodexOAuthService.safeInteger(raw.interval, 5),
+    const interval: number | string | null = raw === null ? 5 : raw.interval
+    session.pollIntervalSeconds = Math.min(
+      CODEX_OAUTH_MAX_POLL_INTERVAL_SECONDS,
+      Math.max(3, ExperimentalCodexOAuthService.safeInteger(interval, 5)),
     )
     session.expiresAt = Date.now() + CODEX_OAUTH_SESSION_TTL_MS
     return session
@@ -114,10 +127,7 @@ export class ExperimentalCodexOAuthService {
     session: CodexOAuthDeviceSession,
     transport: CodexOAuthHttpTransport = new DefaultCodexOAuthHttpTransport(),
   ): Promise<CodexOAuthPollResult> {
-    if (session.deviceAuthId.length === 0 || session.userCode.length === 0 ||
-      Date.now() >= session.expiresAt) {
-      throw new Error('Codex device login session expired')
-    }
+    ExperimentalCodexOAuthService.requireValidSession(session)
     const response: AxiosTextResponse = await transport.requestText(
       CODEX_OAUTH_DEVICE_TOKEN_URL,
       'POST',
@@ -138,14 +148,21 @@ export class ExperimentalCodexOAuthService {
     if (response.statusCode !== 200) {
       throw new Error('Codex device login polling failed (HTTP ' + response.statusCode + ')')
     }
-    const raw: DeviceTokenResponse = JSON.parse(response.body) as DeviceTokenResponse
-    if (typeof raw.authorization_code !== 'string' || raw.authorization_code.length === 0 ||
-      typeof raw.code_verifier !== 'string' || raw.code_verifier.length === 0) {
+    const raw: DeviceTokenResponse | null = JSON.parse(response.body) as DeviceTokenResponse | null
+    const authorizationCode: string = raw === null ? '' : ExperimentalCodexOAuthService.boundedField(
+      raw.authorization_code,
+      CODEX_OAUTH_EXCHANGE_FIELD_MAX_CHARS,
+    )
+    const codeVerifier: string = raw === null ? '' : ExperimentalCodexOAuthService.boundedField(
+      raw.code_verifier,
+      CODEX_OAUTH_EXCHANGE_FIELD_MAX_CHARS,
+    )
+    if (authorizationCode.length === 0 || codeVerifier.length === 0) {
       throw new Error('Codex device login returned an incomplete authorization')
     }
     const exchange: CodexOAuthAuthorizationExchange = new CodexOAuthAuthorizationExchange()
-    exchange.authorizationCode = raw.authorization_code
-    exchange.codeVerifier = raw.code_verifier
+    exchange.authorizationCode = authorizationCode
+    exchange.codeVerifier = codeVerifier
     result.pending = false
     result.exchange = exchange
     return result
@@ -156,6 +173,7 @@ export class ExperimentalCodexOAuthService {
     session: CodexOAuthDeviceSession,
     transport: CodexOAuthHttpTransport = new DefaultCodexOAuthHttpTransport(),
   ): Promise<CodexOAuthTokenSet> {
+    ExperimentalCodexOAuthService.requireValidSession(session)
     while (Date.now() < session.expiresAt) {
       await ExperimentalCodexOAuthService.delay(session.pollIntervalSeconds * 1000)
       const result: CodexOAuthPollResult =
@@ -210,7 +228,11 @@ export class ExperimentalCodexOAuthService {
       return 0
     }
     const seconds: number = Number(match[1])
-    return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds * 1000) : 0
+    const milliseconds: number = seconds * 1000
+    return Number.isFinite(milliseconds) && milliseconds > 0 &&
+      milliseconds <= Number.MAX_SAFE_INTEGER
+      ? Math.floor(milliseconds)
+      : 0
   }
 
   private static async exchangeAuthorization(
@@ -267,8 +289,8 @@ export class ExperimentalCodexOAuthService {
   }
 
   private static parseTokenResponse(rawText: string, fallbackRefreshToken: string): CodexOAuthTokenSet {
-    const raw: OAuthTokenResponse = JSON.parse(rawText) as OAuthTokenResponse
-    if (typeof raw.access_token !== 'string' || raw.access_token.length === 0) {
+    const raw: OAuthTokenResponse | null = JSON.parse(rawText) as OAuthTokenResponse | null
+    if (raw === null || typeof raw.access_token !== 'string' || raw.access_token.length === 0) {
       throw new Error('Codex token response is missing an access token')
     }
     const refreshToken: string = typeof raw.refresh_token === 'string' && raw.refresh_token.length > 0
@@ -285,11 +307,22 @@ export class ExperimentalCodexOAuthService {
     if (tokens.accountId.length === 0) {
       tokens.accountId = ExperimentalCodexOAuthService.extractAccountId(tokens.idToken)
     }
-    const expiresIn: number = ExperimentalCodexOAuthService.safeInteger(raw.expires_in, 0)
+    if (!ComicTranslationProviderSettings.isValidCodexTokens(tokens)) {
+      throw new Error('Codex OAuth token response is invalid')
+    }
+    const now: number = Date.now()
+    const expiresIn: number = Math.min(
+      CODEX_OAUTH_MAX_TOKEN_LIFETIME_SECONDS,
+      ExperimentalCodexOAuthService.safeInteger(raw.expires_in, 0),
+    )
+    const jwtExpiresAt: number = ExperimentalCodexOAuthService.jwtExpiry(tokens.accessToken)
     tokens.expiresAt = expiresIn > 0
-      ? Date.now() + expiresIn * 1000
-      : ExperimentalCodexOAuthService.jwtExpiry(tokens.accessToken)
-    tokens.lastRefreshAt = Date.now()
+      ? now + expiresIn * 1000
+      : Math.min(jwtExpiresAt, now + CODEX_OAUTH_MAX_TOKEN_LIFETIME_SECONDS * 1000)
+    tokens.lastRefreshAt = now
+    if (!ComicTranslationProviderSettings.isValidCodexTokens(tokens)) {
+      throw new Error('Codex OAuth token response is invalid')
+    }
     return tokens
   }
 
@@ -297,6 +330,43 @@ export class ExperimentalCodexOAuthService {
     if (rawText.length > CODEX_OAUTH_MAX_BODY_CHARS) {
       throw new Error('Codex OAuth response size is invalid')
     }
+  }
+
+  private static requireValidSession(session: CodexOAuthDeviceSession): void {
+    const now: number = Date.now()
+    const userCode: string = ExperimentalCodexOAuthService.boundedField(
+      session.userCode,
+      CODEX_OAUTH_USER_CODE_MAX_CHARS,
+    )
+    const deviceAuthId: string = ExperimentalCodexOAuthService.boundedField(
+      session.deviceAuthId,
+      CODEX_OAUTH_DEVICE_AUTH_ID_MAX_CHARS,
+    )
+    if (userCode !== session.userCode || deviceAuthId !== session.deviceAuthId ||
+      !Number.isFinite(session.expiresAt) || Math.floor(session.expiresAt) !== session.expiresAt ||
+      now >= session.expiresAt || session.expiresAt > now + CODEX_OAUTH_SESSION_TTL_MS ||
+      session.pollIntervalSeconds < 3 ||
+      session.pollIntervalSeconds > CODEX_OAUTH_MAX_POLL_INTERVAL_SECONDS ||
+      Math.floor(session.pollIntervalSeconds) !== session.pollIntervalSeconds) {
+      throw new Error('Codex device login session expired')
+    }
+  }
+
+  private static boundedField(value: string | null | undefined, maxChars: number): string {
+    if (typeof value !== 'string') {
+      return ''
+    }
+    const normalized: string = value.trim()
+    if (normalized.length === 0 || normalized.length > maxChars) {
+      return ''
+    }
+    for (let index: number = 0; index < normalized.length; index++) {
+      const code: number = normalized.charCodeAt(index)
+      if (code <= 31 || code === 127) {
+        return ''
+      }
+    }
+    return normalized
   }
 
   private static jwtStringClaim(token: string, claimName: string): string {
@@ -365,7 +435,9 @@ export class ExperimentalCodexOAuthService {
 
   private static safeInteger(value: number | string | null | undefined, fallback: number): number {
     const parsed: number = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback
+    return Number.isFinite(parsed) && parsed >= 0 && parsed <= Number.MAX_SAFE_INTEGER
+      ? Math.floor(parsed)
+      : fallback
   }
 
   private static delay(milliseconds: number): Promise<void> {
