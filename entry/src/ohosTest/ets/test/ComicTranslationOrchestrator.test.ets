@@ -14,6 +14,7 @@ import {
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
   ComicTranslationState,
+  COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE,
   InMemoryComicTranslationRepository,
 } from 'shared'
 
@@ -70,6 +71,8 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   capturedPreviousTranslations: string[] = []
   capturedRollingSummary: string = ''
   translationSuffix: string = ''
+  sourceTextOverride: string = ''
+  translatedTextOverride: string = ''
   private readonly provider: string
   private readonly model: string
   private readonly prompt: string
@@ -150,8 +153,13 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
     const block: ComicTextBlock = new ComicTextBlock()
     block.blockId = `p${value.pageIndex}-b0`
     block.readingOrder = 0
-    block.sourceText = `source-${value.pageIndex}`
-    block.translatedText = `translation-${value.pageIndex}${this.translationSuffix}`
+    block.sourceText = this.sourceTextOverride.length > 0
+      ? this.sourceTextOverride
+      : `source-${value.pageIndex}`
+    block.normalizedSourceText = block.sourceText
+    block.translatedText = this.translatedTextOverride.length > 0
+      ? this.translatedTextOverride
+      : `translation-${value.pageIndex}${this.translationSuffix}`
     document.blocks.push(block)
 
     const result: ComicPageAnalysisResult = new ComicPageAnalysisResult()
@@ -331,6 +339,48 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.capturedRollingSummary).assertEqual('summary-1')
       done()
     })
+
+    it('flags gallery translation drift beyond the two-page prompt window', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+
+        analyzer.sourceTextOverride = '優'
+        analyzer.translatedTextOverride = '优'
+        await orchestrator.run(request(0, HASH_A))
+        analyzer.sourceTextOverride = '兄'
+        analyzer.translatedTextOverride = '哥哥'
+        await orchestrator.run(request(1, HASH_B))
+        analyzer.sourceTextOverride = '駅'
+        analyzer.translatedTextOverride = '车站'
+        await orchestrator.run(request(2, HASH_A))
+        analyzer.sourceTextOverride = '優'
+        analyzer.translatedTextOverride = '小优'
+        const drifted: ComicTranslationRunResult = await orchestrator.run(request(3, HASH_B))
+
+        expect(analyzer.capturedPreviousPages.length).assertEqual(2)
+        expect(analyzer.capturedPreviousPages[0]).assertEqual(1)
+        expect(analyzer.capturedPreviousPages[1]).assertEqual(2)
+        expect(drifted.document.qualitySignals.length).assertEqual(1)
+        expect(drifted.document.qualitySignals[0].code)
+          .assertEqual(COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE)
+        expect(drifted.document.qualitySignals[0].blockId).assertEqual('p3-b0')
+
+        const persisted: ComicPageDocument | null = await repository.load(drifted.identity)
+        expect(persisted?.qualitySignals.length).assertEqual(0)
+        expect((await repository.loadPrevious(drifted.identity, Number.NaN)).length).assertEqual(0)
+        expect((await repository.loadPrevious(
+          drifted.identity,
+          Number.POSITIVE_INFINITY,
+        )).length).assertEqual(0)
+        const cached: ComicTranslationRunResult = await orchestrator.run(request(3, HASH_B))
+        expect(cached.cacheHit).assertEqual(true)
+        expect(cached.document.qualitySignals.length).assertEqual(1)
+        done()
+      })
 
     it('normalizes caller context before repository merge and cache identity', 0,
       async (done: Function) => {

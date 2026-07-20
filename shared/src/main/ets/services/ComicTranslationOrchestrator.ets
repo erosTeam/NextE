@@ -7,6 +7,7 @@ import {
   ComicPreviousPageContext,
 } from './ComicPageAnalyzer'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
+import { ComicTranslationConsistencyService } from './ComicTranslationConsistencyService'
 import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
@@ -21,6 +22,8 @@ export class ComicTranslationRunResult {
   document: ComicPageDocument = new ComicPageDocument()
   cacheHit: boolean = false
 }
+
+const MAX_COMIC_CONSISTENCY_PREVIOUS_PAGES: number = 32
 
 /** Coordinates cache ownership and provider work without publishing Reader UI state. */
 export class ComicTranslationOrchestrator {
@@ -47,11 +50,14 @@ export class ComicTranslationOrchestrator {
       ComicTranslationRequestIdentity.from(request, this.analyzer)
     const previous: ComicPageDocument[] = await this.repository.loadPrevious(
       baseIdentity,
-      MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
+      MAX_COMIC_CONSISTENCY_PREVIOUS_PAGES,
     )
     ComicTranslationOrchestrator.mergePreviousContext(
       request.context,
-      previous,
+      ComicTranslationOrchestrator.recentDocuments(
+        previous,
+        MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
+      ),
       request.pageIndex,
     )
     ComicTranslationOrchestrator.fillRollingSummary(request.context, request.pageIndex)
@@ -60,7 +66,11 @@ export class ComicTranslationOrchestrator {
     if (!forceRefresh) {
       const cached: ComicPageDocument | null = await this.repository.load(identity)
       if (cached !== null) {
-        return ComicTranslationOrchestrator.result(identity, cached, true)
+        return ComicTranslationOrchestrator.result(
+          identity,
+          ComicTranslationConsistencyService.audit(cached, previous),
+          true,
+        )
       }
     }
     const key: string = identity.cacheKey()
@@ -69,7 +79,11 @@ export class ComicTranslationOrchestrator {
       const shared: ComicTranslationRunResult = await existing
       return ComicTranslationOrchestrator.result(shared.identity, shared.document, shared.cacheHit)
     }
-    const task: Promise<ComicTranslationRunResult> = this.analyzeAndSave(identity, request)
+    const task: Promise<ComicTranslationRunResult> = this.analyzeAndSave(
+      identity,
+      request,
+      previous,
+    )
     this.inFlight.set(key, task)
     try {
       const completed: ComicTranslationRunResult = await task
@@ -88,6 +102,7 @@ export class ComicTranslationOrchestrator {
   private async analyzeAndSave(
     identity: ComicTranslationRequestIdentity,
     request: ComicPageAnalysisRequest,
+    previous: ComicPageDocument[],
   ): Promise<ComicTranslationRunResult> {
     const analysis: ComicPageAnalysisResult = await this.analyzer.analyze(request)
     if (analysis.providerId !== identity.providerId || analysis.modelId !== identity.modelId ||
@@ -96,7 +111,23 @@ export class ComicTranslationOrchestrator {
       throw new Error('Comic translation analyzer result identity mismatch')
     }
     await this.repository.save(identity, analysis.document)
-    return ComicTranslationOrchestrator.result(identity, analysis.document, false)
+    return ComicTranslationOrchestrator.result(
+      identity,
+      ComicTranslationConsistencyService.audit(analysis.document, previous),
+      false,
+    )
+  }
+
+  private static recentDocuments(
+    documents: ComicPageDocument[],
+    limit: number,
+  ): ComicPageDocument[] {
+    const selected: ComicPageDocument[] = []
+    const start: number = Math.max(0, documents.length - Math.max(0, limit))
+    for (let index: number = start; index < documents.length; index++) {
+      selected.push(documents[index])
+    }
+    return selected
   }
 
   private static copyRequest(source: ComicPageAnalysisRequest): ComicPageAnalysisRequest {

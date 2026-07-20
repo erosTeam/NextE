@@ -228,6 +228,10 @@ export {
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
 } from './services/ComicTranslationOrchestrator'
+export {
+  COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE,
+  ComicTranslationConsistencyService,
+} from './services/ComicTranslationConsistencyService'
 export { ComicTranslationErrorClassifier } from './services/ComicTranslationErrorClassifier'
 export {
   ComicTranslationReaderPageInput,

@@ -6,6 +6,14 @@ const DEFAULT_MEMORY_REPOSITORY_LIMIT: number = 64
 const MAX_COMIC_IDENTITY_CHARS: number = 160
 const MAX_COMIC_PROJECT_ID_CHARS: number = 160
 const MAX_COMIC_IMAGE_EDGE: number = 100000
+const MAX_COMIC_REPOSITORY_PREVIOUS_PAGES: number = 32
+
+export function boundedComicPreviousPageLimit(limit: number): number {
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return 0
+  }
+  return Math.min(MAX_COMIC_REPOSITORY_PREVIOUS_PAGES, Math.floor(limit))
+}
 
 export class ComicTranslationRequestIdentity {
   projectId: string = ''
@@ -244,7 +252,7 @@ export class InMemoryComicTranslationRepository implements ComicTranslationRepos
     limit: number,
   ): Promise<ComicPageDocument[]> {
     identity.assertValid()
-    const boundedLimit: number = Math.max(0, Math.min(2, limit))
+    const boundedLimit: number = boundedComicPreviousPageLimit(limit)
     if (boundedLimit === 0 || identity.pageIndex <= 0) {
       return []
     }

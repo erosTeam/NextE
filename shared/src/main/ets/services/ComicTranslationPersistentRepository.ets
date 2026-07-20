@@ -18,6 +18,7 @@ import {
 } from '../model/ComicTranslation'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import {
+  boundedComicPreviousPageLimit,
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
   InMemoryComicTranslationRepository,
@@ -466,7 +467,7 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     limit: number,
   ): Promise<ComicPageDocument[]> {
     identity.assertValid()
-    const boundedLimit: number = Math.max(0, Math.min(2, limit))
+    const boundedLimit: number = boundedComicPreviousPageLimit(limit)
     if (boundedLimit === 0 || identity.pageIndex <= 0) {
       return []
     }
@@ -591,7 +592,7 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
     identity: ComicTranslationRequestIdentity,
     limit: number,
   ): Promise<ComicPageDocument[]> {
-    const boundedLimit: number = Math.max(0, Math.min(2, limit))
+    const boundedLimit: number = boundedComicPreviousPageLimit(limit)
     if (boundedLimit === 0) {
       return []
     }
