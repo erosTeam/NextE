@@ -212,6 +212,39 @@ export default function comicTranslationOrchestratorTest(): void {
       done()
     })
 
+    it('rejects malformed numeric identity before analyzer work', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        const invalid: ComicPageAnalysisRequest[] = []
+        const invalidPage: ComicPageAnalysisRequest = request()
+        invalidPage.pageIndex = Number.NaN
+        invalid.push(invalidPage)
+        const invalidWidth: ComicPageAnalysisRequest = request()
+        invalidWidth.sourceWidth = Number.POSITIVE_INFINITY
+        invalid.push(invalidWidth)
+        const invalidRevision: ComicPageAnalysisRequest = request()
+        invalidRevision.requestedAnalysisRevision = 1.5
+        invalid.push(invalidRevision)
+        const invalidContextRevision: ComicPageAnalysisRequest = request()
+        invalidContextRevision.context.contextRevision = Number.POSITIVE_INFINITY
+        invalid.push(invalidContextRevision)
+        let rejected: number = 0
+        for (let index: number = 0; index < invalid.length; index++) {
+          try {
+            await orchestrator.run(invalid[index])
+          } catch (_error) {
+            rejected++
+          }
+        }
+        expect(rejected).assertEqual(invalid.length)
+        expect(analyzer.analyzeCount).assertEqual(0)
+        done()
+      })
+
     it('loads at most two prior pages as ordered context', 0, async (done: Function) => {
       const repository: InMemoryComicTranslationRepository =
         new InMemoryComicTranslationRepository()

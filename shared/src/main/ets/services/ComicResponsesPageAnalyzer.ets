@@ -215,6 +215,12 @@ class ComicResponsesPageAnalyzerCore {
     request: ComicPageAnalysisRequest,
     config: ComicResponsesCallConfig,
   ): Promise<ComicPageAnalysisResult> {
+    ComicPageAnalysisParser.validateRequest(request)
+    ComicPageAnalysisParser.validateAnalyzerIdentity(
+      config.providerId,
+      config.model,
+      COMIC_RESPONSES_PROMPT_VERSION,
+    )
     if (config.accessToken.length === 0) {
       throw new Error('Comic translation provider credential is missing')
     }

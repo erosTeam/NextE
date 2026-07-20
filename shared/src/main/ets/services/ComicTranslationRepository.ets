@@ -2,8 +2,12 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicPageDocument, ComicTranslationState } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
+import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 
 const DEFAULT_MEMORY_REPOSITORY_LIMIT: number = 64
+const MAX_COMIC_IDENTITY_CHARS: number = 160
+const MAX_COMIC_PROJECT_ID_CHARS: number = 160
+const MAX_COMIC_IMAGE_EDGE: number = 100000
 
 export class ComicTranslationRequestIdentity {
   projectId: string = ''
@@ -28,6 +32,7 @@ export class ComicTranslationRequestIdentity {
     request: ComicPageAnalysisRequest,
     analyzer: ComicPageAnalyzer,
   ): ComicTranslationRequestIdentity {
+    ComicPageAnalysisParser.validateRequest(request)
     const identity: ComicTranslationRequestIdentity = new ComicTranslationRequestIdentity()
     identity.projectId = request.projectId
     identity.pageIndex = request.pageIndex
@@ -123,15 +128,49 @@ export class ComicTranslationRequestIdentity {
   }
 
   private validate(): void {
-    if (this.projectId.trim().length === 0 || this.projectId.length > 512 || this.pageIndex < 0 ||
-      !/^[a-f0-9]{64}$/.test(this.imageHash) || this.imageWidth <= 0 || this.imageHeight <= 0 ||
-      this.providerId.trim().length === 0 || this.modelId.trim().length === 0 ||
-      this.analysisPromptVersion.trim().length === 0 || this.sourceLanguage.trim().length === 0 ||
-      this.targetLanguage.trim().length === 0 || this.analysisRevision <= 0 ||
-      this.translationRevision <= 0 || this.imagePreparationProfileId.trim().length === 0 ||
-      this.glossaryRevision < 0 || this.styleGuideRevision < 0 || this.contextRevision < 0) {
+    if (!ComicTranslationRequestIdentity.validIdentifier(this.projectId, MAX_COMIC_PROJECT_ID_CHARS) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.pageIndex) ||
+      !/^[a-f0-9]{64}$/.test(this.imageHash) ||
+      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageWidth) ||
+      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageHeight) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.providerId, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.modelId, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(
+        this.analysisPromptVersion,
+        MAX_COMIC_IDENTITY_CHARS,
+      ) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.sourceLanguage, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.targetLanguage, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.positiveSafeInteger(this.analysisRevision) ||
+      !ComicTranslationRequestIdentity.positiveSafeInteger(this.translationRevision) ||
+      !ComicTranslationRequestIdentity.validIdentifier(
+        this.imagePreparationProfileId,
+        MAX_COMIC_IDENTITY_CHARS,
+      ) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.glossaryRevision) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.styleGuideRevision) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.contextRevision) ||
+      !/^[a-f0-9]{64}$/.test(this.contextFingerprint)) {
       throw new Error('Comic translation request identity is invalid')
     }
+  }
+
+  private static validIdentifier(value: string, maxChars: number): boolean {
+    return value.length > 0 && value.length <= maxChars && value === value.trim()
+  }
+
+  private static nonNegativeSafeInteger(value: number): boolean {
+    return Number.isFinite(value) && value >= 0 && Math.floor(value) === value &&
+      value <= Number.MAX_SAFE_INTEGER
+  }
+
+  private static positiveSafeInteger(value: number): boolean {
+    return value > 0 && ComicTranslationRequestIdentity.nonNegativeSafeInteger(value)
+  }
+
+  private static positiveImageEdge(value: number): boolean {
+    return value > 0 && value <= MAX_COMIC_IMAGE_EDGE &&
+      ComicTranslationRequestIdentity.nonNegativeSafeInteger(value)
   }
 
   private static contextFingerprint(request: ComicPageAnalysisRequest): string {

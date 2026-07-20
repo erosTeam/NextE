@@ -15,6 +15,9 @@ const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
 const COMIC_READER_PROFILE_ID: string = 'reader-current-file-v1'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
+const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
+const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096
+const MAX_COMIC_READER_IMAGE_EDGE: number = 100000
 
 class ComicTranslationReaderFileMetadata {
   imageHash: string = ''
@@ -135,11 +138,39 @@ export class ComicTranslationRuntimeService {
   }
 
   private static validateInput(input: ComicTranslationReaderPageInput): void {
-    if (input.projectId.trim().length === 0 || input.pageIndex < 0 ||
-      input.imageFilePath.trim().length === 0 || input.imageWidth <= 0 || input.imageHeight <= 0 ||
-      input.sourceLanguage.trim().length === 0 || input.targetLanguage.trim().length === 0) {
+    if (!ComicTranslationRuntimeService.boundedRequired(
+      input.projectId,
+      MAX_COMIC_READER_IDENTIFIER_CHARS,
+    ) || !ComicTranslationRuntimeService.nonNegativeSafeInteger(input.pageIndex) ||
+      !ComicTranslationRuntimeService.boundedRequired(
+        input.imageFilePath,
+        MAX_COMIC_READER_IMAGE_PATH_CHARS,
+      ) || !ComicTranslationRuntimeService.positiveImageEdge(input.imageWidth) ||
+      !ComicTranslationRuntimeService.positiveImageEdge(input.imageHeight) ||
+      !ComicTranslationRuntimeService.boundedRequired(
+        input.sourceLanguage,
+        MAX_COMIC_READER_IDENTIFIER_CHARS,
+      ) || !ComicTranslationRuntimeService.boundedRequired(
+        input.targetLanguage,
+        MAX_COMIC_READER_IDENTIFIER_CHARS,
+      )) {
       throw new Error('Comic reader image source is invalid')
     }
+  }
+
+  private static boundedRequired(value: string, maxChars: number): boolean {
+    const normalized: string = value.trim()
+    return normalized.length > 0 && value.length <= maxChars
+  }
+
+  private static nonNegativeSafeInteger(value: number): boolean {
+    return Number.isFinite(value) && value >= 0 && Math.floor(value) === value &&
+      value <= Number.MAX_SAFE_INTEGER
+  }
+
+  private static positiveImageEdge(value: number): boolean {
+    return value > 0 && value <= MAX_COMIC_READER_IMAGE_EDGE &&
+      ComicTranslationRuntimeService.nonNegativeSafeInteger(value)
   }
 
   private static fileMetadata(path: string): ComicTranslationReaderFileMetadata {

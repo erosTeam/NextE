@@ -8,6 +8,7 @@ import {
   ComicImagePreparationProfile,
   ComicProviderHttpError,
   ComicProviderStageError,
+  ComicResponsesHttpTransport,
   ComicResponsesRequestBuilder,
   ComicTranslationCodexUsageService,
   ComicTranslationModelCatalogService,
@@ -16,6 +17,7 @@ import {
   ComicPreviousPageContext,
   ComicResponsesProtocol,
   ExperimentalCodexOAuthService,
+  OpenAiApiComicPageAnalyzer,
 } from 'shared'
 
 class FakeCodexOAuthTransport implements CodexOAuthHttpTransport {
@@ -44,6 +46,22 @@ class FakeCodexOAuthTransport implements CodexOAuthHttpTransport {
     response.statusCode = 200
     response.body = '{"authorization_code":"authorization-fixture","code_verifier":"verifier-fixture"}'
     return Promise.resolve(response)
+  }
+}
+
+class CountingComicResponsesTransport implements ComicResponsesHttpTransport {
+  requestCount: number = 0
+
+  requestText(
+    _url: string,
+    _method: string,
+    _headers: Record<string, string>,
+    _body: string,
+    _connectTimeoutMs: number,
+    _readTimeoutMs: number,
+  ): Promise<AxiosTextResponse> {
+    this.requestCount++
+    return Promise.resolve(new AxiosTextResponse())
   }
 }
 
@@ -207,6 +225,48 @@ export default function comicTranslationProvidersTest(): void {
         expect(prompt.includes('fractional-page')).assertEqual(false)
         expect(prompt.includes('duplicate-old')).assertEqual(false)
         expect(prompt.includes('duplicate-new')).assertEqual(true)
+        done()
+      })
+
+    it('rejects an invalid direct provider request before file or transport work', 0,
+      async (done: Function) => {
+        const transport: CountingComicResponsesTransport = new CountingComicResponsesTransport()
+        const analyzer: OpenAiApiComicPageAnalyzer = new OpenAiApiComicPageAnalyzer(
+          'https://api.openai.com/v1',
+          'fixture-key',
+          'fixture-model',
+          transport,
+        )
+        const request: ComicPageAnalysisRequest = providerRequest()
+        request.pageIndex = Number.POSITIVE_INFINITY
+        let message: string = ''
+        try {
+          await analyzer.analyze(request)
+        } catch (error) {
+          message = (error as Error).message
+        }
+        expect(message.includes('page index is invalid')).assertEqual(true)
+        expect(transport.requestCount).assertEqual(0)
+        done()
+      })
+
+    it('rejects an oversized direct provider model before file or transport work', 0,
+      async (done: Function) => {
+        const transport: CountingComicResponsesTransport = new CountingComicResponsesTransport()
+        const analyzer: OpenAiApiComicPageAnalyzer = new OpenAiApiComicPageAnalyzer(
+          'https://api.openai.com/v1',
+          'fixture-key',
+          'm'.repeat(161),
+          transport,
+        )
+        let message: string = ''
+        try {
+          await analyzer.analyze(providerRequest())
+        } catch (error) {
+          message = (error as Error).message
+        }
+        expect(message.includes('model id is too long')).assertEqual(true)
+        expect(transport.requestCount).assertEqual(0)
         done()
       })
 

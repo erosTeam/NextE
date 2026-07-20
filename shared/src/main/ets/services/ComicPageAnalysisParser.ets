@@ -78,6 +78,11 @@ export class ComicPageAnalysisParser {
     analysisPromptVersion: string,
   ): ComicPageAnalysisResult {
     ComicPageAnalysisParser.validateRequest(request)
+    ComicPageAnalysisParser.validateAnalyzerIdentity(
+      providerId,
+      modelId,
+      analysisPromptVersion,
+    )
     const normalizedProviderId: string = ComicPageAnalysisParser.requiredString(
       providerId,
       'provider id',
@@ -216,13 +221,13 @@ export class ComicPageAnalysisParser {
     return result
   }
 
-  private static validateRequest(request: ComicPageAnalysisRequest): void {
+  static validateRequest(request: ComicPageAnalysisRequest): void {
     ComicPageAnalysisParser.requiredString(
       request.projectId,
       'request project id',
       MAX_COMIC_IDENTIFIER_CHARS,
     )
-    if (request.pageIndex < 0 || Math.floor(request.pageIndex) !== request.pageIndex) {
+    if (ComicPageAnalysisParser.safeInteger(request.pageIndex, -1) < 0) {
       throw new Error('Comic analysis request page index is invalid')
     }
     ComicPageAnalysisParser.requiredString(
@@ -235,15 +240,15 @@ export class ComicPageAnalysisParser {
       'request image hash',
       MAX_COMIC_IDENTIFIER_CHARS,
     )
-    if (request.sourceWidth < 0 || request.sourceHeight < 0 ||
-      Math.floor(request.sourceWidth) !== request.sourceWidth ||
-      Math.floor(request.sourceHeight) !== request.sourceHeight) {
+    const sourceWidth: number = ComicPageAnalysisParser.safeInteger(request.sourceWidth, -1)
+    const sourceHeight: number = ComicPageAnalysisParser.safeInteger(request.sourceHeight, -1)
+    if (sourceWidth < 0 || sourceHeight < 0) {
       throw new Error('Comic analysis request image dimensions are invalid')
     }
-    if ((request.sourceWidth === 0) !== (request.sourceHeight === 0)) {
+    if ((sourceWidth === 0) !== (sourceHeight === 0)) {
       throw new Error('Comic analysis request image dimensions must both be known or unknown')
     }
-    if (request.sourceWidth > MAX_COMIC_IMAGE_EDGE || request.sourceHeight > MAX_COMIC_IMAGE_EDGE) {
+    if (sourceWidth > MAX_COMIC_IMAGE_EDGE || sourceHeight > MAX_COMIC_IMAGE_EDGE) {
       throw new Error('Comic analysis request image dimensions are too large')
     }
     ComicPageAnalysisParser.requiredString(
@@ -264,19 +269,56 @@ export class ComicPageAnalysisParser {
       request.imagePreparationProfile.preparedHeight,
       'preparation height',
     )
-    if (request.imagePreparationProfile.tileCount <= 0 ||
-      request.imagePreparationProfile.tileCount > MAX_COMIC_IMAGE_TILES ||
-      Math.floor(request.imagePreparationProfile.tileCount) !== request.imagePreparationProfile.tileCount) {
+    const tileCount: number = ComicPageAnalysisParser.safeInteger(
+      request.imagePreparationProfile.tileCount,
+      -1,
+    )
+    if (tileCount <= 0 || tileCount > MAX_COMIC_IMAGE_TILES) {
       throw new Error('Comic analysis request image preparation tile count is invalid')
     }
-    if (request.requestedAnalysisRevision <= 0 ||
-      Math.floor(request.requestedAnalysisRevision) !== request.requestedAnalysisRevision) {
+    if (ComicPageAnalysisParser.safeInteger(request.requestedAnalysisRevision, -1) <= 0) {
       throw new Error('Comic analysis request revision is invalid')
     }
-    if (request.requestedTranslationRevision <= 0 ||
-      Math.floor(request.requestedTranslationRevision) !== request.requestedTranslationRevision) {
+    if (ComicPageAnalysisParser.safeInteger(request.requestedTranslationRevision, -1) <= 0) {
       throw new Error('Comic translation request revision is invalid')
     }
+    ComicPageAnalysisParser.requiredString(
+      request.context.sourceLanguage,
+      'request source language',
+      MAX_COMIC_IDENTIFIER_CHARS,
+    )
+    ComicPageAnalysisParser.requiredString(
+      request.context.targetLanguage,
+      'request target language',
+      MAX_COMIC_IDENTIFIER_CHARS,
+    )
+    if (ComicPageAnalysisParser.safeInteger(request.context.glossaryRevision, -1) < 0 ||
+      ComicPageAnalysisParser.safeInteger(request.context.styleGuideRevision, -1) < 0 ||
+      ComicPageAnalysisParser.safeInteger(request.context.contextRevision, -1) < 0) {
+      throw new Error('Comic analysis context revision is invalid')
+    }
+  }
+
+  static validateAnalyzerIdentity(
+    providerId: string,
+    modelId: string,
+    analysisPromptVersion: string,
+  ): void {
+    ComicPageAnalysisParser.exactRequiredString(
+      providerId,
+      'provider id',
+      MAX_COMIC_IDENTIFIER_CHARS,
+    )
+    ComicPageAnalysisParser.exactRequiredString(
+      modelId,
+      'model id',
+      MAX_COMIC_IDENTIFIER_CHARS,
+    )
+    ComicPageAnalysisParser.exactRequiredString(
+      analysisPromptVersion,
+      'analysis prompt version',
+      MAX_COMIC_IDENTIFIER_CHARS,
+    )
   }
 
   private static normalizeBlock(
@@ -488,6 +530,18 @@ export class ComicPageAnalysisParser {
     return normalized
   }
 
+  private static exactRequiredString(
+    value: string | null | undefined,
+    name: string,
+    maxLength: number,
+  ): string {
+    const normalized: string = ComicPageAnalysisParser.requiredString(value, name, maxLength)
+    if (normalized !== value) {
+      throw new Error('Comic analysis ' + name + ' is not normalized')
+    }
+    return normalized
+  }
+
   private static boundedString(
     value: string | null | undefined,
     name: string,
@@ -508,7 +562,8 @@ export class ComicPageAnalysisParser {
   }
 
   private static safeInteger(value: number | null | undefined, fallback: number = 0): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || Math.floor(value) !== value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) ||
+      Math.floor(value) !== value || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
       return fallback
     }
     return value
