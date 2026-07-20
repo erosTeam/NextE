@@ -1,3 +1,7 @@
+import { common } from '@kit.AbilityKit'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
+import { fileIo } from '@kit.CoreFileKit'
+import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
@@ -63,6 +67,38 @@ class CountingComicResponsesTransport implements ComicResponsesHttpTransport {
     this.requestCount++
     return Promise.resolve(new AxiosTextResponse())
   }
+}
+
+async function appContext(): Promise<common.UIAbilityContext> {
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  const ability = await delegator.getCurrentTopAbility()
+  return ability.context as common.UIAbilityContext
+}
+
+function writeBytes(path: string, bytes: Uint8Array): void {
+  let file: fileIo.File | null = null
+  try {
+    file = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    fileIo.writeSync(file.fd, bytes.buffer, { length: bytes.byteLength })
+  } finally {
+    if (file !== null) {
+      fileIo.closeSync(file)
+    }
+  }
+}
+
+function sha256(bytes: Uint8Array): string {
+  const md = cryptoFramework.createMd('SHA256')
+  md.updateSync({ data: bytes })
+  const digest: Uint8Array = md.digestSync().data
+  const parts: string[] = []
+  for (let index: number = 0; index < digest.length; index++) {
+    parts.push(digest[index].toString(16).padStart(2, '0'))
+  }
+  return parts.join('')
 }
 
 class FixtureOutputText {
@@ -292,6 +328,69 @@ export default function comicTranslationProvidersTest(): void {
         }
         expect(message.includes('model id is too long')).assertEqual(true)
         expect(transport.requestCount).assertEqual(0)
+        done()
+      })
+
+    it('verifies final image hash and MIME before provider transport', 0,
+      async (done: Function) => {
+        const context: common.UIAbilityContext = await appContext()
+        const path: string = `${context.cacheDir}/comic-provider-image-identity.jpg`
+        const bytes: Uint8Array = new Uint8Array([
+          0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+          0x49, 0x46, 0x00, 0x01, 0x02, 0x03, 0xff, 0xd9,
+        ])
+        const expectedHash: string = sha256(bytes)
+        const transport: CountingComicResponsesTransport = new CountingComicResponsesTransport()
+        const analyzer: OpenAiApiComicPageAnalyzer = new OpenAiApiComicPageAnalyzer(
+          'https://api.openai.com/v1',
+          'fixture-key',
+          'fixture-model',
+          transport,
+        )
+        try {
+          writeBytes(path, bytes)
+          const changed: ComicPageAnalysisRequest = providerRequest()
+          changed.imageFilePath = path
+          changed.imageHash = 'a'.repeat(64)
+          let changedMessage: string = ''
+          try {
+            await analyzer.analyze(changed)
+          } catch (error) {
+            changedMessage = (error as Error).message
+          }
+          expect(changedMessage.includes('image identity changed')).assertEqual(true)
+          expect(transport.requestCount).assertEqual(0)
+
+          const mislabeled: ComicPageAnalysisRequest = providerRequest()
+          mislabeled.imageFilePath = path
+          mislabeled.imageHash = expectedHash
+          mislabeled.imagePreparationProfile.mimeType = 'image/png'
+          let mimeMessage: string = ''
+          try {
+            await analyzer.analyze(mislabeled)
+          } catch (error) {
+            mimeMessage = (error as Error).message
+          }
+          expect(mimeMessage.includes('MIME type does not match')).assertEqual(true)
+          expect(transport.requestCount).assertEqual(0)
+
+          const matching: ComicPageAnalysisRequest = providerRequest()
+          matching.imageFilePath = path
+          matching.imageHash = expectedHash
+          let transportMessage: string = ''
+          try {
+            await analyzer.analyze(matching)
+          } catch (error) {
+            transportMessage = (error as Error).message
+          }
+          expect(transportMessage.includes('HTTP 0')).assertEqual(true)
+          expect(transport.requestCount).assertEqual(1)
+        } finally {
+          try {
+            fileIo.unlinkSync(path)
+          } catch (_error) {
+          }
+        }
         done()
       })
 
