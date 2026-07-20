@@ -245,7 +245,11 @@ shards created before the optional `columnMode` field do not remain permanent fa
 Manual and scheduled WebDAV entry points share one process-wide single-flight keyed by normalized sync
 root plus username. A second request for the same account/root joins the active promise instead of starting
 another manifest/shard lane. Directory setup accepts WebDAV `405 Method Not Allowed` as the normal
-"collection already exists" result and does not retry it.
+"collection already exists" result and does not retry it. Normal runs GET `manifest.json` before directory
+setup: an existing manifest proves the root layout exists, so the provider skips repeated root and dataset
+`MKCOL` requests. A missing manifest initializes the full selected layout, while an existing manifest only
+creates a newly enabled dataset directory that is not yet represented in the manifest. Bootstrap diagnostics
+record the manifest fetch and any required `MKCOL` separately so a transport timeout identifies its stage.
 
 When the WebDAV server returns an `ETag` for `manifest.json`, the provider replaces that manifest with
 `If-Match`; a first manifest uses `If-None-Match: *`. A `409`/`412` precondition conflict re-reads,

@@ -167,6 +167,12 @@ ok('WebDAV read-progress shards use stable field order across record schema addi
 ok('WebDAV provider reads the legacy single-file path only when the manifest is missing',
   /const legacyRaw: string = manifestRemote\.exists \? '' :/.test(webdav) &&
     /legacyFileUrl/.test(webdav))
+ok('WebDAV provider reads the manifest before directory setup and skips known collections',
+  /webdav_manifest_fetch_start/.test(webdav) &&
+    /readRemoteFile\(rootUrl \+ SYNC_WEBDAV_MANIFEST_FILE, config\)[\s\S]*?ensureCollections\([\s\S]*?manifestRemote\.exists \? manifest : null/.test(webdav) &&
+    /manifest !== null && WebDavSyncService\.findManifestDataset\(manifest, DATASET_IDS\[i\]\) !== null[\s\S]*?continue/.test(webdav) &&
+    /webdav_mkcol_start/.test(webdav) &&
+    /webdav_mkcol_done/.test(webdav))
 ok('WebDAV provider accepts an existing collection response without retrying',
   /code === 405/.test(webdav) &&
     /WebDAV MKCOL failed/.test(webdav))
@@ -178,9 +184,8 @@ ok('WebDAV provider builds shards off UI thread with a single bucket pass',
     !/private static filterShard/.test(webdav) &&
     !/private static collectShardIds/.test(webdav))
 ok('WebDAV provider skips disabled dataset directories',
-  /ensureCollections\(rootUrl: string, config: WebDavSyncConfig\)/.test(webdav) &&
-    /datasetEnabled\(config\.selection, DATASET_IDS\[i\]\)/.test(webdav) &&
-    /continue[\s\S]*makeCollection\(rootUrl \+ 'datasets\/' \+ DATASET_IDS\[i\]/.test(webdav))
+  /ensureCollections\([\s\S]*?manifest: SyncManifestV1 \| null/.test(webdav) &&
+    /if \(!WebDavSyncService\.datasetEnabled\(config\.selection, DATASET_IDS\[i\]\)\)[\s\S]*?continue[\s\S]*?await WebDavSyncService\.makeCollection\(/.test(webdav))
 ok('WebDAV provider treats single file as legacy input only',
   /legacyFileUrl/.test(webdav) &&
     /SYNC_FILE_NAME/.test(webdav) &&

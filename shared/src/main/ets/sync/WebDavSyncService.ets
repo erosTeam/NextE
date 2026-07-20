@@ -422,12 +422,23 @@ export class WebDavSyncService {
     deviceId: string,
   ): Promise<void> {
     const rootUrl: string = WebDavSyncService.syncRootUrl(config.directoryUrl)
-    await WebDavSyncService.ensureCollections(rootUrl, config)
 
     for (let attempt: number = 0; attempt < MAX_MANIFEST_SYNC_ATTEMPTS; attempt++) {
+      const manifestStartedAt: number = Date.now()
+      DiagnosticLogger.info('sync', 'webdav_manifest_fetch_start', `attempt=${attempt + 1}`)
       const manifestRemote: WebDavRemoteText =
         await WebDavSyncService.readRemoteFile(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config)
+      DiagnosticLogger.info(
+        'sync',
+        'webdav_manifest_fetch_done',
+        `attempt=${attempt + 1},exists=${manifestRemote.exists},durationMs=${Date.now() - manifestStartedAt}`,
+      )
       const manifest: SyncManifestV1 = WebDavSyncService.parseManifest(manifestRemote.body)
+      await WebDavSyncService.ensureCollections(
+        rootUrl,
+        config,
+        manifestRemote.exists ? manifest : null,
+      )
       const legacyRaw: string = manifestRemote.exists ? '' :
         await WebDavSyncService.readRemoteOptional(WebDavSyncService.legacyFileUrl(config.directoryUrl), config)
       let manifestChanged: boolean = false
@@ -572,18 +583,38 @@ export class WebDavSyncService {
     return WebDavSyncService.readRemote(url, config)
   }
 
-  private static async ensureCollections(rootUrl: string, config: WebDavSyncConfig): Promise<void> {
-    await WebDavSyncService.makeCollection(rootUrl, config)
-    await WebDavSyncService.makeCollection(rootUrl + 'datasets/', config)
+  private static async ensureCollections(
+    rootUrl: string,
+    config: WebDavSyncConfig,
+    manifest: SyncManifestV1 | null,
+  ): Promise<void> {
+    if (manifest === null) {
+      DiagnosticLogger.info('sync', 'webdav_collection_bootstrap', 'reason=manifest_missing')
+      await WebDavSyncService.makeCollection(rootUrl, config, 'root')
+      await WebDavSyncService.makeCollection(rootUrl + 'datasets/', config, 'datasets')
+    }
     for (let i: number = 0; i < DATASET_IDS.length; i++) {
       if (!WebDavSyncService.datasetEnabled(config.selection, DATASET_IDS[i])) {
         continue
       }
-      await WebDavSyncService.makeCollection(rootUrl + 'datasets/' + DATASET_IDS[i] + '/', config)
+      if (manifest !== null && WebDavSyncService.findManifestDataset(manifest, DATASET_IDS[i]) !== null) {
+        continue
+      }
+      await WebDavSyncService.makeCollection(
+        rootUrl + 'datasets/' + DATASET_IDS[i] + '/',
+        config,
+        'dataset:' + DATASET_IDS[i],
+      )
     }
   }
 
-  private static async makeCollection(url: string, config: WebDavSyncConfig): Promise<void> {
+  private static async makeCollection(
+    url: string,
+    config: WebDavSyncConfig,
+    collection: string,
+  ): Promise<void> {
+    const startedAt: number = Date.now()
+    DiagnosticLogger.info('sync', 'webdav_mkcol_start', `collection=${collection}`)
     const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
       url,
       'MKCOL',
@@ -593,6 +624,11 @@ export class WebDavSyncService {
       READ_TIMEOUT_MS,
     )
     const code: number = resp.statusCode
+    DiagnosticLogger.info(
+      'sync',
+      'webdav_mkcol_done',
+      `collection=${collection},status=${code},durationMs=${Date.now() - startedAt}`,
+    )
     if (code === 405 || code === 409 || code === 301 || code === 302) {
       return
     }
