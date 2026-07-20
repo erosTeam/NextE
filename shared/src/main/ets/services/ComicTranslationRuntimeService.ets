@@ -138,7 +138,7 @@ export class ComicTranslationRuntimeService {
   }
 
   private static validateInput(input: ComicTranslationReaderPageInput): void {
-    if (!ComicTranslationRuntimeService.boundedRequired(
+    if (!ComicTranslationRuntimeService.boundedExactIdentifier(
       input.projectId,
       MAX_COMIC_READER_IDENTIFIER_CHARS,
     ) || !ComicTranslationRuntimeService.nonNegativeSafeInteger(input.pageIndex) ||
@@ -147,10 +147,10 @@ export class ComicTranslationRuntimeService {
         MAX_COMIC_READER_IMAGE_PATH_CHARS,
       ) || !ComicTranslationRuntimeService.positiveImageEdge(input.imageWidth) ||
       !ComicTranslationRuntimeService.positiveImageEdge(input.imageHeight) ||
-      !ComicTranslationRuntimeService.boundedRequired(
+      !ComicTranslationRuntimeService.boundedExactIdentifier(
         input.sourceLanguage,
         MAX_COMIC_READER_IDENTIFIER_CHARS,
-      ) || !ComicTranslationRuntimeService.boundedRequired(
+      ) || !ComicTranslationRuntimeService.boundedExactIdentifier(
         input.targetLanguage,
         MAX_COMIC_READER_IDENTIFIER_CHARS,
       )) {
@@ -161,6 +161,10 @@ export class ComicTranslationRuntimeService {
   private static boundedRequired(value: string, maxChars: number): boolean {
     const normalized: string = value.trim()
     return normalized.length > 0 && value.length <= maxChars
+  }
+
+  private static boundedExactIdentifier(value: string, maxChars: number): boolean {
+    return value.length > 0 && value.length <= maxChars && value === value.trim()
   }
 
   private static nonNegativeSafeInteger(value: number): boolean {

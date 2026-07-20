@@ -17,6 +17,8 @@ import {
   ComicTranslationCodexUsageService,
   ComicTranslationModelCatalogService,
   ComicTranslationLiveEvaluationService,
+  ComicTranslationReaderPageInput,
+  ComicTranslationRuntimeService,
   ComicPageAnalysisRequest,
   ComicPreviousPageContext,
   ComicResponsesProtocol,
@@ -170,6 +172,18 @@ function providerRequest(): ComicPageAnalysisRequest {
   previous.translatedText = '我在找哥哥。'
   request.context.previousPages = [previous]
   return request
+}
+
+function readerPageInput(imageFilePath: string): ComicTranslationReaderPageInput {
+  const input: ComicTranslationReaderPageInput = new ComicTranslationReaderPageInput()
+  input.projectId = 'reader-fixture:zh-CN'
+  input.pageIndex = 0
+  input.imageFilePath = imageFilePath
+  input.imageWidth = 1200
+  input.imageHeight = 1800
+  input.sourceLanguage = 'ja'
+  input.targetLanguage = 'zh-CN'
+  return input
 }
 
 function providerPageJson(): string {
@@ -390,6 +404,37 @@ export default function comicTranslationProvidersTest(): void {
             fileIo.unlinkSync(path)
           } catch (_error) {
           }
+        }
+        done()
+      })
+
+    it('rejects non-exact Reader identifiers before image file access', 0,
+      async (done: Function) => {
+        const context: common.UIAbilityContext = await appContext()
+        const missingPath: string = `${context.cacheDir}/comic-reader-preflight-missing.jpg`
+        try {
+          fileIo.unlinkSync(missingPath)
+        } catch (_error) {
+        }
+        const invalidInputs: ComicTranslationReaderPageInput[] = []
+        const project: ComicTranslationReaderPageInput = readerPageInput(missingPath)
+        project.projectId = ' reader-fixture:zh-CN'
+        invalidInputs.push(project)
+        const source: ComicTranslationReaderPageInput = readerPageInput(missingPath)
+        source.sourceLanguage = 'ja '
+        invalidInputs.push(source)
+        const target: ComicTranslationReaderPageInput = readerPageInput(missingPath)
+        target.targetLanguage = ' zh-CN'
+        invalidInputs.push(target)
+
+        for (let index: number = 0; index < invalidInputs.length; index++) {
+          let message: string = ''
+          try {
+            await ComicTranslationRuntimeService.runReaderPage(context, invalidInputs[index])
+          } catch (error) {
+            message = (error as Error).message
+          }
+          expect(message).assertEqual('Comic reader image source is invalid')
         }
         done()
       })

@@ -439,6 +439,7 @@ image/language/model/prompt 分键和失败强制刷新保留旧成功文档；`
 超长 hostile 输入在设备测试中仍保持总长度不超过 48,000 字符，并优先保留 locked 术语和最新页面。编排器
 与 provider 协议现共用前页规范化策略，过旧、重复、当前/未来和小数页码不会污染模型输入或缓存身份。请求
 preflight 现同时覆盖编排器、直接 Responses adapter 和 Reader 文件入口，非有限/小数数值会在缓存、读图和网络前退出。
+Reader 入口还会在文件哈希前要求 project/source/target 标识为无首尾空白的规范值，避免先读取整图再由下游身份校验拒绝。
 缓存上下文指纹由具体 analyzer 提供；Responses analyzer 直接对实际进入受限 prompt 的上下文行做 SHA-256，
 因此被预算裁掉的长文本尾部和未发送的术语元数据不再制造缓存 miss，而模型可见内容变化仍会失效。术语、
 别名和候选前页集合也在复制请求之前设有数量上限。Responses analyzer 还会在 transport 前重新校验最终读取
