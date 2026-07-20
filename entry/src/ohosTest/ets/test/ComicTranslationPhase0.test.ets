@@ -22,6 +22,7 @@ import {
   ComicTranslationEvaluator,
   ComicTranslationReferenceBlock,
   ComicTranslationReferencePage,
+  ComicTranslationOrigin,
   ComicTranslationState,
 } from 'shared'
 
@@ -305,6 +306,43 @@ export default function comicTranslationPhase0Test(): void {
       expect(result.document.hasText).assertEqual(false)
       expect(result.document.blocks.length).assertEqual(0)
       expect(result.document.translationState).assertEqual(ComicTranslationState.MISSING)
+      done()
+    })
+
+    it('derives translation provenance when provider metadata disagrees with translated text', 0, async (done: Function) => {
+      const rawText: string = await loadComicTranslationFixture()
+      const missingTranslatedOrigin: string = rawText.replace(
+        '"translationOrigin": "vision"',
+        '"translationOrigin": "none"',
+      )
+      const translated: ComicPageAnalysisResult = ComicPageAnalysisParser.parse(
+        buildComicAnalysisRequest(),
+        missingTranslatedOrigin,
+        'fixture-vision',
+        'fixture-model-v1',
+        'phase0-fixture-v1',
+      )
+      expect(translated.document.blocks[1].translatedText.length > 0).assertEqual(true)
+      expect(translated.document.blocks[1].translationOrigin).assertEqual(
+        ComicTranslationOrigin.VISION,
+      )
+
+      const untranslatedWithVisionOrigin: string = rawText.replace(
+        '"translatedText": "我在车站等你。"',
+        '"translatedText": ""',
+      )
+      const partial: ComicPageAnalysisResult = ComicPageAnalysisParser.parse(
+        buildComicAnalysisRequest(),
+        untranslatedWithVisionOrigin,
+        'fixture-vision',
+        'fixture-model-v1',
+        'phase0-fixture-v1',
+      )
+      expect(partial.document.blocks[1].translatedText).assertEqual('')
+      expect(partial.document.blocks[1].translationOrigin).assertEqual(
+        ComicTranslationOrigin.NONE,
+      )
+      expect(partial.document.translationState).assertEqual(ComicTranslationState.REVIEW_REQUIRED)
       done()
     })
 

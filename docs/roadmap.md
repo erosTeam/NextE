@@ -10,8 +10,8 @@ The old milestone snapshot is archived at
 
 - [Manga Translation Design](manga-translation-design.md) — provider-neutral page documents, gallery context,
   progressive multimodal/OCR integration and staged acceptance; Phase 0 is closed with a real two-page Codex fixture
-  run and explicit review boundary. The V1 in-memory repository/orchestrator is implemented; Reader entry, durable
-  recovery, manual revisions and consistency workflow remain open.
+  run and explicit review boundary. The V1 in-memory repository/orchestrator and explicit Reader current-page path are
+  implemented and real-provider validated; durable recovery, manual revisions and consistency workflow remain open.
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.

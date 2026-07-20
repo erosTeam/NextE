@@ -5015,6 +5015,54 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "待复核"
+    },
+    {
+      "name": "reader_comic_translation_action",
+      "value": "翻译当前页"
+    },
+    {
+      "name": "reader_comic_translation_title",
+      "value": "第 %d 页翻译"
+    },
+    {
+      "name": "reader_comic_translation_running",
+      "value": "正在转录并翻译当前页…"
+    },
+    {
+      "name": "reader_comic_translation_image_unavailable",
+      "value": "当前图片尚未准备好"
+    },
+    {
+      "name": "reader_comic_translation_failed",
+      "value": "翻译失败 · %s"
+    },
+    {
+      "name": "reader_comic_translation_provider_unavailable",
+      "value": "请先在设置中配置漫画翻译提供方和模型"
+    },
+    {
+      "name": "reader_comic_translation_cached",
+      "value": "缓存"
+    },
+    {
+      "name": "reader_comic_translation_review_required",
+      "value": "待复核"
+    },
+    {
+      "name": "reader_comic_translation_ready",
+      "value": "已完成"
+    },
+    {
+      "name": "reader_comic_translation_no_text",
+      "value": "当前页未识别到可见文字"
+    },
+    {
+      "name": "reader_comic_translation_source",
+      "value": "原文：%s"
+    },
+    {
+      "name": "reader_comic_translation_target",
+      "value": "译文：%s"
     }
   ]
 }

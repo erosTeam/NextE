@@ -50,6 +50,8 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   analyzeCount: number = 0
   failNext: boolean = false
   capturedPreviousPages: number[] = []
+  capturedPreviousTranslations: string[] = []
+  translationSuffix: string = ''
   private readonly provider: string
   private readonly model: string
   private readonly prompt: string
@@ -87,8 +89,10 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   async analyze(value: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {
     this.analyzeCount++
     this.capturedPreviousPages = []
+    this.capturedPreviousTranslations = []
     for (let index: number = 0; index < value.context.previousPages.length; index++) {
       this.capturedPreviousPages.push(value.context.previousPages[index].pageIndex)
+      this.capturedPreviousTranslations.push(value.context.previousPages[index].translatedText)
     }
     await Promise.resolve()
     if (this.failNext) {
@@ -112,7 +116,7 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
     block.blockId = `p${value.pageIndex}-b0`
     block.readingOrder = 0
     block.sourceText = `source-${value.pageIndex}`
-    block.translatedText = `translation-${value.pageIndex}`
+    block.translatedText = `translation-${value.pageIndex}${this.translationSuffix}`
     document.blocks.push(block)
 
     const result: ComicPageAnalysisResult = new ComicPageAnalysisResult()
@@ -215,5 +219,23 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.analyzeCount).assertEqual(2)
       done()
     })
+
+    it('invalidates a downstream cache entry when actual previous-page context changes', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        await orchestrator.run(request(0, HASH_A))
+        await orchestrator.run(request(1, HASH_B))
+        analyzer.translationSuffix = '-revised'
+        await orchestrator.run(request(0, HASH_A), true)
+        const rerun: ComicTranslationRunResult = await orchestrator.run(request(1, HASH_B))
+        expect(rerun.cacheHit).assertEqual(false)
+        expect(analyzer.analyzeCount).assertEqual(4)
+        expect(analyzer.capturedPreviousTranslations[0]).assertEqual('translation-0-revised')
+        done()
+      })
   })
 }

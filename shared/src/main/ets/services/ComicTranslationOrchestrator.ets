@@ -31,9 +31,23 @@ export class ComicTranslationOrchestrator {
   }
 
   async run(
-    request: ComicPageAnalysisRequest,
+    sourceRequest: ComicPageAnalysisRequest,
     forceRefresh: boolean = false,
   ): Promise<ComicTranslationRunResult> {
+    const request: ComicPageAnalysisRequest = ComicTranslationOrchestrator.copyRequest(sourceRequest)
+    const baseIdentity: ComicTranslationRequestIdentity =
+      ComicTranslationRequestIdentity.from(request, this.analyzer)
+    const remainingContext: number = Math.max(
+      0,
+      MAX_PREVIOUS_PAGE_CONTEXT - request.context.previousPages.length,
+    )
+    if (remainingContext > 0) {
+      const previous: ComicPageDocument[] = await this.repository.loadPrevious(
+        baseIdentity,
+        remainingContext,
+      )
+      ComicTranslationOrchestrator.mergePreviousContext(request.context, previous)
+    }
     const identity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
     if (!forceRefresh) {
@@ -66,20 +80,8 @@ export class ComicTranslationOrchestrator {
 
   private async analyzeAndSave(
     identity: ComicTranslationRequestIdentity,
-    sourceRequest: ComicPageAnalysisRequest,
+    request: ComicPageAnalysisRequest,
   ): Promise<ComicTranslationRunResult> {
-    const request: ComicPageAnalysisRequest = ComicTranslationOrchestrator.copyRequest(sourceRequest)
-    const remainingContext: number = Math.max(
-      0,
-      MAX_PREVIOUS_PAGE_CONTEXT - request.context.previousPages.length,
-    )
-    if (remainingContext > 0) {
-      const previous: ComicPageDocument[] = await this.repository.loadPrevious(
-        identity,
-        remainingContext,
-      )
-      ComicTranslationOrchestrator.mergePreviousContext(request.context, previous)
-    }
     const analysis: ComicPageAnalysisResult = await this.analyzer.analyze(request)
     if (analysis.providerId !== identity.providerId || analysis.modelId !== identity.modelId ||
       analysis.analysisPromptVersion !== identity.analysisPromptVersion ||

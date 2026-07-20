@@ -5015,6 +5015,54 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "要確認"
+    },
+    {
+      "name": "reader_comic_translation_action",
+      "value": "現在のページを翻訳"
+    },
+    {
+      "name": "reader_comic_translation_title",
+      "value": "%d ページの翻訳"
+    },
+    {
+      "name": "reader_comic_translation_running",
+      "value": "現在のページを文字起こしして翻訳中…"
+    },
+    {
+      "name": "reader_comic_translation_image_unavailable",
+      "value": "現在の画像はまだ準備できていません"
+    },
+    {
+      "name": "reader_comic_translation_failed",
+      "value": "翻訳に失敗しました · %s"
+    },
+    {
+      "name": "reader_comic_translation_provider_unavailable",
+      "value": "先に設定で漫画翻訳プロバイダーとモデルを構成してください"
+    },
+    {
+      "name": "reader_comic_translation_cached",
+      "value": "キャッシュ"
+    },
+    {
+      "name": "reader_comic_translation_review_required",
+      "value": "要確認"
+    },
+    {
+      "name": "reader_comic_translation_ready",
+      "value": "完了"
+    },
+    {
+      "name": "reader_comic_translation_no_text",
+      "value": "このページに表示テキストは見つかりませんでした"
+    },
+    {
+      "name": "reader_comic_translation_source",
+      "value": "原文：%s"
+    },
+    {
+      "name": "reader_comic_translation_target",
+      "value": "翻訳：%s"
     }
   ]
 }

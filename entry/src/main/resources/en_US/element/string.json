@@ -5015,6 +5015,54 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "Needs review"
+    },
+    {
+      "name": "reader_comic_translation_action",
+      "value": "Translate current page"
+    },
+    {
+      "name": "reader_comic_translation_title",
+      "value": "Page %d translation"
+    },
+    {
+      "name": "reader_comic_translation_running",
+      "value": "Transcribing and translating the current page…"
+    },
+    {
+      "name": "reader_comic_translation_image_unavailable",
+      "value": "The current image is not ready yet"
+    },
+    {
+      "name": "reader_comic_translation_failed",
+      "value": "Translation failed · %s"
+    },
+    {
+      "name": "reader_comic_translation_provider_unavailable",
+      "value": "Configure a comic translation provider and model in Settings first"
+    },
+    {
+      "name": "reader_comic_translation_cached",
+      "value": "Cached"
+    },
+    {
+      "name": "reader_comic_translation_review_required",
+      "value": "Needs review"
+    },
+    {
+      "name": "reader_comic_translation_ready",
+      "value": "Complete"
+    },
+    {
+      "name": "reader_comic_translation_no_text",
+      "value": "No visible text was found on this page"
+    },
+    {
+      "name": "reader_comic_translation_source",
+      "value": "Original: %s"
+    },
+    {
+      "name": "reader_comic_translation_target",
+      "value": "Translation: %s"
     }
   ]
 }

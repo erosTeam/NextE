@@ -7,6 +7,7 @@ import {
   ComicGlossaryTermStatus,
   ComicImagePreparationProfile,
   ComicProviderHttpError,
+  ComicProviderStageError,
   ComicResponsesRequestBuilder,
   ComicTranslationCodexUsageService,
   ComicTranslationModelCatalogService,
@@ -204,6 +205,11 @@ export default function comicTranslationProvidersTest(): void {
       expect(ComicTranslationLiveEvaluationService.classifyError(
         new Error('socket disconnected'),
       )).assertEqual('provider_transport_failed')
+      const stageError: ComicProviderStageError =
+        new ComicProviderStageError('output', 'text_kind')
+      expect(stageError.stageCode).assertEqual('output')
+      expect(stageError.detailCode).assertEqual('text_kind')
+      expect(stageError.message.includes('visible source text')).assertEqual(false)
       done()
     })
 

@@ -1,3 +1,5 @@
+import { util } from '@kit.ArkTS'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicPageDocument } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 
@@ -20,6 +22,7 @@ export class ComicTranslationRequestIdentity {
   glossaryRevision: number = 0
   styleGuideRevision: number = 0
   contextRevision: number = 0
+  contextFingerprint: string = ''
 
   static from(
     request: ComicPageAnalysisRequest,
@@ -42,6 +45,7 @@ export class ComicTranslationRequestIdentity {
     identity.glossaryRevision = request.context.glossaryRevision
     identity.styleGuideRevision = request.context.styleGuideRevision
     identity.contextRevision = request.context.contextRevision
+    identity.contextFingerprint = ComicTranslationRequestIdentity.contextFingerprint(request)
     identity.validate()
     return identity
   }
@@ -64,6 +68,7 @@ export class ComicTranslationRequestIdentity {
     identity.glossaryRevision = this.glossaryRevision
     identity.styleGuideRevision = this.styleGuideRevision
     identity.contextRevision = this.contextRevision
+    identity.contextFingerprint = this.contextFingerprint
     return identity
   }
 
@@ -75,6 +80,7 @@ export class ComicTranslationRequestIdentity {
       `${this.imageWidth}`,
       `${this.imageHeight}`,
       `${this.contextRevision}`,
+      this.contextFingerprint,
     ])
   }
 
@@ -115,6 +121,44 @@ export class ComicTranslationRequestIdentity {
       this.glossaryRevision < 0 || this.styleGuideRevision < 0 || this.contextRevision < 0) {
       throw new Error('Comic translation request identity is invalid')
     }
+  }
+
+  private static contextFingerprint(request: ComicPageAnalysisRequest): string {
+    const values: string[] = [
+      request.context.rollingSummary,
+      request.context.styleGuide,
+    ]
+    for (let index: number = 0; index < request.context.glossary.length; index++) {
+      const term = request.context.glossary[index]
+      values.push(JSON.stringify([
+        term.sourceTerm,
+        JSON.stringify(term.aliases),
+        term.targetTerm,
+        term.status,
+        term.provenance,
+        `${term.firstSeenPageIndex}`,
+        `${term.updatedRevision}`,
+        term.notes,
+      ]))
+    }
+    for (let index: number = 0; index < request.context.previousPages.length; index++) {
+      const page = request.context.previousPages[index]
+      values.push(JSON.stringify([
+        `${page.pageIndex}`,
+        page.sourceText,
+        page.translatedText,
+        page.pageSummary,
+      ]))
+    }
+    const encoded: Uint8Array = new util.TextEncoder().encodeInto(JSON.stringify(values))
+    const md = cryptoFramework.createMd('SHA256')
+    md.updateSync({ data: encoded })
+    const digest: Uint8Array = md.digestSync().data
+    const parts: string[] = []
+    for (let index: number = 0; index < digest.length; index++) {
+      parts.push(digest[index].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
   }
 }
 

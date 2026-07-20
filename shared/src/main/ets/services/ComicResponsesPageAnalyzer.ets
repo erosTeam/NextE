@@ -182,6 +182,18 @@ export class ComicProviderHttpError extends Error {
   }
 }
 
+/** A fixed, non-sensitive stage/detail pair for failures that happen around provider I/O. */
+export class ComicProviderStageError extends Error {
+  readonly stageCode: string
+  readonly detailCode: string
+
+  constructor(stageCode: string, detailCode: string) {
+    super('Comic provider ' + stageCode + ' failed (' + detailCode + ')')
+    this.stageCode = stageCode
+    this.detailCode = detailCode
+  }
+}
+
 class ComicResponsesCallConfig {
   providerId: string = ''
   baseUrl: string = ''
@@ -216,28 +228,42 @@ class ComicResponsesPageAnalyzerCore {
       config.eventStream,
       config.codexCompatibility,
     )
-    const response: AxiosTextResponse = await this.transport.requestText(
-      ComicResponsesPageAnalyzerCore.responsesUrl(config.baseUrl),
-      'POST',
-      ComicResponsesPageAnalyzerCore.headers(config),
-      body,
-      COMIC_RESPONSES_CONNECT_TIMEOUT_MS,
-      COMIC_RESPONSES_READ_TIMEOUT_MS,
-    )
+    let response: AxiosTextResponse
+    try {
+      response = await this.transport.requestText(
+        ComicResponsesPageAnalyzerCore.responsesUrl(config.baseUrl),
+        'POST',
+        ComicResponsesPageAnalyzerCore.headers(config),
+        body,
+        COMIC_RESPONSES_CONNECT_TIMEOUT_MS,
+        COMIC_RESPONSES_READ_TIMEOUT_MS,
+      )
+    } catch (error) {
+      throw ComicResponsesPageAnalyzerCore.stageError('transport', error as Error)
+    }
     if (response.statusCode !== 200) {
       throw new ComicProviderHttpError(response.statusCode, response.body)
     }
-    const providerJson: string = ComicResponsesProtocol.extractAssistantJson(
-      response.body,
-      config.eventStream,
-    )
-    return ComicPageAnalysisParser.parse(
-      request,
-      providerJson,
-      config.providerId,
-      config.model,
-      COMIC_RESPONSES_PROMPT_VERSION,
-    )
+    let providerJson: string
+    try {
+      providerJson = ComicResponsesProtocol.extractAssistantJson(
+        response.body,
+        config.eventStream,
+      )
+    } catch (error) {
+      throw ComicResponsesPageAnalyzerCore.stageError('protocol', error as Error)
+    }
+    try {
+      return ComicPageAnalysisParser.parse(
+        request,
+        providerJson,
+        config.providerId,
+        config.model,
+        COMIC_RESPONSES_PROMPT_VERSION,
+      )
+    } catch (error) {
+      throw ComicResponsesPageAnalyzerCore.stageError('output', error as Error)
+    }
   }
 
   static capabilities(): ComicPageAnalyzerCapabilities {
@@ -321,6 +347,88 @@ class ComicResponsesPageAnalyzerCore {
       return normalized + '/responses'
     }
     return normalized + '/v1/responses'
+  }
+
+  private static stageError(stageCode: string, error: Error): ComicProviderStageError {
+    const message: string = error.message.toLowerCase()
+    if (stageCode === 'transport') {
+      if (message.includes('timeout')) {
+        return new ComicProviderStageError(stageCode, 'timeout')
+      }
+      if (message.includes('certificate') || message.includes('tls')) {
+        return new ComicProviderStageError(stageCode, 'tls')
+      }
+      if (message.includes('dns')) {
+        return new ComicProviderStageError(stageCode, 'dns')
+      }
+      if (message.includes('socket') || message.includes('connection') ||
+        message.includes('network')) {
+        return new ComicProviderStageError(stageCode, 'connection')
+      }
+      return new ComicProviderStageError(stageCode, 'request_exception')
+    }
+    if (stageCode === 'protocol') {
+      if (message.includes('response size')) {
+        return new ComicProviderStageError(stageCode, 'response_size')
+      }
+      if (message.includes('stream failed')) {
+        return new ComicProviderStageError(stageCode, 'stream_failed')
+      }
+      if (message.includes('empty output') || message.includes('no output') ||
+        message.includes('no json')) {
+        return new ComicProviderStageError(stageCode, 'output_missing')
+      }
+      if (message.includes('json')) {
+        return new ComicProviderStageError(stageCode, 'invalid_json')
+      }
+      return new ComicProviderStageError(stageCode, 'invalid_response')
+    }
+    if (message.includes('project identity')) {
+      return new ComicProviderStageError(stageCode, 'identity_project')
+    }
+    if (message.includes('page identity')) {
+      return new ComicProviderStageError(stageCode, 'identity_page')
+    }
+    if (message.includes('image identity')) {
+      return new ComicProviderStageError(stageCode, 'identity_image')
+    }
+    if (message.includes('image width') || message.includes('image height')) {
+      return new ComicProviderStageError(stageCode, 'identity_dimensions')
+    }
+    if (message.includes('schema')) {
+      return new ComicProviderStageError(stageCode, 'schema')
+    }
+    if (message.includes('hastext')) {
+      return new ComicProviderStageError(stageCode, 'has_text')
+    }
+    if (message.includes('reading order')) {
+      return new ComicProviderStageError(stageCode, 'reading_order')
+    }
+    if (message.includes('quality signal')) {
+      return new ComicProviderStageError(stageCode, 'quality_signal')
+    }
+    if (message.includes('polygon')) {
+      return new ComicProviderStageError(stageCode, 'geometry')
+    }
+    if (message.includes('text kind')) {
+      return new ComicProviderStageError(stageCode, 'text_kind')
+    }
+    if (message.includes('source origin')) {
+      return new ComicProviderStageError(stageCode, 'source_origin')
+    }
+    if (message.includes('translation origin')) {
+      return new ComicProviderStageError(stageCode, 'translation_origin')
+    }
+    if (message.includes('confidence')) {
+      return new ComicProviderStageError(stageCode, 'confidence')
+    }
+    if (message.includes('block')) {
+      return new ComicProviderStageError(stageCode, 'block')
+    }
+    if (message.includes('payload size')) {
+      return new ComicProviderStageError(stageCode, 'payload_size')
+    }
+    return new ComicProviderStageError(stageCode, 'invalid_document')
   }
 }
 

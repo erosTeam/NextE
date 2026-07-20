@@ -54,6 +54,13 @@ import {
   ReaderSourceKind,
   ReaderSourceVariant,
   appSheetOptions,
+  ComicPageDocument,
+  ComicTextBlock,
+  ComicTranslationErrorClassifier,
+  ComicTranslationReaderPageInput,
+  ComicTranslationRuntimeService,
+  ComicTranslationRunResult,
+  ComicTranslationState,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -271,6 +278,12 @@ export struct ReaderPage {
   @Local imageBlockActionMenuShown: boolean = false;
   @Local readModeMenuShown: boolean = false;
   @Local readerTopMoreMenuShown: boolean = false;
+  @Local comicTranslationSheetShown: boolean = false;
+  @Local comicTranslationRunning: boolean = false;
+  @Local comicTranslationDocument: ComicPageDocument | null = null;
+  @Local comicTranslationErrorCode: string = '';
+  @Local comicTranslationPageIndex: number = -1;
+  @Local comicTranslationCacheHit: boolean = false;
   @Local sourceReloadPage: number = 0;
   @Local sourceReloadRequestId: number = 0;
   // List.onScrollIndex reports the first and last screen-visible rows; its cached rows must not
@@ -318,6 +331,7 @@ export struct ReaderPage {
   private readerRouteVisible: boolean = false;
   private superResolutionInteractionResumeTimer: number = -1;
   private superResolutionForegroundInteractionActive: boolean = false;
+  private comicTranslationUiEpoch: number = 0;
 
   build() {
     HdsNavDestination() {
@@ -403,6 +417,17 @@ export struct ReaderPage {
       .onKeyEvent((event: KeyEvent): boolean => {
         return this.handleKeyEvent(event)
       })
+      .bindSheet(
+        $$this.comicTranslationSheetShown,
+        this.ComicTranslationSheet,
+        appSheetOptions({
+          detents: [SheetSize.LARGE],
+          showClose: false,
+          onDisappear: () => {
+            this.comicTranslationSheetShown = false
+          },
+        }),
+      )
     }
     .hideTitleBar(true)
     .backgroundColor(this.readerBackgroundColor())
@@ -834,6 +859,7 @@ export struct ReaderPage {
   /** Clears page-number keyed state before a retained ReaderPage starts another gallery. */
   private resetReaderGalleryState(): void {
     this.releaseAllSuperResolutionPrefetches()
+    this.resetComicTranslationPresentation()
     this.loadedPages = []
     this.loadedPageSignal++
     this.originalImagePages = ''
@@ -897,6 +923,24 @@ export struct ReaderPage {
       }
     }
     return ''
+  }
+
+  private imageMetricWidthForPage(page: number): number {
+    for (let index: number = 0; index < this.imageMetricPages.length; index++) {
+      if (this.imageMetricPages[index] === page) {
+        return this.imageMetricWidths[index]
+      }
+    }
+    return 0
+  }
+
+  private imageMetricHeightForPage(page: number): number {
+    for (let index: number = 0; index < this.imageMetricPages.length; index++) {
+      if (this.imageMetricPages[index] === page) {
+        return this.imageMetricHeights[index]
+      }
+    }
+    return 0
   }
 
   private rememberImageEnhancement(
@@ -1306,6 +1350,278 @@ export struct ReaderPage {
         action: () => {},
       },
     })
+  }
+
+  private resetComicTranslationPresentation(): void {
+    this.comicTranslationUiEpoch++
+    this.comicTranslationSheetShown = false
+    this.comicTranslationRunning = false
+    this.comicTranslationDocument = null
+    this.comicTranslationErrorCode = ''
+    this.comicTranslationPageIndex = -1
+    this.comicTranslationCacheHit = false
+  }
+
+  private comicTranslationCurrentPageReady(): boolean {
+    if (this.params.gid.trim().length === 0 || !this.vm.hasPreviewAt(this.vm.currentIndex)) {
+      return false
+    }
+    const page: number = this.vm.imageAt(this.vm.currentIndex).page
+    return page > 0 && this.imageBlockFileForPage(page).length > 0 &&
+      this.imageMetricWidthForPage(page) > 0 && this.imageMetricHeightForPage(page) > 0
+  }
+
+  private comicTranslationProjectId(isEx: boolean): string {
+    return `nexte-gallery:${isEx ? 'ex' : 'eh'}:${this.params.gid}:zh-CN`
+  }
+
+  private startCurrentPageComicTranslation(forceRefresh: boolean = false): void {
+    if (this.comicTranslationRunning) {
+      return
+    }
+    const pageIndex: number = this.vm.currentIndex
+    if (!this.vm.hasPreviewAt(pageIndex)) {
+      this.showComicTranslationImageUnavailable()
+      return
+    }
+    const image: EhGalleryImage = this.vm.imageAt(pageIndex)
+    const filePath: string = this.imageBlockFileForPage(image.page)
+    const width: number = this.imageMetricWidthForPage(image.page)
+    const height: number = this.imageMetricHeightForPage(image.page)
+    if (this.params.gid.trim().length === 0 || filePath.length === 0 || width <= 0 || height <= 0) {
+      this.showComicTranslationImageUnavailable()
+      return
+    }
+    const routeEpoch: number = this.readerRouteEpoch
+    const gid: string = this.params.gid
+    const token: string = this.params.token
+    const isEx: boolean = connectSiteMode().isEx
+    const uiEpoch: number = ++this.comicTranslationUiEpoch
+    const input: ComicTranslationReaderPageInput = new ComicTranslationReaderPageInput()
+    input.projectId = this.comicTranslationProjectId(isEx)
+    input.pageIndex = pageIndex
+    input.imageFilePath = filePath
+    input.imageWidth = width
+    input.imageHeight = height
+    input.sourceLanguage = 'auto'
+    input.targetLanguage = 'zh-CN'
+
+    this.comicTranslationPageIndex = pageIndex
+    this.comicTranslationDocument = null
+    this.comicTranslationErrorCode = ''
+    this.comicTranslationCacheHit = false
+    this.comicTranslationRunning = true
+    this.comicTranslationSheetShown = true
+    ComicTranslationRuntimeService.runReaderPage(this.hostContext(), input, forceRefresh)
+      .then((result: ComicTranslationRunResult): void => {
+        if (!this.isComicTranslationPublicationCurrent(
+          uiEpoch,
+          routeEpoch,
+          gid,
+          token,
+          isEx,
+          pageIndex,
+          filePath,
+        )) {
+          return
+        }
+        this.comicTranslationDocument = result.document
+        this.comicTranslationCacheHit = result.cacheHit
+        this.comicTranslationErrorCode = ''
+        this.comicTranslationRunning = false
+        DiagnosticLogger.info(
+          'comic-translation',
+          'reader_page_ready',
+          `page=${pageIndex} cache=${result.cacheHit ? 1 : 0} ` +
+            `blocks=${result.document.blocks.length} signals=${result.document.qualitySignals.length}`,
+        )
+      })
+      .catch((error: Error): void => {
+        if (!this.isComicTranslationPublicationCurrent(
+          uiEpoch,
+          routeEpoch,
+          gid,
+          token,
+          isEx,
+          pageIndex,
+          filePath,
+        )) {
+          return
+        }
+        const errorCode: string = ComicTranslationErrorClassifier.classify(error)
+        this.comicTranslationErrorCode = errorCode
+        this.comicTranslationRunning = false
+        DiagnosticLogger.warn(
+          'comic-translation',
+          'reader_page_failed',
+          `page=${pageIndex} code=${errorCode}`,
+        )
+      })
+  }
+
+  private isComicTranslationPublicationCurrent(
+    uiEpoch: number,
+    routeEpoch: number,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    pageIndex: number,
+    filePath: string,
+  ): boolean {
+    if (uiEpoch !== this.comicTranslationUiEpoch || this.vm.currentIndex !== pageIndex ||
+      !this.isReaderRouteIdentityCurrent(routeEpoch, gid, token, isEx) ||
+      !this.vm.hasPreviewAt(pageIndex)) {
+      return false
+    }
+    return this.imageBlockFileForPage(this.vm.imageAt(pageIndex).page) === filePath
+  }
+
+  private showComicTranslationImageUnavailable(): void {
+    this.getUIContext().getPromptAction().showToast({
+      message: $r('app.string.reader_comic_translation_image_unavailable'),
+    })
+  }
+
+  private comicTranslationBlocks(): ComicTextBlock[] {
+    return this.comicTranslationDocument === null ? [] : this.comicTranslationDocument.blocks
+  }
+
+  private comicTranslationNeedsReview(): boolean {
+    if (this.comicTranslationDocument === null) {
+      return false
+    }
+    return this.comicTranslationDocument.translationState === ComicTranslationState.REVIEW_REQUIRED ||
+      this.comicTranslationDocument.qualitySignals.length > 0
+  }
+
+  private comicTranslationStatusText(): string {
+    const parts: string[] = []
+    if (this.comicTranslationCacheHit) {
+      parts.push(AppStrings.get('reader_comic_translation_cached'))
+    }
+    parts.push(AppStrings.get(this.comicTranslationNeedsReview()
+      ? 'reader_comic_translation_review_required'
+      : 'reader_comic_translation_ready'))
+    return parts.join(' · ')
+  }
+
+  private comicTranslationFailureText(): string {
+    if (this.comicTranslationErrorCode === 'provider_configuration') {
+      return AppStrings.get('reader_comic_translation_provider_unavailable')
+    }
+    return AppStrings.get('reader_comic_translation_failed')
+      .replace('%s', this.comicTranslationErrorCode)
+  }
+
+  @Builder
+  private ComicTranslationBlockRow(block: ComicTextBlock) {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(AppStrings.get('reader_comic_translation_source').replace('%s', block.sourceText))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .width('100%')
+      Text(AppStrings.get('reader_comic_translation_target').replace(
+        '%s',
+        block.translatedText.length > 0 ? block.translatedText : '—',
+      ))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor(ThemeConstants.TEXT_PRIMARY)
+        .width('100%')
+    }
+    .width('100%')
+    .padding(ThemeConstants.SPACE_MD)
+    .backgroundColor(ThemeConstants.BG_SUB)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+  }
+
+  @Builder
+  private ComicTranslationSheet() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Row() {
+        Text(AppStrings.get('reader_comic_translation_title').replace(
+          '%d',
+          `${Math.max(0, this.comicTranslationPageIndex) + 1}`,
+        ))
+          .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(ThemeConstants.TEXT_PRIMARY)
+        Blank()
+        Button($r('app.string.common_ok'))
+          .type(ButtonType.Capsule)
+          .onClick(() => {
+            this.comicTranslationSheetShown = false
+          })
+      }
+      .width('100%')
+
+      if (this.comicTranslationRunning) {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          LoadingProgress()
+            .width(32)
+            .height(32)
+            .color(ThemeConstants.BRAND_PRIMARY)
+          Text($r('app.string.reader_comic_translation_running'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(ThemeConstants.TEXT_SECONDARY)
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.comicTranslationErrorCode.length > 0) {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Text(this.comicTranslationFailureText())
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(ThemeConstants.TEXT_PRIMARY)
+            .textAlign(TextAlign.Center)
+          Button($r('app.string.common_retry'))
+            .type(ButtonType.Capsule)
+            .enabled(this.comicTranslationCurrentPageReady())
+            .onClick(() => {
+              this.startCurrentPageComicTranslation(true)
+            })
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.comicTranslationDocument !== null) {
+        Text(this.comicTranslationStatusText())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(ThemeConstants.TEXT_SECONDARY)
+          .width('100%')
+        if (!this.comicTranslationDocument.hasText) {
+          Text($r('app.string.reader_comic_translation_no_text'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(ThemeConstants.TEXT_SECONDARY)
+            .layoutWeight(1)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+        } else {
+          Scroll() {
+            Column({ space: ThemeConstants.SPACE_SM }) {
+              ForEach(
+                this.comicTranslationBlocks(),
+                (block: ComicTextBlock) => {
+                  this.ComicTranslationBlockRow(block)
+                },
+                (block: ComicTextBlock): string => block.blockId,
+              )
+            }
+            .width('100%')
+          }
+          .layoutWeight(1)
+          .scrollBar(BarState.Auto)
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({
+      left: ThemeConstants.SPACE_LG,
+      right: ThemeConstants.SPACE_LG,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_LG,
+    })
+    .backgroundColor(ThemeConstants.BG_PRIMARY)
   }
 
   private spreadVisualLeftIndex(): number {
@@ -1960,6 +2276,10 @@ export struct ReaderPage {
   // and persist the reading position (eros_fe saveLastIndex: memory now, disk on a 3s debounce).
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
+    if (this.comicTranslationPageIndex >= 0 &&
+      this.comicTranslationPageIndex !== this.vm.currentIndex) {
+      this.resetComicTranslationPresentation()
+    }
     if (this.sliderPreview < 0) {
       const target: number = this.vm.currentIndex + 1
       const token: number = ++this.sliderSyncToken
@@ -2056,6 +2376,7 @@ export struct ReaderPage {
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
     this.releaseAllSuperResolutionPrefetches()
+    this.resetComicTranslationPresentation()
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.flush(this.hostContext())
     }
@@ -3181,6 +3502,12 @@ export struct ReaderPage {
             this.showImageInfo(this.vm.currentIndex)
           })
       }
+      MenuItem({ content: $r('app.string.reader_comic_translation_action') })
+        .enabled(this.comicTranslationCurrentPageReady() && !this.comicTranslationRunning)
+        .onClick(() => {
+          this.readerTopMoreMenuShown = false
+          this.startCurrentPageComicTranslation()
+        })
       if (this.canShowReaderImageBlockAction()) {
         MenuItem({ content: $r('app.string.reader_image_block_mark') })
           .enabled(!this.imageBlockRuleSaving)

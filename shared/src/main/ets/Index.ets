@@ -207,6 +207,7 @@ export { ComicResponsesProtocol } from './services/ComicResponsesProtocol'
 export {
   ComicPageAnalyzerFactory,
   ComicProviderHttpError,
+  ComicProviderStageError,
   ComicResponsesRequestBuilder,
   ComicResponsesHttpTransport,
   DefaultComicResponsesHttpTransport,
@@ -222,6 +223,11 @@ export {
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
 } from './services/ComicTranslationOrchestrator'
+export { ComicTranslationErrorClassifier } from './services/ComicTranslationErrorClassifier'
+export {
+  ComicTranslationReaderPageInput,
+  ComicTranslationRuntimeService,
+} from './services/ComicTranslationRuntimeService'
 export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,

@@ -328,6 +328,7 @@ export class ComicPageAnalysisParser {
     block.translationOrigin = ComicPageAnalysisParser.normalizeTranslationOrigin(
       raw.translationOrigin,
       block.translatedText.length > 0,
+      block.sourceOrigin,
     )
     block.providerConfidence = ComicPageAnalysisParser.normalizeConfidence(raw.providerConfidence)
     block.sourceRevision = request.requestedAnalysisRevision
@@ -423,9 +424,10 @@ export class ComicPageAnalysisParser {
   private static normalizeTranslationOrigin(
     value: string | null | undefined,
     hasTranslation: boolean,
+    sourceOrigin: ComicSourceOrigin,
   ): ComicTranslationOrigin {
     const normalized: string = ComicPageAnalysisParser.safeString(value)
-    if (!hasTranslation && (normalized.length === 0 || normalized === ComicTranslationOrigin.NONE)) {
+    if (!hasTranslation) {
       return ComicTranslationOrigin.NONE
     }
     if (hasTranslation && normalized === ComicTranslationOrigin.VISION) {
@@ -433,6 +435,11 @@ export class ComicPageAnalysisParser {
     }
     if (hasTranslation && normalized === ComicTranslationOrigin.TEXT) {
       return ComicTranslationOrigin.TEXT
+    }
+    if (normalized.length === 0 || normalized === ComicTranslationOrigin.NONE) {
+      return sourceOrigin === ComicSourceOrigin.OCR
+        ? ComicTranslationOrigin.TEXT
+        : ComicTranslationOrigin.VISION
     }
     throw new Error('Comic analysis translation origin is invalid')
   }

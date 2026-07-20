@@ -40,6 +40,7 @@ export class ComicResponsesProtocol {
     lines.push('When text or order is uncertain, add a qualitySignals entry instead of guessing silently.')
     lines.push('Set polygon=[] for every block. Geometry is not requested in this text-only phase.')
     lines.push('Use sourceOrigin="vision". Use translationOrigin="vision" when translatedText is present, otherwise "none".')
+    lines.push('For every block with translatedText="", set translationOrigin="none". Never use "none" when translatedText is non-empty.')
     lines.push('Allowed kind values: dialogue, narration, sfx, annotation, other.')
     lines.push('Allowed quality severity values: info, warning, error.')
     lines.push('Required JSON shape:')
