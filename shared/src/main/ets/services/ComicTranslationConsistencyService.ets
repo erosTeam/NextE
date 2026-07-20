@@ -4,6 +4,7 @@ import {
   ComicQualitySignal,
   ComicTextBlock,
 } from '../model/ComicTranslation'
+import { ComicTranslationReviewService } from './ComicTranslationReviewService'
 
 export const COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE: string =
   'translation_consistency_conflict'
@@ -19,7 +20,8 @@ export class ComicTranslationConsistencyService {
     previousPages: ComicPageDocument[],
   ): ComicPageDocument {
     const audited: ComicPageDocument = document.copy()
-    if (!audited.hasText || audited.blocks.length === 0 || previousPages.length === 0) {
+    if (!audited.hasText || audited.blocks.length === 0 || previousPages.length === 0 ||
+      ComicTranslationReviewService.documentHasPageLevelReviewSignal(audited)) {
       return audited
     }
     const previousTranslations: Map<string, Set<string>> =
@@ -38,6 +40,7 @@ export class ComicTranslationConsistencyService {
         block.translatedText,
       )
       if (source.length === 0 || translated.length === 0 ||
+        ComicTranslationReviewService.blockNeedsReview(audited, block.blockId) ||
         !ComicTranslationConsistencyService.hasDifferentTranslation(
           previousTranslations.get(source),
           translated,
@@ -84,9 +87,15 @@ export class ComicTranslationConsistencyService {
     const start: number = Math.max(0, previousPages.length - MAX_CONSISTENCY_PREVIOUS_PAGES)
     for (let pageIndex: number = start; pageIndex < previousPages.length; pageIndex++) {
       const page: ComicPageDocument = previousPages[pageIndex]
+      if (ComicTranslationReviewService.documentHasPageLevelReviewSignal(page)) {
+        continue
+      }
       const blockCount: number = Math.min(page.blocks.length, MAX_CONSISTENCY_BLOCKS_PER_PAGE)
       for (let blockIndex: number = 0; blockIndex < blockCount; blockIndex++) {
         const block: ComicTextBlock = page.blocks[blockIndex]
+        if (ComicTranslationReviewService.blockNeedsReview(page, block.blockId)) {
+          continue
+        }
         const source: string = ComicTranslationConsistencyService.sourceKey(block)
         const translated: string = ComicTranslationConsistencyService.normalizedText(
           block.translatedText,

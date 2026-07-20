@@ -451,6 +451,78 @@ export default function comicTranslationOrchestratorTest(): void {
         done()
       })
 
+    it('ignores review-targeted evidence during consistency audit', 0,
+      (done: Function) => {
+        const previous: ComicPageDocument = new ComicPageDocument()
+        previous.hasText = true
+        previous.translationState = ComicTranslationState.PROVISIONAL
+        const previousBlock: ComicTextBlock = new ComicTextBlock()
+        previousBlock.blockId = 'p0-b0'
+        previousBlock.sourceText = '優'
+        previousBlock.normalizedSourceText = '優'
+        previousBlock.translatedText = '优'
+        previous.blocks.push(previousBlock)
+        const historicalSignal: ComicQualitySignal = new ComicQualitySignal()
+        historicalSignal.code = 'provider_note'
+        historicalSignal.severity = ComicQualitySeverity.INFO
+        historicalSignal.blockId = previousBlock.blockId
+        previous.qualitySignals.push(historicalSignal)
+
+        const current: ComicPageDocument = new ComicPageDocument()
+        current.hasText = true
+        current.translationState = ComicTranslationState.PROVISIONAL
+        const currentBlock: ComicTextBlock = new ComicTextBlock()
+        currentBlock.blockId = 'p1-b0'
+        currentBlock.sourceText = '優'
+        currentBlock.normalizedSourceText = '優'
+        currentBlock.translatedText = '小优'
+        current.blocks.push(currentBlock)
+        expect(ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        ).qualitySignals.length).assertEqual(1)
+
+        historicalSignal.severity = ComicQualitySeverity.WARNING
+        expect(ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        ).qualitySignals.length).assertEqual(0)
+        historicalSignal.blockId = ''
+        expect(ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        ).qualitySignals.length).assertEqual(0)
+
+        previous.qualitySignals = []
+        previous.translationState = ComicTranslationState.REVIEW_REQUIRED
+        const missing: ComicTextBlock = new ComicTextBlock()
+        missing.blockId = 'p0-b1'
+        missing.sourceText = '兄'
+        missing.normalizedSourceText = '兄'
+        previous.blocks.push(missing)
+        expect(ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        ).qualitySignals.length).assertEqual(1)
+
+        previous.translationState = ComicTranslationState.PROVISIONAL
+        const currentWarning: ComicQualitySignal = new ComicQualitySignal()
+        currentWarning.code = 'uncertain_text'
+        currentWarning.severity = ComicQualitySeverity.WARNING
+        currentWarning.blockId = currentBlock.blockId
+        current.qualitySignals.push(currentWarning)
+        const currentAudited: ComicPageDocument = ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        )
+        expect(currentAudited.qualitySignals.length).assertEqual(1)
+        expect(ComicTranslationConsistencyService.hasConflict(
+          currentAudited,
+          currentBlock.blockId,
+        )).assertEqual(false)
+        done()
+      })
+
     it('carries stable exact translation memory beyond the two-page prompt window', 0,
       async (done: Function) => {
         const repository: InMemoryComicTranslationRepository =
