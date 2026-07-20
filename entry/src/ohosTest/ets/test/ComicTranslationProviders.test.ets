@@ -830,5 +830,22 @@ export default function comicTranslationProvidersTest(): void {
       expect(ComicTranslationCodexUsageService.parseCached(cached, 'acct-other')).assertEqual(null)
       done()
     })
+
+    it('bounds Codex usage cache records before parsing or display', 0, (done: Function) => {
+      expect(ComicTranslationCodexUsageService.parseCached(
+        'x'.repeat(16 * 1024 + 1),
+        'acct-fixture',
+      )).assertEqual(null)
+
+      const restored = ComicTranslationCodexUsageService.parseCached(
+        '{"accountId":"acct-fixture","snapshot":{"planType":"pro",' +
+          '"fiveHour":{"usedPercent":25,"windowSeconds":18000,"resetsAtMs":1e308},' +
+          '"weekly":null,"fetchedAtMs":1e308}}',
+        'acct-fixture',
+      )
+      expect(restored?.fiveHour?.resetsAtMs).assertEqual(0)
+      expect(restored?.fetchedAtMs).assertEqual(0)
+      done()
+    })
   })
 }

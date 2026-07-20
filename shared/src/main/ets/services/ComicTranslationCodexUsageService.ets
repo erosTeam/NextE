@@ -10,6 +10,9 @@ const CODEX_USAGE_URL: string = 'https://chatgpt.com/backend-api/wham/usage'
 const CODEX_USAGE_CONNECT_TIMEOUT_MS: number = 15000
 const CODEX_USAGE_READ_TIMEOUT_MS: number = 20000
 const CODEX_USAGE_MAX_BODY_CHARS: number = 512 * 1024
+const CODEX_USAGE_CACHE_MAX_CHARS: number = 16 * 1024
+const CODEX_USAGE_ACCOUNT_ID_MAX_CHARS: number = 160
+const CODEX_USAGE_PLAN_TYPE_MAX_CHARS: number = 64
 const FIVE_HOUR_WINDOW_SECONDS: number = 5 * 60 * 60
 const WEEKLY_WINDOW_SECONDS: number = 7 * 24 * 60 * 60
 
@@ -162,35 +165,55 @@ export class ComicTranslationCodexUsageService {
   }
 
   static serializeCached(accountId: string, snapshot: CodexUsageSnapshot): string {
+    const normalizedAccountId: string = ComicTranslationCodexUsageService.boundedText(
+      accountId,
+      CODEX_USAGE_ACCOUNT_ID_MAX_CHARS,
+    )
+    if (normalizedAccountId.length === 0) {
+      throw new Error('Codex usage cache account is invalid')
+    }
     const envelope: RawCodexUsageCacheEnvelope = new RawCodexUsageCacheEnvelope()
-    envelope.accountId = accountId.trim()
+    envelope.accountId = normalizedAccountId
     const cached: RawCachedCodexUsageSnapshot = new RawCachedCodexUsageSnapshot()
-    cached.planType = snapshot.planType
-    cached.primary = snapshot.primary
-    cached.secondary = snapshot.secondary
-    cached.fiveHour = snapshot.fiveHour
-    cached.weekly = snapshot.weekly
-    cached.fetchedAtMs = snapshot.fetchedAtMs
+    cached.planType = ComicTranslationCodexUsageService.boundedText(
+      snapshot.planType,
+      CODEX_USAGE_PLAN_TYPE_MAX_CHARS,
+    )
+    cached.primary = ComicTranslationCodexUsageService.cachedWindow(snapshot.primary)
+    cached.secondary = ComicTranslationCodexUsageService.cachedWindow(snapshot.secondary)
+    cached.fiveHour = ComicTranslationCodexUsageService.cachedWindow(snapshot.fiveHour)
+    cached.weekly = ComicTranslationCodexUsageService.cachedWindow(snapshot.weekly)
+    cached.fetchedAtMs = ComicTranslationCodexUsageService.safeTimestamp(snapshot.fetchedAtMs)
     envelope.snapshot = cached
-    return JSON.stringify(envelope)
+    const encoded: string = JSON.stringify(envelope)
+    if (encoded.length > CODEX_USAGE_CACHE_MAX_CHARS) {
+      throw new Error('Codex usage cache size is invalid')
+    }
+    return encoded
   }
 
   static parseCached(rawText: string, expectedAccountId: string): CodexUsageSnapshot | null {
-    if (rawText.trim().length === 0) {
+    if (rawText.trim().length === 0 || rawText.length > CODEX_USAGE_CACHE_MAX_CHARS) {
       return null
     }
     try {
-      const envelope: RawCodexUsageCacheEnvelope =
-        JSON.parse(rawText) as RawCodexUsageCacheEnvelope
-      if (typeof envelope.accountId !== 'string' ||
-        envelope.accountId !== expectedAccountId.trim() || envelope.snapshot === null ||
+      const envelope: RawCodexUsageCacheEnvelope | null =
+        JSON.parse(rawText) as RawCodexUsageCacheEnvelope | null
+      const normalizedAccountId: string = ComicTranslationCodexUsageService.boundedText(
+        expectedAccountId,
+        CODEX_USAGE_ACCOUNT_ID_MAX_CHARS,
+      )
+      if (envelope === null || normalizedAccountId.length === 0 ||
+        typeof envelope.accountId !== 'string' || envelope.accountId !== normalizedAccountId ||
+        envelope.snapshot === null ||
         typeof envelope.snapshot !== 'object') {
         return null
       }
       const snapshot: CodexUsageSnapshot = new CodexUsageSnapshot()
-      snapshot.planType = typeof envelope.snapshot.planType === 'string'
-        ? envelope.snapshot.planType.trim()
-        : ''
+      snapshot.planType = ComicTranslationCodexUsageService.boundedText(
+        envelope.snapshot.planType,
+        CODEX_USAGE_PLAN_TYPE_MAX_CHARS,
+      )
       snapshot.primary = ComicTranslationCodexUsageService.cachedWindow(envelope.snapshot.primary)
       snapshot.secondary = ComicTranslationCodexUsageService.cachedWindow(envelope.snapshot.secondary)
       snapshot.fiveHour = ComicTranslationCodexUsageService.cachedWindow(envelope.snapshot.fiveHour)
@@ -211,12 +234,16 @@ export class ComicTranslationCodexUsageService {
     if (rawText.length === 0 || rawText.length > CODEX_USAGE_MAX_BODY_CHARS) {
       throw new Error('Codex usage response size is invalid')
     }
-    const envelope: RawCodexUsageEnvelope = JSON.parse(rawText) as RawCodexUsageEnvelope
-    if (envelope.rate_limit === null || typeof envelope.rate_limit !== 'object') {
+    const envelope: RawCodexUsageEnvelope | null = JSON.parse(rawText) as RawCodexUsageEnvelope | null
+    if (envelope === null || envelope.rate_limit === null ||
+      typeof envelope.rate_limit !== 'object') {
       throw new Error('Codex usage response has no rate limit')
     }
     const snapshot: CodexUsageSnapshot = new CodexUsageSnapshot()
-    snapshot.planType = typeof envelope.plan_type === 'string' ? envelope.plan_type.trim() : ''
+    snapshot.planType = ComicTranslationCodexUsageService.boundedText(
+      envelope.plan_type,
+      CODEX_USAGE_PLAN_TYPE_MAX_CHARS,
+    )
     snapshot.primary = ComicTranslationCodexUsageService.parseWindow(
       envelope.rate_limit.primary_window,
     )
@@ -325,13 +352,13 @@ export class ComicTranslationCodexUsageService {
   }
 
   private static clampedPercent(value: number | string | null): number {
-    const parsed: number = ComicTranslationCodexUsageService.safeNumber(value)
-    return Math.min(100, Math.max(0, parsed))
+    const parsed: number = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0
   }
 
   private static safeNumber(value: number | string | null | undefined): number {
     const parsed: number = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
+    return Number.isFinite(parsed) && Math.abs(parsed) <= Number.MAX_SAFE_INTEGER ? parsed : 0
   }
 
   private static epochMs(value: number | string | null): number {
@@ -339,12 +366,31 @@ export class ComicTranslationCodexUsageService {
     if (parsed <= 0) {
       return 0
     }
-    return Math.floor(parsed > 100000000000 ? parsed : parsed * 1000)
+    const milliseconds: number = parsed > 100000000000 ? parsed : parsed * 1000
+    return milliseconds <= Number.MAX_SAFE_INTEGER ? Math.floor(milliseconds) : 0
   }
 
   private static safeTimestamp(value: number | null | undefined): number {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
+      value <= Number.MAX_SAFE_INTEGER
       ? Math.floor(value)
       : 0
+  }
+
+  private static boundedText(value: string | null | undefined, maxChars: number): string {
+    if (typeof value !== 'string') {
+      return ''
+    }
+    const normalized: string = value.trim()
+    if (normalized.length === 0 || normalized.length > maxChars) {
+      return ''
+    }
+    for (let index: number = 0; index < normalized.length; index++) {
+      const code: number = normalized.charCodeAt(index)
+      if (code <= 31 || code === 127) {
+        return ''
+      }
+    }
+    return normalized
   }
 }
