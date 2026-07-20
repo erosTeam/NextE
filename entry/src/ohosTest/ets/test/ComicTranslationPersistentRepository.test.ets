@@ -165,6 +165,39 @@ export default function comicTranslationPersistentRepositoryTest(): void {
       expect(revisionRejected).assertEqual(true)
     })
 
+    it('rejects non-canonical persisted identifiers without rewriting free text', 0, () => {
+      const payload: string = ComicTranslationDocumentCodec.encode(document(identity(0)))
+      const invalidPayloads: string[] = [
+        payload.replace(TEST_PROJECT_ID, ` ${TEST_PROJECT_ID}`),
+        payload.replace('"profileId":"fixture-jpeg-v1"', '"profileId":"fixture-jpeg-v1 "'),
+        payload.split('"blockId":"page-0-block-0"')
+          .join('"blockId":" page-0-block-0"'),
+        payload.replace('"speakerId":""', '"speakerId":" speaker-0 "'),
+        payload.replace('"code":"fixture-review"', '"code":" fixture-review"'),
+        payload.replace('"lastErrorCode":""', '"lastErrorCode":" diagnostic "'),
+      ]
+      for (let index: number = 0; index < invalidPayloads.length; index++) {
+        let rejected: boolean = false
+        try {
+          ComicTranslationDocumentCodec.decode(invalidPayloads[index])
+        } catch (_error) {
+          rejected = true
+        }
+        expect(rejected).assertEqual(true)
+      }
+
+      const spacedText: string = payload
+        .replace('"pageSummary":"summary-0"', '"pageSummary":" summary-0 "')
+        .replace('"sourceText":"source-0"', '"sourceText":" source-0 "')
+        .replace('"translatedText":"translation-0"', '"translatedText":" translation-0 "')
+        .replace('"message":"fixture signal"', '"message":" fixture signal "')
+      const restored: ComicPageDocument = ComicTranslationDocumentCodec.decode(spacedText)
+      expect(restored.pageSummary).assertEqual(' summary-0 ')
+      expect(restored.blocks[0].sourceText).assertEqual(' source-0 ')
+      expect(restored.blocks[0].translatedText).assertEqual(' translation-0 ')
+      expect(restored.qualitySignals[0].message).assertEqual(' fixture signal ')
+    })
+
     it('recovers exact and previous-page documents through new repository instances', 0,
       async (done: Function) => {
         const context: common.UIAbilityContext = await appContext()

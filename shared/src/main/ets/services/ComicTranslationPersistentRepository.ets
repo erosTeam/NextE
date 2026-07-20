@@ -78,7 +78,7 @@ export class ComicTranslationDocumentCodec {
     if (document.schemaVersion !== COMIC_TRANSLATION_SCHEMA_VERSION) {
       throw new Error('Comic translation cache schema is unsupported')
     }
-    document.projectId = ComicTranslationDocumentCodec.requiredString(
+    document.projectId = ComicTranslationDocumentCodec.exactRequiredString(
       raw.projectId,
       MAX_IDENTIFIER_CHARS,
     )
@@ -110,7 +110,7 @@ export class ComicTranslationDocumentCodec {
     }
     document.hasText = raw.hasText
     document.pageSummary = ComicTranslationDocumentCodec.string(raw.pageSummary, MAX_SUMMARY_CHARS)
-    document.lastErrorCode = ComicTranslationDocumentCodec.string(
+    document.lastErrorCode = ComicTranslationDocumentCodec.exactString(
       raw.lastErrorCode,
       MAX_IDENTIFIER_CHARS,
     )
@@ -160,7 +160,7 @@ export class ComicTranslationDocumentCodec {
       throw new Error('Comic translation cache image profile is missing')
     }
     const profile: ComicImagePreparationProfile = new ComicImagePreparationProfile()
-    profile.profileId = ComicTranslationDocumentCodec.requiredString(
+    profile.profileId = ComicTranslationDocumentCodec.exactRequiredString(
       raw.profileId,
       MAX_IDENTIFIER_CHARS,
     )
@@ -179,7 +179,10 @@ export class ComicTranslationDocumentCodec {
       throw new Error('Comic translation cache block is missing')
     }
     const block: ComicTextBlock = new ComicTextBlock()
-    block.blockId = ComicTranslationDocumentCodec.requiredString(raw.blockId, MAX_IDENTIFIER_CHARS)
+    block.blockId = ComicTranslationDocumentCodec.exactRequiredString(
+      raw.blockId,
+      MAX_IDENTIFIER_CHARS,
+    )
     block.readingOrder = ComicTranslationDocumentCodec.nonNegativeInteger(raw.readingOrder)
     if (block.readingOrder >= MAX_TEXT_BLOCKS) {
       throw new Error('Comic translation cache reading order is invalid')
@@ -191,7 +194,10 @@ export class ComicTranslationDocumentCodec {
       MAX_TEXT_CHARS,
     )
     block.translatedText = ComicTranslationDocumentCodec.string(raw.translatedText, MAX_TEXT_CHARS)
-    block.speakerId = ComicTranslationDocumentCodec.string(raw.speakerId, MAX_IDENTIFIER_CHARS)
+    block.speakerId = ComicTranslationDocumentCodec.exactString(
+      raw.speakerId,
+      MAX_IDENTIFIER_CHARS,
+    )
     block.styleHint = ComicTranslationDocumentCodec.string(raw.styleHint, MAX_MESSAGE_CHARS)
     block.sourceOrigin = ComicTranslationDocumentCodec.sourceOrigin(raw.sourceOrigin)
     block.translationOrigin = ComicTranslationDocumentCodec.translationOrigin(raw.translationOrigin)
@@ -232,9 +238,15 @@ export class ComicTranslationDocumentCodec {
       throw new Error('Comic translation cache quality signal is missing')
     }
     const signal: ComicQualitySignal = new ComicQualitySignal()
-    signal.code = ComicTranslationDocumentCodec.requiredString(raw.code, MAX_IDENTIFIER_CHARS)
+    signal.code = ComicTranslationDocumentCodec.exactRequiredString(
+      raw.code,
+      MAX_IDENTIFIER_CHARS,
+    )
     signal.severity = ComicTranslationDocumentCodec.severity(raw.severity)
-    signal.blockId = ComicTranslationDocumentCodec.string(raw.blockId, MAX_IDENTIFIER_CHARS)
+    signal.blockId = ComicTranslationDocumentCodec.exactString(
+      raw.blockId,
+      MAX_IDENTIFIER_CHARS,
+    )
     signal.message = ComicTranslationDocumentCodec.string(raw.message, MAX_MESSAGE_CHARS)
     return signal
   }
@@ -317,6 +329,22 @@ export class ComicTranslationDocumentCodec {
     const normalized: string = ComicTranslationDocumentCodec.string(value, maxLength)
     if (normalized.trim().length === 0) {
       throw new Error('Comic translation cache required text is missing')
+    }
+    return normalized
+  }
+
+  private static exactString(value: string, maxLength: number): string {
+    const normalized: string = ComicTranslationDocumentCodec.string(value, maxLength)
+    if (normalized !== normalized.trim()) {
+      throw new Error('Comic translation cache identifier is not normalized')
+    }
+    return normalized
+  }
+
+  private static exactRequiredString(value: string, maxLength: number): string {
+    const normalized: string = ComicTranslationDocumentCodec.requiredString(value, maxLength)
+    if (normalized !== normalized.trim()) {
+      throw new Error('Comic translation cache identifier is not normalized')
     }
     return normalized
   }
