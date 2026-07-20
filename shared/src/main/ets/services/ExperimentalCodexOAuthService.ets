@@ -20,6 +20,7 @@ const CODEX_OAUTH_SESSION_TTL_MS: number = 15 * 60 * 1000
 const CODEX_OAUTH_REFRESH_SKEW_MS: number = 2 * 60 * 1000
 const CODEX_OAUTH_CONNECT_TIMEOUT_MS: number = 15000
 const CODEX_OAUTH_READ_TIMEOUT_MS: number = 20000
+const CODEX_OAUTH_MAX_BODY_CHARS: number = 512 * 1024
 const CODEX_OAUTH_USER_AGENT: string = 'NextE/1.2.4 experimental-codex-oauth'
 
 class DeviceCodeResponse {
@@ -67,6 +68,7 @@ export class DefaultCodexOAuthHttpTransport implements CodexOAuthHttpTransport {
       body,
       connectTimeoutMs,
       readTimeoutMs,
+      CODEX_OAUTH_MAX_BODY_CHARS,
     )
   }
 }
@@ -87,6 +89,7 @@ export class ExperimentalCodexOAuthService {
       CODEX_OAUTH_CONNECT_TIMEOUT_MS,
       CODEX_OAUTH_READ_TIMEOUT_MS,
     )
+    ExperimentalCodexOAuthService.requireBoundedResponse(response.body)
     if (response.statusCode !== 200) {
       throw new Error('Codex device login request failed (HTTP ' + response.statusCode + ')')
     }
@@ -126,6 +129,7 @@ export class ExperimentalCodexOAuthService {
       CODEX_OAUTH_CONNECT_TIMEOUT_MS,
       CODEX_OAUTH_READ_TIMEOUT_MS,
     )
+    ExperimentalCodexOAuthService.requireBoundedResponse(response.body)
     const result: CodexOAuthPollResult = new CodexOAuthPollResult()
     if (response.statusCode === 403 || response.statusCode === 404) {
       result.pending = true
@@ -228,6 +232,7 @@ export class ExperimentalCodexOAuthService {
       CODEX_OAUTH_CONNECT_TIMEOUT_MS,
       CODEX_OAUTH_READ_TIMEOUT_MS,
     )
+    ExperimentalCodexOAuthService.requireBoundedResponse(response.body)
     if (response.statusCode !== 200) {
       throw new Error('Codex token exchange failed (HTTP ' + response.statusCode + ')')
     }
@@ -254,6 +259,7 @@ export class ExperimentalCodexOAuthService {
       CODEX_OAUTH_CONNECT_TIMEOUT_MS,
       CODEX_OAUTH_READ_TIMEOUT_MS,
     )
+    ExperimentalCodexOAuthService.requireBoundedResponse(response.body)
     if (response.statusCode !== 200) {
       throw new Error('Codex token refresh failed (HTTP ' + response.statusCode + ')')
     }
@@ -285,6 +291,12 @@ export class ExperimentalCodexOAuthService {
       : ExperimentalCodexOAuthService.jwtExpiry(tokens.accessToken)
     tokens.lastRefreshAt = Date.now()
     return tokens
+  }
+
+  private static requireBoundedResponse(rawText: string): void {
+    if (rawText.length > CODEX_OAUTH_MAX_BODY_CHARS) {
+      throw new Error('Codex OAuth response size is invalid')
+    }
   }
 
   private static jwtStringClaim(token: string, claimName: string): string {

@@ -66,6 +66,7 @@ export class DefaultComicModelCatalogHttpTransport implements ComicModelCatalogH
       body,
       connectTimeoutMs,
       readTimeoutMs,
+      MODEL_CATALOG_MAX_BODY_CHARS,
     )
   }
 }

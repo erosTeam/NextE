@@ -73,6 +73,22 @@ class CountingComicResponsesTransport implements ComicResponsesHttpTransport {
   }
 }
 
+class OversizedCodexOAuthTransport implements CodexOAuthHttpTransport {
+  requestText(
+    _url: string,
+    _method: string,
+    _headers: Record<string, string>,
+    _body: string,
+    _connectTimeoutMs: number,
+    _readTimeoutMs: number,
+  ): Promise<AxiosTextResponse> {
+    const response: AxiosTextResponse = new AxiosTextResponse()
+    response.statusCode = 200
+    response.body = 'x'.repeat(512 * 1024 + 1)
+    return Promise.resolve(response)
+  }
+}
+
 async function appContext(): Promise<common.UIAbilityContext> {
   const delegator = abilityDelegatorRegistry.getAbilityDelegator()
   const ability = await delegator.getCurrentTopAbility()
@@ -597,6 +613,36 @@ export default function comicTranslationProvidersTest(): void {
       expect(approved.exchange?.authorizationCode).assertEqual('authorization-fixture')
       done()
     })
+
+    it('bounds model catalog, usage, and OAuth settings responses', 0,
+      async (done: Function) => {
+        let catalogMessage: string = ''
+        try {
+          ComicTranslationModelCatalogService.parseApiModels('x'.repeat(2 * 1024 * 1024 + 1))
+        } catch (error) {
+          catalogMessage = (error as Error).message
+        }
+        expect(catalogMessage).assertEqual('Model catalog response size is invalid')
+
+        let usageMessage: string = ''
+        try {
+          ComicTranslationCodexUsageService.parse('x'.repeat(512 * 1024 + 1))
+        } catch (error) {
+          usageMessage = (error as Error).message
+        }
+        expect(usageMessage).assertEqual('Codex usage response size is invalid')
+
+        let oauthMessage: string = ''
+        try {
+          await ExperimentalCodexOAuthService.requestDeviceCode(
+            new OversizedCodexOAuthTransport(),
+          )
+        } catch (error) {
+          oauthMessage = (error as Error).message
+        }
+        expect(oauthMessage).assertEqual('Codex OAuth response size is invalid')
+        done()
+      })
 
     it('extracts workspace and expiry claims without exposing the JWT', 0, (done: Function) => {
       const token: string = 'fixture.' +

@@ -86,6 +86,7 @@ export class DefaultCodexUsageHttpTransport implements CodexUsageHttpTransport {
       body,
       connectTimeoutMs,
       readTimeoutMs,
+      CODEX_USAGE_MAX_BODY_CHARS,
     )
   }
 }
