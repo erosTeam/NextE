@@ -20,6 +20,7 @@ import {
   ComicTranslationLiveEvaluationService,
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
+  ComicTranslationMemoryEntry,
   ComicTranslationProviderSettings,
   ComicTranslationProviderSettingsSnapshot,
   ComicPageAnalysisRequest,
@@ -247,18 +248,61 @@ function providerPreviousContext(
   return previous
 }
 
+function translationMemoryEntry(
+  sourceText: string,
+  translatedText: string,
+  firstSeenPageIndex: number = 0,
+  occurrenceCount: number = 2,
+): ComicTranslationMemoryEntry {
+  const entry: ComicTranslationMemoryEntry = new ComicTranslationMemoryEntry()
+  entry.sourceText = sourceText
+  entry.translatedText = translatedText
+  entry.firstSeenPageIndex = firstSeenPageIndex
+  entry.occurrenceCount = occurrenceCount
+  return entry
+}
+
 export default function comicTranslationProvidersTest(): void {
   describe('ComicTranslationProviders', () => {
     it('assembles glossary and previous-page context without changing page identity', 0, (done: Function) => {
-      const prompt: string = ComicResponsesProtocol.buildPrompt(providerRequest())
+      const request: ComicPageAnalysisRequest = providerRequest()
+      request.context.translationMemory.push(translationMemoryEntry('駅', '车站'))
+      const prompt: string = ComicResponsesProtocol.buildPrompt(request)
       expect(prompt.includes('projectId="provider-fixture:zh-CN"')).assertEqual(true)
       expect(prompt.includes('source="優" target="优" status=locked')).assertEqual(true)
+      expect(prompt.includes('exact-match translation memory')).assertEqual(true)
+      expect(prompt.includes('source="駅" translation="车站"')).assertEqual(true)
       expect(prompt.includes('translation="我在找哥哥。"')).assertEqual(true)
       expect(prompt.includes('rollingSummary="优正在寻找失踪的哥哥。"')).assertEqual(true)
       expect(prompt.includes('concise cumulative rolling summary')).assertEqual(true)
       expect(prompt.includes('Set polygon=[] for every block.')).assertEqual(true)
       done()
     })
+
+    it('fingerprints only exact translation memory that remains visible in the prompt', 0,
+      (done: Function) => {
+        const first: ComicPageAnalysisRequest = providerRequest()
+        const second: ComicPageAnalysisRequest = providerRequest()
+        for (let index: number = 0; index < 64; index++) {
+          first.context.translationMemory.push(translationMemoryEntry(
+            `memory-${index}`,
+            `translation-${index}`,
+          ))
+          second.context.translationMemory.push(translationMemoryEntry(
+            `memory-${index}`,
+            `translation-${index}`,
+          ))
+        }
+        const firstPrompt: string = ComicResponsesProtocol.buildPrompt(first)
+        expect(firstPrompt.length <= 48000).assertEqual(true)
+        second.context.translationMemory[63].translatedText = 'omitted-tail-change'
+        const firstFingerprint: string = ComicResponsesProtocol.contextFingerprint(first)
+        expect(ComicResponsesProtocol.contextFingerprint(second)).assertEqual(firstFingerprint)
+        second.context.translationMemory[0].translatedText = 'visible-change'
+        expect(ComicResponsesProtocol.contextFingerprint(second) === firstFingerprint)
+          .assertEqual(false)
+        done()
+      })
 
     it('fingerprints only context that remains visible in the bounded prompt', 0,
       (done: Function) => {

@@ -20,6 +20,28 @@ export class ComicPreviousPageContext {
   }
 }
 
+export const MAX_COMIC_TRANSLATION_MEMORY_ENTRIES: number = 64
+export const MAX_COMIC_TRANSLATION_MEMORY_SOURCE_CHARS: number = 120
+export const MAX_COMIC_TRANSLATION_MEMORY_TARGET_CHARS: number = 240
+export const MAX_COMIC_TRANSLATION_MEMORY_OCCURRENCES: number = 32
+
+/** Regenerable exact-match context derived from prior generated page documents. */
+export class ComicTranslationMemoryEntry {
+  sourceText: string = ''
+  translatedText: string = ''
+  firstSeenPageIndex: number = -1
+  occurrenceCount: number = 0
+
+  copy(): ComicTranslationMemoryEntry {
+    const entry: ComicTranslationMemoryEntry = new ComicTranslationMemoryEntry()
+    entry.sourceText = this.sourceText
+    entry.translatedText = this.translatedText
+    entry.firstSeenPageIndex = this.firstSeenPageIndex
+    entry.occurrenceCount = this.occurrenceCount
+    return entry
+  }
+}
+
 export class ComicPageAnalysisContext {
   sourceLanguage: string = ''
   targetLanguage: string = ''
@@ -29,6 +51,7 @@ export class ComicPageAnalysisContext {
   styleGuideRevision: number = 0
   contextRevision: number = 0
   glossary: ComicGlossaryTerm[] = []
+  translationMemory: ComicTranslationMemoryEntry[] = []
   previousPages: ComicPreviousPageContext[] = []
 
   copy(): ComicPageAnalysisContext {
@@ -42,6 +65,9 @@ export class ComicPageAnalysisContext {
     context.contextRevision = this.contextRevision
     for (let index: number = 0; index < this.glossary.length; index++) {
       context.glossary.push(this.glossary[index].copy())
+    }
+    for (let index: number = 0; index < this.translationMemory.length; index++) {
+      context.translationMemory.push(this.translationMemory[index].copy())
     }
     for (let index: number = 0; index < this.previousPages.length; index++) {
       context.previousPages.push(this.previousPages[index].copy())

@@ -15,6 +15,7 @@ import {
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
   ComicTranslationState,
+  ComicTranslationMemoryEntry,
   COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE,
   InMemoryComicTranslationRepository,
 } from 'shared'
@@ -70,6 +71,9 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   noTextNext: boolean = false
   capturedPreviousPages: number[] = []
   capturedPreviousTranslations: string[] = []
+  capturedMemorySources: string[] = []
+  capturedMemoryTranslations: string[] = []
+  capturedMemoryOccurrences: number[] = []
   capturedRollingSummary: string = ''
   translationSuffix: string = ''
   sourceTextOverride: string = ''
@@ -116,10 +120,18 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
     this.analyzeCount++
     this.capturedPreviousPages = []
     this.capturedPreviousTranslations = []
+    this.capturedMemorySources = []
+    this.capturedMemoryTranslations = []
+    this.capturedMemoryOccurrences = []
     this.capturedRollingSummary = value.context.rollingSummary
     for (let index: number = 0; index < value.context.previousPages.length; index++) {
       this.capturedPreviousPages.push(value.context.previousPages[index].pageIndex)
       this.capturedPreviousTranslations.push(value.context.previousPages[index].translatedText)
+    }
+    for (let index: number = 0; index < value.context.translationMemory.length; index++) {
+      this.capturedMemorySources.push(value.context.translationMemory[index].sourceText)
+      this.capturedMemoryTranslations.push(value.context.translationMemory[index].translatedText)
+      this.capturedMemoryOccurrences.push(value.context.translationMemory[index].occurrenceCount)
     }
     await Promise.resolve()
     if (this.failNext) {
@@ -307,10 +319,15 @@ export default function comicTranslationOrchestratorTest(): void {
         for (let index: number = 0; index < 65; index++) {
           oversizedPrevious.context.previousPages.push(previousContext(index, `page-${index}`))
         }
+        const oversizedMemory: ComicPageAnalysisRequest = request(65)
+        for (let index: number = 0; index < 65; index++) {
+          oversizedMemory.context.translationMemory.push(new ComicTranslationMemoryEntry())
+        }
         const invalid: ComicPageAnalysisRequest[] = [
           oversizedGlossary,
           oversizedAliases,
           oversizedPrevious,
+          oversizedMemory,
         ]
         let rejected: number = 0
         for (let index: number = 0; index < invalid.length; index++) {
@@ -384,6 +401,52 @@ export default function comicTranslationOrchestratorTest(): void {
         const cached: ComicTranslationRunResult = await orchestrator.run(request(3, HASH_B))
         expect(cached.cacheHit).assertEqual(true)
         expect(cached.document.qualitySignals.length).assertEqual(1)
+        done()
+      })
+
+    it('carries stable exact translation memory beyond the two-page prompt window', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+
+        analyzer.sourceTextOverride = '優'
+        analyzer.translatedTextOverride = '优'
+        await orchestrator.run(request(0, HASH_A))
+        await orchestrator.run(request(1, HASH_B))
+        analyzer.sourceTextOverride = '兄'
+        analyzer.translatedTextOverride = '哥哥'
+        await orchestrator.run(request(2, HASH_A))
+        analyzer.sourceTextOverride = '兄'
+        analyzer.translatedTextOverride = '兄长'
+        await orchestrator.run(request(3, HASH_B))
+        analyzer.sourceTextOverride = '今日'
+        analyzer.translatedTextOverride = '今天'
+        await orchestrator.run(request(4, HASH_A))
+
+        expect(analyzer.capturedPreviousPages.length).assertEqual(2)
+        expect(analyzer.capturedPreviousPages[0]).assertEqual(2)
+        expect(analyzer.capturedPreviousPages[1]).assertEqual(3)
+        expect(analyzer.capturedMemorySources.length).assertEqual(1)
+        expect(analyzer.capturedMemorySources[0]).assertEqual('優')
+        expect(analyzer.capturedMemoryTranslations[0]).assertEqual('优')
+        expect(analyzer.capturedMemoryOccurrences[0]).assertEqual(2)
+
+        const supplied: ComicTranslationMemoryEntry = new ComicTranslationMemoryEntry()
+        supplied.sourceText = '優'
+        supplied.translatedText = '小优'
+        supplied.firstSeenPageIndex = 0
+        supplied.occurrenceCount = 2
+        const next: ComicPageAnalysisRequest = request(5, HASH_B)
+        next.context.translationMemory.push(supplied)
+        analyzer.sourceTextOverride = '終'
+        analyzer.translatedTextOverride = '结束'
+        await orchestrator.run(next)
+        expect(analyzer.capturedMemorySources.length).assertEqual(1)
+        expect(analyzer.capturedMemorySources[0]).assertEqual('優')
+        expect(analyzer.capturedMemoryTranslations[0]).assertEqual('小优')
         done()
       })
 

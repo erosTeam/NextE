@@ -8,6 +8,7 @@ import {
 } from './ComicPageAnalyzer'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 import { ComicTranslationConsistencyService } from './ComicTranslationConsistencyService'
+import { ComicTranslationMemoryService } from './ComicTranslationMemoryService'
 import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
@@ -61,6 +62,10 @@ export class ComicTranslationOrchestrator {
       request.pageIndex,
     )
     ComicTranslationOrchestrator.fillRollingSummary(request.context, request.pageIndex)
+    request.context.translationMemory = ComicTranslationMemoryService.merge(
+      request.context.translationMemory,
+      previous,
+    )
     const identity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
     if (!forceRefresh) {

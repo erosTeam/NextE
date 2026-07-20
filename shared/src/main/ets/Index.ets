@@ -192,6 +192,11 @@ export {
   ComicPageAnalyzer,
   ComicPageAnalyzerCapabilities,
   ComicPreviousPageContext,
+  ComicTranslationMemoryEntry,
+  MAX_COMIC_TRANSLATION_MEMORY_ENTRIES,
+  MAX_COMIC_TRANSLATION_MEMORY_OCCURRENCES,
+  MAX_COMIC_TRANSLATION_MEMORY_SOURCE_CHARS,
+  MAX_COMIC_TRANSLATION_MEMORY_TARGET_CHARS,
 } from './services/ComicPageAnalyzer'
 export { ComicPageAnalysisParser } from './services/ComicPageAnalysisParser'
 export {
@@ -232,6 +237,7 @@ export {
   COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE,
   ComicTranslationConsistencyService,
 } from './services/ComicTranslationConsistencyService'
+export { ComicTranslationMemoryService } from './services/ComicTranslationMemoryService'
 export { ComicTranslationErrorClassifier } from './services/ComicTranslationErrorClassifier'
 export {
   ComicTranslationReaderPageInput,

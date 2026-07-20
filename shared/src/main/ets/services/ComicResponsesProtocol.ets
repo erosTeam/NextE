@@ -1,7 +1,11 @@
 import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
-import { ComicPageAnalysisRequest, ComicPreviousPageContext } from './ComicPageAnalyzer'
+import {
+  ComicPageAnalysisRequest,
+  ComicPreviousPageContext,
+  ComicTranslationMemoryEntry,
+} from './ComicPageAnalyzer'
 import {
   ComicPreviousPageContextPolicy,
   MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
@@ -17,6 +21,9 @@ const MAX_GLOSSARY_FIELD_JSON_CHARS: number = 256
 const MAX_GLOSSARY_ALIASES_JSON_CHARS: number = 320
 const MAX_GLOSSARY_ALIASES: number = 16
 const MAX_GLOSSARY_ALIAS_CHARS: number = 96
+const MAX_TRANSLATION_MEMORY_SECTION_CHARS: number = 1800
+const MAX_TRANSLATION_MEMORY_SOURCE_JSON_CHARS: number = 420
+const MAX_TRANSLATION_MEMORY_TARGET_JSON_CHARS: number = 840
 const MAX_PREVIOUS_PAGE_LINE_CHARS: number = 15000
 const MAX_PREVIOUS_SOURCE_JSON_CHARS: number = 6000
 const MAX_PREVIOUS_TRANSLATION_JSON_CHARS: number = 6000
@@ -121,6 +128,7 @@ export class ComicResponsesProtocol {
       MAX_STYLE_GUIDE_LINE_CHARS,
     )
     ComicResponsesProtocol.appendGlossary(lines, request.context.glossary)
+    ComicResponsesProtocol.appendTranslationMemory(lines, request.context.translationMemory)
     ComicResponsesProtocol.appendPreviousPages(
       lines,
       ComicPreviousPageContextPolicy.normalize(request.context.previousPages, request.pageIndex),
@@ -211,6 +219,42 @@ export class ComicResponsesProtocol {
         throw new Error('Comic previous-page context budget is invalid')
       }
       lines.push(line)
+    }
+  }
+
+  private static appendTranslationMemory(
+    lines: string[],
+    entries: ComicTranslationMemoryEntry[],
+  ): void {
+    if (entries.length === 0) {
+      return
+    }
+    const header: string = 'Generated exact-match translation memory from repeated prior pages. ' +
+      'Apply only when normalized source text is exactly equal; glossary terms take priority:'
+    const memoryLines: string[] = []
+    let sectionChars: number = header.length
+    for (let index: number = 0; index < entries.length; index++) {
+      const source: string = JSON.stringify(entries[index].sourceText)
+      const translated: string = JSON.stringify(entries[index].translatedText)
+      if (source.length > MAX_TRANSLATION_MEMORY_SOURCE_JSON_CHARS ||
+        translated.length > MAX_TRANSLATION_MEMORY_TARGET_JSON_CHARS) {
+        continue
+      }
+      const line: string = '- source=' + source + ' translation=' + translated +
+        ' firstSeenPageIndex=' + entries[index].firstSeenPageIndex +
+        ' occurrences=' + entries[index].occurrenceCount
+      if (sectionChars + line.length + 1 > MAX_TRANSLATION_MEMORY_SECTION_CHARS) {
+        continue
+      }
+      memoryLines.push(line)
+      sectionChars += line.length + 1
+    }
+    if (memoryLines.length === 0) {
+      return
+    }
+    lines.push(header)
+    for (let index: number = 0; index < memoryLines.length; index++) {
+      lines.push(memoryLines[index])
     }
   }
 

@@ -13,6 +13,10 @@ import {
   ComicTranslationState,
 } from '../model/ComicTranslation'
 import {
+  MAX_COMIC_TRANSLATION_MEMORY_ENTRIES,
+  MAX_COMIC_TRANSLATION_MEMORY_OCCURRENCES,
+  MAX_COMIC_TRANSLATION_MEMORY_SOURCE_CHARS,
+  MAX_COMIC_TRANSLATION_MEMORY_TARGET_CHARS,
   ComicPageAnalysisRequest,
   ComicPageAnalysisResult,
 } from './ComicPageAnalyzer'
@@ -309,6 +313,38 @@ export class ComicPageAnalysisParser {
     for (let index: number = 0; index < request.context.glossary.length; index++) {
       if (request.context.glossary[index].aliases.length > MAX_COMIC_CONTEXT_ALIASES_PER_TERM) {
         throw new Error('Comic analysis context glossary aliases are too large')
+      }
+    }
+    if (request.context.translationMemory.length > MAX_COMIC_TRANSLATION_MEMORY_ENTRIES) {
+      throw new Error('Comic analysis translation memory is too large')
+    }
+    const memorySources: Set<string> = new Set<string>()
+    for (let index: number = 0; index < request.context.translationMemory.length; index++) {
+      const source: string = ComicPageAnalysisParser.exactRequiredString(
+        request.context.translationMemory[index].sourceText,
+        'translation memory source',
+        MAX_COMIC_TRANSLATION_MEMORY_SOURCE_CHARS,
+      )
+      ComicPageAnalysisParser.exactRequiredString(
+        request.context.translationMemory[index].translatedText,
+        'translation memory target',
+        MAX_COMIC_TRANSLATION_MEMORY_TARGET_CHARS,
+      )
+      if (memorySources.has(source)) {
+        throw new Error('Comic analysis translation memory source must be unique')
+      }
+      memorySources.add(source)
+      const firstSeenPageIndex: number = ComicPageAnalysisParser.safeInteger(
+        request.context.translationMemory[index].firstSeenPageIndex,
+        -1,
+      )
+      const occurrenceCount: number = ComicPageAnalysisParser.safeInteger(
+        request.context.translationMemory[index].occurrenceCount,
+        -1,
+      )
+      if (firstSeenPageIndex < 0 || firstSeenPageIndex >= request.pageIndex ||
+        occurrenceCount < 2 || occurrenceCount > MAX_COMIC_TRANSLATION_MEMORY_OCCURRENCES) {
+        throw new Error('Comic analysis translation memory metadata is invalid')
       }
     }
     if (request.context.previousPages.length > MAX_COMIC_CONTEXT_PREVIOUS_PAGES) {
