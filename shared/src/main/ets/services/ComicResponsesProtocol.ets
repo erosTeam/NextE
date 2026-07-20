@@ -1,8 +1,21 @@
-import { ComicGlossaryTerm } from '../model/ComicTranslation'
+import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPreviousPageContext } from './ComicPageAnalyzer'
 
 const MAX_COMIC_RESPONSES_BODY_CHARS: number = 8 * 1024 * 1024
 const MAX_COMIC_PROMPT_CONTEXT_CHARS: number = 48000
+const MAX_ROLLING_SUMMARY_LINE_CHARS: number = 5000
+const MAX_STYLE_GUIDE_LINE_CHARS: number = 2000
+const MAX_GLOSSARY_SECTION_CHARS: number = 7000
+const MAX_GLOSSARY_TERM_LINE_CHARS: number = 900
+const MAX_GLOSSARY_FIELD_JSON_CHARS: number = 256
+const MAX_GLOSSARY_ALIASES_JSON_CHARS: number = 320
+const MAX_GLOSSARY_ALIASES: number = 16
+const MAX_GLOSSARY_ALIAS_CHARS: number = 96
+const MAX_PREVIOUS_PAGE_LINE_CHARS: number = 15000
+const MAX_PREVIOUS_SOURCE_JSON_CHARS: number = 6000
+const MAX_PREVIOUS_TRANSLATION_JSON_CHARS: number = 6000
+const MAX_PREVIOUS_SUMMARY_JSON_CHARS: number = 2500
+const MAX_PREVIOUS_PAGES: number = 2
 
 class RawResponsesContentPart {
   type: string = ''
@@ -63,8 +76,18 @@ export class ComicResponsesProtocol {
     lines.push('imageHeight=' + request.sourceHeight)
     lines.push('sourceLanguage=' + JSON.stringify(request.context.sourceLanguage))
     lines.push('targetLanguage=' + JSON.stringify(request.context.targetLanguage))
-    ComicResponsesProtocol.appendContextLine(lines, 'rollingSummary', request.context.rollingSummary)
-    ComicResponsesProtocol.appendContextLine(lines, 'styleGuide', request.context.styleGuide)
+    ComicResponsesProtocol.appendContextLine(
+      lines,
+      'rollingSummary',
+      request.context.rollingSummary,
+      MAX_ROLLING_SUMMARY_LINE_CHARS,
+    )
+    ComicResponsesProtocol.appendContextLine(
+      lines,
+      'styleGuide',
+      request.context.styleGuide,
+      MAX_STYLE_GUIDE_LINE_CHARS,
+    )
     ComicResponsesProtocol.appendGlossary(lines, request.context.glossary)
     ComicResponsesProtocol.appendPreviousPages(lines, request.context.previousPages)
     const prompt: string = lines.join('\n')
@@ -84,10 +107,16 @@ export class ComicResponsesProtocol {
     return ComicResponsesProtocol.normalizeJsonText(text)
   }
 
-  private static appendContextLine(lines: string[], label: string, value: string): void {
+  private static appendContextLine(
+    lines: string[],
+    label: string,
+    value: string,
+    maxLineChars: number,
+  ): void {
     const normalized: string = value.trim()
     if (normalized.length > 0) {
-      lines.push(label + '=' + JSON.stringify(normalized))
+      const valueBudget: number = Math.max(2, maxLineChars - label.length - 1)
+      lines.push(label + '=' + ComicResponsesProtocol.boundedJsonString(normalized, valueBudget))
     }
   }
 
@@ -95,15 +124,33 @@ export class ComicResponsesProtocol {
     if (glossary.length === 0) {
       return
     }
-    lines.push('Glossary terms. Locked terms must be followed exactly:')
-    for (let index: number = 0; index < glossary.length; index++) {
-      const term: ComicGlossaryTerm = glossary[index]
-      lines.push(
-        '- source=' + JSON.stringify(term.sourceTerm) +
-        ' target=' + JSON.stringify(term.targetTerm) +
-        ' status=' + term.status +
-        ' aliases=' + JSON.stringify(term.aliases),
-      )
+    const header: string = 'Glossary terms. Locked terms must be followed exactly:'
+    lines.push(header)
+    let sectionChars: number = header.length
+    let appended: number = 0
+    for (let pass: number = 0; pass < 2; pass++) {
+      const expectedStatus: ComicGlossaryTermStatus = pass === 0
+        ? ComicGlossaryTermStatus.LOCKED
+        : ComicGlossaryTermStatus.PROVISIONAL
+      for (let index: number = 0; index < glossary.length; index++) {
+        const term: ComicGlossaryTerm = glossary[index]
+        if (term.status !== expectedStatus) {
+          continue
+        }
+        const line: string = ComicResponsesProtocol.glossaryLine(term)
+        if (sectionChars + line.length + 1 > MAX_GLOSSARY_SECTION_CHARS) {
+          continue
+        }
+        lines.push(line)
+        sectionChars += line.length + 1
+        appended++
+      }
+    }
+    if (appended < glossary.length) {
+      const omitted: string = '- additional glossary terms omitted by prompt budget'
+      if (sectionChars + omitted.length + 1 <= MAX_GLOSSARY_SECTION_CHARS) {
+        lines.push(omitted)
+      }
     }
   }
 
@@ -112,15 +159,93 @@ export class ComicResponsesProtocol {
       return
     }
     lines.push('Previous-page context for name, address, tone, and reference consistency:')
-    for (let index: number = 0; index < pages.length; index++) {
+    const startIndex: number = Math.max(0, pages.length - MAX_PREVIOUS_PAGES)
+    for (let index: number = startIndex; index < pages.length; index++) {
       const page: ComicPreviousPageContext = pages[index]
-      lines.push(
+      const line: string =
         '- pageIndex=' + page.pageIndex +
-        ' source=' + JSON.stringify(page.sourceText) +
-        ' translation=' + JSON.stringify(page.translatedText) +
-        ' summary=' + JSON.stringify(page.pageSummary),
-      )
+        ' source=' + ComicResponsesProtocol.boundedJsonString(
+          page.sourceText,
+          MAX_PREVIOUS_SOURCE_JSON_CHARS,
+        ) +
+        ' translation=' + ComicResponsesProtocol.boundedJsonString(
+          page.translatedText,
+          MAX_PREVIOUS_TRANSLATION_JSON_CHARS,
+        ) +
+        ' summary=' + ComicResponsesProtocol.boundedJsonString(
+          page.pageSummary,
+          MAX_PREVIOUS_SUMMARY_JSON_CHARS,
+        )
+      if (line.length > MAX_PREVIOUS_PAGE_LINE_CHARS) {
+        throw new Error('Comic previous-page context budget is invalid')
+      }
+      lines.push(line)
     }
+  }
+
+  private static glossaryLine(term: ComicGlossaryTerm): string {
+    const line: string =
+      '- source=' + ComicResponsesProtocol.boundedJsonString(
+        term.sourceTerm,
+        MAX_GLOSSARY_FIELD_JSON_CHARS,
+      ) +
+      ' target=' + ComicResponsesProtocol.boundedJsonString(
+        term.targetTerm,
+        MAX_GLOSSARY_FIELD_JSON_CHARS,
+      ) +
+      ' status=' + term.status +
+      ' aliases=' + ComicResponsesProtocol.boundedAliases(term.aliases)
+    if (line.length > MAX_GLOSSARY_TERM_LINE_CHARS) {
+      throw new Error('Comic glossary context budget is invalid')
+    }
+    return line
+  }
+
+  private static boundedAliases(aliases: string[]): string {
+    const bounded: string[] = []
+    const count: number = Math.min(MAX_GLOSSARY_ALIASES, aliases.length)
+    for (let index: number = 0; index < count; index++) {
+      bounded.push(ComicResponsesProtocol.boundedText(
+        aliases[index],
+        MAX_GLOSSARY_ALIAS_CHARS,
+      ))
+      const encoded: string = JSON.stringify(bounded)
+      if (encoded.length > MAX_GLOSSARY_ALIASES_JSON_CHARS) {
+        bounded.pop()
+        break
+      }
+    }
+    return JSON.stringify(bounded)
+  }
+
+  private static boundedJsonString(value: string, maxEncodedChars: number): string {
+    if (value.length <= maxEncodedChars - 2) {
+      const full: string = JSON.stringify(value)
+      if (full.length <= maxEncodedChars) {
+        return full
+      }
+    }
+    let low: number = 0
+    let high: number = Math.min(value.length, Math.max(0, maxEncodedChars - 3))
+    let best: string = JSON.stringify('…')
+    while (low <= high) {
+      const middle: number = Math.floor((low + high) / 2)
+      const candidate: string = JSON.stringify(value.substring(0, middle) + '…')
+      if (candidate.length <= maxEncodedChars) {
+        best = candidate
+        low = middle + 1
+      } else {
+        high = middle - 1
+      }
+    }
+    return best
+  }
+
+  private static boundedText(value: string, maxChars: number): string {
+    if (value.length <= maxChars) {
+      return value
+    }
+    return value.substring(0, Math.max(0, maxChars - 1)) + '…'
   }
 
   private static extractJsonResponseText(body: string): string {

@@ -137,6 +137,43 @@ export default function comicTranslationProvidersTest(): void {
       done()
     })
 
+    it('bounds adversarial long context without dropping locked terms or newest pages', 0,
+      (done: Function) => {
+        const request: ComicPageAnalysisRequest = providerRequest()
+        const hostile: string = 'quote=" slash=\\ newline=\n'.repeat(12000)
+        request.context.rollingSummary = hostile
+        request.context.styleGuide = hostile
+        request.context.glossary = []
+        for (let index: number = 0; index < 80; index++) {
+          const term: ComicGlossaryTerm = new ComicGlossaryTerm()
+          term.sourceTerm = index === 0 ? 'locked-anchor' : hostile
+          term.targetTerm = index === 0 ? 'locked-target' : hostile
+          term.status = index === 0
+            ? ComicGlossaryTermStatus.LOCKED
+            : ComicGlossaryTermStatus.PROVISIONAL
+          term.aliases = [hostile, hostile]
+          request.context.glossary.push(term)
+        }
+        request.context.previousPages = []
+        for (let pageIndex: number = 0; pageIndex < 3; pageIndex++) {
+          const previous: ComicPreviousPageContext = new ComicPreviousPageContext()
+          previous.pageIndex = pageIndex
+          previous.sourceText = hostile
+          previous.translatedText = hostile
+          previous.pageSummary = hostile
+          request.context.previousPages.push(previous)
+        }
+        const prompt: string = ComicResponsesProtocol.buildPrompt(request)
+        expect(prompt.length <= 48000).assertEqual(true)
+        expect(prompt.includes('source="locked-anchor" target="locked-target" status=locked'))
+          .assertEqual(true)
+        expect(prompt.includes('pageIndex=1')).assertEqual(true)
+        expect(prompt.includes('pageIndex=2')).assertEqual(true)
+        expect(prompt.includes('pageIndex=0')).assertEqual(false)
+        expect(prompt.includes('additional glossary terms omitted by prompt budget')).assertEqual(true)
+        done()
+      })
+
     it('extracts a normal Responses API output document', 0, (done: Function) => {
       const pageJson: string = providerPageJson()
       const envelope: FixtureResponsesEnvelope = new FixtureResponsesEnvelope()
