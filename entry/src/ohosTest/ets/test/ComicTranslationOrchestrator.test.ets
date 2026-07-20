@@ -52,6 +52,7 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   noTextNext: boolean = false
   capturedPreviousPages: number[] = []
   capturedPreviousTranslations: string[] = []
+  capturedRollingSummary: string = ''
   translationSuffix: string = ''
   private readonly provider: string
   private readonly model: string
@@ -91,6 +92,7 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
     this.analyzeCount++
     this.capturedPreviousPages = []
     this.capturedPreviousTranslations = []
+    this.capturedRollingSummary = value.context.rollingSummary
     for (let index: number = 0; index < value.context.previousPages.length; index++) {
       this.capturedPreviousPages.push(value.context.previousPages[index].pageIndex)
       this.capturedPreviousTranslations.push(value.context.previousPages[index].translatedText)
@@ -208,8 +210,24 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.capturedPreviousPages.length).assertEqual(2)
       expect(analyzer.capturedPreviousPages[0]).assertEqual(0)
       expect(analyzer.capturedPreviousPages[1]).assertEqual(1)
+      expect(analyzer.capturedRollingSummary).assertEqual('summary-1')
       done()
     })
+
+    it('preserves an explicit rolling summary instead of replacing it from page cache', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        await orchestrator.run(request(0, HASH_A))
+        const next: ComicPageAnalysisRequest = request(1, HASH_B)
+        next.context.rollingSummary = 'caller-owned summary'
+        await orchestrator.run(next)
+        expect(analyzer.capturedRollingSummary).assertEqual('caller-owned summary')
+        done()
+      })
 
     it('separates image, language, model and prompt cache identities', 0, async (done: Function) => {
       const repository: InMemoryComicTranslationRepository =

@@ -48,6 +48,7 @@ export class ComicTranslationOrchestrator {
       )
       ComicTranslationOrchestrator.mergePreviousContext(request.context, previous)
     }
+    ComicTranslationOrchestrator.fillRollingSummary(request.context, request.pageIndex)
     const identity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
     if (!forceRefresh) {
@@ -151,6 +152,27 @@ export class ComicTranslationOrchestrator {
     previous.translatedText = translated.join('\n')
     previous.pageSummary = document.pageSummary
     return previous
+  }
+
+  private static fillRollingSummary(
+    context: ComicPageAnalysisContext,
+    currentPageIndex: number,
+  ): void {
+    if (context.rollingSummary.trim().length > 0) {
+      return
+    }
+    let latestPageIndex: number = -1
+    let latestSummary: string = ''
+    for (let index: number = 0; index < context.previousPages.length; index++) {
+      const page: ComicPreviousPageContext = context.previousPages[index]
+      const summary: string = page.pageSummary.trim()
+      if (page.pageIndex >= 0 && page.pageIndex < currentPageIndex &&
+        page.pageIndex > latestPageIndex && summary.length > 0) {
+        latestPageIndex = page.pageIndex
+        latestSummary = summary
+      }
+    }
+    context.rollingSummary = latestSummary
   }
 
   private static result(

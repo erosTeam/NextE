@@ -38,6 +38,9 @@ export class ComicResponsesProtocol {
     lines.push('Return exactly one JSON object. Do not use Markdown fences or commentary.')
     lines.push('Preserve every visible text block in reading order; do not invent unreadable text.')
     lines.push('When text or order is uncertain, add a qualitySignals entry instead of guessing silently.')
+    lines.push('Set pageSummary to a concise cumulative rolling summary: update the supplied rollingSummary and ' +
+      'previous-page facts with only essential current-page plot, identity, relationship, and naming facts.')
+    lines.push('Keep pageSummary short and do not copy the transcript into it.')
     lines.push('Set polygon=[] for every block. Geometry is not requested in this text-only phase.')
     lines.push('Use sourceOrigin="vision". Use translationOrigin="vision" when translatedText is present, otherwise "none".')
     lines.push('For every block with translatedText="", set translationOrigin="none". Never use "none" when translatedText is non-empty.')

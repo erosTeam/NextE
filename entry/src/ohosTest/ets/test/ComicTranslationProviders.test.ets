@@ -131,6 +131,8 @@ export default function comicTranslationProvidersTest(): void {
       expect(prompt.includes('projectId="provider-fixture:zh-CN"')).assertEqual(true)
       expect(prompt.includes('source="優" target="优" status=locked')).assertEqual(true)
       expect(prompt.includes('translation="我在找哥哥。"')).assertEqual(true)
+      expect(prompt.includes('rollingSummary="优正在寻找失踪的哥哥。"')).assertEqual(true)
+      expect(prompt.includes('concise cumulative rolling summary')).assertEqual(true)
       expect(prompt.includes('Set polygon=[] for every block.')).assertEqual(true)
       done()
     })
