@@ -5,6 +5,7 @@ import { fileIo } from '@kit.CoreFileKit'
 import { ComicImagePreparationProfile } from '../model/ComicTranslation'
 import { ComicTranslationProviderSettingsSnapshot } from '../model/ComicTranslationProvider'
 import { ComicTranslationProviderSettings } from '../settings/ComicTranslationProviderSettings'
+import { CacheStat } from './CacheStat'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 import { ComicPageAnalyzerFactory } from './ComicResponsesPageAnalyzer'
 import { ComicTranslationOrchestrator, ComicTranslationRunResult } from './ComicTranslationOrchestrator'
@@ -75,10 +76,19 @@ export class ComicTranslationRuntimeService {
   }
 
   static async clearGeneratedCache(context: common.UIAbilityContext): Promise<void> {
+    ComicTranslationRuntimeService.orchestrators.forEach(
+      (orchestrator: ComicTranslationOrchestrator): void => {
+        orchestrator.invalidateCacheWrites()
+      },
+    )
     ComicTranslationRuntimeService.orchestrators.clear()
     const repository: ComicTranslationRepository =
       ComicTranslationRuntimeService.repositoryFor(context)
     await repository.clear()
+  }
+
+  static async statGeneratedCache(context: common.UIAbilityContext): Promise<CacheStat> {
+    return ComicTranslationRuntimeService.repositoryFor(context).stat()
   }
 
   private static orchestrator(

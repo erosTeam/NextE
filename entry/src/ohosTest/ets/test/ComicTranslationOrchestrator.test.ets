@@ -548,6 +548,21 @@ export default function comicTranslationOrchestratorTest(): void {
       done()
     })
 
+    it('does not repopulate cache after its writes are invalidated', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        orchestrator.invalidateCacheWrites()
+        const generated: ComicTranslationRunResult = await orchestrator.run(request())
+        const cached: ComicPageDocument | null = await repository.load(generated.identity)
+        expect(cached === null).assertEqual(true)
+        expect(generated.document.blocks.length).assertEqual(1)
+        done()
+      })
+
     it('invalidates a downstream cache entry when actual previous-page context changes', 0,
       async (done: Function) => {
         const repository: InMemoryComicTranslationRepository =

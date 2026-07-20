@@ -248,11 +248,27 @@ export default function comicTranslationPersistentRepositoryTest(): void {
         done()
       })
 
+    it('reports and clears generated memory records', 0, async (done: Function) => {
+      const memory: InMemoryComicTranslationRepository =
+        new InMemoryComicTranslationRepository()
+      const pageIdentity: ComicTranslationRequestIdentity = identity(0)
+      await memory.save(pageIdentity, document(pageIdentity))
+      const populated = await memory.stat()
+      expect(populated.count).assertEqual(1)
+      expect(populated.bytes > 0).assertEqual(true)
+      await memory.clear()
+      const cleared = await memory.stat()
+      expect(cleared.count).assertEqual(0)
+      expect(cleared.bytes).assertEqual(0)
+      done()
+    })
+
     it('recovers exact and previous-page documents through new repository instances', 0,
       async (done: Function) => {
         const context: common.UIAbilityContext = await appContext()
         const cleanup: RdbComicTranslationRepository = new RdbComicTranslationRepository(context)
         await cleanup.removeProject(TEST_PROJECT_ID)
+        const baseline = await cleanup.stat()
         try {
           const first: PersistentComicTranslationRepository =
             new PersistentComicTranslationRepository(context)
@@ -262,6 +278,9 @@ export default function comicTranslationPersistentRepositoryTest(): void {
           await first.save(pageZeroIdentity, document(pageZeroIdentity))
           await first.save(pageOneIdentity, document(pageOneIdentity))
           await first.save(pageTwoIdentity, noTextDocument(pageTwoIdentity))
+          const populated = await first.stat()
+          expect(populated.count).assertEqual(baseline.count + 3)
+          expect(populated.bytes > baseline.bytes).assertEqual(true)
 
           const restarted: PersistentComicTranslationRepository =
             new PersistentComicTranslationRepository(context)
@@ -291,6 +310,9 @@ export default function comicTranslationPersistentRepositoryTest(): void {
         } finally {
           await cleanup.removeProject(TEST_PROJECT_ID)
         }
+        const restoredBaseline = await cleanup.stat()
+        expect(restoredBaseline.count).assertEqual(baseline.count)
+        expect(restoredBaseline.bytes).assertEqual(baseline.bytes)
         done()
       })
   })

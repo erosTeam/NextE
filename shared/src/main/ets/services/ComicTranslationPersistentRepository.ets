@@ -17,6 +17,7 @@ import {
   ComicTranslationState,
 } from '../model/ComicTranslation'
 import { LocalDataStore } from '../storage/LocalDataStore'
+import { CacheStat } from './CacheStat'
 import {
   boundedComicPreviousPageLimit,
   ComicTranslationRepository,
@@ -58,6 +59,9 @@ const SQL_DELETE_EXACT: string =
 const SQL_DELETE_PROJECT: string =
   'DELETE FROM comic_translation_document_cache WHERE project_id = ?'
 const SQL_DELETE_ALL: string = 'DELETE FROM comic_translation_document_cache'
+const SQL_STAT_ALL: string =
+  'SELECT COUNT(*) AS c, COALESCE(SUM(LENGTH(CAST(payload AS BLOB))), 0) AS b ' +
+  'FROM comic_translation_document_cache'
 
 /** Strict codec for the provider-neutral generated document stored in the local cache. */
 export class ComicTranslationDocumentCodec {
@@ -534,6 +538,21 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     await store.executeSql(SQL_DELETE_ALL)
   }
 
+  async stat(): Promise<CacheStat> {
+    const result: CacheStat = new CacheStat()
+    const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_STAT_ALL, [])
+    try {
+      if (resultSet.goToFirstRow()) {
+        result.count = resultSet.getDouble(resultSet.getColumnIndex('c'))
+        result.bytes = resultSet.getDouble(resultSet.getColumnIndex('b'))
+      }
+    } finally {
+      resultSet.close()
+    }
+    return result
+  }
+
   async removeProject(projectId: string): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
     await store.executeSql(SQL_DELETE_PROJECT, [projectId])
@@ -544,6 +563,9 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
 export class PersistentComicTranslationRepository implements ComicTranslationRepository {
   private readonly memory: InMemoryComicTranslationRepository
   private readonly durable: RdbComicTranslationRepository
+  private mutationTail: Promise<void> = Promise.resolve()
+  private cacheEpoch: number = 0
+  private clearInProgress: boolean = false
 
   constructor(
     context: common.UIAbilityContext,
@@ -555,14 +577,27 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
   }
 
   async load(identity: ComicTranslationRequestIdentity): Promise<ComicPageDocument | null> {
+    const epoch: number = this.cacheEpoch
+    if (this.clearInProgress) {
+      return null
+    }
     const hot: ComicPageDocument | null = await this.memory.load(identity)
+    if (epoch !== this.cacheEpoch || this.clearInProgress) {
+      return null
+    }
     if (hot !== null) {
       return hot
     }
     try {
       const persisted: ComicPageDocument | null = await this.durable.load(identity)
+      if (epoch !== this.cacheEpoch || this.clearInProgress) {
+        return null
+      }
       if (persisted !== null) {
         await this.memory.save(identity, persisted)
+        if (epoch !== this.cacheEpoch || this.clearInProgress) {
+          return null
+        }
       }
       return persisted
     } catch (_error) {
@@ -575,23 +610,35 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
     identity: ComicTranslationRequestIdentity,
     document: ComicPageDocument,
   ): Promise<void> {
-    await this.memory.save(identity, document)
-    try {
-      await this.durable.save(identity, document)
-      DiagnosticLogger.info(
-        'comic-translation-cache',
-        'save_ready',
-        `page=${identity.pageIndex} blocks=${document.blocks.length}`,
-      )
-    } catch (_error) {
-      DiagnosticLogger.warn('comic-translation-cache', 'save_failed', 'fallback=memory')
+    identity.assertValid()
+    if (!identity.matchesDocument(document)) {
+      throw new Error('Comic translation repository document identity mismatch')
     }
+    const queuedIdentity: ComicTranslationRequestIdentity = identity.copy()
+    const queuedDocument: ComicPageDocument = document.copy()
+    await this.enqueueMutation(async (): Promise<void> => {
+      await this.memory.save(queuedIdentity, queuedDocument)
+      try {
+        await this.durable.save(queuedIdentity, queuedDocument)
+        DiagnosticLogger.info(
+          'comic-translation-cache',
+          'save_ready',
+          `page=${queuedIdentity.pageIndex} blocks=${queuedDocument.blocks.length}`,
+        )
+      } catch (_error) {
+        DiagnosticLogger.warn('comic-translation-cache', 'save_failed', 'fallback=memory')
+      }
+    })
   }
 
   async loadPrevious(
     identity: ComicTranslationRequestIdentity,
     limit: number,
   ): Promise<ComicPageDocument[]> {
+    const epoch: number = this.cacheEpoch
+    if (this.clearInProgress) {
+      return []
+    }
     const boundedLimit: number = boundedComicPreviousPageLimit(limit)
     if (boundedLimit === 0) {
       return []
@@ -605,7 +652,13 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
     } catch (_error) {
       DiagnosticLogger.warn('comic-translation-cache', 'previous_load_failed', 'fallback=memory')
     }
+    if (epoch !== this.cacheEpoch || this.clearInProgress) {
+      return []
+    }
     const hotDocuments: ComicPageDocument[] = await this.memory.loadPrevious(identity, boundedLimit)
+    if (epoch !== this.cacheEpoch || this.clearInProgress) {
+      return []
+    }
     const latestByPage: Map<number, ComicPageDocument> = new Map<number, ComicPageDocument>()
     for (let index: number = 0; index < durableDocuments.length; index++) {
       latestByPage.set(durableDocuments[index].pageIndex, durableDocuments[index])
@@ -630,11 +683,37 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
   }
 
   async clear(): Promise<void> {
-    await this.memory.clear()
-    await this.durable.clear()
+    this.cacheEpoch++
+    const clearEpoch: number = this.cacheEpoch
+    this.clearInProgress = true
+    try {
+      await this.enqueueMutation(async (): Promise<void> => {
+        await this.memory.clear()
+        await this.durable.clear()
+      })
+    } finally {
+      if (this.cacheEpoch === clearEpoch) {
+        this.clearInProgress = false
+      }
+    }
+  }
+
+  async stat(): Promise<CacheStat> {
+    try {
+      return await this.durable.stat()
+    } catch (_error) {
+      DiagnosticLogger.warn('comic-translation-cache', 'stat_failed', 'fallback=memory')
+      return this.memory.stat()
+    }
   }
 
   async removeProject(projectId: string): Promise<void> {
     await this.durable.removeProject(projectId)
+  }
+
+  private enqueueMutation(work: () => Promise<void>): Promise<void> {
+    const task: Promise<void> = this.mutationTail.then((): Promise<void> => work())
+    this.mutationTail = task.catch((_error: Error): void => {})
+    return task
   }
 }

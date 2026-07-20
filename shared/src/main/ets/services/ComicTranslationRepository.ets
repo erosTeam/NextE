@@ -1,4 +1,6 @@
+import { util } from '@kit.ArkTS'
 import { ComicPageDocument, ComicTranslationState } from '../model/ComicTranslation'
+import { CacheStat } from './CacheStat'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 
@@ -205,6 +207,8 @@ export interface ComicTranslationRepository {
     limit: number,
   ): Promise<ComicPageDocument[]>
 
+  stat(): Promise<CacheStat>
+
   clear(): Promise<void>
 }
 
@@ -282,6 +286,15 @@ export class InMemoryComicTranslationRepository implements ComicTranslationRepos
       }
     }
     return selected
+  }
+
+  async stat(): Promise<CacheStat> {
+    const result: CacheStat = new CacheStat()
+    this.records.forEach((record: ComicTranslationMemoryRecord): void => {
+      result.count++
+      result.bytes += new util.TextEncoder().encodeInto(JSON.stringify(record.document)).length
+    })
+    return result
   }
 
   async clear(): Promise<void> {

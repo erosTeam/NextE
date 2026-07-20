@@ -31,6 +31,7 @@ export class ComicTranslationOrchestrator {
   private readonly analyzer: ComicPageAnalyzer
   private readonly repository: ComicTranslationRepository
   private inFlight: Map<string, Promise<ComicTranslationRunResult>> = new Map()
+  private cacheWritesEnabled: boolean = true
 
   constructor(analyzer: ComicPageAnalyzer, repository: ComicTranslationRepository) {
     this.analyzer = analyzer
@@ -104,6 +105,11 @@ export class ComicTranslationOrchestrator {
     }
   }
 
+  /** Prevents older work from repopulating a generated cache after an explicit clear. */
+  invalidateCacheWrites(): void {
+    this.cacheWritesEnabled = false
+  }
+
   private async analyzeAndSave(
     identity: ComicTranslationRequestIdentity,
     request: ComicPageAnalysisRequest,
@@ -115,7 +121,9 @@ export class ComicTranslationOrchestrator {
       !identity.matchesDocument(analysis.document)) {
       throw new Error('Comic translation analyzer result identity mismatch')
     }
-    await this.repository.save(identity, analysis.document)
+    if (this.cacheWritesEnabled) {
+      await this.repository.save(identity, analysis.document)
+    }
     return ComicTranslationOrchestrator.result(
       identity,
       ComicTranslationConsistencyService.audit(analysis.document, previous),

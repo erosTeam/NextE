@@ -2033,6 +2033,10 @@
       "value": "コメント翻訳"
     },
     {
+      "name": "cache_comic_translation",
+      "value": "漫画翻訳キャッシュ"
+    },
+    {
       "name": "cache_tag_translation",
       "value": "タグ翻訳"
     },

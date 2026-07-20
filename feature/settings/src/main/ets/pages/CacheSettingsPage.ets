@@ -9,6 +9,7 @@ import {
   BackupPreview,
   BackupService,
   CacheStat,
+  ComicTranslationRuntimeService,
   CommentTranslationService,
   ConciseListRow,
   EhPageCacheService,
@@ -31,8 +32,8 @@ import {
 } from '../model/BackupFilePickerCoordinator'
 
 /**
- * Storage page. Every cache (EH page cache, reader image files, comment translations, tag translations) is a
- * row in a grouped card showing item count + byte size with an explicit per-row clear button; clear-all sits
+ * Storage page. Every cache is a row in a grouped card showing item count + byte size with an explicit
+ * per-row clear button; clear-all sits
  * at the end of that same card. Sync is a top-level storage action; backup & restore is inlined here
  * (no separate sub-page): export dumps the settings store to a file (optionally including the sensitive
  * login/account/API bundle, which then requires a password and is AES-256-GCM encrypted); import reads a
@@ -43,6 +44,7 @@ export struct CacheSettingsPage {
   @Local pageStat: CacheStat = new CacheStat();
   @Local imageStat: CacheStat = new CacheStat();
   @Local commentStat: CacheStat = new CacheStat();
+  @Local comicTranslationStat: CacheStat = new CacheStat();
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
@@ -94,6 +96,9 @@ export struct CacheSettingsPage {
     CommentTranslationService.stat(this.ctx()).then((s: CacheStat) => {
       this.commentStat = s
     })
+    ComicTranslationRuntimeService.statGeneratedCache(this.ctx()).then((s: CacheStat) => {
+      this.comicTranslationStat = s
+    })
     TagTranslationService.statCache(this.ctx()).then((s: CacheStat) => {
       this.tagStat = s
     })
@@ -109,6 +114,9 @@ export struct CacheSettingsPage {
     if (key === 'comment') {
       return this.commentStat
     }
+    if (key === 'comic') {
+      return this.comicTranslationStat
+    }
     return this.tagStat
   }
 
@@ -121,6 +129,9 @@ export struct CacheSettingsPage {
     }
     if (key === 'comment') {
       return CommentTranslationService.clear(this.ctx())
+    }
+    if (key === 'comic') {
+      return ComicTranslationRuntimeService.clearGeneratedCache(this.ctx())
     }
     return TagTranslationService.clearTranslations(this.ctx())
   }
@@ -145,7 +156,8 @@ export struct CacheSettingsPage {
   }
 
   private totalBytes(): number {
-    return this.pageStat.bytes + this.imageStat.bytes + this.commentStat.bytes + this.tagStat.bytes
+    return this.pageStat.bytes + this.imageStat.bytes + this.commentStat.bytes +
+      this.comicTranslationStat.bytes + this.tagStat.bytes
   }
 
   private readerCacheLimitLabel(): string {
@@ -222,6 +234,7 @@ export struct CacheSettingsPage {
     await EhPageCacheService.clearAll(this.ctx())
     await this.clearImageCaches()
     await CommentTranslationService.clear(this.ctx())
+    await ComicTranslationRuntimeService.clearGeneratedCache(this.ctx())
     await TagTranslationService.clearTranslations(this.ctx())
   }
 
@@ -523,6 +536,12 @@ export struct CacheSettingsPage {
                   'comment',
                   $r('app.string.cache_comment_translation'),
                   $r('sys.symbol.translate'),
+                )
+                this.rowDivider()
+                this.CacheRow(
+                  'comic',
+                  $r('app.string.cache_comic_translation'),
+                  $r('sys.symbol.text_bubble_left_2'),
                 )
                 this.rowDivider()
                 this.CacheRow(
