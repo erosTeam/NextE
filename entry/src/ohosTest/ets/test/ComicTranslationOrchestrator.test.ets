@@ -9,6 +9,8 @@ import {
   ComicPageAnalyzerCapabilities,
   ComicPageDocument,
   ComicPreviousPageContext,
+  ComicQualitySeverity,
+  ComicQualitySignal,
   ComicResponsesProtocol,
   ComicTextBlock,
   ComicTranslationConsistencyService,
@@ -401,6 +403,50 @@ export default function comicTranslationOrchestratorTest(): void {
         const cached: ComicTranslationRunResult = await orchestrator.run(request(3, HASH_B))
         expect(cached.cacheHit).assertEqual(true)
         expect(cached.document.qualitySignals.length).assertEqual(1)
+        done()
+      })
+
+    it('does not treat an informational consistency code as an actionable conflict', 0,
+      (done: Function) => {
+        const previous: ComicPageDocument = new ComicPageDocument()
+        previous.hasText = true
+        const previousBlock: ComicTextBlock = new ComicTextBlock()
+        previousBlock.blockId = 'p0-b0'
+        previousBlock.sourceText = '優'
+        previousBlock.normalizedSourceText = '優'
+        previousBlock.translatedText = '优'
+        previous.blocks.push(previousBlock)
+
+        const current: ComicPageDocument = new ComicPageDocument()
+        current.hasText = true
+        const currentBlock: ComicTextBlock = new ComicTextBlock()
+        currentBlock.blockId = 'p1-b0'
+        currentBlock.sourceText = '優'
+        currentBlock.normalizedSourceText = '優'
+        currentBlock.translatedText = '小优'
+        current.blocks.push(currentBlock)
+        const informational: ComicQualitySignal = new ComicQualitySignal()
+        informational.code = COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE
+        informational.severity = ComicQualitySeverity.INFO
+        informational.blockId = currentBlock.blockId
+        informational.message = 'provider metadata only'
+        current.qualitySignals.push(informational)
+
+        expect(ComicTranslationConsistencyService.hasConflict(
+          current,
+          currentBlock.blockId,
+        )).assertEqual(false)
+        const audited: ComicPageDocument = ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        )
+        expect(audited.qualitySignals.length).assertEqual(2)
+        expect(audited.qualitySignals[0].severity).assertEqual(ComicQualitySeverity.INFO)
+        expect(audited.qualitySignals[1].severity).assertEqual(ComicQualitySeverity.WARNING)
+        expect(ComicTranslationConsistencyService.hasConflict(
+          audited,
+          currentBlock.blockId,
+        )).assertEqual(true)
         done()
       })
 

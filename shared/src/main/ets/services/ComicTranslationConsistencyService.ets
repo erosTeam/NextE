@@ -65,11 +65,16 @@ export class ComicTranslationConsistencyService {
     for (let index: number = 0; index < count; index++) {
       const signal: ComicQualitySignal = document.qualitySignals[index]
       if (signal.code === COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE &&
+        ComicTranslationConsistencyService.isActionableSeverity(signal.severity) &&
         signal.blockId === blockId) {
         return true
       }
     }
     return false
+  }
+
+  private static isActionableSeverity(severity: ComicQualitySeverity): boolean {
+    return severity === ComicQualitySeverity.WARNING || severity === ComicQualitySeverity.ERROR
   }
 
   private static collectPreviousTranslations(
