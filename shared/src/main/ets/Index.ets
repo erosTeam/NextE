@@ -214,6 +214,15 @@ export {
   OpenAiApiComicPageAnalyzer,
 } from './services/ComicResponsesPageAnalyzer'
 export {
+  ComicTranslationRepository,
+  ComicTranslationRequestIdentity,
+  InMemoryComicTranslationRepository,
+} from './services/ComicTranslationRepository'
+export {
+  ComicTranslationOrchestrator,
+  ComicTranslationRunResult,
+} from './services/ComicTranslationOrchestrator'
+export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,
   ExperimentalCodexOAuthService,

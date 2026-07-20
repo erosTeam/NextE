@@ -1,6 +1,6 @@
 # NextE 漫画翻译设计与演进指南
 
-- **状态**：持续维护；Phase 0 已由原创样例真实 provider 评测闭环，Reader V1 尚未接入
+- **状态**：持续维护；Phase 0 已闭环，V1 repository/orchestrator 基础已实现，Reader 尚未接入
 - **首次整理**：2026-07-20
 - **最近复核**：2026-07-21
 - **外部调研**：[漫画翻译工作流调研](research/manga-translation-workflows.md)
@@ -56,6 +56,10 @@
   用原创两页样例取得真实结构与质量证据，但当前尚未由 Reader 或 repository 调用。
 - [ComicTranslationSettingsPage.ets](../feature/settings/src/main/ets/pages/ComicTranslationSettingsPage.ets)
   提供独立 provider 设置。API Key 和 Codex OAuth 凭据不复用评论翻译配置。
+- [ComicTranslationRepository.ets](../shared/src/main/ets/services/ComicTranslationRepository.ets) 与
+  [ComicTranslationOrchestrator.ets](../shared/src/main/ets/services/ComicTranslationOrchestrator.ets) 已建立
+  provider/model/prompt/language/image/revision 分键、并发去重、前两页上下文和成功后写入边界。当前实现是
+  有界进程内生成文档缓存，不声明应用重启恢复、备份或同步语义。
 - 模块依赖继续遵守 [architecture.md](architecture.md)：`feature/reader` 只负责入口和展示；可跨页面
   复用的模型、存储、provider 和服务放在 `shared`；feature 之间不互相导入。
 - 任何 UI/响应式状态实现只使用 State Management V2。
@@ -404,6 +408,11 @@ provider、图片预处理和费用确认方式已形成明确选择。以上退
 - 前 1～2 页上下文、滚动摘要、provisional/locked 术语；
 - 原文/译文面板、人工修改、失败重试、缓存和 stale-result 防护；
 - 纯文本 consistency pass，不做图片重绘。
+
+当前子进度：2026-07-21 已完成可替换 repository 契约、进程内实现与 orchestrator。设备 fake-analyzer
+测试覆盖缓存副本隔离、精确请求并发去重、前两页顺序上下文、image/language/model/prompt 分键和失败强制
+刷新保留旧成功文档。Reader 显式入口、应用重启恢复、人工修订与术语编辑仍未实现；后两项在明确持久化、
+备份和同步所有权前不得伪装为完成。
 
 V1 验收至少覆盖：首次翻译、缓存命中、无凭据/不支持图片、无效结构、切页中返回、应用重启恢复、
 术语锁定、后文纠名只重翻相关文本、清缓存不删除用户修订。Phase 0 单页演示不是可交付 V1；跨页

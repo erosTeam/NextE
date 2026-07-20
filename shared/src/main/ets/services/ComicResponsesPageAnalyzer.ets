@@ -350,6 +350,10 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     return this.config.model
   }
 
+  analysisPromptVersion(): string {
+    return COMIC_RESPONSES_PROMPT_VERSION
+  }
+
   capabilities(): ComicPageAnalyzerCapabilities {
     return ComicResponsesPageAnalyzerCore.capabilities()
   }
@@ -380,6 +384,10 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
 
   modelId(): string {
     return this.model
+  }
+
+  analysisPromptVersion(): string {
+    return COMIC_RESPONSES_PROMPT_VERSION
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {

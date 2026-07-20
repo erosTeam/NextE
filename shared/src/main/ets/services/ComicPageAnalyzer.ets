@@ -84,6 +84,8 @@ export interface ComicPageAnalyzer {
 
   modelId(): string
 
+  analysisPromptVersion(): string
+
   capabilities(): ComicPageAnalyzerCapabilities
 
   analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult>

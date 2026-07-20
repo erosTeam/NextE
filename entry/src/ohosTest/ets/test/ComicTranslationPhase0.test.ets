@@ -190,6 +190,10 @@ class FakeComicPageAnalyzer implements ComicPageAnalyzer {
     return 'fixture-model-v1'
   }
 
+  analysisPromptVersion(): string {
+    return 'phase0-fixture-v1'
+  }
+
   capabilities(): ComicPageAnalyzerCapabilities {
     const capabilities: ComicPageAnalyzerCapabilities = new ComicPageAnalyzerCapabilities()
     capabilities.transcript = true

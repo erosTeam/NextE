@@ -50,6 +50,7 @@ import readerSuperResolutionBackendTest from './ReaderSuperResolutionBackend.tes
 import readerSuperResolutionModelIntegrationTest from './ReaderSuperResolutionModelIntegration.test'
 import comicTranslationPhase0Test from './ComicTranslationPhase0.test'
 import comicTranslationProvidersTest from './ComicTranslationProviders.test'
+import comicTranslationOrchestratorTest from './ComicTranslationOrchestrator.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -104,4 +105,5 @@ export default function testsuite(): void {
   readerSuperResolutionModelIntegrationTest()
   comicTranslationPhase0Test()
   comicTranslationProvidersTest()
+  comicTranslationOrchestratorTest()
 }
