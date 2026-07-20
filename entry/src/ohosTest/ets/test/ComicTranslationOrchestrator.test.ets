@@ -523,6 +523,65 @@ export default function comicTranslationOrchestratorTest(): void {
         done()
       })
 
+    it('prioritizes a local conflict over saturated informational metadata', 0,
+      (done: Function) => {
+        const previous: ComicPageDocument = new ComicPageDocument()
+        previous.hasText = true
+        const previousBlock: ComicTextBlock = new ComicTextBlock()
+        previousBlock.blockId = 'p0-b0'
+        previousBlock.sourceText = '優'
+        previousBlock.normalizedSourceText = '優'
+        previousBlock.translatedText = '优'
+        previous.blocks.push(previousBlock)
+
+        const current: ComicPageDocument = new ComicPageDocument()
+        current.hasText = true
+        const currentBlock: ComicTextBlock = new ComicTextBlock()
+        currentBlock.blockId = 'p1-b0'
+        currentBlock.sourceText = '優'
+        currentBlock.normalizedSourceText = '優'
+        currentBlock.translatedText = '小优'
+        current.blocks.push(currentBlock)
+        const metadataBlock: ComicTextBlock = new ComicTextBlock()
+        metadataBlock.blockId = 'p1-b1'
+        metadataBlock.sourceText = '注'
+        metadataBlock.normalizedSourceText = '注'
+        metadataBlock.translatedText = '注'
+        current.blocks.push(metadataBlock)
+        for (let index: number = 0; index < 512; index++) {
+          const informational: ComicQualitySignal = new ComicQualitySignal()
+          informational.code = `provider_info_${index}`
+          informational.severity = ComicQualitySeverity.INFO
+          informational.blockId = metadataBlock.blockId
+          current.qualitySignals.push(informational)
+        }
+
+        const audited: ComicPageDocument = ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        )
+        expect(audited.qualitySignals.length).assertEqual(512)
+        expect(audited.qualitySignals[510].code).assertEqual('provider_info_510')
+        expect(audited.qualitySignals[511].code)
+          .assertEqual(COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE)
+        expect(current.qualitySignals[511].code).assertEqual('provider_info_511')
+
+        for (let index: number = 0; index < current.qualitySignals.length; index++) {
+          current.qualitySignals[index].severity = ComicQualitySeverity.WARNING
+        }
+        const fullyActionable: ComicPageDocument = ComicTranslationConsistencyService.audit(
+          current,
+          [previous],
+        )
+        expect(fullyActionable.qualitySignals.length).assertEqual(512)
+        expect(ComicTranslationConsistencyService.hasConflict(
+          fullyActionable,
+          currentBlock.blockId,
+        )).assertEqual(false)
+        expect(current.qualitySignals[511].code).assertEqual('provider_info_511')
+        done()
+      })
+
     it('carries stable exact translation memory beyond the two-page prompt window', 0,
       async (done: Function) => {
         const repository: InMemoryComicTranslationRepository =

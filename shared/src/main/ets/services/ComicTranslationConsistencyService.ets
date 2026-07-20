@@ -31,9 +31,6 @@ export class ComicTranslationConsistencyService {
       MAX_CONSISTENCY_BLOCKS_PER_PAGE,
     )
     for (let index: number = 0; index < blockCount; index++) {
-      if (audited.qualitySignals.length >= MAX_DOCUMENT_QUALITY_SIGNALS) {
-        break
-      }
       const block: ComicTextBlock = audited.blocks[index]
       const source: string = ComicTranslationConsistencyService.sourceKey(block)
       const translated: string = ComicTranslationConsistencyService.normalizedText(
@@ -52,7 +49,9 @@ export class ComicTranslationConsistencyService {
       signal.severity = ComicQualitySeverity.WARNING
       signal.blockId = block.blockId
       signal.message = 'Translation differs from a previous page for the same source text'
-      audited.qualitySignals.push(signal)
+      if (!ComicTranslationConsistencyService.appendActionableSignal(audited, signal)) {
+        break
+      }
     }
     return audited
   }
@@ -78,6 +77,27 @@ export class ComicTranslationConsistencyService {
 
   private static isActionableSeverity(severity: ComicQualitySeverity): boolean {
     return severity === ComicQualitySeverity.WARNING || severity === ComicQualitySeverity.ERROR
+  }
+
+  private static appendActionableSignal(
+    document: ComicPageDocument,
+    signal: ComicQualitySignal,
+  ): boolean {
+    if (document.qualitySignals.length < MAX_DOCUMENT_QUALITY_SIGNALS) {
+      document.qualitySignals.push(signal)
+      return true
+    }
+    if (document.qualitySignals.length > MAX_DOCUMENT_QUALITY_SIGNALS) {
+      return false
+    }
+    for (let index: number = MAX_DOCUMENT_QUALITY_SIGNALS - 1; index >= 0; index--) {
+      if (document.qualitySignals[index].severity === ComicQualitySeverity.INFO) {
+        document.qualitySignals.splice(index, 1)
+        document.qualitySignals.push(signal)
+        return true
+      }
+    }
+    return false
   }
 
   private static collectPreviousTranslations(
