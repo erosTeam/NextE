@@ -32,6 +32,24 @@ export class ComicTranslationReviewService {
     return false
   }
 
+  static documentHasPageLevelReviewSignal(document: ComicPageDocument | null): boolean {
+    if (document === null) {
+      return false
+    }
+    const signalCount: number = Math.min(
+      document.qualitySignals.length,
+      MAX_COMIC_REVIEW_SIGNALS,
+    )
+    for (let index: number = 0; index < signalCount; index++) {
+      const signal: ComicQualitySignal = document.qualitySignals[index]
+      if (signal.blockId.length === 0 &&
+        ComicTranslationReviewService.isReviewSeverity(signal.severity)) {
+        return true
+      }
+    }
+    return false
+  }
+
   static blockNeedsReview(document: ComicPageDocument | null, blockId: string): boolean {
     if (document === null || blockId.length === 0) {
       return false

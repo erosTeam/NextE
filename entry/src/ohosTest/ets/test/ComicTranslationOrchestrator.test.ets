@@ -14,6 +14,7 @@ import {
   ComicResponsesProtocol,
   ComicTextBlock,
   ComicTranslationConsistencyService,
+  ComicTranslationMemoryService,
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
   ComicTranslationState,
@@ -493,6 +494,46 @@ export default function comicTranslationOrchestratorTest(): void {
         expect(analyzer.capturedMemorySources.length).assertEqual(1)
         expect(analyzer.capturedMemorySources[0]).assertEqual('優')
         expect(analyzer.capturedMemoryTranslations[0]).assertEqual('小优')
+        done()
+      })
+
+    it('keeps review-targeted generated translations out of exact memory', 0,
+      (done: Function) => {
+        const first: ComicPageDocument = new ComicPageDocument()
+        first.pageIndex = 0
+        first.translationState = ComicTranslationState.PROVISIONAL
+        const firstBlock: ComicTextBlock = new ComicTextBlock()
+        firstBlock.blockId = 'p0-b0'
+        firstBlock.sourceText = '優'
+        firstBlock.normalizedSourceText = '優'
+        firstBlock.translatedText = '优'
+        first.blocks.push(firstBlock)
+
+        const second: ComicPageDocument = first.copy()
+        second.pageIndex = 1
+        second.blocks[0].blockId = 'p1-b0'
+        const informational: ComicQualitySignal = new ComicQualitySignal()
+        informational.code = 'provider_note'
+        informational.severity = ComicQualitySeverity.INFO
+        informational.blockId = second.blocks[0].blockId
+        informational.message = 'metadata only'
+        second.qualitySignals.push(informational)
+        expect(ComicTranslationMemoryService.build([first, second]).length).assertEqual(1)
+
+        informational.severity = ComicQualitySeverity.WARNING
+        expect(ComicTranslationMemoryService.build([first, second]).length).assertEqual(0)
+
+        informational.blockId = ''
+        expect(ComicTranslationMemoryService.build([first, second]).length).assertEqual(0)
+
+        second.qualitySignals = []
+        second.translationState = ComicTranslationState.REVIEW_REQUIRED
+        const missing: ComicTextBlock = new ComicTextBlock()
+        missing.blockId = 'p1-b1'
+        missing.sourceText = '兄'
+        missing.normalizedSourceText = '兄'
+        second.blocks.push(missing)
+        expect(ComicTranslationMemoryService.build([first, second]).length).assertEqual(1)
         done()
       })
 

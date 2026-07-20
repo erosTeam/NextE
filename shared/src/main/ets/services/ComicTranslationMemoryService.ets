@@ -1,10 +1,15 @@
-import { ComicPageDocument, ComicTextBlock } from '../model/ComicTranslation'
+import {
+  ComicPageDocument,
+  ComicTextBlock,
+  ComicTranslationState,
+} from '../model/ComicTranslation'
 import {
   MAX_COMIC_TRANSLATION_MEMORY_ENTRIES,
   MAX_COMIC_TRANSLATION_MEMORY_SOURCE_CHARS,
   MAX_COMIC_TRANSLATION_MEMORY_TARGET_CHARS,
   ComicTranslationMemoryEntry,
 } from './ComicPageAnalyzer'
+import { ComicTranslationReviewService } from './ComicTranslationReviewService'
 
 const MAX_TRANSLATION_MEMORY_PREVIOUS_PAGES: number = 32
 const MAX_TRANSLATION_MEMORY_BLOCKS_PER_PAGE: number = 512
@@ -68,7 +73,9 @@ export class ComicTranslationMemoryService {
     for (let pageIndex: number = start; pageIndex < previousPages.length; pageIndex++) {
       const page: ComicPageDocument = previousPages[pageIndex]
       if (!Number.isFinite(page.pageIndex) || page.pageIndex < 0 ||
-        page.pageIndex > Number.MAX_SAFE_INTEGER || Math.floor(page.pageIndex) !== page.pageIndex) {
+        page.pageIndex > Number.MAX_SAFE_INTEGER || Math.floor(page.pageIndex) !== page.pageIndex ||
+        !ComicTranslationMemoryService.translationStateEligible(page.translationState) ||
+        ComicTranslationReviewService.documentHasPageLevelReviewSignal(page)) {
         continue
       }
       const blockCount: number = Math.min(
@@ -76,6 +83,12 @@ export class ComicTranslationMemoryService {
         MAX_TRANSLATION_MEMORY_BLOCKS_PER_PAGE,
       )
       for (let blockIndex: number = 0; blockIndex < blockCount; blockIndex++) {
+        if (ComicTranslationReviewService.blockNeedsReview(
+          page,
+          page.blocks[blockIndex].blockId,
+        )) {
+          continue
+        }
         ComicTranslationMemoryService.collect(candidates, page, page.blocks[blockIndex])
       }
     }
@@ -110,6 +123,12 @@ export class ComicTranslationMemoryService {
       entries.push(entry)
     }
     return entries
+  }
+
+  private static translationStateEligible(state: ComicTranslationState): boolean {
+    return state === ComicTranslationState.PROVISIONAL ||
+      state === ComicTranslationState.READY ||
+      state === ComicTranslationState.REVIEW_REQUIRED
   }
 
   private static collect(
