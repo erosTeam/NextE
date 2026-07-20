@@ -32,6 +32,7 @@ import { WebLoginStyleSettings } from './WebLoginStyleSettings'
 import { ImageBlockSettings } from './ImageBlockSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { CommentTranslationSettings } from './CommentTranslationSettings'
+import { ComicTranslationProviderSettings } from './ComicTranslationProviderSettings'
 import { LocalBlockSettings } from './LocalBlockSettings'
 import { DiagnosticsSettings } from './DiagnosticsSettings'
 import { SyncSettings } from './SyncSettings'
@@ -110,6 +111,7 @@ export class SettingsBootstrap {
       await ImageBlockSettings.restore(context)
       await TagTranslationSettings.restore(context)
       await CommentTranslationSettings.restore(context)
+      await ComicTranslationProviderSettings.restore(context)
       await LocalBlockSettings.restore(context)
       await SyncSettings.restore(context)
       await DiagnosticsSettings.restore(context)

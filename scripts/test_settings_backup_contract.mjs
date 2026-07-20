@@ -107,6 +107,11 @@ ok('Preferences backup excludes volatile runtime state from plaintext and encryp
     /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP/.test(adapter) &&
     /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT/.test(adapter) &&
     /BackupPreferencesAdapter\.isVolatileExcluded\(key\)[\s\S]*continue/.test(adapter))
+ok('rotating Codex OAuth credentials are device-local and excluded from every backup section',
+  /VOLATILE_EXCLUDED_KEYS[\s\S]*StorageKeys\.COMIC_TRANSLATION_CODEX_OAUTH_TOKEN/.test(adapter) &&
+    /VOLATILE_EXCLUDED_KEYS[\s\S]*StorageKeys\.COMIC_TRANSLATION_CODEX_USAGE_CACHE/.test(adapter) &&
+    /BackupPreferencesAdapter\.isVolatileExcluded\(key\)[\s\S]*continue/.test(adapter) &&
+    /if \(BackupPreferencesAdapter\.isVolatileExcluded\(key\)\)[\s\S]*return false/.test(adapter))
 ok('Preferences rollback replaces the backup scope and deletes import-added keys',
   /static async replace\(/.test(adapter) &&
     /store\.getAllSync\(\)/.test(adapter) &&

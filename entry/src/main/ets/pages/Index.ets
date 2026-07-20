@@ -108,7 +108,8 @@ import {
   LocalBlockSettingsPage,
   ImageBlockSettingsPage,
   TagTranslationSettingsPage,
-  TranslationSettingsPage,
+  CommentTranslationSettingsPage,
+  ComicTranslationSettingsPage,
   SyncSettingsPage,
   WebDavSyncSettingsPage,
   AdvancedSettingsPage,
@@ -313,8 +314,13 @@ function IndexTagTranslationSettingsRoute() {
 }
 
 @Builder
-function IndexTranslationSettingsRoute() {
-  TranslationSettingsPage()
+function IndexCommentTranslationSettingsRoute() {
+  CommentTranslationSettingsPage()
+}
+
+@Builder
+function IndexComicTranslationSettingsRoute() {
+  ComicTranslationSettingsPage()
 }
 
 @Builder
@@ -430,7 +436,8 @@ struct Index {
     'localBlockSettings': wrapBuilder<[]>(IndexLocalBlockSettingsRoute),
     'imageBlockSettings': wrapBuilder<[]>(IndexImageBlockSettingsRoute),
     'tagTranslationSettings': wrapBuilder<[]>(IndexTagTranslationSettingsRoute),
-    'translationSettings': wrapBuilder<[]>(IndexTranslationSettingsRoute),
+    'commentTranslationSettings': wrapBuilder<[]>(IndexCommentTranslationSettingsRoute),
+    'comicTranslationSettings': wrapBuilder<[]>(IndexComicTranslationSettingsRoute),
     'syncSettings': wrapBuilder<[]>(IndexSyncSettingsRoute),
     'webDavSyncSettings': wrapBuilder<[]>(IndexWebDavSyncSettingsRoute),
     'advancedSettings': wrapBuilder<[]>(IndexAdvancedSettingsRoute),

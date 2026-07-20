@@ -98,6 +98,15 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_API_URL: string = 'commentTranslation.apiUrl'
   static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
+  static readonly COMIC_TRANSLATION_PROVIDER: string = 'comicTranslation.provider'
+  static readonly COMIC_TRANSLATION_API_URL: string = 'comicTranslation.apiUrl'
+  static readonly COMIC_TRANSLATION_API_KEY: string = 'comicTranslation.apiKey'
+  static readonly COMIC_TRANSLATION_API_MODEL: string = 'comicTranslation.apiModel'
+  static readonly COMIC_TRANSLATION_CODEX_MODEL: string = 'comicTranslation.codexModel'
+  // Device-local rotating credential. Never sync or copy through backup, including encrypted backup.
+  static readonly COMIC_TRANSLATION_CODEX_OAUTH_TOKEN: string = 'comicTranslation.codexOAuthToken'
+  // Device-local stale-while-revalidate snapshot. Never sync or copy through backup.
+  static readonly COMIC_TRANSLATION_CODEX_USAGE_CACHE: string = 'comicTranslation.codexUsageCache'
   static readonly SYNC_WEBDAV_URL: string = 'sync.webdav.url'
   static readonly SYNC_WEBDAV_USERNAME: string = 'sync.webdav.username'
   static readonly SYNC_WEBDAV_ENABLED: string = 'sync.webdav.enabled'

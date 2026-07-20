@@ -53,6 +53,34 @@ export {
 } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export {
+  COMIC_TRANSLATION_SCHEMA_VERSION,
+  ComicAnalysisState,
+  ComicGlossaryTerm,
+  ComicGlossaryTermProvenance,
+  ComicGlossaryTermStatus,
+  ComicImagePreparationProfile,
+  ComicPageDocument,
+  ComicPoint,
+  ComicQualitySeverity,
+  ComicQualitySignal,
+  ComicRenderState,
+  ComicSourceOrigin,
+  ComicTextBlock,
+  ComicTextKind,
+  ComicTranslationOrigin,
+  ComicTranslationProject,
+  ComicTranslationState,
+} from './model/ComicTranslation'
+export {
+  COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH,
+  COMIC_TRANSLATION_PROVIDER_OPENAI_API,
+  CodexOAuthAuthorizationExchange,
+  CodexOAuthDeviceSession,
+  CodexOAuthPollResult,
+  CodexOAuthTokenSet,
+  ComicTranslationProviderSettingsSnapshot,
+} from './model/ComicTranslationProvider'
+export {
   ReaderSourceDescriptor,
   ReaderSourceKind,
   ReaderSourceVariant,
@@ -157,6 +185,50 @@ export {
   ImageResolveSourceGate,
 } from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
+export {
+  ComicPageAnalysisContext,
+  ComicPageAnalysisRequest,
+  ComicPageAnalysisResult,
+  ComicPageAnalyzer,
+  ComicPageAnalyzerCapabilities,
+  ComicPreviousPageContext,
+} from './services/ComicPageAnalyzer'
+export { ComicPageAnalysisParser } from './services/ComicPageAnalysisParser'
+export {
+  ComicTranslationAccuracySnapshot,
+  ComicTranslationEvaluationSnapshot,
+  ComicTranslationEvaluationIssue,
+  ComicTranslationEvaluationIssueCode,
+  ComicTranslationEvaluator,
+  ComicTranslationReferenceBlock,
+  ComicTranslationReferencePage,
+} from './services/ComicTranslationEvaluation'
+export { ComicResponsesProtocol } from './services/ComicResponsesProtocol'
+export {
+  ComicPageAnalyzerFactory,
+  ComicProviderHttpError,
+  ComicResponsesHttpTransport,
+  DefaultComicResponsesHttpTransport,
+  ExperimentalCodexComicPageAnalyzer,
+  OpenAiApiComicPageAnalyzer,
+} from './services/ComicResponsesPageAnalyzer'
+export {
+  CodexOAuthHttpTransport,
+  DefaultCodexOAuthHttpTransport,
+  ExperimentalCodexOAuthService,
+} from './services/ExperimentalCodexOAuthService'
+export {
+  ComicModelCatalogHttpTransport,
+  ComicTranslationModelCatalogService,
+  DefaultComicModelCatalogHttpTransport,
+} from './services/ComicTranslationModelCatalogService'
+export {
+  CodexUsageHttpTransport,
+  CodexUsageSnapshot,
+  CodexUsageWindow,
+  ComicTranslationCodexUsageService,
+  DefaultCodexUsageHttpTransport,
+} from './services/ComicTranslationCodexUsageService'
 export {
   ReaderSuperResolutionCapabilities,
   ReaderSuperResolutionResult,
@@ -366,6 +438,11 @@ export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
+export {
+  ComicTranslationProviderSettingsState,
+  connectComicTranslationProviderSettings,
+} from './state/ComicTranslationProviderSettingsState'
+export { ComicTranslationProviderSettings } from './settings/ComicTranslationProviderSettings'
 export {
   SYNC_STATUS_FAILED,
   SYNC_STATUS_IDLE,

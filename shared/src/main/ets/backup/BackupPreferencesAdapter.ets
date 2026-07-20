@@ -49,6 +49,11 @@ export class BackupPreferencesAdapter {
     StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL,
     StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED,
     StorageKeys.SAFE_MODE_UNLOCKED,
+    // Codex refresh tokens rotate. Copying one credential pair to another device can invalidate
+    // the active session on either side, so this provider login remains strictly device-local.
+    StorageKeys.COMIC_TRANSLATION_CODEX_OAUTH_TOKEN,
+    // Account-scoped quota cache is volatile runtime data and can be refreshed from the provider.
+    StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE,
     // Clipboard consent and its deduplication cursor are device-local. Restoring either on another
     // device could bypass that device's explicit opt-in flow or suppress a fresh clipboard value.
     StorageKeys.CLIPBOARD_LINK_ENABLED,

@@ -50,6 +50,8 @@ acquire the lease with the resolved full target: `scripts/device-lease --device 
 - Device or emulator work: [Device lease](docs/device-lease.md).
 - Product bug or feature work: [Product work](docs/agent-guides/product-work.md).
 - Architecture-sensitive work: [Architecture](docs/architecture.md).
+- Manga translation, OCR, multimodal context, or translated-image work:
+  [Manga translation design](docs/manga-translation-design.md).
 - EH protocol, parser, cookie, auth, deep-link, or remote-write work:
   [EH integration contract](docs/eh-integration-contract.md).
 - Planning or milestone questions: [Roadmap](docs/roadmap.md) and [Plan lifecycle](docs/plans/README.md).

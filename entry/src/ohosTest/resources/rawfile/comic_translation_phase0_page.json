@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "projectId": "fixture-gallery:zh-CN",
+  "pageIndex": 1,
+  "imageHash": "fixture-image-sha256",
+  "imageWidth": 1200,
+  "imageHeight": 1800,
+  "hasText": true,
+  "pageSummary": "优在车站和朋友会面。",
+  "blocks": [
+    {
+      "blockId": "p1-b1",
+      "readingOrder": 1,
+      "kind": "dialogue",
+      "sourceText": "駅で待ってる。",
+      "translatedText": "我在车站等你。",
+      "polygon": [],
+      "sourceOrigin": "vision",
+      "translationOrigin": "vision",
+      "providerConfidence": 0.88
+    },
+    {
+      "blockId": "p1-b0",
+      "readingOrder": 0,
+      "kind": "dialogue",
+      "sourceText": "おはよう、ユウ。",
+      "translatedText": "早上好，优。",
+      "polygon": [],
+      "sourceOrigin": "vision",
+      "translationOrigin": "vision",
+      "providerConfidence": 0.93
+    }
+  ],
+  "qualitySignals": [
+    {
+      "code": "speaker_unresolved",
+      "severity": "warning",
+      "blockId": "p1-b1",
+      "message": "Speaker association is unavailable in this provider mode."
+    }
+  ]
+}

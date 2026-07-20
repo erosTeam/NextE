@@ -111,6 +111,13 @@ Allowed `Sync` values:
 | StorageKeys.COMMENT_TRANSLATION_API_URL | setting | plaintext | excluded | Comment translation endpoint |
 | StorageKeys.COMMENT_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Comment translation credential |
 | StorageKeys.COMMENT_TRANSLATION_MODEL | setting | plaintext | excluded | Comment translation model |
+| StorageKeys.COMIC_TRANSLATION_PROVIDER | setting | plaintext | excluded | Active manga-analysis provider |
+| StorageKeys.COMIC_TRANSLATION_API_URL | setting | plaintext | excluded | Manga-analysis Responses endpoint |
+| StorageKeys.COMIC_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Manga-analysis API credential |
+| StorageKeys.COMIC_TRANSLATION_API_MODEL | setting | plaintext | excluded | Manga-analysis API model |
+| StorageKeys.COMIC_TRANSLATION_CODEX_MODEL | setting | plaintext | excluded | User-selected experimental Codex model |
+| StorageKeys.COMIC_TRANSLATION_CODEX_OAUTH_TOKEN | device-credential | excluded | excluded | Rotating Codex OAuth pair; never copied between devices |
+| StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE | volatile-cache | excluded | excluded | Account-scoped 5H/7D snapshot; refreshed from Codex in background |
 | StorageKeys.SYNC_WEBDAV_URL | credential-group | encrypted-only | excluded | WebDAV endpoint; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_USERNAME | credential-group | encrypted-only | excluded | WebDAV username; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_ENABLED | credential-group | encrypted-only | excluded | WebDAV provider switch; restored atomically with the credential group |

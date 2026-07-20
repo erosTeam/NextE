@@ -31,7 +31,8 @@ export type IndexDestinationFamily =
   'localBlockSettings' |
   'imageBlockSettings' |
   'tagTranslationSettings' |
-  'translationSettings' |
+  'commentTranslationSettings' |
+  'comicTranslationSettings' |
   'syncSettings' |
   'webDavSyncSettings' |
   'advancedSettings' |
@@ -76,7 +77,8 @@ export class IndexRouteCoordinator {
     'LocalBlockSettings': 'localBlockSettings',
     'ImageBlockSettings': 'imageBlockSettings',
     'TagTranslationSettings': 'tagTranslationSettings',
-    'TranslationSettings': 'translationSettings',
+    'CommentTranslationSettings': 'commentTranslationSettings',
+    'ComicTranslationSettings': 'comicTranslationSettings',
     'SyncSettings': 'syncSettings',
     'WebDavSyncSettings': 'webDavSyncSettings',
     'AdvancedSettings': 'advancedSettings',

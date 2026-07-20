@@ -2565,6 +2565,14 @@
       "value": "翻译"
     },
     {
+      "name": "comment_translation_settings_title",
+      "value": "评论翻译"
+    },
+    {
+      "name": "comment_translation_settings_hint",
+      "value": "自动翻译、显示方式、服务与缓存"
+    },
+    {
       "name": "settings_sync",
       "value": "同步"
     },
@@ -2734,7 +2742,7 @@
     },
     {
       "name": "comment_translation_enable",
-      "value": "评论翻译"
+      "value": "启用评论翻译"
     },
     {
       "name": "comment_translation_enable_hint",
@@ -4791,6 +4799,186 @@
     {
       "name": "tablet_select_detail",
       "value": "选择一项以查看详情"
+    },
+    {
+      "name": "comic_translation_settings_title",
+      "value": "漫画翻译"
+    },
+    {
+      "name": "comic_translation_settings_hint",
+      "value": "整页多模态翻译、模型与提供方"
+    },
+    {
+      "name": "comic_translation_provider",
+      "value": "当前通道"
+    },
+    {
+      "name": "comic_translation_provider_hint",
+      "value": "两条通道输出相同页面文档，凭据互不混用"
+    },
+    {
+      "name": "comic_translation_provider_api",
+      "value": "OpenAI API"
+    },
+    {
+      "name": "comic_translation_provider_codex",
+      "value": "Codex OAuth（实验）"
+    },
+    {
+      "name": "comic_translation_api_url",
+      "value": "Responses API 地址"
+    },
+    {
+      "name": "comic_translation_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "comic_translation_model",
+      "value": "视觉模型"
+    },
+    {
+      "name": "comic_translation_model_not_selected",
+      "value": "尚未选择"
+    },
+    {
+      "name": "comic_translation_api_direct_title",
+      "value": "移动端直连风险"
+    },
+    {
+      "name": "comic_translation_api_direct_hint",
+      "value": "密钥保存在本机并由应用直连服务；生产使用更推荐自有后端代理。"
+    },
+    {
+      "name": "comic_translation_codex_model",
+      "value": "Codex 模型"
+    },
+    {
+      "name": "comic_translation_codex_model_hint",
+      "value": "查询当前 ChatGPT 账号可用的模型"
+    },
+    {
+      "name": "comic_translation_codex_usage",
+      "value": "用量限额"
+    },
+    {
+      "name": "comic_translation_codex_usage_hint",
+      "value": "刷新当前 ChatGPT 账号的限额"
+    },
+    {
+      "name": "comic_translation_codex_usage_loading",
+      "value": "正在查询账号限额…"
+    },
+    {
+      "name": "comic_translation_codex_usage_plan",
+      "value": "套餐：%s · 点击刷新"
+    },
+    {
+      "name": "comic_translation_codex_usage_failed",
+      "value": "Codex 用量查询失败：%s"
+    },
+    {
+      "name": "comic_translation_codex_usage_five_hour",
+      "value": "5 小时限额"
+    },
+    {
+      "name": "comic_translation_codex_usage_weekly",
+      "value": "周限额"
+    },
+    {
+      "name": "comic_translation_codex_usage_remaining",
+      "value": "剩余"
+    },
+    {
+      "name": "comic_translation_codex_usage_unavailable",
+      "value": "当前账号未返回该窗口"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_unknown",
+      "value": "暂时没有重置时间"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_due",
+      "value": "即将重置"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_minutes",
+      "value": "%d 分钟后重置"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_hours_minutes",
+      "value": "%d 小时 %d 分钟后重置"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_days_hours",
+      "value": "%d 天 %d 小时后重置"
+    },
+    {
+      "name": "comic_translation_codex_status",
+      "value": "登录状态"
+    },
+    {
+      "name": "comic_translation_codex_disconnected",
+      "value": "尚未登录"
+    },
+    {
+      "name": "comic_translation_codex_connected",
+      "value": "已在本设备登录"
+    },
+    {
+      "name": "comic_translation_codex_connected_account",
+      "value": "已登录 · 工作区 %s"
+    },
+    {
+      "name": "comic_translation_codex_requesting",
+      "value": "正在获取设备登录码…"
+    },
+    {
+      "name": "comic_translation_codex_code",
+      "value": "设备登录码：%s"
+    },
+    {
+      "name": "comic_translation_codex_waiting",
+      "value": "等待浏览器确认"
+    },
+    {
+      "name": "comic_translation_codex_open_page",
+      "value": "打开 Codex 登录页面"
+    },
+    {
+      "name": "comic_translation_codex_open_failed",
+      "value": "无法打开登录页面"
+    },
+    {
+      "name": "comic_translation_codex_login",
+      "value": "使用 ChatGPT 登录"
+    },
+    {
+      "name": "comic_translation_codex_login_hint",
+      "value": "打开 Codex 设备码页面并等待授权"
+    },
+    {
+      "name": "comic_translation_codex_login_success",
+      "value": "Codex 登录成功"
+    },
+    {
+      "name": "comic_translation_codex_login_failed",
+      "value": "Codex 登录失败：%s"
+    },
+    {
+      "name": "comic_translation_codex_logout",
+      "value": "移除本设备 Codex 登录"
+    },
+    {
+      "name": "comic_translation_codex_logout_success",
+      "value": "已移除 Codex 登录"
+    },
+    {
+      "name": "comic_translation_codex_logout_failed",
+      "value": "无法移除 Codex 登录"
+    },
+    {
+      "name": "comic_translation_codex_experimental_hint",
+      "value": "该通道复刻第三方客户端的设备码流程与 ChatGPT Codex 私有后端，并非公开 Platform API；端点、模型权限和风控均可能变化。OAuth 凭据仅保存在本设备，不进入备份或同步。"
     }
   ]
 }

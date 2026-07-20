@@ -2565,6 +2565,14 @@
       "value": "Translation"
     },
     {
+      "name": "comment_translation_settings_title",
+      "value": "Comment translation"
+    },
+    {
+      "name": "comment_translation_settings_hint",
+      "value": "Automatic translation, display, service, and cache"
+    },
+    {
       "name": "settings_sync",
       "value": "Sync"
     },
@@ -2734,7 +2742,7 @@
     },
     {
       "name": "comment_translation_enable",
-      "value": "Comment translation"
+      "value": "Enable comment translation"
     },
     {
       "name": "comment_translation_enable_hint",
@@ -4791,6 +4799,186 @@
     {
       "name": "tablet_select_detail",
       "value": "Select an item to view details"
+    },
+    {
+      "name": "comic_translation_settings_title",
+      "value": "Comic translation"
+    },
+    {
+      "name": "comic_translation_settings_hint",
+      "value": "Whole-page multimodal translation, model, and provider"
+    },
+    {
+      "name": "comic_translation_provider",
+      "value": "Provider"
+    },
+    {
+      "name": "comic_translation_provider_hint",
+      "value": "Both routes produce the same page document and keep credentials separate"
+    },
+    {
+      "name": "comic_translation_provider_api",
+      "value": "OpenAI API"
+    },
+    {
+      "name": "comic_translation_provider_codex",
+      "value": "Codex OAuth (experimental)"
+    },
+    {
+      "name": "comic_translation_api_url",
+      "value": "Responses API URL"
+    },
+    {
+      "name": "comic_translation_api_key",
+      "value": "API key"
+    },
+    {
+      "name": "comic_translation_model",
+      "value": "Vision model"
+    },
+    {
+      "name": "comic_translation_model_not_selected",
+      "value": "Not selected"
+    },
+    {
+      "name": "comic_translation_api_direct_title",
+      "value": "Direct mobile connection"
+    },
+    {
+      "name": "comic_translation_api_direct_hint",
+      "value": "The key stays on this device and the app calls the service directly. A private backend proxy is preferred for production use."
+    },
+    {
+      "name": "comic_translation_codex_model",
+      "value": "Codex model"
+    },
+    {
+      "name": "comic_translation_codex_model_hint",
+      "value": "Fetches the models currently available to this ChatGPT account"
+    },
+    {
+      "name": "comic_translation_codex_usage",
+      "value": "Usage limits"
+    },
+    {
+      "name": "comic_translation_codex_usage_hint",
+      "value": "Refreshes the current ChatGPT account limits"
+    },
+    {
+      "name": "comic_translation_codex_usage_loading",
+      "value": "Fetching account limits…"
+    },
+    {
+      "name": "comic_translation_codex_usage_plan",
+      "value": "Plan: %s · tap to refresh"
+    },
+    {
+      "name": "comic_translation_codex_usage_failed",
+      "value": "Failed to fetch Codex usage: %s"
+    },
+    {
+      "name": "comic_translation_codex_usage_five_hour",
+      "value": "5-hour limit"
+    },
+    {
+      "name": "comic_translation_codex_usage_weekly",
+      "value": "Weekly limit"
+    },
+    {
+      "name": "comic_translation_codex_usage_remaining",
+      "value": "Remaining"
+    },
+    {
+      "name": "comic_translation_codex_usage_unavailable",
+      "value": "This window was not returned for the account"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_unknown",
+      "value": "Reset time unavailable"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_due",
+      "value": "Reset is due"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_minutes",
+      "value": "Resets in %d min"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_hours_minutes",
+      "value": "Resets in %d h %d min"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_days_hours",
+      "value": "Resets in %d d %d h"
+    },
+    {
+      "name": "comic_translation_codex_status",
+      "value": "Login status"
+    },
+    {
+      "name": "comic_translation_codex_disconnected",
+      "value": "Not signed in"
+    },
+    {
+      "name": "comic_translation_codex_connected",
+      "value": "Signed in on this device"
+    },
+    {
+      "name": "comic_translation_codex_connected_account",
+      "value": "Signed in · workspace %s"
+    },
+    {
+      "name": "comic_translation_codex_requesting",
+      "value": "Requesting a device code…"
+    },
+    {
+      "name": "comic_translation_codex_code",
+      "value": "Device code: %s"
+    },
+    {
+      "name": "comic_translation_codex_waiting",
+      "value": "Waiting for browser approval"
+    },
+    {
+      "name": "comic_translation_codex_open_page",
+      "value": "Open Codex login page"
+    },
+    {
+      "name": "comic_translation_codex_open_failed",
+      "value": "Could not open the login page"
+    },
+    {
+      "name": "comic_translation_codex_login",
+      "value": "Sign in with ChatGPT"
+    },
+    {
+      "name": "comic_translation_codex_login_hint",
+      "value": "Opens the Codex device-code page and waits for approval"
+    },
+    {
+      "name": "comic_translation_codex_login_success",
+      "value": "Codex sign-in succeeded"
+    },
+    {
+      "name": "comic_translation_codex_login_failed",
+      "value": "Codex sign-in failed: %s"
+    },
+    {
+      "name": "comic_translation_codex_logout",
+      "value": "Remove Codex login from this device"
+    },
+    {
+      "name": "comic_translation_codex_logout_success",
+      "value": "Codex login removed"
+    },
+    {
+      "name": "comic_translation_codex_logout_failed",
+      "value": "Could not remove Codex login"
+    },
+    {
+      "name": "comic_translation_codex_experimental_hint",
+      "value": "This reproduces a third-party device-code flow and the private ChatGPT Codex backend, not the public Platform API. Endpoints, model access, and risk controls may change. OAuth credentials stay device-local and are excluded from backup and sync."
     }
   ]
 }

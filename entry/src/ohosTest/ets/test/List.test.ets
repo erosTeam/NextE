@@ -48,6 +48,8 @@ import backupLocalDataStructureGuardTest from './BackupLocalDataStructureGuard.t
 import backupWebDavCredentialGroupTest from './BackupWebDavCredentialGroup.test'
 import readerSuperResolutionBackendTest from './ReaderSuperResolutionBackend.test'
 import readerSuperResolutionModelIntegrationTest from './ReaderSuperResolutionModelIntegration.test'
+import comicTranslationPhase0Test from './ComicTranslationPhase0.test'
+import comicTranslationProvidersTest from './ComicTranslationProviders.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -100,4 +102,6 @@ export default function testsuite(): void {
   backupWebDavCredentialGroupTest()
   readerSuperResolutionBackendTest()
   readerSuperResolutionModelIntegrationTest()
+  comicTranslationPhase0Test()
+  comicTranslationProvidersTest()
 }

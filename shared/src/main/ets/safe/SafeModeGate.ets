@@ -49,7 +49,8 @@ export class SafeModeGate {
       name === 'DownloadSettings' ||
       name === 'LocalBlockSettings' ||
       name === 'TagTranslationSettings' ||
-      name === 'TranslationSettings' ||
+      name === 'CommentTranslationSettings' ||
+      name === 'ComicTranslationSettings' ||
       name === 'SyncSettings' ||
       name === 'WebDavSyncSettings' ||
       name === 'SecuritySettings') {

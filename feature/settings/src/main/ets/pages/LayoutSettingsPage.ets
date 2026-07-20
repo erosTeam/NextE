@@ -14,12 +14,10 @@ import {
   GalleryTitleState,
   HomeTabSettings,
   HomeTabAutoHideState,
-  TagTranslationSettingsState,
   connectNavStack,
   NavStackHolder,
   connectGalleryTitle,
   connectHomeTabAutoHide,
-  connectTagTranslationSettings,
   ThumbnailModeSettings,
   ThumbnailModeState,
   CoverBackgroundSettings,
@@ -63,14 +61,12 @@ import {
   AppColorPicker,
   AppModalScaffold,
   appSheetOptions,
-  SafeModeState,
-  connectSafeMode,
 } from 'shared'
 
 /**
  * Layout settings page grounded in eros_fe LayoutSettingPage. This lane only moves existing NextE
- * layout controls into a dedicated settings child page; theme, locale, tag translation, and tabbar
- * customization remain separate future lanes.
+ * layout controls into a dedicated settings child page; translation and tabbar customization are
+ * owned by their dedicated settings areas.
  */
 @ComponentV2
 export struct LayoutSettingsPage {
@@ -79,7 +75,6 @@ export struct LayoutSettingsPage {
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   @Local coverBg: CoverBackgroundState = connectCoverBackground();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
-  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
@@ -97,7 +92,6 @@ export struct LayoutSettingsPage {
   @Local languageMenuShown: boolean = false;
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local immersiveMaterialMenuShown: boolean = false;
-  @Local safeMode: SafeModeState = connectSafeMode();
   @Local colorPickerShown: boolean = false;
   @Local draftCustomColor: string = '#3377FF';
   @Local navStackHolder: NavStackHolder = connectNavStack();
@@ -467,10 +461,6 @@ export struct LayoutSettingsPage {
 
   private setHorizontalThumbnails(value: boolean): void {
     ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
-  }
-
-  private tagTranslationStateText(): Resource {
-    return this.tagTranslation.enabled ? $r('app.string.common_on') : $r('app.string.common_off')
   }
 
   @Builder
@@ -905,24 +895,6 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
-            }
-          }
-        }
-        if (!this.safeMode.restricted()) {
-          ListItem() {
-            GroupedListSection() {
-              ConciseListRow({
-                title: $r('app.string.tag_translation_title'),
-                subtitle:
-                  this.tagTranslation.version.length > 0
-                    ? this.tagTranslation.version
-                    : $r('app.string.tag_translation_not_installed'),
-                leadingIcon: $r('sys.symbol.textformat'),
-                trailingText: this.tagTranslationStateText(),
-                action: () => {
-                  this.stack.pushPathByName('TagTranslationSettings', null)
-                },
-              })
             }
           }
         }

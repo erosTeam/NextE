@@ -9,6 +9,7 @@ import {
   ClipboardLinkSettings,
   ClipboardLinkBuildFlag,
   ClipboardLinkSettingsState,
+  CommentTranslationSettingsState,
   EhConstants,
   EhCookieStore,
   GroupedListSection,
@@ -17,15 +18,18 @@ import {
   SiteModeSettings,
   SiteModeState,
   SiteModeRequestFence,
+  TagTranslationSettingsState,
   ThemeConstants,
   ToplistFilterSettings,
   ToplistFilterState,
   connectAuth,
   connectClipboardLinkSettings,
+  connectCommentTranslationSettings,
   connectLocalBlock,
   connectNavStack,
   NavStackHolder,
   connectSiteMode,
+  connectTagTranslationSettings,
   connectToplistFilter,
   immersiveTitleBar,
 } from 'shared'
@@ -41,6 +45,8 @@ export struct EhSettingsPage {
   @Local auth: AuthState = connectAuth();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   @Local clipboardLink: ClipboardLinkSettingsState = connectClipboardLinkSettings();
+  @Local commentTranslation: CommentTranslationSettingsState = connectCommentTranslationSettings();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
@@ -59,6 +65,10 @@ export struct EhSettingsPage {
 
   private siteLabel(): string {
     return this.siteMode.isEx ? 'ExHentai' : 'E-Hentai'
+  }
+
+  private enabledText(enabled: boolean): Resource {
+    return enabled ? $r('app.string.common_on') : $r('app.string.common_off')
   }
 
   // Selecting a site from the dropdown (not a tap-to-cycle toggle). E-Hentai is always allowed;
@@ -247,10 +257,34 @@ export struct EhSettingsPage {
         ListItem() {
           GroupedListSection() {
             ConciseListRow({
-              title: $r('app.string.settings_translation'),
-              leadingIcon: $r('sys.symbol.translation'),
+              title: $r('app.string.comment_translation_settings_title'),
+              subtitle: $r('app.string.comment_translation_settings_hint'),
+              leadingIcon: $r('sys.symbol.translate'),
+              trailingText: this.enabledText(this.commentTranslation.enabled),
               action: () => {
-                this.stack.pushPathByName('TranslationSettings', null)
+                this.stack.pushPathByName('CommentTranslationSettings', null)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.comic_translation_settings_title'),
+              subtitle: $r('app.string.comic_translation_settings_hint'),
+              leadingIcon: $r('sys.symbol.picture'),
+              action: () => {
+                this.stack.pushPathByName('ComicTranslationSettings', null)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.tag_translation_title'),
+              subtitle:
+                this.tagTranslation.version.length > 0
+                  ? this.tagTranslation.version
+                  : $r('app.string.tag_translation_not_installed'),
+              leadingIcon: $r('sys.symbol.textformat'),
+              trailingText: this.enabledText(this.tagTranslation.enabled),
+              action: () => {
+                this.stack.pushPathByName('TagTranslationSettings', null)
               },
             })
           }

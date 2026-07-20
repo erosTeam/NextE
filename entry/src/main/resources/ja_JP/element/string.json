@@ -2565,6 +2565,14 @@
       "value": "翻訳"
     },
     {
+      "name": "comment_translation_settings_title",
+      "value": "コメント翻訳"
+    },
+    {
+      "name": "comment_translation_settings_hint",
+      "value": "自動翻訳、表示方法、サービス、キャッシュ"
+    },
+    {
       "name": "settings_sync",
       "value": "同期"
     },
@@ -2734,7 +2742,7 @@
     },
     {
       "name": "comment_translation_enable",
-      "value": "コメント翻訳"
+      "value": "コメント翻訳を有効にする"
     },
     {
       "name": "comment_translation_enable_hint",
@@ -4791,6 +4799,186 @@
     {
       "name": "tablet_select_detail",
       "value": "項目を選択して詳細を表示"
+    },
+    {
+      "name": "comic_translation_settings_title",
+      "value": "漫画翻訳"
+    },
+    {
+      "name": "comic_translation_settings_hint",
+      "value": "ページ全体のマルチモーダル翻訳、モデル、プロバイダー"
+    },
+    {
+      "name": "comic_translation_provider",
+      "value": "プロバイダー"
+    },
+    {
+      "name": "comic_translation_provider_hint",
+      "value": "両方の経路は同じページ文書を生成し、認証情報は分離されます"
+    },
+    {
+      "name": "comic_translation_provider_api",
+      "value": "OpenAI API"
+    },
+    {
+      "name": "comic_translation_provider_codex",
+      "value": "Codex OAuth（実験）"
+    },
+    {
+      "name": "comic_translation_api_url",
+      "value": "Responses API URL"
+    },
+    {
+      "name": "comic_translation_api_key",
+      "value": "API キー"
+    },
+    {
+      "name": "comic_translation_model",
+      "value": "画像対応モデル"
+    },
+    {
+      "name": "comic_translation_model_not_selected",
+      "value": "未選択"
+    },
+    {
+      "name": "comic_translation_api_direct_title",
+      "value": "モバイルからの直接接続"
+    },
+    {
+      "name": "comic_translation_api_direct_hint",
+      "value": "キーはこの端末に保存され、アプリがサービスへ直接接続します。本番利用では専用バックエンドプロキシを推奨します。"
+    },
+    {
+      "name": "comic_translation_codex_model",
+      "value": "Codex モデル"
+    },
+    {
+      "name": "comic_translation_codex_model_hint",
+      "value": "この ChatGPT アカウントで現在利用可能なモデルを取得します"
+    },
+    {
+      "name": "comic_translation_codex_usage",
+      "value": "利用上限"
+    },
+    {
+      "name": "comic_translation_codex_usage_hint",
+      "value": "現在の ChatGPT アカウントの上限を更新します"
+    },
+    {
+      "name": "comic_translation_codex_usage_loading",
+      "value": "アカウント上限を取得中…"
+    },
+    {
+      "name": "comic_translation_codex_usage_plan",
+      "value": "プラン：%s · タップして更新"
+    },
+    {
+      "name": "comic_translation_codex_usage_failed",
+      "value": "Codex 利用状況の取得に失敗しました：%s"
+    },
+    {
+      "name": "comic_translation_codex_usage_five_hour",
+      "value": "5 時間上限"
+    },
+    {
+      "name": "comic_translation_codex_usage_weekly",
+      "value": "週間上限"
+    },
+    {
+      "name": "comic_translation_codex_usage_remaining",
+      "value": "残り"
+    },
+    {
+      "name": "comic_translation_codex_usage_unavailable",
+      "value": "このアカウントではこの期間が返されませんでした"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_unknown",
+      "value": "リセット時刻を取得できません"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_due",
+      "value": "まもなくリセットされます"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_minutes",
+      "value": "%d 分後にリセット"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_hours_minutes",
+      "value": "%d 時間 %d 分後にリセット"
+    },
+    {
+      "name": "comic_translation_codex_usage_reset_days_hours",
+      "value": "%d 日 %d 時間後にリセット"
+    },
+    {
+      "name": "comic_translation_codex_status",
+      "value": "ログイン状態"
+    },
+    {
+      "name": "comic_translation_codex_disconnected",
+      "value": "未ログイン"
+    },
+    {
+      "name": "comic_translation_codex_connected",
+      "value": "この端末でログイン済み"
+    },
+    {
+      "name": "comic_translation_codex_connected_account",
+      "value": "ログイン済み · ワークスペース %s"
+    },
+    {
+      "name": "comic_translation_codex_requesting",
+      "value": "デバイスコードを取得中…"
+    },
+    {
+      "name": "comic_translation_codex_code",
+      "value": "デバイスコード：%s"
+    },
+    {
+      "name": "comic_translation_codex_waiting",
+      "value": "ブラウザーでの承認を待機中"
+    },
+    {
+      "name": "comic_translation_codex_open_page",
+      "value": "Codex ログインページを開く"
+    },
+    {
+      "name": "comic_translation_codex_open_failed",
+      "value": "ログインページを開けませんでした"
+    },
+    {
+      "name": "comic_translation_codex_login",
+      "value": "ChatGPT でログイン"
+    },
+    {
+      "name": "comic_translation_codex_login_hint",
+      "value": "Codex のデバイスコードページを開いて承認を待ちます"
+    },
+    {
+      "name": "comic_translation_codex_login_success",
+      "value": "Codex にログインしました"
+    },
+    {
+      "name": "comic_translation_codex_login_failed",
+      "value": "Codex ログインに失敗しました：%s"
+    },
+    {
+      "name": "comic_translation_codex_logout",
+      "value": "この端末から Codex ログインを削除"
+    },
+    {
+      "name": "comic_translation_codex_logout_success",
+      "value": "Codex ログインを削除しました"
+    },
+    {
+      "name": "comic_translation_codex_logout_failed",
+      "value": "Codex ログインを削除できませんでした"
+    },
+    {
+      "name": "comic_translation_codex_experimental_hint",
+      "value": "これは第三者クライアントのデバイスコード方式と非公開 ChatGPT Codex バックエンドを再現するもので、公開 Platform API ではありません。エンドポイント、モデル権限、リスク制御は変更される可能性があります。OAuth 認証情報は端末内だけに保存され、バックアップや同期から除外されます。"
     }
   ]
 }

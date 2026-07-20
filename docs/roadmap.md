@@ -8,6 +8,9 @@ The old milestone snapshot is archived at
 
 ## Current Maintained Sources
 
+- [Manga Translation Design](manga-translation-design.md) — provider-neutral page documents, gallery context,
+  progressive multimodal/OCR integration and staged acceptance; Phase 0 schema plus API/Codex OAuth provider spike
+  exists, while Reader and real-provider evaluation remain open.
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.

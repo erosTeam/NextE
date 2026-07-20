@@ -17,7 +17,7 @@ import {
   immersiveTitleBar,
 } from 'shared'
 @ComponentV2
-export struct TranslationSettingsPage {
+export struct CommentTranslationSettingsPage {
   @Local settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local displayMenuShown: boolean = false;
   @Local modelMenuShown: boolean = false;
@@ -528,7 +528,7 @@ export struct TranslationSettingsPage {
         }
       }
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('settings_translation')))
+    .titleBar(immersiveTitleBar(AppStrings.get('comment_translation_settings_title')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }

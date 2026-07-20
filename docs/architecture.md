@@ -62,6 +62,10 @@ NextE 是原生 HarmonyOS NEXT(ArkTS/ArkUI)的 **E-Hentai / ExHentai 客户端**
 
 `EhHttpClient` → `EhApiService`/`EhApiPhpService` → HTML/JSON **parser** → `Eh*` **model** → feature **ViewModel** → **AppStorageV2 holder** → `@ComponentV2` page。
 
+漫画图片转录、跨页翻译、可选 OCR/布局和未来重绘使用独立的
+[漫画翻译设计与演进指南](manga-translation-design.md)。其稳定边界是 provider-neutral 的画廊/页面
+翻译文档；Reader 不直接依赖模型厂商响应格式，也不从图片预取隐式触发模型调用。
+
 ## 状态管理 V2(硬约束)
 
 唯一允许的状态范式(见 [always-loaded-rules](agent-guides/always-loaded-rules.md))。canonical holder:
