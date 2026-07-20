@@ -453,8 +453,7 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
           const document: ComicPageDocument = ComicTranslationDocumentCodec.decode(payload)
           if (document.projectId !== identity.projectId || document.pageIndex < 0 ||
             document.pageIndex >= identity.pageIndex ||
-            document.analysisRevision !== identity.analysisRevision ||
-            document.translationRevision !== identity.translationRevision ||
+            !identity.matchesDocumentRevisions(document) ||
             document.imagePreparationProfile.profileId !== identity.imagePreparationProfileId) {
             throw new Error('Comic translation previous cache identity mismatch')
           }

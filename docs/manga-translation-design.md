@@ -147,6 +147,9 @@ lastError?
   缩放图坐标或分块坐标必须由适配层换算后再进入文档。
 - `imagePreparationProfile` 记录实际送入 provider 的格式、尺寸和分块策略，供缓存键和结果追溯使用；它不改变
   页面文档的原图坐标空间。
+- 明确识别为无文字的页面仍完成了分析，因此保留当前 `analysisRevision`，但使用
+  `hasText=false`、空 `blocks`、`translationState=missing` 和 `translationRevision=0`。请求与缓存只对这一
+  完整组合放行零翻译修订；有文字页面不得借此绕过翻译修订匹配。
 
 不要使用一个单线性 `status` 表示全部工作。分析、翻译和渲染可以独立缺失、就绪、过期或失败：
 

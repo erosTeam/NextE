@@ -49,6 +49,7 @@ function request(
 class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   analyzeCount: number = 0
   failNext: boolean = false
+  noTextNext: boolean = false
   capturedPreviousPages: number[] = []
   capturedPreviousTranslations: string[] = []
   translationSuffix: string = ''
@@ -112,6 +113,18 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
     document.translationState = ComicTranslationState.PROVISIONAL
     document.hasText = true
     document.pageSummary = `summary-${value.pageIndex}`
+    if (this.noTextNext) {
+      this.noTextNext = false
+      document.translationRevision = 0
+      document.translationState = ComicTranslationState.MISSING
+      document.hasText = false
+      const noTextResult: ComicPageAnalysisResult = new ComicPageAnalysisResult()
+      noTextResult.providerId = this.provider
+      noTextResult.modelId = this.model
+      noTextResult.analysisPromptVersion = this.prompt
+      noTextResult.document = document
+      return noTextResult
+    }
     const block: ComicTextBlock = new ComicTextBlock()
     block.blockId = `p${value.pageIndex}-b0`
     block.readingOrder = 0
@@ -145,6 +158,26 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.analyzeCount).assertEqual(1)
       done()
     })
+
+    it('accepts and caches a valid no-text page with no translation revision', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        analyzer.noTextNext = true
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        const first: ComicTranslationRunResult = await orchestrator.run(request())
+        const second: ComicTranslationRunResult = await orchestrator.run(request())
+        expect(first.cacheHit).assertEqual(false)
+        expect(first.document.hasText).assertEqual(false)
+        expect(first.document.translationRevision).assertEqual(0)
+        expect(first.document.translationState).assertEqual(ComicTranslationState.MISSING)
+        expect(second.cacheHit).assertEqual(true)
+        expect(second.document.hasText).assertEqual(false)
+        expect(analyzer.analyzeCount).assertEqual(1)
+        done()
+      })
 
     it('deduplicates concurrent work for the exact request identity', 0, async (done: Function) => {
       const repository: InMemoryComicTranslationRepository =

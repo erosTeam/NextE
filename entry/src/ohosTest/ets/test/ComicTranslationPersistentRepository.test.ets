@@ -101,6 +101,16 @@ function document(value: ComicTranslationRequestIdentity): ComicPageDocument {
   return result
 }
 
+function noTextDocument(value: ComicTranslationRequestIdentity): ComicPageDocument {
+  const result: ComicPageDocument = document(value)
+  result.translationRevision = 0
+  result.translationState = ComicTranslationState.MISSING
+  result.hasText = false
+  result.blocks = []
+  result.qualitySignals = []
+  return result
+}
+
 export default function comicTranslationPersistentRepositoryTest(): void {
   describe('Comic translation persistent repository', () => {
     it('round-trips a normalized document as isolated model objects', 0, () => {
@@ -138,8 +148,10 @@ export default function comicTranslationPersistentRepositoryTest(): void {
             new PersistentComicTranslationRepository(context)
           const pageZeroIdentity: ComicTranslationRequestIdentity = identity(0)
           const pageOneIdentity: ComicTranslationRequestIdentity = identity(1)
+          const pageTwoIdentity: ComicTranslationRequestIdentity = identity(2)
           await first.save(pageZeroIdentity, document(pageZeroIdentity))
           await first.save(pageOneIdentity, document(pageOneIdentity))
+          await first.save(pageTwoIdentity, noTextDocument(pageTwoIdentity))
 
           const restarted: PersistentComicTranslationRepository =
             new PersistentComicTranslationRepository(context)
@@ -155,10 +167,17 @@ export default function comicTranslationPersistentRepositoryTest(): void {
           if (restoredAgain !== null) {
             expect(restoredAgain.blocks[0].translatedText).assertEqual('translation-0')
           }
-          const previous: ComicPageDocument[] = await restartedAgain.loadPrevious(identity(2), 2)
+          const restoredNoText: ComicPageDocument | null = await restartedAgain.load(pageTwoIdentity)
+          expect(restoredNoText !== null).assertEqual(true)
+          if (restoredNoText !== null) {
+            expect(restoredNoText.hasText).assertEqual(false)
+            expect(restoredNoText.translationRevision).assertEqual(0)
+          }
+          const previous: ComicPageDocument[] = await restartedAgain.loadPrevious(identity(3), 2)
           expect(previous.length).assertEqual(2)
-          expect(previous[0].pageIndex).assertEqual(0)
-          expect(previous[1].pageIndex).assertEqual(1)
+          expect(previous[0].pageIndex).assertEqual(1)
+          expect(previous[1].pageIndex).assertEqual(2)
+          expect(previous[1].hasText).assertEqual(false)
         } finally {
           await cleanup.removeProject(TEST_PROJECT_ID)
         }

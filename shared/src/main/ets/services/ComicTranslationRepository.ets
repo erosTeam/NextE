@@ -1,6 +1,6 @@
 import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
-import { ComicPageDocument } from '../model/ComicTranslation'
+import { ComicPageDocument, ComicTranslationState } from '../model/ComicTranslation'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 
 const DEFAULT_MEMORY_REPOSITORY_LIMIT: number = 64
@@ -106,9 +106,20 @@ export class ComicTranslationRequestIdentity {
       document.imageHash === this.imageHash &&
       document.imageWidth === this.imageWidth &&
       document.imageHeight === this.imageHeight &&
-      document.analysisRevision === this.analysisRevision &&
-      document.translationRevision === this.translationRevision &&
+      this.matchesDocumentRevisions(document) &&
       document.imagePreparationProfile.profileId === this.imagePreparationProfileId
+  }
+
+  matchesDocumentRevisions(document: ComicPageDocument): boolean {
+    if (document.analysisRevision !== this.analysisRevision) {
+      return false
+    }
+    if (document.translationRevision === this.translationRevision) {
+      return true
+    }
+    return document.translationRevision === 0 && document.hasText === false &&
+      document.blocks.length === 0 &&
+      document.translationState === ComicTranslationState.MISSING
   }
 
   private validate(): void {
