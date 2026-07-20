@@ -330,7 +330,7 @@ ok('Huawei Cloud sync uses the durable RDB cloud table subset',
     !/'image_block_rules'/.test(cloudFeatures) &&
     /custom_profiles/.test(cloudFeatures) &&
     /custom_profile_selection/.test(cloudFeatures) &&
-    !/tag_translations|eh_page_cache|comment_translation_cache|download_gallery_tasks|download_archiver_tasks/.test(cloudFeatures))
+    !/tag_translations|eh_page_cache|comment_translation_cache|comic_translation_document_cache|download_gallery_tasks|download_archiver_tasks/.test(cloudFeatures))
 const cloudAliasByName = new Map(cloudSchema.databases[0].tables.map((table) => [table.name, table.alias]))
 ok('Huawei Cloud schema keeps local table names but aliases AGC data type names',
   cloudAliasByName.get('gallery_read_progress') === 'GalleryReadProgress' &&

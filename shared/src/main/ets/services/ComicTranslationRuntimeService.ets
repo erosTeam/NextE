@@ -8,7 +8,8 @@ import { ComicTranslationProviderSettings } from '../settings/ComicTranslationPr
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 import { ComicPageAnalyzerFactory } from './ComicResponsesPageAnalyzer'
 import { ComicTranslationOrchestrator, ComicTranslationRunResult } from './ComicTranslationOrchestrator'
-import { InMemoryComicTranslationRepository } from './ComicTranslationRepository'
+import { ComicTranslationRepository } from './ComicTranslationRepository'
+import { PersistentComicTranslationRepository } from './ComicTranslationPersistentRepository'
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
@@ -32,8 +33,7 @@ export class ComicTranslationReaderPageInput {
 
 /** Production Reader bridge. Provider calls occur only through the explicit run method. */
 export class ComicTranslationRuntimeService {
-  private static repository: InMemoryComicTranslationRepository =
-    new InMemoryComicTranslationRepository()
+  private static repository: ComicTranslationRepository | null = null
   private static orchestrators: Map<string, ComicTranslationOrchestrator> = new Map()
 
   static async runReaderPage(
@@ -46,7 +46,7 @@ export class ComicTranslationRuntimeService {
       ComicTranslationRuntimeService.fileMetadata(input.imageFilePath)
     const analyzer: ComicPageAnalyzer = ComicPageAnalyzerFactory.create(context)
     const orchestrator: ComicTranslationOrchestrator =
-      ComicTranslationRuntimeService.orchestrator(analyzer)
+      ComicTranslationRuntimeService.orchestrator(context, analyzer)
     const request: ComicPageAnalysisRequest = new ComicPageAnalysisRequest()
     request.projectId = input.projectId
     request.pageIndex = input.pageIndex
@@ -71,12 +71,17 @@ export class ComicTranslationRuntimeService {
     return orchestrator.run(request, forceRefresh)
   }
 
-  static async clearGeneratedCache(): Promise<void> {
+  static async clearGeneratedCache(context: common.UIAbilityContext): Promise<void> {
     ComicTranslationRuntimeService.orchestrators.clear()
-    await ComicTranslationRuntimeService.repository.clear()
+    const repository: ComicTranslationRepository =
+      ComicTranslationRuntimeService.repositoryFor(context)
+    await repository.clear()
   }
 
-  private static orchestrator(analyzer: ComicPageAnalyzer): ComicTranslationOrchestrator {
+  private static orchestrator(
+    context: common.UIAbilityContext,
+    analyzer: ComicPageAnalyzer,
+  ): ComicTranslationOrchestrator {
     const settings: ComicTranslationProviderSettingsSnapshot =
       ComicTranslationProviderSettings.current()
     const runtimeKey: string = ComicTranslationRuntimeService.digest(JSON.stringify([
@@ -99,9 +104,19 @@ export class ComicTranslationRuntimeService {
     }
     const created: ComicTranslationOrchestrator = new ComicTranslationOrchestrator(
       analyzer,
-      ComicTranslationRuntimeService.repository,
+      ComicTranslationRuntimeService.repositoryFor(context),
     )
     ComicTranslationRuntimeService.orchestrators.set(runtimeKey, created)
+    return created
+  }
+
+  private static repositoryFor(context: common.UIAbilityContext): ComicTranslationRepository {
+    const existing: ComicTranslationRepository | null = ComicTranslationRuntimeService.repository
+    if (existing !== null) {
+      return existing
+    }
+    const created: ComicTranslationRepository = new PersistentComicTranslationRepository(context)
+    ComicTranslationRuntimeService.repository = created
     return created
   }
 

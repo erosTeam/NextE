@@ -1,6 +1,6 @@
 # NextE 漫画翻译设计与演进指南
 
-- **状态**：持续维护；Phase 0 已闭环，V1 repository/orchestrator 与 Reader 显式当前页路径已实现
+- **状态**：持续维护；Phase 0 已闭环，V1 Reader 显式当前页路径与生成文档重启恢复已实现
 - **首次整理**：2026-07-20
 - **最近复核**：2026-07-21
 - **外部调研**：[漫画翻译工作流调研](research/manga-translation-workflows.md)
@@ -59,11 +59,11 @@
 - [ComicTranslationRepository.ets](../shared/src/main/ets/services/ComicTranslationRepository.ets) 与
   [ComicTranslationOrchestrator.ets](../shared/src/main/ets/services/ComicTranslationOrchestrator.ets) 已建立
   provider/model/prompt/language/image/revision 分键、并发去重、前两页上下文和成功后写入边界。当前实现是
-  有界进程内生成文档缓存，不声明应用重启恢复、备份或同步语义。
+  有界内存前置加 RDB 生成文档缓存；应用进程重启后可以按完整请求身份恢复，但缓存仍不进入备份或同步。
 - [ComicTranslationRuntimeService.ets](../shared/src/main/ets/services/ComicTranslationRuntimeService.ets) 已把
   Reader 的稳定本地文件转换为带 SHA-256、尺寸、MIME 与上下文 revision 的请求。Reader 只在用户点击
   `翻译当前页` 后调用它，并以路由/画廊/页/文件/UI epoch 围住结果发布；切页不会串页，返回同页可命中
-  进程内缓存。
+  内存或持久生成缓存。
 - 模块依赖继续遵守 [architecture.md](architecture.md)：`feature/reader` 只负责入口和展示；可跨页面
   复用的模型、存储、provider 和服务放在 `shared`；feature 之间不互相导入。
 - 任何 UI/响应式状态实现只使用 State Management V2。
@@ -413,12 +413,14 @@ provider、图片预处理和费用确认方式已形成明确选择。以上退
 - 原文/译文面板、人工修改、失败重试、缓存和 stale-result 防护；
 - 纯文本 consistency pass，不做图片重绘。
 
-当前子进度：2026-07-21 已完成可替换 repository 契约、进程内实现、orchestrator 与 Reader 显式当前页
+当前子进度：2026-07-21 已完成可替换 repository 契约、内存/RDB 生成缓存、orchestrator 与 Reader 显式当前页
 路径。设备 fake-analyzer 测试覆盖缓存副本隔离、精确请求并发去重、前两页顺序上下文、实际上下文指纹、
 image/language/model/prompt 分键和失败强制刷新保留旧成功文档；`237` 上的真实 Reader 调用返回 4 个待复核
 块，同页重开命中缓存，切到第 2 页不残留第 1 页结果。真实调用还暴露了 provider 的翻译来源元数据与正文
-不一致，现由管线按译文存在性与 source origin 规范化，未知来源仍拒绝。应用重启恢复、人工修订与术语编辑
-仍未实现；后两项在明确持久化、备份和同步所有权前不得伪装为完成。
+不一致，现由管线按译文存在性与 source origin 规范化，未知来源仍拒绝。生成文档缓存只保存标准化页面文档，
+不保存原始响应、图片或凭据，并明确排除备份/同步。人工修订与术语编辑仍未实现；两者在明确持久化、备份和
+同步所有权前不得伪装为完成。`237` 上已验证一次真实七块结果在 `aa force-stop` 后由新进程返回
+`缓存 · 待复核`，诊断为 `cache=1`，因此应用重启恢复验收项已经闭环。
 
 V1 验收至少覆盖：首次翻译、缓存命中、无凭据/不支持图片、无效结构、切页中返回、应用重启恢复、
 术语锁定、后文纠名只重翻相关文本、清缓存不删除用户修订。Phase 0 单页演示不是可交付 V1；跨页

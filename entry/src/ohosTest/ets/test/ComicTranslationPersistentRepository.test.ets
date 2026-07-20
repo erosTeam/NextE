@@ -1,0 +1,168 @@
+import { common } from '@kit.AbilityKit'
+import { abilityDelegatorRegistry } from '@kit.TestKit'
+import { describe, expect, it } from '@ohos/hypium'
+import {
+  ComicAnalysisState,
+  ComicImagePreparationProfile,
+  ComicPageDocument,
+  ComicPoint,
+  ComicQualitySeverity,
+  ComicQualitySignal,
+  ComicRenderState,
+  ComicSourceOrigin,
+  ComicTextBlock,
+  ComicTextKind,
+  ComicTranslationDocumentCodec,
+  ComicTranslationOrigin,
+  ComicTranslationRequestIdentity,
+  ComicTranslationState,
+  PersistentComicTranslationRepository,
+  RdbComicTranslationRepository,
+} from 'shared'
+
+const TEST_PROJECT_ID: string = 'ohos-test:comic-translation-persistent-cache'
+
+async function appContext(): Promise<common.UIAbilityContext> {
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  const ability = await delegator.getCurrentTopAbility()
+  return ability.context as common.UIAbilityContext
+}
+
+function identity(pageIndex: number): ComicTranslationRequestIdentity {
+  const value: ComicTranslationRequestIdentity = new ComicTranslationRequestIdentity()
+  value.projectId = TEST_PROJECT_ID
+  value.pageIndex = pageIndex
+  value.imageHash = `${pageIndex + 1}`.repeat(64)
+  value.imageWidth = 1200
+  value.imageHeight = 1800
+  value.providerId = 'fixture-provider'
+  value.modelId = 'fixture-model'
+  value.analysisPromptVersion = 'fixture-prompt-v1'
+  value.sourceLanguage = 'ja'
+  value.targetLanguage = 'zh-CN'
+  value.analysisRevision = 1
+  value.translationRevision = 1
+  value.imagePreparationProfileId = 'fixture-jpeg-v1'
+  value.glossaryRevision = 0
+  value.styleGuideRevision = 1
+  value.contextRevision = pageIndex + 1
+  value.contextFingerprint = 'c'.repeat(64)
+  return value
+}
+
+function document(value: ComicTranslationRequestIdentity): ComicPageDocument {
+  const profile: ComicImagePreparationProfile = new ComicImagePreparationProfile()
+  profile.profileId = value.imagePreparationProfileId
+  profile.mimeType = 'image/jpeg'
+  profile.preparedWidth = value.imageWidth
+  profile.preparedHeight = value.imageHeight
+  profile.tileCount = 1
+
+  const block: ComicTextBlock = new ComicTextBlock()
+  block.blockId = `page-${value.pageIndex}-block-0`
+  block.readingOrder = 0
+  block.kind = ComicTextKind.DIALOGUE
+  block.sourceText = `source-${value.pageIndex}`
+  block.normalizedSourceText = block.sourceText
+  block.translatedText = `translation-${value.pageIndex}`
+  block.polygon = [
+    new ComicPoint(10, 10),
+    new ComicPoint(100, 10),
+    new ComicPoint(100, 100),
+  ]
+  block.sourceOrigin = ComicSourceOrigin.VISION
+  block.translationOrigin = ComicTranslationOrigin.VISION
+  block.providerConfidence = 0.9
+  block.sourceRevision = 1
+  block.translationRevision = 1
+
+  const signal: ComicQualitySignal = new ComicQualitySignal()
+  signal.code = 'fixture-review'
+  signal.severity = ComicQualitySeverity.WARNING
+  signal.blockId = block.blockId
+  signal.message = 'fixture signal'
+
+  const result: ComicPageDocument = new ComicPageDocument()
+  result.projectId = value.projectId
+  result.pageIndex = value.pageIndex
+  result.imageHash = value.imageHash
+  result.imageWidth = value.imageWidth
+  result.imageHeight = value.imageHeight
+  result.imagePreparationProfile = profile
+  result.analysisRevision = value.analysisRevision
+  result.translationRevision = value.translationRevision
+  result.analysisState = ComicAnalysisState.READY
+  result.translationState = ComicTranslationState.REVIEW_REQUIRED
+  result.renderState = ComicRenderState.UNAVAILABLE
+  result.hasText = true
+  result.pageSummary = `summary-${value.pageIndex}`
+  result.blocks.push(block)
+  result.qualitySignals.push(signal)
+  return result
+}
+
+export default function comicTranslationPersistentRepositoryTest(): void {
+  describe('Comic translation persistent repository', () => {
+    it('round-trips a normalized document as isolated model objects', 0, () => {
+      const sourceIdentity: ComicTranslationRequestIdentity = identity(0)
+      const sourceDocument: ComicPageDocument = document(sourceIdentity)
+      const payload: string = ComicTranslationDocumentCodec.encode(sourceDocument)
+      const restored: ComicPageDocument = ComicTranslationDocumentCodec.decode(payload)
+      sourceDocument.blocks[0].translatedText = 'mutated source'
+      expect(restored.projectId).assertEqual(TEST_PROJECT_ID)
+      expect(restored.blocks.length).assertEqual(1)
+      expect(restored.blocks[0].translatedText).assertEqual('translation-0')
+      expect(restored.blocks[0].polygon.length).assertEqual(3)
+      expect(restored.qualitySignals[0].blockId).assertEqual('page-0-block-0')
+    })
+
+    it('rejects an unsupported persisted document schema', 0, () => {
+      const payload: string = ComicTranslationDocumentCodec.encode(document(identity(0)))
+        .replace('"schemaVersion":1', '"schemaVersion":999')
+      let rejected: boolean = false
+      try {
+        ComicTranslationDocumentCodec.decode(payload)
+      } catch (_error) {
+        rejected = true
+      }
+      expect(rejected).assertEqual(true)
+    })
+
+    it('recovers exact and previous-page documents through new repository instances', 0,
+      async (done: Function) => {
+        const context: common.UIAbilityContext = await appContext()
+        const cleanup: RdbComicTranslationRepository = new RdbComicTranslationRepository(context)
+        await cleanup.removeProject(TEST_PROJECT_ID)
+        try {
+          const first: PersistentComicTranslationRepository =
+            new PersistentComicTranslationRepository(context)
+          const pageZeroIdentity: ComicTranslationRequestIdentity = identity(0)
+          const pageOneIdentity: ComicTranslationRequestIdentity = identity(1)
+          await first.save(pageZeroIdentity, document(pageZeroIdentity))
+          await first.save(pageOneIdentity, document(pageOneIdentity))
+
+          const restarted: PersistentComicTranslationRepository =
+            new PersistentComicTranslationRepository(context)
+          const restored: ComicPageDocument | null = await restarted.load(pageZeroIdentity)
+          expect(restored !== null).assertEqual(true)
+          if (restored !== null) {
+            restored.blocks[0].translatedText = 'mutated caller copy'
+          }
+          const restartedAgain: PersistentComicTranslationRepository =
+            new PersistentComicTranslationRepository(context)
+          const restoredAgain: ComicPageDocument | null = await restartedAgain.load(pageZeroIdentity)
+          expect(restoredAgain !== null).assertEqual(true)
+          if (restoredAgain !== null) {
+            expect(restoredAgain.blocks[0].translatedText).assertEqual('translation-0')
+          }
+          const previous: ComicPageDocument[] = await restartedAgain.loadPrevious(identity(2), 2)
+          expect(previous.length).assertEqual(2)
+          expect(previous[0].pageIndex).assertEqual(0)
+          expect(previous[1].pageIndex).assertEqual(1)
+        } finally {
+          await cleanup.removeProject(TEST_PROJECT_ID)
+        }
+        done()
+      })
+  })
+}

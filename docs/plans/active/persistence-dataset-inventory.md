@@ -153,6 +153,7 @@ Allowed `Sync` values:
 | tag_translation_meta | cache | excluded | excluded | Tag translation metadata |
 | eh_page_cache | cache | excluded | excluded | EH page payload cache |
 | comment_translation_cache | cache | excluded | excluded | Comment translation cache |
+| comic_translation_document_cache | cache | excluded | excluded | Bounded generated normalized page documents; no raw response, image, credential, or user edits |
 | gallery_read_progress | local-data | localData | WebDAV+HuaweiCloud | Durable reader progress |
 | viewed_history | local-data | localData | WebDAV+HuaweiCloud | Durable viewed history |
 | local_favorites | local-data | localData | WebDAV+HuaweiCloud | Durable local favorites |

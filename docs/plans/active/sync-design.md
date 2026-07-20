@@ -37,7 +37,7 @@ Do not sync disposable cache, generated/downloadable databases, device-local dow
 or plaintext secrets/provider credentials:
 
 - `tag_translations`, `tag_translation_meta`
-- `eh_page_cache`, `comment_translation_cache`
+- `eh_page_cache`, `comment_translation_cache`, `comic_translation_document_cache`
 - `image_block_hash_cache`
 - `download_gallery_tasks`, `download_gallery_seeds`, `download_archiver_tasks`
 - cookie jars, account secrets, LLM API keys, WebDAV passwords

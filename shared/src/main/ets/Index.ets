@@ -220,6 +220,11 @@ export {
   InMemoryComicTranslationRepository,
 } from './services/ComicTranslationRepository'
 export {
+  ComicTranslationDocumentCodec,
+  PersistentComicTranslationRepository,
+  RdbComicTranslationRepository,
+} from './services/ComicTranslationPersistentRepository'
+export {
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
 } from './services/ComicTranslationOrchestrator'

@@ -207,7 +207,7 @@ ok('history rows keep gallery publication time and show viewed time as separate 
     /sys\.symbol\.clock/.test(simpleCard) &&
     /Text\(this\.gallery\.postTime\)/.test(simpleCard))
 ok('the history cursor query has a matching composite RDB index and schema migration',
-  /LOCAL_DATA_SCHEMA_VERSION: number = 24/.test(localDataStore) &&
+  Number((localDataStore.match(/LOCAL_DATA_SCHEMA_VERSION: number = (\d+)/) || [])[1]) >= 24 &&
     /idx_viewed_history_cursor/.test(localDataStore) &&
     /scope_key, viewed_at DESC, gid DESC/.test(localDataStore))
 ok('history list snapshot stays in the canonical synced row with an in-place schema migration',

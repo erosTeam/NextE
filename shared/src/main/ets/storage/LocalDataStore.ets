@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 24
+export const LOCAL_DATA_SCHEMA_VERSION: number = 25
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -13,7 +13,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'24\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'25\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -59,6 +59,22 @@ const SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_comment_translation_cache_expires ON comment_translation_cache (expires_at)'
 const SQL_CREATE_COMMENT_TRANSLATION_CACHE_CACHED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_comment_translation_cache_cached ON comment_translation_cache (cached_at DESC)'
+const SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS comic_translation_document_cache (' +
+    'cache_key TEXT PRIMARY KEY NOT NULL, ' +
+    'scope_key TEXT NOT NULL, ' +
+    'project_id TEXT NOT NULL, ' +
+    'page_index INTEGER NOT NULL, ' +
+    'payload TEXT NOT NULL, ' +
+    'cached_at INTEGER NOT NULL, ' +
+    'accessed_at INTEGER NOT NULL' +
+  ')'
+const SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_SCOPE_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_comic_translation_document_cache_scope ' +
+  'ON comic_translation_document_cache (scope_key, page_index DESC, accessed_at DESC)'
+const SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_ACCESS_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_comic_translation_document_cache_access ' +
+  'ON comic_translation_document_cache (accessed_at DESC)'
 // Future cloud-syncable durable user data table. Columns intentionally omit NOT NULL, matching the
 // HarmonyOS cloud-sync constraint used by V2Next synced tables.
 const SQL_CREATE_GALLERY_READ_PROGRESS_TABLE: string =
@@ -607,8 +623,8 @@ export class LocalDataStore {
   }
 
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
-    // v24 completes the viewed-history list snapshot in its canonical synced row. Only a current, intact store may skip
-    // the cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
+    // v25 adds the bounded, regenerable comic-translation document cache. Only a current, intact store may skip the
+    // cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
     if (store.version === LOCAL_DATA_SCHEMA_VERSION &&
       store.rebuilt === relationalStore.RebuildType.NONE) {
       return
@@ -625,6 +641,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX)
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_CACHED_INDEX)
+    await store.executeSql(SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_TABLE)
+    await store.executeSql(SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_SCOPE_INDEX)
+    await store.executeSql(SQL_CREATE_COMIC_TRANSLATION_DOCUMENT_CACHE_ACCESS_INDEX)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_TABLE)
     await LocalDataStore.migrateGalleryReadProgressColumnMode(store)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX)

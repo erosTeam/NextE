@@ -53,6 +53,7 @@ const forbiddenTables = [
   'tag_translation_meta',
   'eh_page_cache',
   'comment_translation_cache',
+  'comic_translation_document_cache',
   'download_gallery_tasks',
   'download_gallery_seeds',
   'download_archiver_tasks',
