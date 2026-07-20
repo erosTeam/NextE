@@ -5049,6 +5049,10 @@
       "value": "要確認"
     },
     {
+      "name": "reader_comic_translation_consistency_conflict",
+      "value": "前のページと翻訳が異なります"
+    },
+    {
       "name": "reader_comic_translation_ready",
       "value": "完了"
     },

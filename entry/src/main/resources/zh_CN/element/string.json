@@ -5049,6 +5049,10 @@
       "value": "待复核"
     },
     {
+      "name": "reader_comic_translation_consistency_conflict",
+      "value": "与前页译法不一致"
+    },
+    {
       "name": "reader_comic_translation_ready",
       "value": "已完成"
     },

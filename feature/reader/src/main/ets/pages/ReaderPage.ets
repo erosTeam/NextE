@@ -56,6 +56,7 @@ import {
   appSheetOptions,
   ComicPageDocument,
   ComicTextBlock,
+  ComicTranslationConsistencyService,
   ComicTranslationErrorClassifier,
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
@@ -1494,6 +1495,13 @@ export struct ReaderPage {
       this.comicTranslationDocument.qualitySignals.length > 0
   }
 
+  private comicTranslationBlockHasConsistencyConflict(blockId: string): boolean {
+    return ComicTranslationConsistencyService.hasConflict(
+      this.comicTranslationDocument,
+      blockId,
+    )
+  }
+
   private comicTranslationStatusText(): string {
     const parts: string[] = []
     if (this.comicTranslationCacheHit) {
@@ -1527,6 +1535,12 @@ export struct ReaderPage {
         .fontSize(ThemeConstants.FONT_SIZE_TITLE)
         .fontColor(ThemeConstants.TEXT_PRIMARY)
         .width('100%')
+      if (this.comicTranslationBlockHasConsistencyConflict(block.blockId)) {
+        Text($r('app.string.reader_comic_translation_consistency_conflict'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(ThemeConstants.TEXT_SECONDARY)
+          .width('100%')
+      }
     }
     .width('100%')
     .padding(ThemeConstants.SPACE_MD)

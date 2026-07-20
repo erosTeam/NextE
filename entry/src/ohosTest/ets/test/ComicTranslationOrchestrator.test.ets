@@ -11,6 +11,7 @@ import {
   ComicPreviousPageContext,
   ComicResponsesProtocol,
   ComicTextBlock,
+  ComicTranslationConsistencyService,
   ComicTranslationOrchestrator,
   ComicTranslationRunResult,
   ComicTranslationState,
@@ -368,6 +369,10 @@ export default function comicTranslationOrchestratorTest(): void {
         expect(drifted.document.qualitySignals[0].code)
           .assertEqual(COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE)
         expect(drifted.document.qualitySignals[0].blockId).assertEqual('p3-b0')
+        expect(ComicTranslationConsistencyService.hasConflict(drifted.document, 'p3-b0'))
+          .assertEqual(true)
+        expect(ComicTranslationConsistencyService.hasConflict(drifted.document, 'p2-b0'))
+          .assertEqual(false)
 
         const persisted: ComicPageDocument | null = await repository.load(drifted.identity)
         expect(persisted?.qualitySignals.length).assertEqual(0)

@@ -41,7 +41,7 @@ export class ComicTranslationConsistencyService {
         !ComicTranslationConsistencyService.hasDifferentTranslation(
           previousTranslations.get(source),
           translated,
-        ) || ComicTranslationConsistencyService.hasSignal(audited, block.blockId)) {
+        ) || ComicTranslationConsistencyService.hasConflict(audited, block.blockId)) {
         continue
       }
       const signal: ComicQualitySignal = new ComicQualitySignal()
@@ -52,6 +52,24 @@ export class ComicTranslationConsistencyService {
       audited.qualitySignals.push(signal)
     }
     return audited
+  }
+
+  static hasConflict(document: ComicPageDocument | null, blockId: string): boolean {
+    if (document === null || blockId.length === 0) {
+      return false
+    }
+    const count: number = Math.min(
+      document.qualitySignals.length,
+      MAX_DOCUMENT_QUALITY_SIGNALS,
+    )
+    for (let index: number = 0; index < count; index++) {
+      const signal: ComicQualitySignal = document.qualitySignals[index]
+      if (signal.code === COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE &&
+        signal.blockId === blockId) {
+        return true
+      }
+    }
+    return false
   }
 
   private static collectPreviousTranslations(
@@ -112,16 +130,5 @@ export class ComicTranslationConsistencyService {
       }
     })
     return different
-  }
-
-  private static hasSignal(document: ComicPageDocument, blockId: string): boolean {
-    for (let index: number = 0; index < document.qualitySignals.length; index++) {
-      const signal: ComicQualitySignal = document.qualitySignals[index]
-      if (signal.code === COMIC_TRANSLATION_CONSISTENCY_SIGNAL_CODE &&
-        signal.blockId === blockId) {
-        return true
-      }
-    }
-    return false
   }
 }
