@@ -30,7 +30,9 @@ import {
 const SQL_SELECT_READ_PROGRESS: string =
   'SELECT scope_key, gid, page_index, column_mode, updated_at, deleted_at FROM gallery_read_progress'
 const SQL_SELECT_VIEWED_HISTORY: string =
-  'SELECT scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at FROM viewed_history'
+  'SELECT scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, ' +
+  'viewed_at, deleted_at, post_time, rating_fallback, color_rating, translated, expunged ' +
+  'FROM viewed_history'
 const SQL_SELECT_LOCAL_FAVORITES: string =
   'SELECT scope_key, gid, token, url, thumb_url, thumb_url_l, img_width, img_height, english_title, japanese_title, category, uploader, post_time, file_count, rating, rating_fallback, color_rating, fav_note, fav_title, expunged, last_view_time, deleted_at FROM local_favorites'
 const SQL_SELECT_SEARCH_HISTORY: string =
@@ -82,8 +84,22 @@ const SQL_APPLY_READ_PROGRESS: string =
   'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
   'CASE WHEN COALESCE(gallery_read_progress.deleted_at, 0) > COALESCE(gallery_read_progress.updated_at, 0) THEN COALESCE(gallery_read_progress.deleted_at, 0) ELSE COALESCE(gallery_read_progress.updated_at, 0) END'
 const SQL_APPLY_VIEWED_HISTORY: string =
-  'INSERT INTO viewed_history (scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, gid) DO UPDATE SET token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = excluded.deleted_at ' +
+  'INSERT INTO viewed_history (scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at, post_time, rating_fallback, color_rating, translated, expunged) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+  'ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
+  'token = CASE WHEN COALESCE(excluded.token, \'\') <> \'\' THEN excluded.token ELSE viewed_history.token END, ' +
+  'title = CASE WHEN COALESCE(excluded.title, \'\') <> \'\' THEN excluded.title ELSE viewed_history.title END, ' +
+  'title_jp = CASE WHEN COALESCE(excluded.title_jp, \'\') <> \'\' THEN excluded.title_jp ELSE viewed_history.title_jp END, ' +
+  'thumb_url = CASE WHEN COALESCE(excluded.thumb_url, \'\') <> \'\' THEN excluded.thumb_url ELSE viewed_history.thumb_url END, ' +
+  'category = CASE WHEN COALESCE(excluded.category, \'\') <> \'\' THEN excluded.category ELSE viewed_history.category END, ' +
+  'uploader = CASE WHEN COALESCE(excluded.uploader, \'\') <> \'\' THEN excluded.uploader ELSE viewed_history.uploader END, ' +
+  'rating = CASE WHEN COALESCE(excluded.rating, 0) > 0 THEN excluded.rating ELSE viewed_history.rating END, ' +
+  'file_count = CASE WHEN COALESCE(excluded.file_count, \'\') <> \'\' THEN excluded.file_count ELSE viewed_history.file_count END, ' +
+  'post_time = CASE WHEN COALESCE(excluded.post_time, \'\') <> \'\' THEN excluded.post_time ELSE viewed_history.post_time END, ' +
+  'rating_fallback = CASE WHEN COALESCE(excluded.rating_fallback, 0) > 0 THEN excluded.rating_fallback ELSE viewed_history.rating_fallback END, ' +
+  'color_rating = CASE WHEN COALESCE(excluded.color_rating, \'\') <> \'\' THEN excluded.color_rating ELSE viewed_history.color_rating END, ' +
+  'translated = CASE WHEN COALESCE(excluded.translated, \'\') <> \'\' THEN excluded.translated ELSE viewed_history.translated END, ' +
+  'expunged = CASE WHEN COALESCE(excluded.expunged, 0) <> 0 THEN excluded.expunged ELSE viewed_history.expunged END, ' +
+  'viewed_at = excluded.viewed_at, deleted_at = excluded.deleted_at ' +
   'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.viewed_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.viewed_at, 0) END >= ' +
   'CASE WHEN COALESCE(viewed_history.deleted_at, 0) > COALESCE(viewed_history.viewed_at, 0) THEN COALESCE(viewed_history.deleted_at, 0) ELSE COALESCE(viewed_history.viewed_at, 0) END'
 const SQL_APPLY_LOCAL_FAVORITE: string =
@@ -336,6 +352,11 @@ export class SyncLocalDataAdapter {
         r.fileCount = SyncLocalDataAdapter.stringColumn(rs, 'file_count')
         r.viewedAt = SyncLocalDataAdapter.numberColumn(rs, 'viewed_at')
         r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
+        r.postTime = SyncLocalDataAdapter.stringColumn(rs, 'post_time')
+        r.ratingFallback = SyncLocalDataAdapter.numberColumn(rs, 'rating_fallback')
+        r.colorRating = SyncLocalDataAdapter.stringColumn(rs, 'color_rating')
+        r.translated = SyncLocalDataAdapter.stringColumn(rs, 'translated')
+        r.expunged = SyncLocalDataAdapter.numberColumn(rs, 'expunged') > 0
         if (r.scopeKey.length > 0 && r.gid.length > 0) {
           out.push(r)
         }
@@ -591,7 +612,8 @@ export class SyncLocalDataAdapter {
       if (r.scopeKey.length > 0 && r.gid.length > 0) {
         await store.executeSql(SQL_APPLY_VIEWED_HISTORY, [
           r.scopeKey, r.gid, r.token, r.title, r.titleJp, r.thumbUrl, r.category, r.uploader,
-          r.rating, r.fileCount, r.viewedAt, r.deletedAt,
+          r.rating, r.fileCount, r.viewedAt, r.deletedAt, r.postTime, r.ratingFallback,
+          r.colorRating, r.translated, r.expunged ? 1 : 0,
         ])
       }
     }
@@ -727,9 +749,35 @@ export class SyncLocalDataAdapter {
   private static keepViewedHistory(map: Map<string, SyncViewedHistoryRecord>, r: SyncViewedHistoryRecord): void {
     const key: string = r.scopeKey + ':' + r.gid
     const prev: SyncViewedHistoryRecord | undefined = map.get(key)
-    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.viewedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.viewedAt, prev.deletedAt)) {
+    if (prev === undefined) {
       map.set(key, r)
+      return
     }
+    if (SyncLocalDataAdapter.effectiveTime(r.viewedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.viewedAt, prev.deletedAt)) {
+      SyncLocalDataAdapter.fillViewedHistorySnapshot(r, prev)
+      map.set(key, r)
+    } else {
+      SyncLocalDataAdapter.fillViewedHistorySnapshot(prev, r)
+    }
+  }
+
+  private static fillViewedHistorySnapshot(
+    target: SyncViewedHistoryRecord,
+    fallback: SyncViewedHistoryRecord,
+  ): void {
+    if (target.token.length === 0) target.token = fallback.token
+    if (target.title.length === 0) target.title = fallback.title
+    if (target.titleJp.length === 0) target.titleJp = fallback.titleJp
+    if (target.thumbUrl.length === 0) target.thumbUrl = fallback.thumbUrl
+    if (target.category.length === 0) target.category = fallback.category
+    if (target.uploader.length === 0) target.uploader = fallback.uploader
+    if (target.rating <= 0) target.rating = fallback.rating
+    if (target.fileCount.length === 0) target.fileCount = fallback.fileCount
+    if (target.postTime.length === 0) target.postTime = fallback.postTime
+    if (target.ratingFallback <= 0) target.ratingFallback = fallback.ratingFallback
+    if (target.colorRating.length === 0) target.colorRating = fallback.colorRating
+    if (target.translated.length === 0) target.translated = fallback.translated
+    if (!target.expunged) target.expunged = fallback.expunged
   }
 
   private static mergeLocalFavorites(a: SyncLocalFavoriteRecord[], b: SyncLocalFavoriteRecord[]): SyncLocalFavoriteRecord[] {

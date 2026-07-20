@@ -191,6 +191,11 @@ export class SyncService {
       r.fileCount = SyncService.safeString(r.fileCount)
       r.viewedAt = SyncService.safeNumber(r.viewedAt)
       r.deletedAt = SyncService.safeNumber(r.deletedAt)
+      r.postTime = SyncService.safeString(r.postTime)
+      r.ratingFallback = SyncService.safeNumber(r.ratingFallback)
+      r.colorRating = SyncService.safeString(r.colorRating)
+      r.translated = SyncService.safeString(r.translated)
+      r.expunged = SyncService.safeBoolean(r.expunged)
     }
     for (let i: number = 0; i < data.localFavorites.length; i++) {
       const r: SyncLocalFavoriteRecord = data.localFavorites[i]

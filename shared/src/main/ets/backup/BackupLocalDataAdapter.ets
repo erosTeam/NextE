@@ -77,6 +77,11 @@ export class BackupLocalDataAdapter {
         rating: item.rating,
         fileCount: item.fileCount,
         time: item.time,
+        postTime: item.postTime,
+        ratingFallBack: item.ratingFallBack,
+        colorRating: item.colorRating,
+        translated: item.translated,
+        expunged: item.expunged,
       })
     }
     return out
@@ -291,7 +296,12 @@ export class BackupLocalDataAdapter {
         typeof entry.uploader !== 'string' ||
         typeof entry.rating !== 'number' ||
         typeof entry.fileCount !== 'string' ||
-        typeof entry.time !== 'number'
+        typeof entry.time !== 'number' ||
+        (entry.postTime !== undefined && typeof entry.postTime !== 'string') ||
+        (entry.ratingFallBack !== undefined && typeof entry.ratingFallBack !== 'number') ||
+        (entry.colorRating !== undefined && typeof entry.colorRating !== 'string') ||
+        (entry.translated !== undefined && typeof entry.translated !== 'string') ||
+        (entry.expunged !== undefined && typeof entry.expunged !== 'boolean')
       ) {
         return false
       }
@@ -487,6 +497,11 @@ export class BackupLocalDataAdapter {
       gallery.rating = item.rating
       gallery.fileCount = item.fileCount
       gallery.time = item.time
+      gallery.postTime = item.postTime === undefined ? '' : item.postTime
+      gallery.ratingFallBack = item.ratingFallBack === undefined ? item.rating : item.ratingFallBack
+      gallery.colorRating = item.colorRating === undefined ? '' : item.colorRating
+      gallery.translated = item.translated === undefined ? '' : item.translated
+      gallery.expunged = item.expunged === undefined ? false : item.expunged
       history.push(gallery)
     }
     await ViewedHistorySettings.restoreBackup(context, history)

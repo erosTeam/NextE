@@ -74,6 +74,11 @@ export interface BackupViewedHistoryEntry {
   rating: number
   fileCount: string
   time: number
+  postTime?: string
+  ratingFallBack?: number
+  colorRating?: string
+  translated?: string
+  expunged?: boolean
 }
 
 export interface BackupLocalFavoriteEntry {

@@ -60,7 +60,8 @@ export class ViewedHistorySettings {
     try {
       await ViewedHistorySettings.enqueueRdbWrite(
         async (): Promise<void> => {
-          await ViewedHistoryRepository.tombstone(context, gid)
+          const deletedAt: number = await ViewedHistoryRepository.tombstone(context, gid)
+          DiagnosticLogger.info('sync', 'history_local_tombstone', `gid=${gid},deletedAt=${deletedAt}`)
         },
       )
       ViewedHistorySettings.publishChanged()
@@ -88,6 +89,7 @@ export class ViewedHistorySettings {
     try {
       await ViewedHistorySettings.enqueueRdbWrite(async (): Promise<void> => {
         entry.time = await ViewedHistoryRepository.upsert(context, entry)
+        DiagnosticLogger.info('sync', 'history_local_upsert', `gid=${entry.gid},viewedAt=${entry.time}`)
       })
       ViewedHistorySettings.publishChanged()
       SyncScheduler.requestAfterLocalWrite(context, 'viewed_history')
@@ -196,8 +198,13 @@ export class ViewedHistorySettings {
             e.thumbUrl = typeof rec.thumbUrl === 'string' ? rec.thumbUrl : ''
             e.category = typeof rec.category === 'string' ? rec.category : ''
             e.uploader = typeof rec.uploader === 'string' ? rec.uploader : ''
+            e.postTime = typeof rec.postTime === 'string' ? rec.postTime : ''
             e.rating = typeof rec.rating === 'number' ? rec.rating : 0
+            e.ratingFallBack = typeof rec.ratingFallBack === 'number' ? rec.ratingFallBack : e.rating
+            e.colorRating = typeof rec.colorRating === 'string' ? rec.colorRating : ''
             e.fileCount = typeof rec.fileCount === 'string' ? rec.fileCount : ''
+            e.translated = typeof rec.translated === 'string' ? rec.translated : ''
+            e.expunged = typeof rec.expunged === 'boolean' ? rec.expunged : false
             e.time = typeof rec.time === 'number' ? rec.time : 0
             out.push(e)
           }

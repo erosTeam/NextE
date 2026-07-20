@@ -14,7 +14,7 @@ Purpose:
 
 Type: list organization / navigation context
 
-Status: implemented / device-verified on 197
+Status: implemented / pending device acceptance
 
 Grounding:
 
@@ -42,7 +42,8 @@ QA feedback, 2026-07-19, target `192.168.50.197:12345`:
 - On target `192.168.50.197:12345`, the bottomBuilder mirror was visually verified absent at the top, readable as `今天` immediately below the title after scrolling, and absent again after returning to the top. This device currently had only `今天` data, so a real `今天 → 昨天` transition remains pending device acceptance; no synthetic history rows were written.
 - Final device verification, 2026-07-20: the target contained one real 07-20 history row and multiple 07-19 rows. First entry and return/re-entry each rendered exactly one `今天` and one `昨天`; no stale duplicate remained. After crossing the real day boundary, `昨天` was visibly mirrored below the HDS title while rows continued under the immersive title. Artifact screenshots: `.hvigor/outputs/history-download-pinned-197-20260720/history-top.jpeg` and `history-scrolled.jpeg`.
 - Final download verification, 2026-07-20: the gallery queue had only two completed rows and could not scroll, so no synthetic tasks were created. The archive queue had eight real completed rows; after scrolling, its live `已完成 8` header was visibly mirrored below the HDS Gallery/Archive selector. Artifact: `.hvigor/outputs/history-download-pinned-197-20260720/download-archiver-scrolled.jpeg`.
-- The stored `viewed_at` value is already mapped to `EhGallery.lastViewTime` and to the generic card's unlabelled `postTime` slot. The history item must render it explicitly as the viewing time (normally `HH:mm` under an already-day-grouped list), rather than relying on the generic publication-time slot.
+- Follow-up correction, 2026-07-20: browsing time and gallery publication time are separate history fields. `viewed_at` owns ordering, day grouping, and conflict resolution; `post_time` keeps its gallery-list meaning. The lightweight row snapshot also carries the rating fallback, rating color, language marker, and expunged state used by `GallerySimpleCard`.
+- The snapshot stays in the canonical `viewed_history` record across local RDB, backup, WebDAV, and Huawei Cloud. Existing rows keep missing snapshot fields until a later detail visit or compatible restore/sync supplies them; History does not bulk-fetch old galleries during entry or paging.
 
 ### Hidden System Symbol Reference Page
 

@@ -154,23 +154,28 @@ ok('restore snapshots durable stores and rolls back on section failure',
     /await BackupLocalDataAdapter\.restoreSection\(context, rollbackLocalData\)/.test(svc) &&
     /await BackupPreferencesAdapter\.replace\(context, rollbackSecrets, true\)/.test(svc) &&
     /failedSections: \[failedSection\]/.test(svc))
-ok('backup restore suppresses automatic remote sync and restores WebDAV atomically',
+ok('backup restore suppresses native Huawei sync and all scheduled provider sync atomically',
   /import \{ SyncScheduler \} from '\.\.\/sync\/SyncScheduler'/.test(svc) &&
-    /SyncScheduler\.suspendAutomaticSync\(\)[\s\S]*BackupPreferencesAdapter\.restoreWebDavCredentialGroup\([\s\S]*SyncScheduler\.resumeAutomaticSync\(\)/.test(svc))
+    /HuaweiCloudSyncService\.suspendAutomaticSync\(context\)[\s\S]*BackupPreferencesAdapter\.restoreWebDavCredentialGroup\([\s\S]*HuaweiCloudSyncService\.resumeAutomaticSync\(context\)/.test(svc) &&
+    /SyncScheduler\.suspendAutomaticSync\(\)[\s\S]*SyncScheduler\.resumeAutomaticSync\(\)/.test(svc))
 
 const syncScheduler = read('shared/src/main/ets/sync/SyncScheduler.ets')
 const webDavScheduler = read('shared/src/main/ets/sync/WebDavSyncScheduler.ets')
 const huaweiCloudScheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')
+const huaweiCloudService = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const webDavCredentialGroupTest = read('entry/src/ohosTest/ets/test/BackupWebDavCredentialGroup.test.ets')
 const webDavCredentialGroupTestList = read('entry/src/ohosTest/ets/test/List.test.ets')
-ok('both automatic providers cancel queued work and reject restore-window scheduling',
+ok('scheduled providers and native Huawei delivery are paused across the restore window',
   /suspendAutomaticSync\(\)[\s\S]*HuaweiCloudSyncScheduler\.suspendAutomaticSync\(\)[\s\S]*WebDavSyncScheduler\.suspendAutomaticSync\(\)/.test(syncScheduler) &&
     /automaticSyncSuppressionDepth/.test(webDavScheduler) &&
     /clearTimeout\(WebDavSyncScheduler\.timerId\)/.test(webDavScheduler) &&
     /automaticSyncSuppressed\(\)[\s\S]*webdav_schedule_suppressed/.test(webDavScheduler) &&
     /automaticSyncSuppressionDepth/.test(huaweiCloudScheduler) &&
     /clearTimeout\(HuaweiCloudSyncScheduler\.timerId\)/.test(huaweiCloudScheduler) &&
-    /automaticSyncSuppressed\(\)[\s\S]*huawei_cloud_schedule_suppressed/.test(huaweiCloudScheduler))
+    /automaticSyncSuppressed\(\)[\s\S]*huawei_cloud_schedule_suppressed/.test(huaweiCloudScheduler) &&
+    /automaticSyncSuppressionDepth/.test(huaweiCloudService) &&
+    /suspendAutomaticSync[\s\S]*configureAutomaticSync/.test(huaweiCloudService) &&
+    /resumeAutomaticSync[\s\S]*refreshAutomaticSyncSelection/.test(huaweiCloudService))
 ok('device test covers legacy/current encrypted groups and rejects plaintext/incomplete input',
   /resolveWebDavCredentialValues\([\s\S]*'legacy-password',[\s\S]*true/.test(webDavCredentialGroupTest) &&
     /resolveWebDavCredentialValues\([\s\S]*'current-password',[\s\S]*true/.test(webDavCredentialGroupTest) &&

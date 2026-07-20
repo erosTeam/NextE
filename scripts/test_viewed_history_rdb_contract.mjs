@@ -154,6 +154,15 @@ const localDataStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
 const syncService = read('shared/src/main/ets/sync/SyncService.ets')
 const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
+const viewModel = read('feature/user/src/main/ets/viewmodel/ViewedHistoryViewModel.ets')
+const viewedGallery = read('shared/src/main/ets/model/ViewedGallery.ets')
+const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
+const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+const syncTypes = read('shared/src/main/ets/sync/SyncTypes.ets')
+const viewedHistoryTableSql = localDataStore.slice(
+  localDataStore.indexOf('const SQL_CREATE_VIEWED_HISTORY_TABLE'),
+  localDataStore.indexOf('const SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX'),
+)
 
 const addStart = settings.indexOf('static async add')
 const addEnd = settings.indexOf('\n  static async clear', addStart)
@@ -179,10 +188,28 @@ ok('history page reads bounded keyset pages with one-row lookahead',
     /const queryLimit: number = pageSize \+ 1/.test(repository) &&
     /page\.hasMore = out\.length > pageSize/.test(repository) &&
     /static async loadPage[\s\S]*return ViewedHistoryRepository\.loadPage/.test(settings))
+ok('history refresh keeps same-day LazyForEach data sources and stable V2 row holders alive',
+  /existingByKey: Map<string, ViewedHistoryDayGroup>/.test(viewModel) &&
+    /existingByKey\.get\(key\)/.test(viewModel) &&
+    /existingRowsByGid: Map<string, ViewedHistoryListRow>/.test(viewModel) &&
+    /@Trace gallery: EhGallery/.test(viewModel) &&
+    /row\.gallery = gallery/.test(viewModel) &&
+    /group\.dataSource\.setData\(groupRows\)/.test(viewModel) &&
+    !/private resetDayGroups\(rows: EhGallery\[\]\): void \{\s*const groups: ViewedHistoryDayGroup\[\] = \[\]\s*this\.appendRowsToGroups/.test(viewModel))
 ok('the history cursor query has a matching composite RDB index and schema migration',
-  /LOCAL_DATA_SCHEMA_VERSION: number = 23/.test(localDataStore) &&
+  /LOCAL_DATA_SCHEMA_VERSION: number = 24/.test(localDataStore) &&
     /idx_viewed_history_cursor/.test(localDataStore) &&
     /scope_key, viewed_at DESC, gid DESC/.test(localDataStore))
+ok('history list snapshot stays in the canonical synced row with an in-place schema migration',
+  /post_time TEXT/.test(viewedHistoryTableSql) &&
+    /rating_fallback REAL/.test(viewedHistoryTableSql) &&
+    /color_rating TEXT/.test(viewedHistoryTableSql) &&
+    /translated TEXT/.test(viewedHistoryTableSql) &&
+    /expunged INTEGER/.test(viewedHistoryTableSql) &&
+    /migrateViewedHistorySnapshotColumns/.test(localDataStore) &&
+    !/viewed_history_metadata/.test(localDataStore) &&
+    !/viewed_history_metadata/.test(repository) &&
+    !/viewed_history_metadata/.test(syncAdapter))
 ok('single-record delete is a serialized tombstone mutation and schedules sync',
   /static async tombstone[\s\S]*nextViewedAt[\s\S]*SQL_TOMBSTONE_GID[\s\S]*store\.commit/.test(repository) &&
     /static async remove[\s\S]*enqueueRdbWrite[\s\S]*ViewedHistoryRepository\.tombstone[\s\S]*viewed_history_delete/.test(settings))
@@ -204,6 +231,30 @@ ok('backup export and restore preserve the complete active history',
   /exportForBackup[\s\S]*ViewedHistoryRepository\.loadAll\(context\)/.test(settings) &&
     /static async loadAll[\s\S]*while \(hasMore\)/.test(repository) &&
     /for \(let i: number = 0; i < items\.length; i\+\+\)/.test(repository))
+ok('complete history list snapshot survives model copies, backup, and WebDAV envelopes',
+  /postTime: string = ''/.test(viewedGallery) &&
+    /v\.postTime = g\.postTime/.test(viewedGallery) &&
+    /v\.postTime = this\.postTime/.test(viewedGallery) &&
+    /ratingFallBack: number = 0/.test(viewedGallery) &&
+    /colorRating: string = ''/.test(viewedGallery) &&
+    /translated: string = ''/.test(viewedGallery) &&
+    /expunged: boolean = false/.test(viewedGallery) &&
+    /postTime\?: string/.test(backupTypes) &&
+    /ratingFallBack\?: number/.test(backupTypes) &&
+    /colorRating\?: string/.test(backupTypes) &&
+    /translated\?: string/.test(backupTypes) &&
+    /expunged\?: boolean/.test(backupTypes) &&
+    /postTime: item\.postTime/.test(backupAdapter) &&
+    /gallery\.postTime = item\.postTime === undefined \? '' : item\.postTime/.test(backupAdapter) &&
+    /postTime: string = ''/.test(syncTypes) &&
+    /ratingFallback: number = 0/.test(syncTypes) &&
+    /colorRating: string = ''/.test(syncTypes) &&
+    /translated: string = ''/.test(syncTypes) &&
+    /expunged: boolean = false/.test(syncTypes) &&
+    /r\.postTime = SyncService\.safeString\(r\.postTime\)/.test(syncService) &&
+    /r\.ratingFallback = SyncService\.safeNumber\(r\.ratingFallback\)/.test(syncService) &&
+    /r\.translated = SyncService\.safeString\(r\.translated\)/.test(syncService) &&
+    /fillViewedHistorySnapshot/.test(syncAdapter))
 ok('normal and remote viewed-history upserts reject older effective timestamps',
   /WHERE excluded\.viewed_at >= CASE WHEN COALESCE\(viewed_history\.deleted_at, 0\) >/.test(repository) &&
     /SQL_APPLY_VIEWED_HISTORY[\s\S]*WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/.test(syncAdapter) &&

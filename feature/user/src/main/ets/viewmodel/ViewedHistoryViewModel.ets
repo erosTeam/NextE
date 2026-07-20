@@ -12,14 +12,25 @@ import {
 
 const HISTORY_PAGE_SIZE: number = 20
 const HISTORY_PREFETCH_DISTANCE: number = 3
+
+/** Stable V2 row state for one history entry while LazyForEach retains its gid key. */
+@ObservedV2
+export class ViewedHistoryListRow {
+  @Trace gallery: EhGallery = new EhGallery()
+
+  constructor(gallery: EhGallery = new EhGallery()) {
+    this.gallery = gallery
+  }
+}
+
 /** One native ListItemGroup day section; its data source stays stable while a cursor page appends. */
 export class ViewedHistoryDayGroup {
   key: string = ''
   // Calendar-day identity only. The displayed relative label must be resolved by the page at render
   // time, otherwise a group created before midnight keeps a stale "Today" string forever.
   dayStart: number = 0
-  dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>(
-    (gallery: EhGallery): string => `viewed_${gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
+  dataSource: BasicDataSource<ViewedHistoryListRow> = new BasicDataSource<ViewedHistoryListRow>(
+    (row: ViewedHistoryListRow): string => `viewed_${row.gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
   )
 
   constructor(key: string = '', dayStart: number = 0) {
@@ -236,8 +247,45 @@ export class ViewedHistoryViewModel {
   }
 
   private resetDayGroups(rows: EhGallery[]): void {
+    const existingByKey: Map<string, ViewedHistoryDayGroup> = new Map<string, ViewedHistoryDayGroup>()
+    const existingRowsByGid: Map<string, ViewedHistoryListRow> = new Map<string, ViewedHistoryListRow>()
+    this.dayGroups.forEach((group: ViewedHistoryDayGroup) => {
+      existingByKey.set(group.key, group)
+      group.dataSource.getAll().forEach((row: ViewedHistoryListRow) => {
+        existingRowsByGid.set(row.gallery.gid, row)
+      })
+    })
+    const rowsByKey: Map<string, ViewedHistoryListRow[]> = new Map<string, ViewedHistoryListRow[]>()
+    const orderedKeys: string[] = []
+    const dayStarts: Map<string, number> = new Map<string, number>()
+    rows.forEach((gallery: EhGallery) => {
+      const dayStart: number = this.localDayStart(gallery.lastViewTime)
+      const key: string = this.dayKey(dayStart)
+      let bucket: ViewedHistoryListRow[] | undefined = rowsByKey.get(key)
+      if (bucket === undefined) {
+        bucket = []
+        rowsByKey.set(key, bucket)
+        orderedKeys.push(key)
+        dayStarts.set(key, dayStart)
+      }
+      let row: ViewedHistoryListRow | undefined = existingRowsByGid.get(gallery.gid)
+      if (row === undefined) {
+        row = new ViewedHistoryListRow(gallery)
+      } else {
+        row.gallery = gallery
+      }
+      bucket.push(row)
+    })
     const groups: ViewedHistoryDayGroup[] = []
-    this.appendRowsToGroups(groups, rows)
+    orderedKeys.forEach((key: string) => {
+      let group: ViewedHistoryDayGroup | undefined = existingByKey.get(key)
+      if (group === undefined) {
+        group = new ViewedHistoryDayGroup(key, dayStarts.get(key) ?? 0)
+      }
+      const groupRows: ViewedHistoryListRow[] = rowsByKey.get(key) ?? []
+      group.dataSource.setData(groupRows)
+      groups.push(group)
+    })
     this.dayGroups = groups
   }
 
@@ -263,16 +311,16 @@ export class ViewedHistoryViewModel {
         group = new ViewedHistoryDayGroup(key, dayStart)
         groups.push(group)
       }
-      group.dataSource.appendData([gallery])
+      group.dataSource.appendData([new ViewedHistoryListRow(gallery)])
     }
   }
 
   private removeFromDayGroups(gid: string): void {
     for (let groupIndex: number = 0; groupIndex < this.dayGroups.length; groupIndex++) {
       const group: ViewedHistoryDayGroup = this.dayGroups[groupIndex]
-      const rows: EhGallery[] = group.dataSource.getAll()
+      const rows: ViewedHistoryListRow[] = group.dataSource.getAll()
       for (let rowIndex: number = 0; rowIndex < rows.length; rowIndex++) {
-        if (rows[rowIndex].gid !== gid) {
+        if (rows[rowIndex].gallery.gid !== gid) {
           continue
         }
         group.dataSource.removeDataAt(rowIndex)

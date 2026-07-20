@@ -51,6 +51,29 @@ export struct SyncSettingsPage {
       snapshot.datasetCustomProfiles = enabled
     }
     SyncSettings.save(this.ctx(), snapshot)
+      .then(() => {
+        if (!snapshot.huaweiCloudEnabled) {
+          return true
+        }
+        return HuaweiCloudSyncService.refreshAutomaticSyncSelection(
+          this.ctx(),
+          SyncSettings.selection(snapshot),
+        )
+      })
+      .then((configured: boolean) => {
+        if (!configured) {
+          DiagnosticLogger.warn(
+            'sync',
+            'huawei_cloud_selection_apply_failed',
+            HuaweiCloudSyncService.lastRunDetailMessage(),
+          )
+          this.toast($r('app.string.sync_now_failed'))
+        }
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('sync', 'huawei_cloud_selection_apply_failed', error.message)
+        this.toast($r('app.string.sync_now_failed'))
+      })
   }
 
   private toast(message: ResourceStr): void {
@@ -141,8 +164,22 @@ export struct SyncSettingsPage {
     }
     const snapshot = this.snapshot()
     if (!enabled) {
-      snapshot.huaweiCloudEnabled = false
-      SyncSettings.save(this.ctx(), snapshot)
+      this.cloudSwitching = true
+      HuaweiCloudSyncService.disableAutomaticSync(this.ctx())
+        .then((disabled: boolean) => {
+          if (!disabled) {
+            throw new Error(HuaweiCloudSyncService.lastRunDetailMessage())
+          }
+          snapshot.huaweiCloudEnabled = false
+          return SyncSettings.save(this.ctx(), snapshot)
+        })
+        .catch((error: Error) => {
+          DiagnosticLogger.warn('sync', 'huawei_cloud_disable_failed', error.message)
+          this.toast($r('app.string.sync_now_failed'))
+        })
+        .finally(() => {
+          this.cloudSwitching = false
+        })
       return
     }
     this.cloudSwitching = true
@@ -161,11 +198,12 @@ export struct SyncSettingsPage {
             SyncSettings.selection(next),
           ))
       })
-      .then((marked: boolean | void) => {
+      .then(async (marked: boolean | void): Promise<void> => {
         if (marked === false) {
           const next = this.snapshot()
           next.huaweiCloudEnabled = false
-          SyncSettings.save(this.ctx(), next)
+          await HuaweiCloudSyncService.disableAutomaticSync(this.ctx())
+          await SyncSettings.save(this.ctx(), next)
           this.toast($r('app.string.sync_now_failed'))
           return
         }
@@ -177,8 +215,11 @@ export struct SyncSettingsPage {
         DiagnosticLogger.warn('sync', 'huawei_cloud_enable_failed', error.message)
         const next = this.snapshot()
         next.huaweiCloudEnabled = false
-        SyncSettings.save(this.ctx(), next)
-        this.toast($r('app.string.sync_now_failed'))
+        return HuaweiCloudSyncService.disableAutomaticSync(this.ctx())
+          .then(() => SyncSettings.save(this.ctx(), next))
+          .then(() => {
+            this.toast($r('app.string.sync_now_failed'))
+          })
       })
       .finally(() => {
         this.cloudSwitching = false

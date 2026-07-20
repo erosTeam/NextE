@@ -237,6 +237,14 @@ ok('Huawei Cloud sync constrains manual runs to selected tables',
   /mode: relationalStore\.SyncMode = relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(huaweiCloud) &&
     /\.cloudSync\(\s*mode,\s*tables,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(huaweiCloud) &&
     /waitCloudSyncFinish\([\s\S]*store,[\s\S]*tables,[\s\S]*context/.test(huaweiCloud))
+ok('Huawei Cloud uses one selected-table path and no viewed-history repair boundary',
+    /SUBSCRIBE_TYPE_CLOUD_DETAILS/.test(huaweiCloud) &&
+    /SyncServiceBridge\.refresh\(context, SyncSettings\.selection/.test(huaweiCloud) &&
+    /cloudListenerStore: relationalStore\.RdbStore \| null/.test(huaweiCloud) &&
+    /HuaweiCloudSyncService\.cloudListenerStore = store/.test(huaweiCloud) &&
+    !/setHistoryAutoSync|selection\.viewedHistory = false/.test(huaweiCloud) &&
+    !/SYNC_MODE_CLOUD_FIRST|viewedHistoryCorrections/.test(huaweiCloud) &&
+    !/viewedHistoryCorrections/.test(syncAdapter))
 ok('Huawei Cloud sync keeps app-managed image reset/upload repair outside normal system sync',
   /IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'/.test(huaweiCloud) &&
     !/cleanDirtyData\(IMAGE_BLOCK_USER_RULES_TABLE\)/.test(huaweiCloud) &&
@@ -251,7 +259,7 @@ ok('Huawei Cloud sync keeps app-managed image reset/upload repair outside normal
     !/huawei_cloud_image_block_native_repair/.test(huaweiCloud) &&
     !/shouldRepairImageBlockFromLocal/.test(huaweiCloud) &&
     !/CloudSyncTableResetRepository|huawei_cloud_rebuild_table|huawei_cloud_reseed_table/.test(huaweiCloud) &&
-    /Normal Huawei Cloud sync should stay system-owned/.test(doc) &&
+    /Normal Huawei Cloud sync uses the same two roles for every selected table/.test(doc) &&
     /No image-block first-upload\s+exception/.test(doc) &&
     /must not run cleanDirtyData/.test(doc) &&
     /must not run\s+native-first/.test(doc))
@@ -259,7 +267,7 @@ const localStoreVersionMatch = localStore.match(/LOCAL_DATA_SCHEMA_VERSION: numb
 ok('Huawei Cloud schema version is separate from local RDB migration version',
   !!localStoreVersionMatch &&
     Number(localStoreVersionMatch[1]) >= 20 &&
-    cloudSchema.version === 17 &&
+    cloudSchema.version === 18 &&
     cloudSchema.databases[0].version === cloudSchema.version)
 ok('Huawei Cloud has no image-block cloud touch completion path',
     /Image-block cloud touch markers are retired/.test(doc) &&
@@ -267,11 +275,9 @@ ok('Huawei Cloud has no image-block cloud touch completion path',
     !/imageBlockTableSucceeded/.test(huaweiCloud) &&
     !/image_block_cloud_table_result/.test(huaweiCloud))
 ok('Huawei Cloud sync marks tables before local image-block preparation',
-  huaweiCloud.indexOf('await store.setDistributedTables') >= 0 &&
-    huaweiCloud.indexOf('await store.setDistributedTables') <
-      huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') &&
-    /const config: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(huaweiCloud) &&
-    !/autoSync: true/.test(huaweiCloud))
+  /const configured: boolean = await HuaweiCloudSyncService\.configureAutomaticSync\([\s\S]*if \(!configured\)[\s\S]*if \(tables\.includes\(IMAGE_BLOCK_USER_RULES_TABLE\)\)[\s\S]*await SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(huaweiCloud) &&
+    /const disabledConfig: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(huaweiCloud) &&
+    /const enabledConfig: relationalStore\.DistributedConfig = \{ autoSync: true \}/.test(huaweiCloud))
 ok('Huawei Cloud prepares image-block legacy user rules only on cloud table marking',
   /static async tryEnableStartup[\s\S]*if \(!snapshot\.huaweiCloudEnabled\)[\s\S]*await HuaweiCloudSyncService\.markDistributedTables/.test(huaweiCloud) &&
     /prepareHuaweiCloudTables\(context, selection\)/.test(huaweiCloud) &&

@@ -6,31 +6,48 @@ import { LocalDataStore } from './LocalDataStore'
 const SCOPE_GLOBAL: string = 'global'
 const MAX_PAGE_SIZE: number = 100
 const SQL_SELECT_ACTIVE: string =
-  'SELECT gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at ' +
+  'SELECT gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, ' +
+  'post_time, rating_fallback, color_rating, translated, expunged ' +
   'FROM viewed_history WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY viewed_at DESC, gid DESC LIMIT ?'
 const SQL_SELECT_ACTIVE_AFTER: string =
-  'SELECT gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at ' +
+  'SELECT gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, ' +
+  'post_time, rating_fallback, color_rating, translated, expunged ' +
   'FROM viewed_history WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'AND (viewed_at < ? OR (viewed_at = ? AND gid < ?)) ' +
   'ORDER BY viewed_at DESC, gid DESC LIMIT ?'
 const SQL_UPSERT: string =
   'INSERT INTO viewed_history ' +
-  '(scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
-  'token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, ' +
-  'thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, ' +
-  'rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = 0 ' +
+  '(scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, ' +
+  'deleted_at, post_time, rating_fallback, color_rating, translated, expunged) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
+  'token = CASE WHEN COALESCE(excluded.token, \'\') <> \'\' THEN excluded.token ELSE viewed_history.token END, ' +
+  'title = CASE WHEN COALESCE(excluded.title, \'\') <> \'\' THEN excluded.title ELSE viewed_history.title END, ' +
+  'title_jp = CASE WHEN COALESCE(excluded.title_jp, \'\') <> \'\' THEN excluded.title_jp ELSE viewed_history.title_jp END, ' +
+  'thumb_url = CASE WHEN COALESCE(excluded.thumb_url, \'\') <> \'\' THEN excluded.thumb_url ELSE viewed_history.thumb_url END, ' +
+  'category = CASE WHEN COALESCE(excluded.category, \'\') <> \'\' THEN excluded.category ELSE viewed_history.category END, ' +
+  'uploader = CASE WHEN COALESCE(excluded.uploader, \'\') <> \'\' THEN excluded.uploader ELSE viewed_history.uploader END, ' +
+  'rating = CASE WHEN COALESCE(excluded.rating, 0) > 0 THEN excluded.rating ELSE viewed_history.rating END, ' +
+  'file_count = CASE WHEN COALESCE(excluded.file_count, \'\') <> \'\' THEN excluded.file_count ELSE viewed_history.file_count END, ' +
+  'post_time = CASE WHEN COALESCE(excluded.post_time, \'\') <> \'\' THEN excluded.post_time ELSE viewed_history.post_time END, ' +
+  'rating_fallback = CASE WHEN COALESCE(excluded.rating_fallback, 0) > 0 THEN excluded.rating_fallback ELSE viewed_history.rating_fallback END, ' +
+  'color_rating = CASE WHEN COALESCE(excluded.color_rating, \'\') <> \'\' THEN excluded.color_rating ELSE viewed_history.color_rating END, ' +
+  'translated = CASE WHEN COALESCE(excluded.translated, \'\') <> \'\' THEN excluded.translated ELSE viewed_history.translated END, ' +
+  'expunged = CASE WHEN COALESCE(excluded.expunged, 0) <> 0 THEN excluded.expunged ELSE viewed_history.expunged END, ' +
+  'viewed_at = excluded.viewed_at, deleted_at = 0 ' +
   'WHERE excluded.viewed_at >= CASE WHEN COALESCE(viewed_history.deleted_at, 0) > ' +
   'COALESCE(viewed_history.viewed_at, 0) THEN COALESCE(viewed_history.deleted_at, 0) ' +
   'ELSE COALESCE(viewed_history.viewed_at, 0) END'
 const SQL_RESTORE_UPSERT: string =
   'INSERT INTO viewed_history ' +
-  '(scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
+  '(scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, ' +
+  'deleted_at, post_time, rating_fallback, color_rating, translated, expunged) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
   'token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, ' +
   'thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, ' +
-  'rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = 0'
+  'rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = 0, ' +
+  'post_time = excluded.post_time, rating_fallback = excluded.rating_fallback, ' +
+  'color_rating = excluded.color_rating, translated = excluded.translated, expunged = excluded.expunged'
 const SQL_TOMBSTONE_SCOPE: string =
   'UPDATE viewed_history SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_TOMBSTONE_GID: string =
@@ -243,6 +260,11 @@ export class ViewedHistoryRepository {
       item.rating,
       item.fileCount,
       viewedAt,
+      item.postTime,
+      item.ratingFallBack,
+      item.colorRating,
+      item.translated,
+      item.expunged ? 1 : 0,
     ])
   }
 
@@ -255,8 +277,13 @@ export class ViewedHistoryRepository {
     item.thumbUrl = ViewedHistoryRepository.stringColumn(resultSet, 'thumb_url')
     item.category = ViewedHistoryRepository.stringColumn(resultSet, 'category')
     item.uploader = ViewedHistoryRepository.stringColumn(resultSet, 'uploader')
+    item.postTime = ViewedHistoryRepository.stringColumn(resultSet, 'post_time')
     item.rating = ViewedHistoryRepository.numberColumn(resultSet, 'rating')
+    item.ratingFallBack = ViewedHistoryRepository.numberColumn(resultSet, 'rating_fallback')
+    item.colorRating = ViewedHistoryRepository.stringColumn(resultSet, 'color_rating')
     item.fileCount = ViewedHistoryRepository.stringColumn(resultSet, 'file_count')
+    item.translated = ViewedHistoryRepository.stringColumn(resultSet, 'translated')
+    item.expunged = ViewedHistoryRepository.numberColumn(resultSet, 'expunged') > 0
     item.time = Math.floor(ViewedHistoryRepository.numberColumn(resultSet, 'viewed_at'))
     return item
   }

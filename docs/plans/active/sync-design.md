@@ -134,10 +134,10 @@ not a normal app feature. If a device already has local RDB cloud metadata point
 deleted directly in AGC, fix that as an explicit maintenance/reset case and keep ordinary sync on the
 current AGC data type.
 The local `cloud_schema.json` top-level `version` and database `version` must match the AGC/CloudDrive
-effective schema version seen in device logs. The current effective schema is 17; setting the local cloud
-schema to 20 made CloudDrive fetch `ImageBlockUserRules` records as schema 17 while the app only declared
-schema 20, which produced `can not find schema record type:ImageBlockUserRules`. Local RDB schema version is
-separate and is currently 21 for the image-block column-order rollback migration.
+effective schema version seen in device logs. Version 18 adds the complete viewed-history list snapshot;
+it must not be device-tested against an AGC environment that still reports version 17. The earlier attempt
+to set the local cloud schema to 20 while CloudDrive still fetched schema 17 produced
+`can not find schema record type:ImageBlockUserRules`. Local RDB schema version is separate and is 24.
 Earlier 17/V2 and 18/V2 builds could leave devices in a state where other tables synced but image-block user
 rule downloads failed against the versioned data type; the canonical `ImageBlockUserRules` schema keeps the
 AGC device duplicate-key order and keeps client rule identity canonicalization inside the row values.
@@ -165,23 +165,34 @@ the AGC device duplicate-key order. Affected development-device or AGC rows stil
 out-of-band repair before re-testing because already-corrupted row values are not fully reversible after the
 cloud-touch update.
 
-Normal Huawei Cloud sync should stay system-owned: mark the selected tables with `autoSync: false`, prepare
-local durable rows, run `SYNC_MODE_TIME_FIRST`, and report table-level failures. No image-block first-upload
-exception remains. The app must not run cleanDirtyData for `image_block_user_rules`, must not run
-native-first for that table, must not suspend it for the rest of the process, and must not hide
+Normal Huawei Cloud sync uses the same two roles for every selected table. The provider-neutral app
+scheduler coalesces durable local writes and foreground events into a `SYNC_MODE_TIME_FIRST` run, which
+reliably uploads local RDB mutations. The RDB `autoSync: true` setting on the same selected subset receives
+system cloud deliveries, while `SUBSCRIBE_TYPE_CLOUD_DETAILS` refreshes selected application state after the
+system applies a cloud change. The service retains the listener-owning `RdbStore` handle for the process
+lifetime; a function-local handle can stop delivering callbacks after startup. Deselected tables use
+`autoSync: false`, and manual sync passes the same
+selected table subset to the same sync mode. History has no separate provider path, mode, timer, snapshot,
+or correction loop. Disabling Huawei Cloud disables native automatic sync and stops scheduled provider runs.
+Backup restore pauses both the app scheduler and native automatic sync before durable rows are replaced,
+then restores both from the current provider and dataset selection after the transaction.
+
+No dataset may add a cloud-first snapshot, shadow table, second dirty-state tracker, or app-managed repair
+loop to override HarmonyOS cloud ownership. No image-block first-upload exception remains.
+The app must not run cleanDirtyData for `image_block_user_rules`, must not run native-first for that table, and must not hide
 AGC-development-environment repair behind ordinary sync. If AGC contains duplicate or malformed development
-records, fix the development data directly or through a separately reviewed maintenance tool; do not add
-more app-side cloud repair paths.
+records, fix the development data directly or through a separately reviewed maintenance tool.
 
 Do not set both `name` and `alias` to snake_case: device logs showed CloudKit then requesting
 `/kinds/custom_profile_selection/record`, which does not match the existing AGC data type and returns
 `kind is Invalid`.
 
 Manual and scheduled Huawei Cloud runs call `cloudSync(mode, tables, progress)` with the current selected
-table subset after `setDistributedTables`. `setDistributedTables` only marks tables as distributed; it does
-not provide an API to unmark tables that older builds already marked. Passing the table subset to `cloudSync`
-keeps stale historical distributed-table metadata, such as the removed `image_block_subscriptions` cloud
-mapping, out of the current run.
+table subset after `setDistributedTables`. Native automatic sync is configured by first applying
+`autoSync: false` to the complete durable cloud-table set and then applying `autoSync: true` to the selected
+subset. `setDistributedTables` does not provide an API to unmark tables that older builds already marked;
+constraining explicit runs and the automatic subset keeps stale historical distributed-table metadata, such as the removed
+`image_block_subscriptions` cloud mapping, out of current work.
 
 ## WebDAV File Layout
 

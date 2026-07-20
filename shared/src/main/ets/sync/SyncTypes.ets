@@ -28,6 +28,11 @@ export class SyncViewedHistoryRecord {
   fileCount: string = ''
   viewedAt: number = 0
   deletedAt: number = 0
+  postTime: string = ''
+  ratingFallback: number = 0
+  colorRating: string = ''
+  translated: string = ''
+  expunged: boolean = false
 }
 
 export class SyncLocalFavoriteRecord {

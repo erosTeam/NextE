@@ -4,6 +4,7 @@ import { BackupChecksum } from './BackupChecksum'
 import { BackupCrypto, BackupSealResult } from './BackupCrypto'
 import { BackupLocalDataAdapter } from './BackupLocalDataAdapter'
 import { BackupPreferencesAdapter } from './BackupPreferencesAdapter'
+import { HuaweiCloudSyncService } from '../sync/HuaweiCloudSyncService'
 import { SyncScheduler } from '../sync/SyncScheduler'
 import {
   BackupAppMetadata,
@@ -261,6 +262,16 @@ export class BackupService {
     // cancel automatic provider work before even taking rollback snapshots, so a pre-existing timer
     // cannot start while the backup transaction is preparing or replacing credential state.
     SyncScheduler.suspendAutomaticSync()
+    const huaweiCloudSuspended: boolean = await HuaweiCloudSyncService.suspendAutomaticSync(context)
+    if (!huaweiCloudSuspended) {
+      SyncScheduler.resumeAutomaticSync()
+      return {
+        ok: false,
+        restoredSections: [],
+        failedSections: ['localData'],
+        message: HuaweiCloudSyncService.lastRunDetailMessage(),
+      }
+    }
     try {
       const rollbackPreferences: SettingsMap = await BackupPreferencesAdapter.exportPreferences(context)
       const rollbackLocalData: BackupLocalDataSection = await BackupLocalDataAdapter.exportSection(context)
@@ -315,6 +326,7 @@ export class BackupService {
         message: '',
       }
     } finally {
+      await HuaweiCloudSyncService.resumeAutomaticSync(context)
       SyncScheduler.resumeAutomaticSync()
     }
   }

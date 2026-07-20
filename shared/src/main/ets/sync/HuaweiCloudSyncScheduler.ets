@@ -14,7 +14,7 @@ const MIN_ATTEMPT_INTERVAL_MS: number = 45000
 const RETRY_BASE_MS: number = 60000
 const RETRY_MAX_MS: number = 300000
 
-// Coalesce noisy local writes into a near-term cloud sync; cloud table autoSync stays disabled.
+// Coalesce durable local writes into a near-term upload while native autoSync handles cloud delivery.
 export class HuaweiCloudSyncScheduler {
   private static context: common.UIAbilityContext | null = null
   private static executor: HuaweiCloudSyncExecutor | null = null

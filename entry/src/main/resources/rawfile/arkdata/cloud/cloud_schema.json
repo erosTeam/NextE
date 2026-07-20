@@ -1,6 +1,6 @@
 {
   "metaVersion": 65537,
-  "version": 17,
+  "version": 18,
   "bundleName": "com.erosteam.nexte",
   "e2eeEnable": false,
   "databases": [
@@ -8,7 +8,7 @@
       "name": "NextE",
       "alias": "NextE",
       "bundleName": "com.erosteam.nexte",
-      "version": 17,
+      "version": 18,
       "autoSyncType": 0,
       "tables": [
         {
@@ -38,7 +38,12 @@
             { "colName": "rating", "alias": "rating", "type": 2, "primary": false, "nullable": true, "dupCheckCol": false },
             { "colName": "file_count", "alias": "file_count", "type": 3, "primary": false, "nullable": true, "dupCheckCol": false },
             { "colName": "viewed_at", "alias": "viewed_at", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false },
-            { "colName": "deleted_at", "alias": "deleted_at", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false }
+            { "colName": "deleted_at", "alias": "deleted_at", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "post_time", "alias": "post_time", "type": 3, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "rating_fallback", "alias": "rating_fallback", "type": 2, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "color_rating", "alias": "color_rating", "type": 3, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "translated", "alias": "translated", "type": 3, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "expunged", "alias": "expunged", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false }
           ]
         },
         {

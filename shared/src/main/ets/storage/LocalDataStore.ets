@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 23
+export const LOCAL_DATA_SCHEMA_VERSION: number = 24
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -13,7 +13,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'23\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'24\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -89,8 +89,25 @@ const SQL_CREATE_VIEWED_HISTORY_TABLE: string =
     'file_count TEXT, ' +
     'viewed_at INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
+    // Keep new columns appended after the v23 physical shape. Upgraded and fresh databases must expose
+    // the same order to the HarmonyOS cloud mapper.
+    'post_time TEXT, ' +
+    'rating_fallback REAL, ' +
+    'color_rating TEXT, ' +
+    'translated TEXT, ' +
+    'expunged INTEGER, ' +
     'PRIMARY KEY(scope_key, gid)' +
   ')'
+const SQL_ADD_VIEWED_HISTORY_POST_TIME: string =
+  'ALTER TABLE viewed_history ADD COLUMN post_time TEXT'
+const SQL_ADD_VIEWED_HISTORY_RATING_FALLBACK: string =
+  'ALTER TABLE viewed_history ADD COLUMN rating_fallback REAL'
+const SQL_ADD_VIEWED_HISTORY_COLOR_RATING: string =
+  'ALTER TABLE viewed_history ADD COLUMN color_rating TEXT'
+const SQL_ADD_VIEWED_HISTORY_TRANSLATED: string =
+  'ALTER TABLE viewed_history ADD COLUMN translated TEXT'
+const SQL_ADD_VIEWED_HISTORY_EXPUNGED: string =
+  'ALTER TABLE viewed_history ADD COLUMN expunged INTEGER'
 const SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_viewed_history_viewed_at ON viewed_history (viewed_at DESC)'
 const SQL_CREATE_VIEWED_HISTORY_CURSOR_INDEX: string =
@@ -590,8 +607,8 @@ export class LocalDataStore {
   }
 
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
-    // v23 adds the composite viewed-history cursor index. Only a current, intact store may skip the
-    // cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
+    // v24 completes the viewed-history list snapshot in its canonical synced row. Only a current, intact store may skip
+    // the cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
     if (store.version === LOCAL_DATA_SCHEMA_VERSION &&
       store.rebuilt === relationalStore.RebuildType.NONE) {
       return
@@ -612,6 +629,7 @@ export class LocalDataStore {
     await LocalDataStore.migrateGalleryReadProgressColumnMode(store)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_TABLE)
+    await LocalDataStore.migrateViewedHistorySnapshotColumns(store)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_CURSOR_INDEX)
     await store.executeSql(SQL_CREATE_LOCAL_FAVORITES_TABLE)
@@ -688,6 +706,24 @@ export class LocalDataStore {
       return
     }
     await store.executeSql(SQL_ADD_GALLERY_READ_PROGRESS_COLUMN_MODE)
+  }
+
+  private static async migrateViewedHistorySnapshotColumns(store: relationalStore.RdbStore): Promise<void> {
+    if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'post_time')) {
+      await store.executeSql(SQL_ADD_VIEWED_HISTORY_POST_TIME)
+    }
+    if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'rating_fallback')) {
+      await store.executeSql(SQL_ADD_VIEWED_HISTORY_RATING_FALLBACK)
+    }
+    if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'color_rating')) {
+      await store.executeSql(SQL_ADD_VIEWED_HISTORY_COLOR_RATING)
+    }
+    if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'translated')) {
+      await store.executeSql(SQL_ADD_VIEWED_HISTORY_TRANSLATED)
+    }
+    if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'expunged')) {
+      await store.executeSql(SQL_ADD_VIEWED_HISTORY_EXPUNGED)
+    }
   }
 
   private static async migrateDownloadGalleryPreferOriginal(store: relationalStore.RdbStore): Promise<void> {

@@ -10,7 +10,7 @@ import { SyncSettings } from '../settings/SyncSettings'
 import { ViewedHistorySettings } from '../settings/ViewedHistorySettings'
 import { SYNC_STATUS_FAILED, SYNC_STATUS_OK, connectSyncSettings } from '../state/SyncSettingsState'
 import { LocalDataStore } from '../storage/LocalDataStore'
-import { cloudSyncTablesForSelection } from './CloudSyncFeatures'
+import { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './CloudSyncFeatures'
 import { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './HuaweiCloudSyncBuildFlag'
 import { SyncService } from './SyncService'
 import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
@@ -23,7 +23,8 @@ const IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'
 
 export class HuaweiCloudSyncService {
   private static lastMarkedSignature: string = ''
-  private static autoSyncListenerBound: boolean = false
+  private static cloudListenerStore: relationalStore.RdbStore | null = null
+  private static automaticSyncSuppressionDepth: number = 0
   private static lastRunDetail: string = ''
 
   static available(): boolean {
@@ -69,30 +70,66 @@ export class HuaweiCloudSyncService {
       DiagnosticLogger.warn('sync', 'huawei_cloud_no_tables', 'selection is empty')
       return false
     }
-    const signature: string = tables.join(',')
-    if (HuaweiCloudSyncService.lastMarkedSignature !== signature) {
-      try {
-        const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-        const config: relationalStore.DistributedConfig = { autoSync: false }
-        await store.setDistributedTables(
-          tables,
-          relationalStore.DistributedType.DISTRIBUTED_CLOUD,
-          config,
-        )
-        HuaweiCloudSyncService.lastMarkedSignature = signature
-        HuaweiCloudSyncService.bindAutoSyncProgress(context, store)
-        DiagnosticLogger.info('sync', 'huawei_cloud_tables_marked', `tables=${signature}`)
-      } catch (error) {
-        const message: string = (error as Error).message
-        HuaweiCloudSyncService.lastRunDetail = message
-        DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', message)
-        return false
-      }
+    const configured: boolean = await HuaweiCloudSyncService.configureAutomaticSync(
+      context,
+      tables,
+      true,
+    )
+    if (!configured) {
+      return false
     }
     if (tables.includes(IMAGE_BLOCK_USER_RULES_TABLE)) {
       await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection)
     }
     return true
+  }
+
+  static async disableAutomaticSync(context: common.UIAbilityContext): Promise<boolean> {
+    return await HuaweiCloudSyncService.configureAutomaticSync(
+      context,
+      HuaweiCloudSyncService.tablesForSelection(SyncSettings.selection(SyncSettings.current())),
+      false,
+    )
+  }
+
+  static async refreshAutomaticSyncSelection(
+    context: common.UIAbilityContext,
+    selection: SyncDatasetSelection = SyncSettings.selection(SyncSettings.current()),
+  ): Promise<boolean> {
+    return await HuaweiCloudSyncService.configureAutomaticSync(
+      context,
+      HuaweiCloudSyncService.tablesForSelection(selection),
+      SyncSettings.current().huaweiCloudEnabled,
+    )
+  }
+
+  static async suspendAutomaticSync(context: common.UIAbilityContext): Promise<boolean> {
+    HuaweiCloudSyncService.automaticSyncSuppressionDepth =
+      HuaweiCloudSyncService.automaticSyncSuppressionDepth + 1
+    if (HuaweiCloudSyncService.automaticSyncSuppressionDepth > 1) {
+      return true
+    }
+    const suspended: boolean = await HuaweiCloudSyncService.configureAutomaticSync(
+      context,
+      HuaweiCloudSyncService.tablesForSelection(SyncSettings.selection(SyncSettings.current())),
+      false,
+    )
+    if (!suspended) {
+      HuaweiCloudSyncService.automaticSyncSuppressionDepth = 0
+    }
+    return suspended
+  }
+
+  static async resumeAutomaticSync(context: common.UIAbilityContext): Promise<boolean> {
+    if (HuaweiCloudSyncService.automaticSyncSuppressionDepth <= 0) {
+      return true
+    }
+    HuaweiCloudSyncService.automaticSyncSuppressionDepth =
+      HuaweiCloudSyncService.automaticSyncSuppressionDepth - 1
+    if (HuaweiCloudSyncService.automaticSyncSuppressionDepth > 0) {
+      return true
+    }
+    return await HuaweiCloudSyncService.refreshAutomaticSyncSelection(context)
   }
 
   static async cloudSyncNow(
@@ -138,7 +175,10 @@ export class HuaweiCloudSyncService {
       if (selection.customProfiles) {
         await CustomProfilesSettings.flushForSync(context)
       }
-      const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(context, selection)
+      const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(
+        context,
+        SyncSettings.selection(SyncSettings.current()),
+      )
       if (!marked) {
         if (HuaweiCloudSyncService.lastRunDetail.length <= 0) {
           HuaweiCloudSyncService.lastRunDetail = 'setDistributedTables failed'
@@ -216,6 +256,7 @@ export class HuaweiCloudSyncService {
     tables: string[],
     context: common.UIAbilityContext,
     mode: relationalStore.SyncMode = relationalStore.SyncMode.SYNC_MODE_TIME_FIRST,
+    refreshDownloads: boolean = true,
   ): Promise<number> {
     return new Promise<number>((resolve: (value: number) => void) => {
       let settled: boolean = false
@@ -244,7 +285,9 @@ export class HuaweiCloudSyncService {
               HuaweiCloudSyncService.lastRunDetail =
                 HuaweiCloudSyncService.progressDetailMessage(progress, tables)
               HuaweiCloudSyncService.logTableDetails('huawei_cloud_table_detail', progress, tables)
-              HuaweiCloudSyncService.refreshAfterDownload(context, progress, tables)
+              if (refreshDownloads) {
+                HuaweiCloudSyncService.refreshAfterDownload(context, progress, tables)
+              }
               finish(progress.code)
             }
           },
@@ -259,14 +302,59 @@ export class HuaweiCloudSyncService {
     })
   }
 
-  private static bindAutoSyncProgress(
+  private static async configureAutomaticSync(
+    context: common.UIAbilityContext,
+    selectedTables: string[],
+    requestedEnabled: boolean,
+  ): Promise<boolean> {
+    if (!HuaweiCloudSyncService.available()) {
+      return true
+    }
+    const enabled: boolean = requestedEnabled &&
+      HuaweiCloudSyncService.automaticSyncSuppressionDepth <= 0
+    const signature: string = `${enabled ? 'on' : 'off'}:${selectedTables.join(',')}`
+    if (HuaweiCloudSyncService.lastMarkedSignature === signature) {
+      return true
+    }
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      const disabledConfig: relationalStore.DistributedConfig = { autoSync: false }
+      await store.setDistributedTables(
+        HUAWEI_CLOUD_SYNC_TABLES,
+        relationalStore.DistributedType.DISTRIBUTED_CLOUD,
+        disabledConfig,
+      )
+      if (enabled && selectedTables.length > 0) {
+        const enabledConfig: relationalStore.DistributedConfig = { autoSync: true }
+        await store.setDistributedTables(
+          selectedTables,
+          relationalStore.DistributedType.DISTRIBUTED_CLOUD,
+          enabledConfig,
+        )
+      }
+      HuaweiCloudSyncService.lastMarkedSignature = signature
+      HuaweiCloudSyncService.bindCloudListeners(context, store)
+      DiagnosticLogger.info(
+        'sync',
+        'huawei_cloud_tables_marked',
+        `autoSync=${enabled},tables=${selectedTables.join(',')}`,
+      )
+      return true
+    } catch (error) {
+      const message: string = (error as Error).message
+      HuaweiCloudSyncService.lastRunDetail = message
+      DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', message)
+      return false
+    }
+  }
+
+  private static bindCloudListeners(
     context: common.UIAbilityContext,
     store: relationalStore.RdbStore,
   ): void {
-    if (HuaweiCloudSyncService.autoSyncListenerBound) {
+    if (HuaweiCloudSyncService.cloudListenerStore !== null) {
       return
     }
-    HuaweiCloudSyncService.autoSyncListenerBound = true
     store.on('autoSyncProgress', (progress: relationalStore.ProgressDetails) => {
       DiagnosticLogger.info(
         'sync',
@@ -290,6 +378,26 @@ export class HuaweiCloudSyncService {
         })
       }
     })
+    store.on(
+      'dataChange',
+      relationalStore.SubscribeType.SUBSCRIBE_TYPE_CLOUD_DETAILS,
+      (changes: relationalStore.ChangeInfo[]) => {
+        changes.forEach((change: relationalStore.ChangeInfo) => {
+          DiagnosticLogger.info(
+            'sync',
+            'huawei_cloud_data_change',
+            `table=${change.table},inserted=${change.inserted.length},updated=${change.updated.length},deleted=${change.deleted.length}`,
+          )
+        })
+        if (changes.length > 0) {
+          SyncServiceBridge.refresh(context, SyncSettings.selection(SyncSettings.current()))
+        }
+      },
+    )
+    // RDB subscriptions are owned by the store handle. Retain it for the process lifetime so
+    // system-delivered cloud changes can still notify the app after startup work has completed.
+    HuaweiCloudSyncService.cloudListenerStore = store
+    DiagnosticLogger.info('sync', 'huawei_cloud_listeners_bound', 'retainedStore=true')
   }
 
   private static refreshAfterDownload(

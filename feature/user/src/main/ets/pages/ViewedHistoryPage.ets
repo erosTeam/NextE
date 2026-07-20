@@ -20,7 +20,11 @@ import {
   gallerySimpleReuseId,
   immersiveTitleBarOpts,
 } from 'shared'
-import { ViewedHistoryDayGroup, ViewedHistoryViewModel } from '../viewmodel/ViewedHistoryViewModel'
+import {
+  ViewedHistoryDayGroup,
+  ViewedHistoryListRow,
+  ViewedHistoryViewModel,
+} from '../viewmodel/ViewedHistoryViewModel'
 import {
   HISTORY_PINNED_DAY_HEADER_HEIGHT,
   HistoryPinnedDayHeaderCCBuilder,
@@ -187,6 +191,11 @@ export struct ViewedHistoryPage {
     this.syncPinnedDayHeader()
   }
 
+  @Monitor('history.revision')
+  private onHistoryRevisionChanged(): void {
+    this.vm.reloadIfChanged(this.history.revision)
+  }
+
   private syncPinnedDayHeader(): void {
     const pinSurfaceTopY: number = this.pinnedDayHeaderState.pinSurfaceTopY
     if (pinSurfaceTopY < 0 || this.historyListGlobalY < 0) {
@@ -273,24 +282,25 @@ export struct ViewedHistoryPage {
         ListItemGroup({ header: this.HistoryDayHeader(group), space: 0 }) {
           LazyForEach(
             group.dataSource,
-            (gallery: EhGallery) => {
+            (row: ViewedHistoryListRow) => {
               ListItem() {
-                GallerySimpleCard({ gallery: gallery })
-                  .reuse({ reuseId: () => gallerySimpleReuseId(gallery) })
+                GallerySimpleCard({ gallery: row.gallery })
+                  .reuse({ reuseId: () => gallerySimpleReuseId(row.gallery) })
               }
               .swipeAction({
                 end: () => {
-                  this.DeleteSwipe(gallery.gid)
+                  this.DeleteSwipe(row.gallery.gid)
                 },
               })
               .onAppear(() => {
-                this.vm.loadMoreIfNearTailGallery(gallery.gid)
+                this.vm.loadMoreIfNearTailGallery(row.gallery.gid)
               })
               .onClick(() => {
-                this.openGallery(gallery)
+                this.openGallery(row.gallery)
               })
             },
-            (gallery: EhGallery) => `viewed_${gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
+            (row: ViewedHistoryListRow) =>
+              `viewed_${row.gallery.gid.replace(/[^A-Za-z0-9_]/g, '_')}`,
           )
         }
       },

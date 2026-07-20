@@ -84,6 +84,7 @@ ok('GitHub Actions unsigned build disables Huawei cloud sync for public artifact
 const service = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const scheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')
 const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
+const syncScheduler = read('shared/src/main/ets/sync/SyncScheduler.ets')
 ok('Huawei cloud service checks availability before permission or sync',
   /available\(\): boolean/.test(service) &&
     /if \(!HuaweiCloudSyncService\.available\(\)\)/.test(service) &&
@@ -99,16 +100,23 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
     /relationalStore\.DistributedType\.DISTRIBUTED_CLOUD/.test(service) &&
     /relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /cloudSync/.test(service))
-ok('Huawei cloud marks image-block tables with auto sync disabled before preparing local rows',
-  service.indexOf('await store.setDistributedTables') >= 0 &&
-    service.indexOf('await store.setDistributedTables') <
-      service.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') &&
-    /const config: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(service) &&
-    !/autoSync: true/.test(service))
+ok('Huawei cloud enables system auto sync uniformly for selected tables and disables deselected tables',
+  /const configured: boolean = await HuaweiCloudSyncService\.configureAutomaticSync\([\s\S]*if \(!configured\)[\s\S]*if \(tables\.includes\(IMAGE_BLOCK_USER_RULES_TABLE\)\)[\s\S]*await SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(service) &&
+    /const disabledConfig: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(service) &&
+    /const enabledConfig: relationalStore\.DistributedConfig = \{ autoSync: true \}/.test(service) &&
+    /HUAWEI_CLOUD_SYNC_TABLES/.test(service) &&
+    !/setHistoryAutoSync/.test(service))
 ok('manual Huawei cloud sync constrains each run to the selected table subset',
   /mode: relationalStore\.SyncMode = relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /\.cloudSync\(\s*mode,\s*tables,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(service) &&
     /waitCloudSyncFinish\([\s\S]*store,[\s\S]*tables,[\s\S]*context/.test(service))
+ok('Huawei cloud detail notifications refresh selected state without an app repair loop',
+  /SUBSCRIBE_TYPE_CLOUD_DETAILS/.test(service) &&
+    /SyncServiceBridge\.refresh\(context, SyncSettings\.selection/.test(service) &&
+    /cloudListenerStore: relationalStore\.RdbStore \| null/.test(service) &&
+    /HuaweiCloudSyncService\.cloudListenerStore = store/.test(service) &&
+    !/SYNC_MODE_CLOUD_FIRST|reconcileViewedHistoryFromCloud|viewedHistoryCorrections/.test(service) &&
+    !/viewedHistoryCorrections/.test(read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')))
 ok('normal Huawei cloud sync stays system-owned for image-block user rules',
   /IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'/.test(service) &&
     !/cleanDirtyData\(IMAGE_BLOCK_USER_RULES_TABLE\)/.test(service) &&
@@ -147,26 +155,27 @@ ok('Huawei cloud image-block schema failures are reported without a fallback run
     !/huawei_cloud_sync_partial/.test(service) &&
     !/treatImageBlockPartialAsSuccess/.test(service) &&
     !/return treatImageBlockPartialAsSuccess/.test(service))
-ok('Huawei cloud scheduled sync coalesces writes and foreground events',
+ok('Huawei cloud scheduled sync coalesces local writes uniformly for every selected table',
   /LOCAL_WRITE_DEBOUNCE_MS: number = 15000/.test(scheduler) &&
     /FOREGROUND_DEBOUNCE_MS: number = 3000/.test(scheduler) &&
     /MIN_ATTEMPT_INTERVAL_MS: number = 45000/.test(scheduler) &&
-    /RETRY_BASE_MS: number = 60000/.test(scheduler) &&
     /requestAfterLocalWrite/.test(scheduler) &&
     /requestAfterForeground/.test(scheduler) &&
     /SyncSettings\.current\(\)\.huaweiCloudEnabled/.test(scheduler) &&
-    /connectSyncSettings\(\)\.huaweiCloudSyncing/.test(scheduler))
+    !/viewed_history|ViewedHistory|history/.test(scheduler))
 ok('Huawei cloud scheduled sync retries failed runs without waiting for another foreground event',
   /failureCount = Math\.min\(HuaweiCloudSyncScheduler\.failureCount \+ 1, 4\)/.test(scheduler) &&
     /retryReason: string = reason\.startsWith\('retry:'\)/.test(scheduler) &&
     /scheduleTimer\(\s*HuaweiCloudSyncScheduler\.retryDelayMs\(\),\s*retryReason/.test(scheduler))
-ok('EntryAbility binds Huawei cloud scheduled sync and foreground startup kicks',
-  /HuaweiCloudSyncScheduler\.bindExecutor/.test(entryAbility) &&
+ok('EntryAbility binds scheduled uploads while startup also enables native cloud delivery',
+    /HuaweiCloudSyncScheduler\.bindExecutor/.test(entryAbility) &&
     /HuaweiCloudSyncService\.runScheduledSync\(context, reason\)/.test(entryAbility) &&
     /HuaweiCloudSyncService\.tryEnableStartup\(this\.context\)/.test(entryAbility) &&
     !/SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
-    /onForeground\(\): void \{[\s\S]*SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
+    /onForeground\(\): void \{[\s\S]*SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility) &&
+    /HuaweiCloudSyncScheduler\.requestAfterForeground\(context, reason\)/.test(syncScheduler) &&
+    /WebDavSyncScheduler\.requestAfterForeground\(context, reason\)/.test(syncScheduler))
 
 const localWriteFiles = [
   ['shared/src/main/ets/settings/GalleryReadProgressSettings.ets', 'read_progress'],
@@ -202,7 +211,7 @@ for (const table of forbiddenTables) {
 }
 
 const schema = JSON.parse(read('entry/src/main/resources/rawfile/arkdata/cloud/cloud_schema.json'))
-const expectedCloudSchemaVersion = 17
+const expectedCloudSchemaVersion = 18
 const appVersionCode = Number(appJson.match(/"versionCode":\s*(\d+)/)?.[1] ?? 0)
 ok('cloud schema is for NextE bundle and database',
   schema.bundleName === 'com.erosteam.nexte' &&
@@ -213,7 +222,7 @@ ok('cloud schema is for NextE bundle and database',
     schema.databases[0].bundleName === 'com.erosteam.nexte' &&
     schema.databases[0].version === schema.version &&
     schema.databases[0].autoSyncType === 0)
-ok('cloud schema version matches the current AGC deployed schema',
+ok('cloud schema declares the coordinated AGC migration target',
   schema.version === expectedCloudSchemaVersion &&
     schema.databases[0].version === expectedCloudSchemaVersion)
 ok('app versionCode is bumped with Huawei cloud schema version',
@@ -274,6 +283,30 @@ ok('gallery read progress cloud schema includes per-gallery double-page pairing'
       field.primary === false &&
       field.nullable === true &&
       field.dupCheckCol === false))
+const viewedHistorySchema = schema.databases[0].tables.find((table) => table.name === 'viewed_history')
+const viewedHistoryFieldOrder = viewedHistorySchema
+  ? viewedHistorySchema.fields.map((field) => field.colName)
+  : []
+ok('viewed history cloud schema carries one canonical list snapshot in physical-table order',
+  viewedHistoryFieldOrder.join(',') === [
+    'scope_key',
+    'gid',
+    'token',
+    'title',
+    'title_jp',
+    'thumb_url',
+    'category',
+    'uploader',
+    'rating',
+    'file_count',
+    'viewed_at',
+    'deleted_at',
+    'post_time',
+    'rating_fallback',
+    'color_rating',
+    'translated',
+    'expunged',
+  ].join(','))
 
 const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
@@ -311,6 +344,34 @@ const imageBlockUserRuleColumnOrder = [
 ok('local image block user rule physical column order matches cloud schema',
   inOrder(imageBlockUserRuleCreateSql, imageBlockUserRuleColumnOrder) &&
     /PRIMARY KEY\(rule_id, scope_key\)/.test(imageBlockUserRuleCreateSql))
+const viewedHistoryCreateStart = localStore.indexOf('const SQL_CREATE_VIEWED_HISTORY_TABLE')
+const viewedHistoryCreateEnd = localStore.indexOf('const SQL_ADD_VIEWED_HISTORY_POST_TIME')
+const viewedHistoryCreateSql = viewedHistoryCreateStart >= 0 && viewedHistoryCreateEnd > viewedHistoryCreateStart
+  ? localStore.slice(viewedHistoryCreateStart, viewedHistoryCreateEnd)
+  : ''
+ok('local viewed history physical column order matches cloud schema and upgrades v23 in place',
+  inOrder(viewedHistoryCreateSql, [
+    'scope_key TEXT',
+    'gid TEXT',
+    'token TEXT',
+    'title TEXT',
+    'title_jp TEXT',
+    'thumb_url TEXT',
+    'category TEXT',
+    'uploader TEXT',
+    'rating REAL',
+    'file_count TEXT',
+    'viewed_at INTEGER',
+    'deleted_at INTEGER DEFAULT 0',
+    'post_time TEXT',
+    'rating_fallback REAL',
+    'color_rating TEXT',
+    'translated TEXT',
+    'expunged INTEGER',
+  ]) &&
+    /migrateViewedHistorySnapshotColumns/.test(localStore) &&
+    /ALTER TABLE viewed_history ADD COLUMN post_time TEXT/.test(localStore) &&
+    !/viewed_history_metadata/.test(localStore))
 ok('local image block user rule SQL matches AGC端侧去重主键 order',
   !/image_block_user_rules_cloud_order_tmp/.test(localStore) &&
     /ON CONFLICT\(rule_id, scope_key\)/.test(syncAdapter) &&
