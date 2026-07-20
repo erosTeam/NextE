@@ -155,6 +155,8 @@ const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
 const syncService = read('shared/src/main/ets/sync/SyncService.ets')
 const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const viewModel = read('feature/user/src/main/ets/viewmodel/ViewedHistoryViewModel.ets')
+const historyPage = read('feature/user/src/main/ets/pages/ViewedHistoryPage.ets')
+const simpleCard = read('shared/src/main/ets/components/GallerySimpleCard.ets')
 const viewedGallery = read('shared/src/main/ets/model/ViewedGallery.ets')
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
@@ -196,6 +198,14 @@ ok('history refresh keeps same-day LazyForEach data sources and stable V2 row ho
     /row\.gallery = gallery/.test(viewModel) &&
     /group\.dataSource\.setData\(groupRows\)/.test(viewModel) &&
     !/private resetDayGroups\(rows: EhGallery\[\]\): void \{\s*const groups: ViewedHistoryDayGroup\[\] = \[\]\s*this\.appendRowsToGroups/.test(viewModel))
+ok('history rows keep gallery publication time and show viewed time as separate clock metadata',
+  /gallery\.postTime = item\.postTime/.test(viewModel) &&
+    /gallery\.lastViewTime = item\.time/.test(viewModel) &&
+    !/gallery\.postTime = this\.formatTime\(item\.time\)/.test(viewModel) &&
+    /viewedTime: this\.viewedTimeLabel\(row\.gallery\.lastViewTime\)/.test(historyPage) &&
+    /@Param viewedTime: string = ''/.test(simpleCard) &&
+    /sys\.symbol\.clock/.test(simpleCard) &&
+    /Text\(this\.gallery\.postTime\)/.test(simpleCard))
 ok('the history cursor query has a matching composite RDB index and schema migration',
   /LOCAL_DATA_SCHEMA_VERSION: number = 24/.test(localDataStore) &&
     /idx_viewed_history_cursor/.test(localDataStore) &&

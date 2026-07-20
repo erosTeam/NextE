@@ -9,13 +9,14 @@ const SIMPLE_THUMB_H: number = 102
 
 // Reuse only rows with matching optional text/icon nodes. The thumbnail and rating subtree are otherwise
 // fixed for every simple row, and all gallery values arrive through @Param on reuse.
-export function gallerySimpleReuseId(gallery: EhGallery): string {
+export function gallerySimpleReuseId(gallery: EhGallery, viewedTime: string = ''): string {
   const uploaderShape: string = gallery.uploader.length > 0 ? 'uploader' : 'no_uploader'
   const favoriteShape: string = gallery.favcat.length > 0 || gallery.favTitle.length > 0
     ? 'favorite'
     : 'plain'
   const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
-  return `simple_${uploaderShape}_${favoriteShape}_${languageShape}`
+  const viewedTimeShape: string = viewedTime.length > 0 ? 'viewed_time' : 'no_viewed_time'
+  return `simple_${uploaderShape}_${favoriteShape}_${languageShape}_${viewedTimeShape}`
 }
 
 /**
@@ -29,6 +30,7 @@ export function gallerySimpleReuseId(gallery: EhGallery): string {
 export struct GallerySimpleCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
+  @Param viewedTime: string = '';
 
   build() {
     Row({ space: ThemeConstants.SPACE_SM }) {
@@ -97,6 +99,17 @@ export struct GallerySimpleCard {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Blank()
+          if (this.viewedTime.length > 0) {
+            Row({ space: 2 }) {
+              SymbolGlyph($r('sys.symbol.clock'))
+                .fontSize(ThemeConstants.FONT_SIZE_TINY)
+                .fontColor([$r('sys.color.font_tertiary')])
+              Text(this.viewedTime)
+                .fontSize(ThemeConstants.FONT_SIZE_TINY)
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+            .margin({ right: ThemeConstants.SPACE_SM })
+          }
           Text(this.gallery.postTime)
             .fontSize(ThemeConstants.FONT_SIZE_TINY)
             .fontColor($r('sys.color.font_tertiary'))

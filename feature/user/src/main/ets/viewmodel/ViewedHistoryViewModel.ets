@@ -227,23 +227,14 @@ export class ViewedHistoryViewModel {
     gallery.category = item.category
     gallery.uploader = item.uploader
     gallery.rating = item.rating
-    gallery.ratingFallBack = item.rating
+    gallery.ratingFallBack = item.ratingFallBack > 0 ? item.ratingFallBack : item.rating
+    gallery.colorRating = item.colorRating
     gallery.fileCount = item.fileCount
-    gallery.postTime = this.formatTime(item.time)
+    gallery.translated = item.translated
+    gallery.expunged = item.expunged
+    gallery.postTime = item.postTime
     gallery.lastViewTime = item.time
     return gallery
-  }
-
-  private formatTime(time: number): string {
-    if (time <= 0) {
-      return ''
-    }
-    const date: Date = new Date(time)
-    const month: string = `${date.getMonth() + 1}`.padStart(2, '0')
-    const day: string = `${date.getDate()}`.padStart(2, '0')
-    const hour: string = `${date.getHours()}`.padStart(2, '0')
-    const minute: string = `${date.getMinutes()}`.padStart(2, '0')
-    return `${month}-${day} ${hour}:${minute}`
   }
 
   private resetDayGroups(rows: EhGallery[]): void {

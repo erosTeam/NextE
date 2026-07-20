@@ -227,6 +227,16 @@ export struct ViewedHistoryPage {
     this.pinnedDayHeaderState.visible = true
   }
 
+  private viewedTimeLabel(time: number): string {
+    if (time <= 0) {
+      return ''
+    }
+    const date: Date = new Date(time)
+    const hour: string = `${date.getHours()}`.padStart(2, '0')
+    const minute: string = `${date.getMinutes()}`.padStart(2, '0')
+    return `${hour}:${minute}`
+  }
+
   @Builder
   private HistoryRows() {
     if (
@@ -284,8 +294,16 @@ export struct ViewedHistoryPage {
             group.dataSource,
             (row: ViewedHistoryListRow) => {
               ListItem() {
-                GallerySimpleCard({ gallery: row.gallery })
-                  .reuse({ reuseId: () => gallerySimpleReuseId(row.gallery) })
+                GallerySimpleCard({
+                  gallery: row.gallery,
+                  viewedTime: this.viewedTimeLabel(row.gallery.lastViewTime),
+                })
+                  .reuse({
+                    reuseId: () => gallerySimpleReuseId(
+                      row.gallery,
+                      this.viewedTimeLabel(row.gallery.lastViewTime),
+                    ),
+                  })
               }
               .swipeAction({
                 end: () => {
