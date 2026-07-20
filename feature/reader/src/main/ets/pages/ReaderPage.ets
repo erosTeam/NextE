@@ -1407,10 +1407,14 @@ export struct ReaderPage {
     input.sourceLanguage = 'auto'
     input.targetLanguage = 'zh-CN'
 
+    const retainCurrentDocument: boolean = forceRefresh &&
+      this.comicTranslationDocument !== null && this.comicTranslationPageIndex === pageIndex
     this.comicTranslationPageIndex = pageIndex
-    this.comicTranslationDocument = null
+    if (!retainCurrentDocument) {
+      this.comicTranslationDocument = null
+      this.comicTranslationCacheHit = false
+    }
     this.comicTranslationErrorCode = ''
-    this.comicTranslationCacheHit = false
     this.comicTranslationRunning = true
     this.comicTranslationSheetShown = true
     ComicTranslationRuntimeService.runReaderPage(this.hostContext(), input, forceRefresh)
@@ -1521,6 +1525,11 @@ export struct ReaderPage {
       .replace('%s', this.comicTranslationErrorCode)
   }
 
+  private comicTranslationRefreshFailureText(): string {
+    return AppStrings.get('reader_comic_translation_refresh_failed')
+      .replace('%s', this.comicTranslationErrorCode)
+  }
+
   @Builder
   private ComicTranslationBlockRow(block: ComicTextBlock) {
     Column({ space: ThemeConstants.SPACE_SM }) {
@@ -1549,6 +1558,45 @@ export struct ReaderPage {
   }
 
   @Builder
+  private ComicTranslationRefreshProgress() {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      LoadingProgress()
+        .width(20)
+        .height(20)
+        .color(ThemeConstants.BRAND_PRIMARY)
+      Text($r('app.string.reader_comic_translation_refreshing'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .padding(ThemeConstants.SPACE_MD)
+    .backgroundColor(ThemeConstants.BG_SUB)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+  }
+
+  @Builder
+  private ComicTranslationRefreshFailure() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(this.comicTranslationRefreshFailureText())
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(ThemeConstants.TEXT_PRIMARY)
+        .width('100%')
+      Button($r('app.string.common_retry'))
+        .type(ButtonType.Capsule)
+        .enabled(this.comicTranslationCurrentPageReady())
+        .onClick(() => {
+          this.startCurrentPageComicTranslation(true)
+        })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding(ThemeConstants.SPACE_MD)
+    .backgroundColor(ThemeConstants.BG_SUB)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+  }
+
+  @Builder
   private ComicTranslationSheet() {
     Column({ space: ThemeConstants.SPACE_MD }) {
       Row() {
@@ -1568,7 +1616,7 @@ export struct ReaderPage {
       }
       .width('100%')
 
-      if (this.comicTranslationRunning) {
+      if (this.comicTranslationRunning && this.comicTranslationDocument === null) {
         Column({ space: ThemeConstants.SPACE_MD }) {
           LoadingProgress()
             .width(32)
@@ -1581,7 +1629,8 @@ export struct ReaderPage {
         .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
-      } else if (this.comicTranslationErrorCode.length > 0) {
+      } else if (this.comicTranslationErrorCode.length > 0 &&
+        this.comicTranslationDocument === null) {
         Column({ space: ThemeConstants.SPACE_MD }) {
           Text(this.comicTranslationFailureText())
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -1598,10 +1647,24 @@ export struct ReaderPage {
         .width('100%')
         .justifyContent(FlexAlign.Center)
       } else if (this.comicTranslationDocument !== null) {
-        Text(this.comicTranslationStatusText())
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(ThemeConstants.TEXT_SECONDARY)
-          .width('100%')
+        Row({ space: ThemeConstants.SPACE_SM }) {
+          Text(this.comicTranslationStatusText())
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor(ThemeConstants.TEXT_SECONDARY)
+            .layoutWeight(1)
+          Button($r('app.string.reader_comic_translation_refresh'))
+            .type(ButtonType.Capsule)
+            .enabled(!this.comicTranslationRunning && this.comicTranslationCurrentPageReady())
+            .onClick(() => {
+              this.startCurrentPageComicTranslation(true)
+            })
+        }
+        .width('100%')
+        if (this.comicTranslationRunning) {
+          this.ComicTranslationRefreshProgress()
+        } else if (this.comicTranslationErrorCode.length > 0) {
+          this.ComicTranslationRefreshFailure()
+        }
         if (!this.comicTranslationDocument.hasText) {
           Text($r('app.string.reader_comic_translation_no_text'))
             .fontSize(ThemeConstants.FONT_SIZE_BODY)

@@ -5033,6 +5033,18 @@
       "value": "Transcribing and translating the current page…"
     },
     {
+      "name": "reader_comic_translation_refresh",
+      "value": "Retranslate"
+    },
+    {
+      "name": "reader_comic_translation_refreshing",
+      "value": "Retranslating; the previous result remains visible until it finishes"
+    },
+    {
+      "name": "reader_comic_translation_refresh_failed",
+      "value": "Retranslation failed · %s · showing the previous result"
+    },
+    {
       "name": "reader_comic_translation_image_unavailable",
       "value": "The current image is not ready yet"
     },

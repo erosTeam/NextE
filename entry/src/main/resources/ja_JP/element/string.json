@@ -5033,6 +5033,18 @@
       "value": "現在のページを文字起こしして翻訳中…"
     },
     {
+      "name": "reader_comic_translation_refresh",
+      "value": "再翻訳"
+    },
+    {
+      "name": "reader_comic_translation_refreshing",
+      "value": "再翻訳中です。完了するまで前回の結果を表示します"
+    },
+    {
+      "name": "reader_comic_translation_refresh_failed",
+      "value": "再翻訳に失敗しました · %s · 前回の結果を表示しています"
+    },
+    {
       "name": "reader_comic_translation_image_unavailable",
       "value": "現在の画像はまだ準備できていません"
     },
