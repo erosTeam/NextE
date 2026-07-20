@@ -393,6 +393,7 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
   }
 
   async load(identity: ComicTranslationRequestIdentity): Promise<ComicPageDocument | null> {
+    identity.assertValid()
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
     const resultSet: relationalStore.ResultSet = await store.querySql(
       SQL_SELECT_EXACT,
@@ -433,6 +434,7 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     identity: ComicTranslationRequestIdentity,
     document: ComicPageDocument,
   ): Promise<void> {
+    identity.assertValid()
     if (!identity.matchesDocument(document)) {
       throw new Error('Comic translation repository document identity mismatch')
     }
@@ -463,6 +465,7 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     identity: ComicTranslationRequestIdentity,
     limit: number,
   ): Promise<ComicPageDocument[]> {
+    identity.assertValid()
     const boundedLimit: number = Math.max(0, Math.min(2, limit))
     if (boundedLimit === 0 || identity.pageIndex <= 0) {
       return []

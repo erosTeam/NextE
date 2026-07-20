@@ -57,7 +57,7 @@ export class ComicTranslationRequestIdentity {
     identity.styleGuideRevision = request.context.styleGuideRevision
     identity.contextRevision = request.context.contextRevision
     identity.contextFingerprint = analyzer.contextFingerprint(request)
-    identity.validate()
+    identity.assertValid()
     return identity
   }
 
@@ -84,8 +84,9 @@ export class ComicTranslationRequestIdentity {
   }
 
   cacheKey(): string {
+    this.assertValid()
     return JSON.stringify([
-      this.scopeKey(),
+      this.uncheckedScopeKey(),
       `${this.pageIndex}`,
       this.imageHash,
       `${this.imageWidth}`,
@@ -96,6 +97,39 @@ export class ComicTranslationRequestIdentity {
   }
 
   scopeKey(): string {
+    this.assertValid()
+    return this.uncheckedScopeKey()
+  }
+
+  assertValid(): void {
+    if (!ComicTranslationRequestIdentity.validIdentifier(this.projectId, MAX_COMIC_PROJECT_ID_CHARS) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.pageIndex) ||
+      !/^[a-f0-9]{64}$/.test(this.imageHash) ||
+      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageWidth) ||
+      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageHeight) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.providerId, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.modelId, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(
+        this.analysisPromptVersion,
+        MAX_COMIC_IDENTITY_CHARS,
+      ) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.sourceLanguage, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.validIdentifier(this.targetLanguage, MAX_COMIC_IDENTITY_CHARS) ||
+      !ComicTranslationRequestIdentity.positiveSafeInteger(this.analysisRevision) ||
+      !ComicTranslationRequestIdentity.positiveSafeInteger(this.translationRevision) ||
+      !ComicTranslationRequestIdentity.validIdentifier(
+        this.imagePreparationProfileId,
+        MAX_COMIC_IDENTITY_CHARS,
+      ) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.glossaryRevision) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.styleGuideRevision) ||
+      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.contextRevision) ||
+      !/^[a-f0-9]{64}$/.test(this.contextFingerprint)) {
+      throw new Error('Comic translation request identity is invalid')
+    }
+  }
+
+  private uncheckedScopeKey(): string {
     return JSON.stringify([
       this.projectId,
       this.providerId,
@@ -131,34 +165,6 @@ export class ComicTranslationRequestIdentity {
     return document.translationRevision === 0 && document.hasText === false &&
       document.blocks.length === 0 &&
       document.translationState === ComicTranslationState.MISSING
-  }
-
-  private validate(): void {
-    if (!ComicTranslationRequestIdentity.validIdentifier(this.projectId, MAX_COMIC_PROJECT_ID_CHARS) ||
-      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.pageIndex) ||
-      !/^[a-f0-9]{64}$/.test(this.imageHash) ||
-      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageWidth) ||
-      !ComicTranslationRequestIdentity.positiveImageEdge(this.imageHeight) ||
-      !ComicTranslationRequestIdentity.validIdentifier(this.providerId, MAX_COMIC_IDENTITY_CHARS) ||
-      !ComicTranslationRequestIdentity.validIdentifier(this.modelId, MAX_COMIC_IDENTITY_CHARS) ||
-      !ComicTranslationRequestIdentity.validIdentifier(
-        this.analysisPromptVersion,
-        MAX_COMIC_IDENTITY_CHARS,
-      ) ||
-      !ComicTranslationRequestIdentity.validIdentifier(this.sourceLanguage, MAX_COMIC_IDENTITY_CHARS) ||
-      !ComicTranslationRequestIdentity.validIdentifier(this.targetLanguage, MAX_COMIC_IDENTITY_CHARS) ||
-      !ComicTranslationRequestIdentity.positiveSafeInteger(this.analysisRevision) ||
-      !ComicTranslationRequestIdentity.positiveSafeInteger(this.translationRevision) ||
-      !ComicTranslationRequestIdentity.validIdentifier(
-        this.imagePreparationProfileId,
-        MAX_COMIC_IDENTITY_CHARS,
-      ) ||
-      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.glossaryRevision) ||
-      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.styleGuideRevision) ||
-      !ComicTranslationRequestIdentity.nonNegativeSafeInteger(this.contextRevision) ||
-      !/^[a-f0-9]{64}$/.test(this.contextFingerprint)) {
-      throw new Error('Comic translation request identity is invalid')
-    }
   }
 
   private static validIdentifier(value: string, maxChars: number): boolean {
@@ -211,6 +217,7 @@ export class InMemoryComicTranslationRepository implements ComicTranslationRepos
   }
 
   async load(identity: ComicTranslationRequestIdentity): Promise<ComicPageDocument | null> {
+    identity.assertValid()
     const record: ComicTranslationMemoryRecord | undefined = this.records.get(identity.cacheKey())
     return record === undefined ? null : record.document.copy()
   }
@@ -219,6 +226,7 @@ export class InMemoryComicTranslationRepository implements ComicTranslationRepos
     identity: ComicTranslationRequestIdentity,
     document: ComicPageDocument,
   ): Promise<void> {
+    identity.assertValid()
     if (!identity.matchesDocument(document)) {
       throw new Error('Comic translation repository document identity mismatch')
     }
@@ -235,6 +243,7 @@ export class InMemoryComicTranslationRepository implements ComicTranslationRepos
     identity: ComicTranslationRequestIdentity,
     limit: number,
   ): Promise<ComicPageDocument[]> {
+    identity.assertValid()
     const boundedLimit: number = Math.max(0, Math.min(2, limit))
     if (boundedLimit === 0 || identity.pageIndex <= 0) {
       return []

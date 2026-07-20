@@ -13,6 +13,7 @@ import {
   ComicTextBlock,
   ComicTextKind,
   ComicTranslationDocumentCodec,
+  InMemoryComicTranslationRepository,
   ComicTranslationOrigin,
   ComicTranslationRequestIdentity,
   ComicTranslationState,
@@ -197,6 +198,55 @@ export default function comicTranslationPersistentRepositoryTest(): void {
       expect(restored.blocks[0].translatedText).assertEqual(' translation-0 ')
       expect(restored.qualitySignals[0].message).assertEqual(' fixture signal ')
     })
+
+    it('rejects manually constructed invalid identities at repository entrypoints', 0,
+      async (done: Function) => {
+        const invalidIdentities: ComicTranslationRequestIdentity[] = []
+        const project: ComicTranslationRequestIdentity = identity(0)
+        project.projectId = ` ${TEST_PROJECT_ID}`
+        invalidIdentities.push(project)
+        const imageHash: ComicTranslationRequestIdentity = identity(0)
+        imageHash.imageHash = 'A'.repeat(64)
+        invalidIdentities.push(imageHash)
+        const page: ComicTranslationRequestIdentity = identity(0)
+        page.pageIndex = Number.MAX_SAFE_INTEGER + 1
+        invalidIdentities.push(page)
+
+        for (let index: number = 0; index < invalidIdentities.length; index++) {
+          let cacheKeyRejected: boolean = false
+          try {
+            invalidIdentities[index].cacheKey()
+          } catch (_error) {
+            cacheKeyRejected = true
+          }
+          expect(cacheKeyRejected).assertEqual(true)
+        }
+
+        const memory: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        let loadRejected: boolean = false
+        try {
+          await memory.load(project)
+        } catch (_error) {
+          loadRejected = true
+        }
+        expect(loadRejected).assertEqual(true)
+        let saveRejected: boolean = false
+        try {
+          await memory.save(project, document(project))
+        } catch (_error) {
+          saveRejected = true
+        }
+        expect(saveRejected).assertEqual(true)
+        let previousRejected: boolean = false
+        try {
+          await memory.loadPrevious(project, 2)
+        } catch (_error) {
+          previousRejected = true
+        }
+        expect(previousRejected).assertEqual(true)
+        done()
+      })
 
     it('recovers exact and previous-page documents through new repository instances', 0,
       async (done: Function) => {
