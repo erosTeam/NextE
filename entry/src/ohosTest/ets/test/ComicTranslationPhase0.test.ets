@@ -30,7 +30,7 @@ import {
 const FIXTURE_MODULE: string = 'entry_test'
 const FIXTURE_PATH: string = 'comic_translation_phase0_page.json'
 const FIXTURE_PROJECT_ID: string = 'fixture-gallery:zh-CN'
-const FIXTURE_IMAGE_HASH: string = 'fixture-image-sha256'
+const FIXTURE_IMAGE_HASH: string = 'f'.repeat(64)
 const EVALUATION_MANIFEST_PATH: string = 'comic_translation_eval_manifest.json'
 
 class RawEvaluationBlock {
@@ -299,7 +299,7 @@ export default function comicTranslationPhase0Test(): void {
       const request: ComicPageAnalysisRequest = buildComicAnalysisRequest()
       const noTextPayload: string =
         '{"schemaVersion":1,"projectId":"fixture-gallery:zh-CN","pageIndex":1,' +
-        '"imageHash":"fixture-image-sha256","imageWidth":1200,"imageHeight":1800,' +
+        '"imageHash":"' + FIXTURE_IMAGE_HASH + '","imageWidth":1200,"imageHeight":1800,' +
         '"hasText":false,"pageSummary":"","blocks":[],"qualitySignals":[]}'
       const result: ComicPageAnalysisResult = ComicPageAnalysisParser.parse(
         request,

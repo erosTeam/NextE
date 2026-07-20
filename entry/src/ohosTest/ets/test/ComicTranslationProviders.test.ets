@@ -26,6 +26,8 @@ import {
   OpenAiApiComicPageAnalyzer,
 } from 'shared'
 
+const PROVIDER_FIXTURE_IMAGE_HASH: string = 'd'.repeat(64)
+
 class FakeCodexOAuthTransport implements CodexOAuthHttpTransport {
   pollCalls: number = 0
 
@@ -146,7 +148,7 @@ function providerRequest(): ComicPageAnalysisRequest {
   request.projectId = 'provider-fixture:zh-CN'
   request.pageIndex = 2
   request.imageFilePath = '/data/storage/el2/base/cache/provider-fixture.jpg'
-  request.imageHash = 'provider-fixture-sha256'
+  request.imageHash = PROVIDER_FIXTURE_IMAGE_HASH
   request.sourceWidth = 1200
   request.sourceHeight = 1800
   request.requestedAnalysisRevision = 1
@@ -188,7 +190,7 @@ function readerPageInput(imageFilePath: string): ComicTranslationReaderPageInput
 
 function providerPageJson(): string {
   return '{"schemaVersion":1,"projectId":"provider-fixture:zh-CN","pageIndex":2,' +
-    '"imageHash":"provider-fixture-sha256","imageWidth":1200,"imageHeight":1800,' +
+    '"imageHash":"' + PROVIDER_FIXTURE_IMAGE_HASH + '","imageWidth":1200,"imageHeight":1800,' +
     '"hasText":false,"pageSummary":"","blocks":[],"qualitySignals":[]}'
 }
 
@@ -321,6 +323,61 @@ export default function comicTranslationProvidersTest(): void {
           message = (error as Error).message
         }
         expect(message.includes('page index is invalid')).assertEqual(true)
+        expect(transport.requestCount).assertEqual(0)
+        done()
+      })
+
+    it('rejects non-canonical direct provider identity before image file access', 0,
+      async (done: Function) => {
+        const transport: CountingComicResponsesTransport = new CountingComicResponsesTransport()
+        const analyzer: OpenAiApiComicPageAnalyzer = new OpenAiApiComicPageAnalyzer(
+          'https://api.openai.com/v1',
+          'fixture-key',
+          'fixture-model',
+          transport,
+        )
+        const nonCanonicalInputs: ComicPageAnalysisRequest[] = []
+        const project: ComicPageAnalysisRequest = providerRequest()
+        project.projectId = ' provider-fixture:zh-CN'
+        nonCanonicalInputs.push(project)
+        const sourceLanguage: ComicPageAnalysisRequest = providerRequest()
+        sourceLanguage.context.sourceLanguage = 'ja '
+        nonCanonicalInputs.push(sourceLanguage)
+        const targetLanguage: ComicPageAnalysisRequest = providerRequest()
+        targetLanguage.context.targetLanguage = ' zh-CN'
+        nonCanonicalInputs.push(targetLanguage)
+        const profile: ComicPageAnalysisRequest = providerRequest()
+        profile.imagePreparationProfile.profileId = ' original-jpeg-v1'
+        nonCanonicalInputs.push(profile)
+        for (let index: number = 0; index < nonCanonicalInputs.length; index++) {
+          let identityMessage: string = ''
+          try {
+            await analyzer.analyze(nonCanonicalInputs[index])
+          } catch (error) {
+            identityMessage = (error as Error).message
+          }
+          expect(identityMessage.includes('is not normalized')).assertEqual(true)
+        }
+
+        const invalidHash: ComicPageAnalysisRequest = providerRequest()
+        invalidHash.imageHash = 'not-a-sha256'
+        let hashMessage: string = ''
+        try {
+          await analyzer.analyze(invalidHash)
+        } catch (error) {
+          hashMessage = (error as Error).message
+        }
+        expect(hashMessage.includes('image hash is invalid')).assertEqual(true)
+
+        const oversizedPath: ComicPageAnalysisRequest = providerRequest()
+        oversizedPath.imageFilePath = ' '.repeat(4096) + 'x'
+        let pathMessage: string = ''
+        try {
+          await analyzer.analyze(oversizedPath)
+        } catch (error) {
+          pathMessage = (error as Error).message
+        }
+        expect(pathMessage.includes('image file path is too long')).assertEqual(true)
         expect(transport.requestCount).assertEqual(0)
         done()
       })

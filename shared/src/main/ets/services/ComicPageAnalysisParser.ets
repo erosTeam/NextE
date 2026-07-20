@@ -225,7 +225,7 @@ export class ComicPageAnalysisParser {
   }
 
   static validateRequest(request: ComicPageAnalysisRequest): void {
-    ComicPageAnalysisParser.requiredString(
+    ComicPageAnalysisParser.exactRequiredString(
       request.projectId,
       'request project id',
       MAX_COMIC_IDENTIFIER_CHARS,
@@ -233,16 +233,19 @@ export class ComicPageAnalysisParser {
     if (ComicPageAnalysisParser.safeInteger(request.pageIndex, -1) < 0) {
       throw new Error('Comic analysis request page index is invalid')
     }
-    ComicPageAnalysisParser.requiredString(
+    ComicPageAnalysisParser.boundedPath(
       request.imageFilePath,
       'request image file path',
       MAX_COMIC_IMAGE_PATH_CHARS,
     )
-    ComicPageAnalysisParser.requiredString(
+    const imageHash: string = ComicPageAnalysisParser.exactRequiredString(
       request.imageHash,
       'request image hash',
       MAX_COMIC_IDENTIFIER_CHARS,
     )
+    if (!/^[a-f0-9]{64}$/.test(imageHash)) {
+      throw new Error('Comic analysis request image hash is invalid')
+    }
     const sourceWidth: number = ComicPageAnalysisParser.safeInteger(request.sourceWidth, -1)
     const sourceHeight: number = ComicPageAnalysisParser.safeInteger(request.sourceHeight, -1)
     if (sourceWidth < 0 || sourceHeight < 0) {
@@ -254,7 +257,7 @@ export class ComicPageAnalysisParser {
     if (sourceWidth > MAX_COMIC_IMAGE_EDGE || sourceHeight > MAX_COMIC_IMAGE_EDGE) {
       throw new Error('Comic analysis request image dimensions are too large')
     }
-    ComicPageAnalysisParser.requiredString(
+    ComicPageAnalysisParser.exactRequiredString(
       request.imagePreparationProfile.profileId,
       'request image preparation profile id',
       MAX_COMIC_IDENTIFIER_CHARS,
@@ -285,12 +288,12 @@ export class ComicPageAnalysisParser {
     if (ComicPageAnalysisParser.safeInteger(request.requestedTranslationRevision, -1) <= 0) {
       throw new Error('Comic translation request revision is invalid')
     }
-    ComicPageAnalysisParser.requiredString(
+    ComicPageAnalysisParser.exactRequiredString(
       request.context.sourceLanguage,
       'request source language',
       MAX_COMIC_IDENTIFIER_CHARS,
     )
-    ComicPageAnalysisParser.requiredString(
+    ComicPageAnalysisParser.exactRequiredString(
       request.context.targetLanguage,
       'request target language',
       MAX_COMIC_IDENTIFIER_CHARS,
@@ -554,6 +557,20 @@ export class ComicPageAnalysisParser {
       throw new Error('Comic analysis ' + name + ' is not normalized')
     }
     return normalized
+  }
+
+  private static boundedPath(
+    value: string | null | undefined,
+    name: string,
+    maxLength: number,
+  ): string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new Error('Missing comic analysis ' + name)
+    }
+    if (value.length > maxLength) {
+      throw new Error('Comic analysis ' + name + ' is too long')
+    }
+    return value
   }
 
   private static boundedString(

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "projectId": "fixture-gallery:zh-CN",
   "pageIndex": 1,
-  "imageHash": "fixture-image-sha256",
+  "imageHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "imageWidth": 1200,
   "imageHeight": 1800,
   "hasText": true,
