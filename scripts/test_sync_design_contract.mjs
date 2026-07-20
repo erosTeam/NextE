@@ -150,6 +150,26 @@ ok('WebDAV provider conditionally replaces an ETag versioned manifest and retrie
     /If-None-Match/.test(webdav) &&
     /MAX_MANIFEST_SYNC_ATTEMPTS/.test(webdav) &&
     /webdav_manifest_conflict_retry/.test(webdav))
+ok('WebDAV provider coalesces manual and scheduled runs for the same account and sync root',
+  /activeRuns: Map<string, Promise<void>>/.test(webdav) &&
+    /syncRunKey\(config\)/.test(webdav) &&
+    /webdav_sync_joined/.test(webdav) &&
+    /activeRuns\.delete\(runKey\)/.test(webdav))
+ok('WebDAV provider uses manifest hashes to skip unchanged shard downloads',
+  /localShardMatchesManifest/.test(webdav) &&
+    /webdav_shard_download_skipped/.test(webdav) &&
+    /local\.sha256 === remote\.sha256/.test(webdav) &&
+    /readDatasetEnvelope\([\s\S]*?localShards/.test(webdav))
+ok('WebDAV read-progress shards use stable field order across record schema additions',
+  /canonicalReadProgress/.test(webdav) &&
+    /out\.columnMode = source\.columnMode/.test(webdav) &&
+    /canonicalReadProgress\(r\)/.test(webdav))
+ok('WebDAV provider reads the legacy single-file path only when the manifest is missing',
+  /const legacyRaw: string = manifestRemote\.exists \? '' :/.test(webdav) &&
+    /legacyFileUrl/.test(webdav))
+ok('WebDAV provider accepts an existing collection response without retrying',
+  /code === 405/.test(webdav) &&
+    /WebDAV MKCOL failed/.test(webdav))
 ok('WebDAV provider builds shards off UI thread with a single bucket pass',
   /taskpool\.execute<\[string, string\], string>\(buildWebDavShardsTask/.test(webdav) &&
     /collectShardBuckets/.test(webdav) &&

@@ -156,6 +156,16 @@ function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
       }
     }
   }
+  const canonicalReadProgress = (source: SyncReadProgressRecord): SyncReadProgressRecord => {
+    const out: SyncReadProgressRecord = new SyncReadProgressRecord()
+    out.scopeKey = source.scopeKey
+    out.gid = source.gid
+    out.pageIndex = source.pageIndex
+    out.columnMode = source.columnMode
+    out.updatedAt = source.updatedAt
+    out.deletedAt = source.deletedAt
+    return out
+  }
   const collectShardBuckets = (
     envelope: SyncEnvelopeV1,
     ids: string[],
@@ -164,7 +174,9 @@ function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
     if (datasetId === datasetReadProgress) {
       for (let i: number = 0; i < envelope.datasets.readProgress.length; i++) {
         const r: SyncReadProgressRecord = envelope.datasets.readProgress[i]
-        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.gid).datasets.readProgress.push(r)
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.gid).datasets.readProgress.push(
+          canonicalReadProgress(r),
+        )
       }
     } else if (datasetId === datasetViewedHistory) {
       for (let i: number = 0; i < envelope.datasets.viewedHistory.length; i++) {
@@ -373,20 +385,51 @@ export class WebDavSyncConfig {
 }
 
 export class WebDavSyncService {
-  static async syncNow(
+  private static activeRuns: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+
+  static syncNow(
     context: common.UIAbilityContext,
     config: WebDavSyncConfig,
     deviceId: string = '',
   ): Promise<void> {
+    const runKey: string = WebDavSyncService.syncRunKey(config)
+    const active: Promise<void> | undefined = WebDavSyncService.activeRuns.get(runKey)
+    if (active !== undefined) {
+      DiagnosticLogger.info('sync', 'webdav_sync_joined', 'provider=webdav')
+      return active
+    }
+    const run: Promise<void> = WebDavSyncService.runTracked(runKey, context, config, deviceId)
+    WebDavSyncService.activeRuns.set(runKey, run)
+    return run
+  }
+
+  private static async runTracked(
+    runKey: string,
+    context: common.UIAbilityContext,
+    config: WebDavSyncConfig,
+    deviceId: string,
+  ): Promise<void> {
+    try {
+      await WebDavSyncService.syncOnce(context, config, deviceId)
+    } finally {
+      WebDavSyncService.activeRuns.delete(runKey)
+    }
+  }
+
+  private static async syncOnce(
+    context: common.UIAbilityContext,
+    config: WebDavSyncConfig,
+    deviceId: string,
+  ): Promise<void> {
     const rootUrl: string = WebDavSyncService.syncRootUrl(config.directoryUrl)
     await WebDavSyncService.ensureCollections(rootUrl, config)
-    const legacyRaw: string =
-      await WebDavSyncService.readRemoteOptional(WebDavSyncService.legacyFileUrl(config.directoryUrl), config)
 
     for (let attempt: number = 0; attempt < MAX_MANIFEST_SYNC_ATTEMPTS; attempt++) {
       const manifestRemote: WebDavRemoteText =
         await WebDavSyncService.readRemoteFile(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config)
       const manifest: SyncManifestV1 = WebDavSyncService.parseManifest(manifestRemote.body)
+      const legacyRaw: string = manifestRemote.exists ? '' :
+        await WebDavSyncService.readRemoteOptional(WebDavSyncService.legacyFileUrl(config.directoryUrl), config)
       let manifestChanged: boolean = false
 
       for (let i: number = 0; i < DATASET_IDS.length; i++) {
@@ -396,12 +439,24 @@ export class WebDavSyncService {
         }
         DiagnosticLogger.info('sync', 'webdav_dataset_start', `dataset=${datasetId}`)
         const one: SyncDatasetSelection = WebDavSyncService.selectionForDataset(datasetId)
-        let remote: SyncEnvelopeV1 = await WebDavSyncService.readDatasetEnvelope(rootUrl, manifest, datasetId, config)
+        const local: SyncEnvelopeV1 = SyncService.parseRaw(
+          await SyncService.exportRaw(context, deviceId, one),
+        )
+        const localShards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(local, datasetId)
+        let remote: SyncEnvelopeV1 = await WebDavSyncService.readDatasetEnvelope(
+          rootUrl,
+          manifest,
+          datasetId,
+          config,
+          localShards,
+        )
         if (WebDavSyncService.datasetRecordCount(remote, datasetId) === 0 && legacyRaw.length > 0) {
           remote = WebDavSyncService.selectDataset(SyncService.parseRaw(legacyRaw), datasetId)
         }
         const merged: SyncEnvelopeV1 = await SyncService.mergeRemoteEnvelope(context, remote, deviceId, one)
-        const shards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(merged, datasetId)
+        const shards: WebDavBuiltShard[] = WebDavSyncService.datasetRecordCount(remote, datasetId) === 0 ?
+          localShards :
+          await WebDavSyncService.buildShards(merged, datasetId)
         const prev: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
         const changed: boolean = await WebDavSyncService.writeChangedShards(rootUrl, config, prev, shards)
         WebDavSyncService.replaceManifestDataset(manifest, datasetId, shards)
@@ -551,6 +606,7 @@ export class WebDavSyncService {
     manifest: SyncManifestV1,
     datasetId: string,
     config: WebDavSyncConfig,
+    localShards: WebDavBuiltShard[],
   ): Promise<SyncEnvelopeV1> {
     let out: SyncEnvelopeV1 = new SyncEnvelopeV1()
     const entry: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
@@ -559,6 +615,21 @@ export class WebDavSyncService {
     }
     for (let i: number = 0; i < entry.shards.length; i++) {
       const shard: SyncManifestShard = entry.shards[i]
+      if (WebDavSyncService.localShardMatchesManifest(localShards, shard)) {
+        DiagnosticLogger.info(
+          'sync',
+          'webdav_shard_download_skipped',
+          `dataset=${datasetId},shard=${shard.id}`,
+        )
+        continue
+      }
+      DiagnosticLogger.info(
+        'sync',
+        'webdav_shard_download_required',
+        `dataset=${datasetId},shard=${shard.id},reason=${
+          WebDavSyncService.localShardMismatchReason(localShards, shard)
+        }`,
+      )
       const raw: string = await WebDavSyncService.readRemoteOptional(rootUrl + shard.path, config)
       if (raw.length === 0) {
         continue
@@ -566,6 +637,47 @@ export class WebDavSyncService {
       out = SyncLocalDataAdapter.mergeEnvelopes(out, SyncService.parseRaw(raw))
     }
     return WebDavSyncService.selectDataset(out, datasetId)
+  }
+
+  private static localShardMatchesManifest(
+    localShards: WebDavBuiltShard[],
+    remote: SyncManifestShard,
+  ): boolean {
+    if (remote.sha256.length === 0) {
+      return false
+    }
+    for (let i: number = 0; i < localShards.length; i++) {
+      const local: WebDavBuiltShard = localShards[i]
+      if (local.id === remote.id) {
+        return local.path === remote.path &&
+          local.sha256 === remote.sha256 &&
+          local.recordCount === remote.recordCount &&
+          local.updatedAt === remote.updatedAt
+      }
+    }
+    return false
+  }
+
+  private static localShardMismatchReason(
+    localShards: WebDavBuiltShard[],
+    remote: SyncManifestShard,
+  ): string {
+    if (remote.sha256.length === 0) {
+      return 'remote_hash_missing'
+    }
+    for (let i: number = 0; i < localShards.length; i++) {
+      const local: WebDavBuiltShard = localShards[i]
+      if (local.id !== remote.id) {
+        continue
+      }
+      const reasons: string[] = []
+      if (local.path !== remote.path) reasons.push('path')
+      if (local.sha256 !== remote.sha256) reasons.push('hash')
+      if (local.recordCount !== remote.recordCount) reasons.push('count')
+      if (local.updatedAt !== remote.updatedAt) reasons.push('updated_at')
+      return reasons.join('+')
+    }
+    return 'local_shard_missing'
   }
 
   private static async writeChangedShards(
@@ -895,6 +1007,10 @@ export class WebDavSyncService {
   private static syncRootUrl(directoryUrl: string): string {
     const base: string = WebDavSyncService.baseDirectoryUrl(directoryUrl)
     return base + SYNC_WEBDAV_ROOT_DIR + '/'
+  }
+
+  private static syncRunKey(config: WebDavSyncConfig): string {
+    return config.username.trim() + '\n' + WebDavSyncService.syncRootUrl(config.directoryUrl)
   }
 
   private static legacyFileUrl(directoryUrl: string): string {

@@ -232,11 +232,19 @@ The current WebDAV provider uses 64 buckets (`00` through `3f`). A single record
 therefore changes only its stable bucket shard, not every later record.
 
 Each shard file is a normal partial sync envelope containing only records from one dataset/bucket. The
-provider compares each shard's `sha256` with the manifest and PUTs only changed shards. `manifest.json`
-is small and may be PUT after sync.
+provider compares each local shard's `sha256` and metadata with the manifest before downloading data:
+matching shards stay local and are not GET again, while missing or changed shards are downloaded and
+merged. The provider then PUTs only changed shards from the merged result. `manifest.json` is small and may be PUT after
+sync.
 Shard metadata must be stable too: per-shard `generatedAt` is derived from the newest record timestamp
 inside that shard, not from wall-clock sync time, so unchanged user data does not upload again on every
-manual sync.
+manual sync. Read-progress records are also rebuilt in a fixed field order before hashing, so older
+shards created before the optional `columnMode` field do not remain permanent false-positive changes.
+
+Manual and scheduled WebDAV entry points share one process-wide single-flight keyed by normalized sync
+root plus username. A second request for the same account/root joins the active promise instead of starting
+another manifest/shard lane. Directory setup accepts WebDAV `405 Method Not Allowed` as the normal
+"collection already exists" result and does not retry it.
 
 When the WebDAV server returns an `ETag` for `manifest.json`, the provider replaces that manifest with
 `If-Match`; a first manifest uses `If-None-Match: *`. A `409`/`412` precondition conflict re-reads,
@@ -246,8 +254,9 @@ unconditional replacement path and emit a diagnostic warning; they cannot provid
 concurrency guarantee.
 
 The WebDAV provider must not write a single all-data `nexte-sync-v1.json` as the product format. That
-file is legacy/transition input only: if it exists and the manifest is empty, import it once and then
-write the sharded layout. Do not delete the legacy file during sync; leave cleanup to a later explicit
+file is legacy/transition input only: request it only when `manifest.json` is missing, import it once when
+present, and then write the sharded layout. Once a manifest exists, it is authoritative and normal sync
+does not probe the legacy path. Do not delete the legacy file during sync; leave cleanup to a later explicit
 migration action.
 
 ## Dataset Selection
