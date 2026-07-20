@@ -138,6 +138,33 @@ export default function comicTranslationPersistentRepositoryTest(): void {
       expect(rejected).assertEqual(true)
     })
 
+    it('rejects unsafe persisted page and revision integers', 0, () => {
+      const payload: string = ComicTranslationDocumentCodec.encode(document(identity(0)))
+      const unsafePage: string = payload.replace(
+        '"pageIndex":0',
+        '"pageIndex":9007199254740992',
+      )
+      let pageRejected: boolean = false
+      try {
+        ComicTranslationDocumentCodec.decode(unsafePage)
+      } catch (_error) {
+        pageRejected = true
+      }
+      expect(pageRejected).assertEqual(true)
+
+      const unsafeRevision: string = payload.replace(
+        '"analysisRevision":1',
+        '"analysisRevision":9007199254740992',
+      )
+      let revisionRejected: boolean = false
+      try {
+        ComicTranslationDocumentCodec.decode(unsafeRevision)
+      } catch (_error) {
+        revisionRejected = true
+      }
+      expect(revisionRejected).assertEqual(true)
+    })
+
     it('recovers exact and previous-page documents through new repository instances', 0,
       async (done: Function) => {
         const context: common.UIAbilityContext = await appContext()

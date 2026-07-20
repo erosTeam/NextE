@@ -322,7 +322,8 @@ export class ComicTranslationDocumentCodec {
   }
 
   private static integer(value: number, fallback: number = 0): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || Math.floor(value) !== value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || Math.floor(value) !== value ||
+      value < -Number.MAX_SAFE_INTEGER || value > Number.MAX_SAFE_INTEGER) {
       return fallback
     }
     return value
