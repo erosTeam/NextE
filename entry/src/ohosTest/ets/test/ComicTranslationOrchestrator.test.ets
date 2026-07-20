@@ -81,6 +81,8 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
   translationSuffix: string = ''
   sourceTextOverride: string = ''
   translatedTextOverride: string = ''
+  qualitySignalSeverity: ComicQualitySeverity | null = null
+  qualitySignalPageLevel: boolean = false
   private readonly provider: string
   private readonly model: string
   private readonly prompt: string
@@ -177,6 +179,13 @@ class OrchestratorFakeAnalyzer implements ComicPageAnalyzer {
       ? this.translatedTextOverride
       : `translation-${value.pageIndex}${this.translationSuffix}`
     document.blocks.push(block)
+    if (this.qualitySignalSeverity !== null) {
+      const signal: ComicQualitySignal = new ComicQualitySignal()
+      signal.code = 'fixture_review'
+      signal.severity = this.qualitySignalSeverity
+      signal.blockId = this.qualitySignalPageLevel ? '' : block.blockId
+      document.qualitySignals.push(signal)
+    }
 
     const result: ComicPageAnalysisResult = new ComicPageAnalysisResult()
     result.providerId = this.provider
@@ -360,6 +369,33 @@ export default function comicTranslationOrchestratorTest(): void {
       expect(analyzer.capturedRollingSummary).assertEqual('summary-1')
       done()
     })
+
+    it('keeps review-targeted generated text out of later model context', 0,
+      async (done: Function) => {
+        const repository: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const analyzer: OrchestratorFakeAnalyzer = new OrchestratorFakeAnalyzer()
+        const orchestrator: ComicTranslationOrchestrator =
+          new ComicTranslationOrchestrator(analyzer, repository)
+        await orchestrator.run(request(0, HASH_A))
+        analyzer.qualitySignalSeverity = ComicQualitySeverity.INFO
+        await orchestrator.run(request(1, HASH_B))
+        analyzer.qualitySignalSeverity = ComicQualitySeverity.WARNING
+        await orchestrator.run(request(2, HASH_A))
+        analyzer.qualitySignalPageLevel = true
+        await orchestrator.run(request(3, HASH_B))
+        analyzer.qualitySignalSeverity = null
+        analyzer.qualitySignalPageLevel = false
+        await orchestrator.run(request(4, HASH_A))
+
+        expect(analyzer.capturedPreviousPages.length).assertEqual(2)
+        expect(analyzer.capturedPreviousPages[0]).assertEqual(1)
+        expect(analyzer.capturedPreviousPages[1]).assertEqual(2)
+        expect(analyzer.capturedPreviousTranslations[0]).assertEqual('translation-1')
+        expect(analyzer.capturedPreviousTranslations[1]).assertEqual('')
+        expect(analyzer.capturedRollingSummary).assertEqual('summary-2')
+        done()
+      })
 
     it('flags gallery translation drift beyond the two-page prompt window', 0,
       async (done: Function) => {

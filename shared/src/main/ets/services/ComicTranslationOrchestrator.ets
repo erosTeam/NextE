@@ -9,6 +9,7 @@ import {
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 import { ComicTranslationConsistencyService } from './ComicTranslationConsistencyService'
 import { ComicTranslationMemoryService } from './ComicTranslationMemoryService'
+import { ComicTranslationReviewService } from './ComicTranslationReviewService'
 import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
@@ -135,10 +136,20 @@ export class ComicTranslationOrchestrator {
     documents: ComicPageDocument[],
     limit: number,
   ): ComicPageDocument[] {
+    const reversed: ComicPageDocument[] = []
+    const boundedLimit: number = Math.max(0, limit)
+    for (let index: number = documents.length - 1;
+      index >= 0 && reversed.length < boundedLimit; index--) {
+      if (ComicTranslationReviewService.documentHasPageLevelReviewSignal(
+        documents[index],
+      )) {
+        continue
+      }
+      reversed.push(documents[index])
+    }
     const selected: ComicPageDocument[] = []
-    const start: number = Math.max(0, documents.length - Math.max(0, limit))
-    for (let index: number = start; index < documents.length; index++) {
-      selected.push(documents[index])
+    for (let index: number = reversed.length - 1; index >= 0; index--) {
+      selected.push(reversed[index])
     }
     return selected
   }
@@ -182,6 +193,12 @@ export class ComicTranslationOrchestrator {
     const source: string[] = []
     const translated: string[] = []
     for (let index: number = 0; index < document.blocks.length; index++) {
+      if (ComicTranslationReviewService.blockNeedsReview(
+        document,
+        document.blocks[index].blockId,
+      )) {
+        continue
+      }
       const sourceText: string = document.blocks[index].sourceText.trim()
       const translatedText: string = document.blocks[index].translatedText.trim()
       if (sourceText.length > 0) {
