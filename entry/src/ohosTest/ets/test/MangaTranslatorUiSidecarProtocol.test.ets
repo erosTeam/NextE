@@ -7,6 +7,7 @@ import {
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
   ComicTranslationBatch,
+  ComicTranslationErrorClassifier,
   ComicVisualPageSource,
   MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
@@ -24,8 +25,11 @@ const CONTEXT_HASH: string =
   'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
 class RawSidecarRegion {
+  lines: number[][][] = []
+  texts: string[] = []
   text: string = ''
   translation: string = ''
+  angle: number = 0
 }
 
 class RawSidecarPage {
@@ -173,6 +177,46 @@ export default function mangaTranslatorUiSidecarProtocolTest(): void {
         expect(envelope.temp_image.regions[1].translation).assertEqual('去下一处吧')
         expect(envelope.temp_image.regions[0].text).assertEqual('テストです')
         done()
+      })
+
+    it('restores uneven rotated edge regions around the upstream mean-vertex center', 0,
+      async (done: Function) => {
+        const raw: RawSidecarFixture = JSON.parse(
+          JSON.stringify(await loadFixture()),
+        ) as RawSidecarFixture
+        raw.imageWidth = 720
+        raw.imageHeight = 1000
+        raw.originalText = 'edge text\n'
+        raw.translationJson.temp_image.original_width = raw.imageWidth
+        raw.translationJson.temp_image.original_height = raw.imageHeight
+        const region: RawSidecarRegion = raw.translationJson.temp_image.regions[1]
+        region.lines = [
+          [[88.703, 570.562], [171.543, 538.804], [192.421, 593.261], [109.58, 625.02]],
+          [[34.135, 740.241], [95.483, 716.722], [105.315, 742.367], [43.967, 765.886]],
+        ]
+        region.texts = ['edge', 'text']
+        region.text = 'edge text'
+        region.angle = 20.975346376842644
+        raw.translationJson.temp_image.regions = [region]
+
+        const analysis: ComicRegionAnalysisResult = parseFixture(raw)
+        expect(analysis.document.blocks.length).assertEqual(1)
+        const polygon = analysis.document.blocks[0].polygon
+        expect(polygon.length).assertEqual(4)
+        expect(Math.abs(polygon[0].x - 10.692400900315931) < 0.001).assertEqual(true)
+        expect(Math.abs(polygon[0].y - 570.7100979751775) < 0.001).assertEqual(true)
+        expect(Math.abs(polygon[2].x - 211.10337986559188) < 0.001).assertEqual(true)
+        expect(Math.abs(polygon[2].y - 737.0768954721725) < 0.001).assertEqual(true)
+        done()
+      })
+
+    it('classifies rejected sidecar geometry as invalid output instead of provider failure', 0,
+      () => {
+        const code: string = ComicTranslationErrorClassifier.classify(new Error(
+          'Manga translator UI region is outside the source image ' +
+            '(region=4,axis=x,value=-2,edge=720)',
+        ))
+        expect(code).assertEqual('output_geometry_invalid')
       })
 
     it('rejects the known v2 field drift and mismatched page identity locally', 0,

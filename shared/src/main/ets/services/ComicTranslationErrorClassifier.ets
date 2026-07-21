@@ -37,7 +37,8 @@ export class ComicTranslationErrorClassifier {
     if (message.includes('quality signal')) {
       return 'output_quality_signal_invalid'
     }
-    if (message.includes('polygon')) {
+    if (message.includes('polygon') || message.includes('region bounds') ||
+      message.includes('region is outside the source image')) {
       return 'output_geometry_invalid'
     }
     if (message.includes('block')) {

@@ -268,3 +268,24 @@ Hypium 为 226/226，V2 门禁为 0。该阶段关闭已观察到的低信号单
 九组语义和排版可读；`Funny face lol` 仍被直译成“搞笑的脸哈哈”，因此英语口语自然度继续作为质量项，
 不为单个样本再次扰动 prompt/cache revision。当前 `entry@ohosTest` 构建成功，设备完整 Hypium 为
 226/226。长图候选尚未形成真实高纵横比样本，继续保持开放。
+
+2026-07-21：设备 `237` 已用合法画廊 `4066324` 的 P3 建立首个真实长条漫画样本，源文件与 Reader
+身份均为 `720x14804`。第一次请求在 sidecar 完成长图分片检测（11 个 patch、77 个候选）并返回 export
+200 后，被 NextE 以 `provider_request_failed` 拒绝；脱敏诊断证明实际故障不是 provider，而是 region 25
+的旋转坐标被还原到 `x=-3.917`。固定上游 v1.9.9 的 `TextBlock.to_dict()` 会围绕所有顶点的平均中心反旋转
+`lines`；旧适配器先错误使用整体 AABB 中心，修正中心后又旋转整个 AABB，仍会制造不属于任何原始文字行的
+外扩角点。协议 revision 5 / `geometry-v2` 现按上游均值中心逐顶点逆变换，再只保存源图空间的紧致 AABB；
+sidecar 原始 lines/angle 仍完整保留在 render template，不用内部裁图矩形替代排版几何。合成回归专门覆盖
+不均匀多行、旋转和贴边区域；同类错误同时归类为 `output_geometry_invalid`，不再误报模型请求失败。
+
+同一 P3 重跑后，NextE 跨过 export 规范化，已选 `gpt-5.6-luna` 完成 31 个 block，专用
+`/translate/import/json/nexte-load-text-v2` 返回 200，并生成 SHA-256
+`ccf1320f2760b8ca33d1a8a2062242ebbe5e0d16fc8a612d8222f68abea50bc6`、`720x14804`、7,196,537 bytes
+的 PNG。Reader 发布仍停留在 3/8，菜单可在“显示原图/显示译图”间即时切换；持久缓存 metadata 记录
+`geometry-v2` profile、源图 hash、Codex source/model 与完整 render identity。该结果关闭“长图无法经过
+协议并形成完整视觉产物”的故障，但**没有关闭长图质量验收**：从源身份解析到 ready 约 6 分 35 秒；
+乌克兰语被 48px OCR 大量转写成混合拉丁/西里尔近似字，面向日文的 MangaOCR fallback 又产生伪日文；
+实图虽有中文回填，但多处字号过大、文字越出气泡或相互重叠，渲染器还报告 polygon union
+`TopologyException`。因此 E 的长图项继续保持未完成，下一阶段顺序固定为“语言感知 OCR/profile ->
+布局 fit/overflow 质量门 -> 残留原文与语义抽检 -> 长图延迟/资源预算”，不能以本次 200 或完整 PNG
+宣称可直接交付。

@@ -19,8 +19,8 @@ import { ComicVisualTranslationContract } from './ComicVisualTranslationContract
 
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
 export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
-  'manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2'
-export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 4
+  'manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2-geometry-v2'
+export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 5
 export const MANGA_TRANSLATOR_UI_UPSTREAM_TAG: string = 'v1.9.9'
 export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
   '696dc63bd0b4803f96cc3d4f844322cef4910f8e'
@@ -292,7 +292,12 @@ export class MangaTranslatorUiSidecarProtocol {
     block.sourceOrigin = ComicSourceOrigin.OCR
     block.providerConfidence = region.prob >= 0 && region.prob <= 1 ? region.prob : null
     block.sourceRevision = documentRevision
-    const polygon: ComicPoint[] = MangaTranslatorUiSidecarProtocol.regionPolygon(region, width, height)
+    const polygon: ComicPoint[] = MangaTranslatorUiSidecarProtocol.regionPolygon(
+      region,
+      regionIndex,
+      width,
+      height,
+    )
     for (let index: number = 0; index < polygon.length; index++) {
       block.polygon.push(polygon[index])
     }
@@ -398,54 +403,107 @@ export class MangaTranslatorUiSidecarProtocol {
 
   private static regionPolygon(
     region: RawMangaTranslatorUiRegion,
+    regionIndex: number,
     width: number,
     height: number,
   ): ComicPoint[] {
-    let minX: number = Number.POSITIVE_INFINITY
-    let minY: number = Number.POSITIVE_INFINITY
-    let maxX: number = Number.NEGATIVE_INFINITY
-    let maxY: number = Number.NEGATIVE_INFINITY
+    let exportedMinX: number = Number.POSITIVE_INFINITY
+    let exportedMinY: number = Number.POSITIVE_INFINITY
+    let exportedMaxX: number = Number.NEGATIVE_INFINITY
+    let exportedMaxY: number = Number.NEGATIVE_INFINITY
+    let sumX: number = 0
+    let sumY: number = 0
+    let pointCount: number = 0
     for (let lineIndex: number = 0; lineIndex < region.lines.length; lineIndex++) {
       const line: number[][] = region.lines[lineIndex]
       for (let pointIndex: number = 0; pointIndex < line.length; pointIndex++) {
-        minX = Math.min(minX, line[pointIndex][0])
-        minY = Math.min(minY, line[pointIndex][1])
-        maxX = Math.max(maxX, line[pointIndex][0])
-        maxY = Math.max(maxY, line[pointIndex][1])
+        const x: number = line[pointIndex][0]
+        const y: number = line[pointIndex][1]
+        exportedMinX = Math.min(exportedMinX, x)
+        exportedMinY = Math.min(exportedMinY, y)
+        exportedMaxX = Math.max(exportedMaxX, x)
+        exportedMaxY = Math.max(exportedMaxY, y)
+        sumX += x
+        sumY += y
+        pointCount++
       }
     }
-    if (!(maxX > minX) || !(maxY > minY)) {
+    if (!(exportedMaxX > exportedMinX) || !(exportedMaxY > exportedMinY) ||
+      pointCount <= 0) {
       throw new Error('Manga translator UI region bounds are invalid')
     }
-    const centerX: number = (minX + maxX) / 2
-    const centerY: number = (minY + maxY) / 2
+    // v1.9.9 TextBlock.to_dict() unrotates every line around the mean of all vertices.
+    // Rotation preserves that mean, so the exported vertices retain the only exact inverse center.
+    // An AABB center is different for uneven multi-line blocks and can push valid edge text outside.
+    const centerX: number = sumX / pointCount
+    const centerY: number = sumY / pointCount
     const radians: number = region.angle * Math.PI / 180
     const cosine: number = Math.cos(radians)
     const sine: number = Math.sin(radians)
-    const raw: number[][] = [
-      [minX, minY],
-      [maxX, minY],
-      [maxX, maxY],
-      [minX, maxY],
-    ]
-    const output: ComicPoint[] = []
-    for (let index: number = 0; index < raw.length; index++) {
-      const dx: number = raw[index][0] - centerX
-      const dy: number = raw[index][1] - centerY
-      const x: number = centerX + dx * cosine - dy * sine
-      const y: number = centerY + dx * sine + dy * cosine
-      output.push(new ComicPoint(
-        MangaTranslatorUiSidecarProtocol.boundedCoordinate(x, width),
-        MangaTranslatorUiSidecarProtocol.boundedCoordinate(y, height),
-      ))
+    let sourceMinX: number = Number.POSITIVE_INFINITY
+    let sourceMinY: number = Number.POSITIVE_INFINITY
+    let sourceMaxX: number = Number.NEGATIVE_INFINITY
+    let sourceMaxY: number = Number.NEGATIVE_INFINITY
+    for (let lineIndex: number = 0; lineIndex < region.lines.length; lineIndex++) {
+      const line: number[][] = region.lines[lineIndex]
+      for (let pointIndex: number = 0; pointIndex < line.length; pointIndex++) {
+        const dx: number = line[pointIndex][0] - centerX
+        const dy: number = line[pointIndex][1] - centerY
+        const x: number = centerX + dx * cosine - dy * sine
+        const y: number = centerY + dx * sine + dy * cosine
+        sourceMinX = Math.min(sourceMinX, x)
+        sourceMinY = Math.min(sourceMinY, y)
+        sourceMaxX = Math.max(sourceMaxX, x)
+        sourceMaxY = Math.max(sourceMaxY, y)
+      }
     }
-    return output
+    if (!(sourceMaxX > sourceMinX) || !(sourceMaxY > sourceMinY)) {
+      throw new Error('Manga translator UI restored region bounds are invalid')
+    }
+    const left: number = MangaTranslatorUiSidecarProtocol.boundedCoordinate(
+      sourceMinX,
+      width,
+      regionIndex,
+      'x',
+    )
+    const top: number = MangaTranslatorUiSidecarProtocol.boundedCoordinate(
+      sourceMinY,
+      height,
+      regionIndex,
+      'y',
+    )
+    const right: number = MangaTranslatorUiSidecarProtocol.boundedCoordinate(
+      sourceMaxX,
+      width,
+      regionIndex,
+      'x',
+    )
+    const bottom: number = MangaTranslatorUiSidecarProtocol.boundedCoordinate(
+      sourceMaxY,
+      height,
+      regionIndex,
+      'y',
+    )
+    return [
+      new ComicPoint(left, top),
+      new ComicPoint(right, top),
+      new ComicPoint(right, bottom),
+      new ComicPoint(left, bottom),
+    ]
   }
 
-  private static boundedCoordinate(value: number, edge: number): number {
+  private static boundedCoordinate(
+    value: number,
+    edge: number,
+    regionIndex: number,
+    axis: string,
+  ): number {
     if (!Number.isFinite(value) || value < -COORDINATE_TOLERANCE ||
       value > edge + COORDINATE_TOLERANCE) {
-      throw new Error('Manga translator UI region is outside the source image')
+      throw new Error(
+        'Manga translator UI region is outside the source image ' +
+          `(region=${regionIndex},axis=${axis},value=${value},edge=${edge})`,
+      )
     }
     return Math.min(edge, Math.max(0, value))
   }
