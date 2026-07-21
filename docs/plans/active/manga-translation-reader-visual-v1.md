@@ -141,10 +141,14 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 ### D2. 可选托管整图后端
 
 - [x] 静态复核具有公开 API 契约的托管候选；Torii 为首个漫画专用验证候选，PixLab 为通用图片翻译备选；
+- [x] 记录公开费用与 BYOK 拆分：Torii 整图 BYOK 为 1 credit/页，分阶段 OCR/inpaint/typeset 为 1.04 credits/页；
+- [x] 区分 Torii `translator` 模型选择与可选 BYOK 账单模式；非 BYOK 同样允许选择 Torii 目录中的具体模型；
 - [ ] 在用户明确选择服务、提供测试密钥并接受费用/图片上传边界后，用两页原创 fixture 做同译文 A/B；
-- [ ] 固定 provider profile、认证、请求/响应上限、超时、幂等扣费和数据删除语义；营销页不得成为契约；
+- [ ] 固定 provider profile、认证、模型目录/失效回退、请求/响应上限、超时、幂等扣费、缓存命中和数据
+  删除语义；`translator` 与 BYOK 账单模式独立保存，营销页不得成为契约；
 - [ ] 通过 `ComicWholePageRenderBackend` 发布并复用现有 artifact 校验、缓存、原图回退和 Reader fence；
-- [ ] 若评估分阶段云端 OCR/inpaint/typeset，继续由共享 LLM 源翻译，不复制第二套用户模型设置。
+- [ ] 若评估分阶段云端 OCR/inpaint/typeset，继续由共享 LLM 源翻译，不复制第二套用户模型设置，也不把
+  API/Codex 凭据交给视觉服务；整图 BYOK 只作为用户明确选择的另一种 provider profile。
 
 ### E. Reader 替换
 

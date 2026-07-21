@@ -88,6 +88,75 @@
 | [PixLab IMG-TRANSLATE](https://pixlab.io/endpoints/image-text-translate) | `POST /imgtranslate` 上传图片并完成检测、翻译、inpaint 和回填，支持日/中/韩等语言和字体/颜色/字号提示，可返回 base64 或原始图片。 | 通用图片翻译而非漫画专用；没有公开的跨页 context、逐块结果或幂等语义，但 whole-page adapter 很简单。 | **第二验证候选**：其[隐私政策](https://pixlab.io/privacy-policy)说明 API 图片默认内存处理并在完成后清除，且不用于训练，仍需实测竖排、拟声词和长图。 |
 | [ImgText API](https://imgtext.io/api-docs) | 返回最终译图、消字图和 region breakdown，支持异步批量与 webhook。 | 数据形态很好，但当前 API 文档的 supported languages 只列出十种欧洲语言，与产品页声称的日/中/韩等 27 种语言不一致。 | **等待厂商确认**，不作为日文漫画候选。 |
 
+### 公开费用复核（2026-07-22）
+
+以下均为美元公开标价，不含税、汇率、支付手续费和用户自己的 LLM 费用。动态页面与结账页可能变化，
+所以只能用于 provider 选择和预算量级，不能代替接入前的真实小额扣费证据。
+
+#### Torii
+
+[Torii 价格页](https://toriitranslate.com/pricing)显示一次性购买、credits 不过期：2,500 credits / $5.99、
+6,000 / $12.99、15,000 / $29.99，并标注约 $2.40、$2.16、$1.92 / 1,000 credits。最后一档展示的
+总价、数量与标注单价不能完全互相换算，正式预算应以结账页实际到账 credits 为准。按公开单位价，
+1 credit 约 $0.00192～$0.00240。
+
+| Torii 接法 | Torii 计费 | 估算平台费/页 | LLM 与凭据边界 |
+|---|---:|---:|---|
+| 整图、Torii 代付模型 | 1 credit 扫描 + 按所选模型、上下文、输入/输出长度计算的翻译 credits；官方称快速模型的标准漫画通常总计约 1 credit | 通常约 $0.00192～$0.00240，premium 模型和长上下文会增加 | 不传用户供应商 Key；用户仍通过必填 `translator` 参数选择 Torii 目录中的具体模型，Torii 代付供应商并折算为 credits |
+| 整图、Torii BYOK | **固定 1 credit/图** + 用户供应商账单 | $0.00192～$0.00240 + LLM | `x-byok-*` 会把用户的 OpenAI/OpenRouter/Google/Anthropic/DeepSeek/xAI Key 交给 Torii；公开契约不包含 Codex OAuth |
+| 分阶段 Torii + NextE LLM | OCR 1 + inpaint 0.02 + typeset 0.02 = **1.04 credits/图** + 用户供应商账单 | $0.001997～$0.002496 + LLM | NextE 直接调用现有 API/Codex LLM 源，不把 LLM 凭据交给 Torii；需要三次 Torii 调用和本地 mask/region 编排 |
+
+API 的 `translator` 是必填参数，官方示例为 `gemini-3.1-flash-lite`；BYOK 不是另一套模型选择器，而是
+附加在同一模型选择上的可选账单模式。Torii 当前没有在公开 API reference 中给出稳定的模型目录/逐模型
+credits 表或模型目录端点，因此 NextE 不能把网页当前选项硬编码成长期契约。其更新记录还说明跨页 context
+可能按所选模型额外增加约 1～2 credits/页。按公开单位价，Torii 代付模式的量级可读成：
+
+| Torii 代付场景 | credits/页 | 平台与模型合并扣费/页 |
+|---|---:|---:|
+| 快速模型、普通单页 | 官方称通常约 1 | $0.00192～$0.00240 |
+| 启用 context，增加约 1 credit | 约 2 | $0.00384～$0.00480 |
+| 启用 context，增加约 2 credits | 约 3 | $0.00576～$0.00720 |
+
+这不是上限保证；premium/推理模型的 token 行为可能显著增加 credits。接入时必须让模型名与账单模式独立
+存储，并在请求前显示 Torii 返回或估算的费用，不能把“非 BYOK”误解为没有模型选择。
+
+按上述单位价，仅计算 Torii 平台部分：
+
+| 页数 | 整图 BYOK | 分阶段 1.04 credits |
+|---:|---:|---:|
+| 20 页 | $0.038～$0.048 | $0.040～$0.050 |
+| 40 页 | $0.077～$0.096 | $0.080～$0.100 |
+| 100 页 | $0.192～$0.240 | $0.200～$0.250 |
+| 1,000 页 | $1.92～$2.40 | $2.00～$2.50 |
+
+BYOK 的真实单页公式是 `Torii 平台费 + 输入 tokens × 模型输入单价 + 输出 tokens × 模型输出单价`。
+例如仅用于敏感度估算的 3,000 input + 500 output tokens：若模型每百万 token 输入/输出分别为
+$0.10/$0.40、$1/$5、$5/$25，则 LLM 部分分别约 $0.0005、$0.0055、$0.0275/页；真实值取决于 OCR
+字数、custom prompt、滚动摘要和厂商是否附加隐藏提示。Torii 的相同图片+设置结果在缓存存在时不重复扣费，
+但价格页说明默认约一周后自动删除；这不能代替 NextE 自己的请求去重、artifact 缓存和失败重放约束。
+
+Torii 的 `translator` 模型选择与 BYOK 是两个正交参数：不启用 BYOK 时同样由用户选择具体模型，只是模型费
+由 Torii 代付并扣 credits；启用 BYOK 后仍选择模型，但模型费改由用户自己的供应商账户承担。因此 BYOK 对
+快速廉价模型未必带来显著绝对节省，因为 1 credit 扫描费本来就是主要下限；它更大的价值是账单归属、使用
+自有额度和固定 Torii 费用，而不是获得模型选择权。对 NextE，分阶段方案只比整图 BYOK 多 0.04 credit/页，
+却保留统一 LLM 源、Codex OAuth、术语上下文和凭据所有权，是更适合长期产品的候选；整图 BYOK 更适合最快
+质量 A/B。
+
+#### ImageTranslate.ai、PixLab 与 ImgText
+
+| 服务 | 最低 API 门槛与公开额度 | 满额使用时的名义单页成本 | 费用风险 |
+|---|---|---:|---|
+| [ImageTranslate.ai](https://imagetranslate.ai/pricing) Professional | $19.9/月，或年付折算 $16.6/月；12,000 advanced credits，API 每页 10 credits，即 1,200 页/月 | $0.0166，或年付 $0.0138 | Starter 没有 API；不用完额度时实际单页成本会快速上升 |
+| ImageTranslate.ai Enterprise | $99.9/月，或年付折算 $83.3/月；80,000 credits，即 8,000 页/月 | $0.0125，或年付 $0.0104 | 仍有固定月费；多目标语言按调用次数重复计费 |
+| ImageTranslate.ai top-up | 3,000/$6.9、10,000/$19.9、50,000/$89.9 credits | $0.023、$0.0199、$0.0180/页 | 仅付费订阅者可买，top-up 一个月失效，不能当长期低频预付包 |
+| [PixLab](https://pixlab.io/pricing) | Starter $20/月；页面列出统一 Media Analysis/Processing 调用额度 | **无法可靠计算** | `IMG-TRANSLATE` 没有公开每次消耗哪类额度/多少单位；价格页对超额单价还同时出现 $0.07/1,000 与 $0.009/1,000 两种说法，需售前书面确认或控制台实扣 |
+| [ImgText](https://imgtext.io/) | 官网称免费 50 图/月，API 文档称额度随 plan 扩展 | **付费价格未公开** | 价格页/稳定付费契约不可公开复核，且 API 语言表与营销页冲突，暂不进入采购比较 |
+
+在低频 Reader 场景中，ImageTranslate.ai 的固定月费远高于 Torii 按量 credits：例如一个月只翻 100 页，
+Professional 的实际成本是 $0.166～$0.199/页；只有接近用完 1,200 页额度时才下降到约 $0.014～$0.017/页。
+PixLab 的套餐表面便宜，但在 endpoint 计量没有确认前不能把 350K Media Processing calls 直接等同于 350K
+漫画页，否则会形成虚假的低价结论。
+
 [MangaTranslate](https://www.mangatranslate.com/) 和 [MangaTrans](https://www.mangatrans.org/) 提供网页端漫画
 OCR/翻译/回填或 overlay，但本次没有找到可公开复现的 API reference、认证和响应契约，因此不能当作
 NextE provider。`manga-translator-ui` 则是已经验证的自托管 API，不属于第三方托管服务。
