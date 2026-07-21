@@ -4862,7 +4862,7 @@
     },
     {
       "name": "comic_torii_byok_provider",
-      "value": "Key プロバイダー"
+      "value": "BYOK プロバイダー"
     },
     {
       "name": "comic_torii_api_key",
@@ -4873,8 +4873,12 @@
       "value": "Torii 画像翻訳に必要です"
     },
     {
+      "name": "comic_torii_available_credits",
+      "value": "利用可能な Credits"
+    },
+    {
       "name": "comic_torii_byok_api_key",
-      "value": "プロバイダー API Key"
+      "value": "BYOK API Key"
     },
     {
       "name": "comic_torii_byok_api_key_hint",
@@ -4883,6 +4887,14 @@
     {
       "name": "comic_torii_upload_notice",
       "value": "クラウドルートのみ: Torii は画像、コンテキスト、任意のプロバイダー Key を受信します。端末内ルートはこれらを読み取りません。"
+    },
+    {
+      "name": "comic_torii_notice_managed",
+      "value": "選択したモデルは Torii credits を使用します。画像とコンテキストはクラウドページ翻訳時のみ送信されます。"
+    },
+    {
+      "name": "comic_torii_notice_byok",
+      "value": "1 ページにつき 1 Torii credit とプロバイダー料金が必要です。画像、コンテキスト、BYOK Key はクラウドページ翻訳時のみ送信されます。"
     },
     {
       "name": "comic_torii_save_failed",

@@ -4862,7 +4862,7 @@
     },
     {
       "name": "comic_torii_byok_provider",
-      "value": "Key 供应商"
+      "value": "BYOK 供应商"
     },
     {
       "name": "comic_torii_api_key",
@@ -4873,8 +4873,12 @@
       "value": "使用 Torii 整图翻译时必填"
     },
     {
+      "name": "comic_torii_available_credits",
+      "value": "可用 Credits"
+    },
+    {
       "name": "comic_torii_byok_api_key",
-      "value": "供应商 API Key"
+      "value": "BYOK API Key"
     },
     {
       "name": "comic_torii_byok_api_key_hint",
@@ -4883,6 +4887,14 @@
     {
       "name": "comic_torii_upload_notice",
       "value": "仅限云端路线：Torii 会收到图片、上下文和可选供应商 Key；端侧路线不会读取这些凭据。"
+    },
+    {
+      "name": "comic_torii_notice_managed",
+      "value": "所选模型使用 Torii credits；图片和上下文仅在云端整图翻译时发送。"
+    },
+    {
+      "name": "comic_torii_notice_byok",
+      "value": "每页 1 Torii credit，供应商另行计费；图片、上下文和 BYOK Key 仅在云端整图翻译时发送。"
     },
     {
       "name": "comic_torii_save_failed",

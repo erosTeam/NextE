@@ -346,6 +346,13 @@ export {
   ToriiWholePageSecretStore,
 } from './services/ToriiWholePageSecretStore'
 export {
+  DefaultToriiCreditsHttpTransport,
+  TORII_CREDITS_ENDPOINT,
+  ToriiCreditsHttpTransport,
+  ToriiCreditsService,
+  ToriiCreditsSnapshot,
+} from './services/ToriiCreditsService'
+export {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH,
   MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH,

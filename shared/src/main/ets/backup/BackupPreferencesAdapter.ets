@@ -57,6 +57,7 @@ export class BackupPreferencesAdapter {
     StorageKeys.LLM_SOURCE_CODEX_OAUTH_TOKENS,
     StorageKeys.LLM_SOURCE_MODEL_CATALOG_CACHE,
     StorageKeys.LLM_SOURCE_USAGE_CACHE,
+    StorageKeys.COMIC_TRANSLATION_TORII_CREDITS_CACHE,
     // Clipboard consent and its deduplication cursor are device-local. Restoring either on another
     // device could bypass that device's explicit opt-in flow or suppress a fresh clipboard value.
     StorageKeys.CLIPBOARD_LINK_ENABLED,

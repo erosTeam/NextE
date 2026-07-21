@@ -4862,7 +4862,7 @@
     },
     {
       "name": "comic_torii_byok_provider",
-      "value": "Key provider"
+      "value": "BYOK provider"
     },
     {
       "name": "comic_torii_api_key",
@@ -4873,8 +4873,12 @@
       "value": "Required for Torii image translation"
     },
     {
+      "name": "comic_torii_available_credits",
+      "value": "Available credits"
+    },
+    {
       "name": "comic_torii_byok_api_key",
-      "value": "Provider API key"
+      "value": "BYOK API key"
     },
     {
       "name": "comic_torii_byok_api_key_hint",
@@ -4883,6 +4887,14 @@
     {
       "name": "comic_torii_upload_notice",
       "value": "Cloud route only: Torii receives the page, context, and optional provider key. The on-device route never reads these credentials."
+    },
+    {
+      "name": "comic_torii_notice_managed",
+      "value": "The selected model uses Torii credits. Images and context are sent only for cloud whole-page translation."
+    },
+    {
+      "name": "comic_torii_notice_byok",
+      "value": "1 Torii credit per page, plus provider charges. Images, context, and the BYOK key are sent only for cloud whole-page translation."
     },
     {
       "name": "comic_torii_save_failed",

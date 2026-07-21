@@ -117,6 +117,9 @@ export class StorageKeys {
     'comicTranslation.torii.billingMode'
   static readonly COMIC_TRANSLATION_TORII_BYOK_PROVIDER: string =
     'comicTranslation.torii.byokProvider'
+  // Device-local stale-while-revalidate balance snapshot. Never sync or copy through backup.
+  static readonly COMIC_TRANSLATION_TORII_CREDITS_CACHE: string =
+    'comicTranslation.torii.creditsCache'
   // Torii account and optional upstream BYOK secrets. Encrypted backup only; never sync.
   static readonly COMIC_TRANSLATION_TORII_CREDENTIAL: string =
     'comicTranslation.torii.credential'
