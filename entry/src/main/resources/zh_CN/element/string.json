@@ -4841,12 +4841,24 @@
       "value": "请先填写服务地址"
     },
     {
-      "name": "comic_render_service_credential",
-      "value": "会话令牌"
+      "name": "comic_render_service_username",
+      "value": "用户名"
     },
     {
-      "name": "comic_render_service_credential_hint",
-      "value": "可选，manga-translator-ui 的 X-Session-Token"
+      "name": "comic_render_service_username_hint",
+      "value": "manga-translator-ui 账号"
+    },
+    {
+      "name": "comic_render_service_password",
+      "value": "密码"
+    },
+    {
+      "name": "comic_render_service_password_hint",
+      "value": "用于会话失效后自动重新登录"
+    },
+    {
+      "name": "comic_render_service_legacy_credential_hint",
+      "value": "已保留旧会话令牌；填写账号密码后会替换"
     },
     {
       "name": "comic_render_service_check",
@@ -4854,11 +4866,11 @@
     },
     {
       "name": "comic_render_service_check_hint",
-      "value": "只读取服务能力，不上传漫画图片"
+      "value": "检查能力与登录，不上传漫画图片"
     },
     {
       "name": "comic_render_service_check_running",
-      "value": "正在检查服务能力…"
+      "value": "正在检查服务能力与登录…"
     },
     {
       "name": "comic_render_service_check_success",
@@ -4882,7 +4894,7 @@
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "公网服务必须使用 HTTPS；HTTP 仅允许本机或私网地址。"
+      "value": "账号密码只保存在应用私有存储，备份时仅进入加密备份；会话令牌仅驻内存。公网服务必须使用 HTTPS。"
     },
     {
       "name": "comic_translation_settings_hint",

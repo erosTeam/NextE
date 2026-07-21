@@ -4841,12 +4841,24 @@
       "value": "Enter a service URL first"
     },
     {
-      "name": "comic_render_service_credential",
-      "value": "Session token"
+      "name": "comic_render_service_username",
+      "value": "Username"
     },
     {
-      "name": "comic_render_service_credential_hint",
-      "value": "Optional X-Session-Token from manga-translator-ui"
+      "name": "comic_render_service_username_hint",
+      "value": "manga-translator-ui account"
+    },
+    {
+      "name": "comic_render_service_password",
+      "value": "Password"
+    },
+    {
+      "name": "comic_render_service_password_hint",
+      "value": "Used to renew expired sessions automatically"
+    },
+    {
+      "name": "comic_render_service_legacy_credential_hint",
+      "value": "Legacy session token saved; enter account credentials to replace it"
     },
     {
       "name": "comic_render_service_check",
@@ -4854,11 +4866,11 @@
     },
     {
       "name": "comic_render_service_check_hint",
-      "value": "Read service capabilities without uploading a manga page"
+      "value": "Verify capabilities and sign-in without uploading a manga page"
     },
     {
       "name": "comic_render_service_check_running",
-      "value": "Checking service capabilities..."
+      "value": "Checking capabilities and sign-in..."
     },
     {
       "name": "comic_render_service_check_success",
@@ -4882,7 +4894,7 @@
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "Public services require HTTPS; HTTP is limited to local or private-network addresses."
+      "value": "Credentials stay in private app storage and enter encrypted backups only; session tokens remain memory-only. Public services require HTTPS."
     },
     {
       "name": "comic_translation_settings_hint",

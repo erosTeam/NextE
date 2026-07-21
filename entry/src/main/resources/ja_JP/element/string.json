@@ -4841,12 +4841,24 @@
       "value": "先にサービス URL を入力してください"
     },
     {
-      "name": "comic_render_service_credential",
-      "value": "セッショントークン"
+      "name": "comic_render_service_username",
+      "value": "ユーザー名"
     },
     {
-      "name": "comic_render_service_credential_hint",
-      "value": "任意：manga-translator-ui の X-Session-Token"
+      "name": "comic_render_service_username_hint",
+      "value": "manga-translator-ui アカウント"
+    },
+    {
+      "name": "comic_render_service_password",
+      "value": "パスワード"
+    },
+    {
+      "name": "comic_render_service_password_hint",
+      "value": "セッション失効時の自動再ログインに使用"
+    },
+    {
+      "name": "comic_render_service_legacy_credential_hint",
+      "value": "旧セッショントークンを保持中。アカウント情報を入力すると置き換えます"
     },
     {
       "name": "comic_render_service_check",
@@ -4854,11 +4866,11 @@
     },
     {
       "name": "comic_render_service_check_hint",
-      "value": "漫画画像を送信せずにサービス機能を確認"
+      "value": "漫画画像を送信せずに機能とログインを確認"
     },
     {
       "name": "comic_render_service_check_running",
-      "value": "サービス機能を確認中…"
+      "value": "サービス機能とログインを確認中…"
     },
     {
       "name": "comic_render_service_check_success",
@@ -4882,7 +4894,7 @@
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "公開サービスには HTTPS が必要です。HTTP はローカルまたはプライベートネットワークに限定されます。"
+      "value": "認証情報はアプリのプライベート領域に保存し、暗号化バックアップだけに含めます。セッショントークンはメモリ内だけに保持します。公開サービスには HTTPS が必要です。"
     },
     {
       "name": "comic_translation_settings_hint",

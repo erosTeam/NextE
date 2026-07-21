@@ -28,6 +28,11 @@ import {
   MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
   MangaTranslatorUiSidecarProtocol,
 } from './MangaTranslatorUiSidecarProtocol'
+import {
+  DefaultMangaTranslatorUiSidecarSessionProvider,
+  MangaTranslatorUiSessionRequest,
+  MangaTranslatorUiSidecarSessionProvider,
+} from './MangaTranslatorUiSidecarSessionService'
 
 const MAX_SOURCE_IMAGE_BYTES: number = 40 * 1024 * 1024
 const MAX_MULTIPART_BODY_BYTES: number = 48 * 1024 * 1024
@@ -36,6 +41,8 @@ const MAX_RENDER_RESPONSE_BYTES: number = 80 * 1024 * 1024
 const MAX_CONFIG_JSON_BYTES: number = 64 * 1024
 const MAX_BASE_URL_CHARS: number = 2048
 const MAX_AUTHORIZATION_CHARS: number = 8192
+const MAX_AUTH_USERNAME_CHARS: number = 50
+const MAX_AUTH_PASSWORD_CHARS: number = 2048
 const MIN_TIMEOUT_MS: number = 1000
 const MAX_TIMEOUT_MS: number = 10 * 60 * 1000
 const RENDER_CACHE_DIR: string = 'comic-translated-pages'
@@ -61,6 +68,8 @@ class PngDimensions {
 export class MangaTranslatorUiSidecarConfig {
   baseUrl: string = ''
   sessionToken: string = ''
+  username: string = ''
+  password: string = ''
   translationConfigJson: string = MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
   connectTimeoutMs: number = 15000
   readTimeoutMs: number = 5 * 60 * 1000
@@ -79,7 +88,11 @@ export class MangaTranslatorUiSidecarConfig {
     if (match[1] === 'http' && !MangaTranslatorUiSidecarConfig.isPrivateAuthority(match[2])) {
       throw new Error('Public Manga translator UI services require HTTPS')
     }
-    MangaTranslatorUiSidecarConfig.validateSessionToken(this.sessionToken)
+    MangaTranslatorUiSidecarConfig.validateAuthentication(
+      this.sessionToken,
+      this.username,
+      this.password,
+    )
     MangaTranslatorUiSidecarConfig.validateConfigJson(this.translationConfigJson)
     MangaTranslatorUiSidecarConfig.validateTimeout(this.connectTimeoutMs)
     MangaTranslatorUiSidecarConfig.validateTimeout(this.readTimeoutMs)
@@ -149,8 +162,32 @@ export class MangaTranslatorUiSidecarConfig {
     return [authority.substring(0, lastColon), authority.substring(lastColon + 1)]
   }
 
-  private static validateSessionToken(value: string): void {
-    if (value.length > MAX_AUTHORIZATION_CHARS || /[\r\n]/.test(value)) {
+  hasAccountCredentials(): boolean {
+    return this.username.length > 0 && this.password.length > 0
+  }
+
+  sessionRequest(baseUrl: string = this.validatedBaseUrl()): MangaTranslatorUiSessionRequest {
+    const request: MangaTranslatorUiSessionRequest = new MangaTranslatorUiSessionRequest()
+    request.baseUrl = baseUrl
+    request.username = this.username
+    request.password = this.password
+    request.legacySessionToken = this.sessionToken
+    request.connectTimeoutMs = this.connectTimeoutMs
+    request.readTimeoutMs = Math.min(this.readTimeoutMs, 15000)
+    return request
+  }
+
+  private static validateAuthentication(
+    sessionToken: string,
+    username: string,
+    password: string,
+  ): void {
+    const hasUsername: boolean = username.length > 0
+    const hasPassword: boolean = password.length > 0
+    if (sessionToken.length > MAX_AUTHORIZATION_CHARS || /[\r\n]/.test(sessionToken) ||
+      hasUsername !== hasPassword || (sessionToken.length > 0 && hasUsername) ||
+      username.length > MAX_AUTH_USERNAME_CHARS || password.length > MAX_AUTH_PASSWORD_CHARS ||
+      /[\r\n\t]/.test(username)) {
       throw new Error('Manga translator UI authorization value is invalid')
     }
   }
@@ -229,15 +266,19 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
   private readonly context: common.UIAbilityContext
   private readonly config: MangaTranslatorUiSidecarConfig
   private readonly transport: MangaTranslatorUiSidecarTransport
+  private readonly sessionProvider: MangaTranslatorUiSidecarSessionProvider
 
   constructor(
     context: common.UIAbilityContext,
     config: MangaTranslatorUiSidecarConfig,
     transport: MangaTranslatorUiSidecarTransport = new DefaultMangaTranslatorUiSidecarTransport(),
+    sessionProvider: MangaTranslatorUiSidecarSessionProvider =
+      new DefaultMangaTranslatorUiSidecarSessionProvider(),
   ) {
     this.context = context
     this.config = config
     this.transport = transport
+    this.sessionProvider = sessionProvider
   }
 
   backendId(): string {
@@ -331,16 +372,44 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     const baseUrl: string = this.config.validatedBaseUrl()
     const boundary: string = 'NextE' + util.generateRandomUUID(true).replace(/-/g, '')
     const body: Uint8Array = MangaTranslatorUiSidecarBackend.multipart(boundary, parts)
+    const sessionRequest: MangaTranslatorUiSessionRequest = this.config.sessionRequest(baseUrl)
+    let sessionToken: string = await this.sessionProvider.acquire(sessionRequest)
+    let response: MangaTranslatorUiSidecarTransportResponse = await this.postMultipartOnce(
+      baseUrl + path,
+      boundary,
+      body,
+      maxResponseBytes,
+      sessionToken,
+    )
+    if (response.statusCode === 401 && this.config.hasAccountCredentials()) {
+      this.sessionProvider.invalidate(sessionRequest, sessionToken)
+      sessionToken = await this.sessionProvider.acquire(sessionRequest)
+      response = await this.postMultipartOnce(
+        baseUrl + path,
+        boundary,
+        body,
+        maxResponseBytes,
+        sessionToken,
+      )
+    }
+    return response
+  }
+
+  private async postMultipartOnce(
+    url: string,
+    boundary: string,
+    body: Uint8Array,
+    maxResponseBytes: number,
+    sessionToken: string,
+  ): Promise<MangaTranslatorUiSidecarTransportResponse> {
     const request: MangaTranslatorUiSidecarTransportRequest =
       new MangaTranslatorUiSidecarTransportRequest()
-    request.url = baseUrl + path
+    request.url = url
     request.headers = {
       'Accept': 'application/octet-stream, application/zip, image/png',
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'Content-Length': `${body.length}`,
-    }
-    if (this.config.sessionToken.length > 0) {
-      request.headers['X-Session-Token'] = this.config.sessionToken
+      'X-Session-Token': sessionToken,
     }
     request.body = body
     request.maxResponseBytes = maxResponseBytes

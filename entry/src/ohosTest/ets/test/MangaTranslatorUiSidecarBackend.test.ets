@@ -23,6 +23,8 @@ import {
   MangaTranslatorUiSidecarArchive,
   MangaTranslatorUiSidecarBackend,
   MangaTranslatorUiSidecarConfig,
+  MangaTranslatorUiSessionRequest,
+  MangaTranslatorUiSidecarSessionProvider,
   MangaTranslatorUiSidecarTransport,
   MangaTranslatorUiSidecarTransportRequest,
   MangaTranslatorUiSidecarTransportResponse,
@@ -66,6 +68,25 @@ class FakeSidecarTransport implements MangaTranslatorUiSidecarTransport {
       this.responses[this.responseIndex]
     this.responseIndex++
     return response
+  }
+}
+
+class FakeSessionProvider implements MangaTranslatorUiSidecarSessionProvider {
+  tokens: string[] = []
+  acquireCount: number = 0
+  invalidatedToken: string = ''
+
+  async acquire(_request: MangaTranslatorUiSessionRequest): Promise<string> {
+    if (this.acquireCount >= this.tokens.length) {
+      throw new Error('Unexpected fake session acquisition')
+    }
+    const token: string = this.tokens[this.acquireCount]
+    this.acquireCount++
+    return token
+  }
+
+  invalidate(_request: MangaTranslatorUiSessionRequest, rejectedToken: string): void {
+    this.invalidatedToken = rejectedToken
   }
 }
 
@@ -180,6 +201,14 @@ function config(baseUrl: string = 'http://127.0.0.1:5003'): MangaTranslatorUiSid
   const value: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
   value.baseUrl = baseUrl
   value.sessionToken = 'fixture-sidecar-session-token'
+  return value
+}
+
+function accountConfig(): MangaTranslatorUiSidecarConfig {
+  const value: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
+  value.baseUrl = 'http://127.0.0.1:5003'
+  value.username = 'fixture-user'
+  value.password = 'fixture-password'
   return value
 }
 
@@ -355,6 +384,49 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           archiveRejected = true
         }
         expect(archiveRejected).assertEqual(true)
+        done()
+      })
+
+    it('relogs once after an authenticated request returns 401', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const raw: RawSidecarFixture = await loadFixture(fixtureContext)
+        const imageBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const sourcePath: string = `${ability.context.cacheDir}/sidecar-session-retry-source.png`
+        writeFile(sourcePath, imageBytes)
+        const transport: FakeSidecarTransport = new FakeSidecarTransport()
+        transport.responses.push(response(401, new Uint8Array(0)))
+        transport.responses.push(response(
+          200,
+          new util.Base64Helper().decodeSync(raw.exportZipBase64),
+        ))
+        const sessions: FakeSessionProvider = new FakeSessionProvider()
+        sessions.tokens.push('expired-session-token')
+        sessions.tokens.push('renewed-session-token')
+        try {
+          const backend: MangaTranslatorUiSidecarBackend = new MangaTranslatorUiSidecarBackend(
+            ability.context,
+            accountConfig(),
+            transport,
+            sessions,
+          )
+          const result: ComicRegionAnalysisResult = await backend.analyze(
+            analysisRequest(raw, sourcePath),
+          )
+          expect(result.document.blocks.length).assertEqual(2)
+          expect(transport.requests.length).assertEqual(2)
+          expect(transport.requests[0].headers['X-Session-Token'])
+            .assertEqual('expired-session-token')
+          expect(transport.requests[1].headers['X-Session-Token'])
+            .assertEqual('renewed-session-token')
+          expect(sessions.invalidatedToken).assertEqual('expired-session-token')
+          expect(sessions.acquireCount).assertEqual(2)
+        } finally {
+          removeFile(sourcePath)
+        }
         done()
       })
 

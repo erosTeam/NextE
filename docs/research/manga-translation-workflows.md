@@ -104,6 +104,11 @@ NextE 因此用独立 sidecar 补丁提供 `/translate/import/json/nexte-load-te
 sidecar translator。Reader 原/译图切换、译图缩放/平移、切页返回与持久缓存恢复均通过。这证明当前固定
 profile 的真实衔接成立，但不能外推为广泛语料、字体排版或长图/双页质量已经完成。
 
+同一固定版本的认证实现使用 `POST /auth/login` 签发 `X-Session-Token`，`GET /auth/check` 校验会话，空闲
+超时为 60 分钟。因此成熟接法不是把短期 token 当长期配置：NextE 保存账号凭据、把会话限制在内存，
+并发登录合流，并在 401 后只自动重新登录和重放一次。账号轮换不应使已生成的视觉译图缓存失效，但必须
+让持有旧会话的运行时 backend 立即重建。历史 token 只作为升级兼容路径保留。
+
 这给 NextE 一个不重写整套 Python/模型栈的首条质量路线：把该类服务当作可替换的区域/修复/渲染
 sidecar，NextE 继续用自己的 API/Codex provider 负责带画廊上下文的翻译。客户端只实现窄的版本化协议
 适配器，不复制 GPL 实现；sidecar 原始 JSON 属于可再生成的适配器缓存，内部长期语义仍由

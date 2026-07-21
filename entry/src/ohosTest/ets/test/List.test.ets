@@ -58,6 +58,7 @@ import comicVisualTranslationOrchestratorTest from './ComicVisualTranslationOrch
 import mangaTranslatorUiSidecarProtocolTest from './MangaTranslatorUiSidecarProtocol.test'
 import mangaTranslatorUiSidecarBackendTest from './MangaTranslatorUiSidecarBackend.test'
 import mangaTranslatorUiSidecarConnectionTest from './MangaTranslatorUiSidecarConnection.test'
+import mangaTranslatorUiSidecarSessionTest from './MangaTranslatorUiSidecarSession.test'
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
 import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
@@ -123,6 +124,7 @@ export default function testsuite(): void {
   mangaTranslatorUiSidecarProtocolTest()
   mangaTranslatorUiSidecarBackendTest()
   mangaTranslatorUiSidecarConnectionTest()
+  mangaTranslatorUiSidecarSessionTest()
   llmSourceProfileRepositoryTest()
   llmSourceMigrationTest()
   indexRouteCoordinatorTest()

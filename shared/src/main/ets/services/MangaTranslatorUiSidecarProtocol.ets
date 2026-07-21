@@ -27,6 +27,8 @@ export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
 export const MANGA_TRANSLATOR_UI_EXPORT_PATH: string = '/translate/export/original'
 export const MANGA_TRANSLATOR_UI_IMPORT_PATH: string =
   '/translate/import/json/nexte-load-text-v1'
+export const MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH: string = '/auth/login'
+export const MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH: string = '/auth/check'
 export const MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY: string = 'translation.json'
 export const MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY: string = 'original.txt'
 /** Keeps the sidecar visual-only: OCR text is copied through, then NextE's selected LLM translates it. */

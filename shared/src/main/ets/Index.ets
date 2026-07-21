@@ -308,6 +308,8 @@ export {
 } from './services/ComicVisualTranslationOrchestrator'
 export {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
+  MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH,
+  MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH,
   MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY,
@@ -337,7 +339,18 @@ export {
   MangaTranslatorUiSidecarConnectionService,
   MangaTranslatorUiSidecarConnectionTransport,
 } from './services/MangaTranslatorUiSidecarConnectionService'
-export { MangaRenderingServiceSecretStore } from './services/MangaRenderingServiceSecretStore'
+export {
+  DefaultMangaTranslatorUiSidecarSessionProvider,
+  DefaultMangaTranslatorUiSidecarSessionTransport,
+  MangaTranslatorUiSessionRequest,
+  MangaTranslatorUiSidecarSessionProvider,
+  MangaTranslatorUiSidecarSessionService,
+  MangaTranslatorUiSidecarSessionTransport,
+} from './services/MangaTranslatorUiSidecarSessionService'
+export {
+  MangaRenderingServiceCredential,
+  MangaRenderingServiceSecretStore,
+} from './services/MangaRenderingServiceSecretStore'
 export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,

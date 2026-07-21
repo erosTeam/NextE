@@ -7,12 +7,14 @@ import {
   DiagnosticLogger,
   GroupedListSection,
   MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
+  MangaRenderingServiceCredential,
   MangaRenderingServiceSecretStore,
   MangaRenderingServiceSettings,
   MangaRenderingServiceSettingsSnapshot,
   MangaTranslatorUiSidecarConfig,
   MangaTranslatorUiSidecarConnectionResult,
   MangaTranslatorUiSidecarConnectionService,
+  MangaTranslatorUiSidecarSessionService,
   SecondaryListScaffold,
   ThemeConstants,
   immersiveTitleBar,
@@ -26,11 +28,16 @@ const CONNECTION_FAILED: string = 'failed'
 @ComponentV2
 export struct MangaRenderingServiceSettingsPage {
   @Local private baseUrlDraft: string = '';
-  @Local private credentialDraft: string = '';
+  @Local private usernameDraft: string = '';
+  @Local private passwordDraft: string = '';
+  @Local private credentialDirty: boolean = false;
+  @Local private legacyCredentialPresent: boolean = false;
   @Local private loaded: boolean = false;
   @Local private connectionState: string = CONNECTION_IDLE;
   @Local private connectionFailure: string = '';
   private scroller: Scroller = new Scroller();
+  private loadedCredential: MangaRenderingServiceCredential =
+    new MangaRenderingServiceCredential();
 
   aboutToAppear(): void {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
@@ -52,9 +59,14 @@ export struct MangaRenderingServiceSettingsPage {
     try {
       const snapshot: MangaRenderingServiceSettingsSnapshot =
         await MangaRenderingServiceSettings.load(this.ctx())
-      const credential: string = await MangaRenderingServiceSecretStore.read(this.ctx())
+      const credential: MangaRenderingServiceCredential =
+        await MangaRenderingServiceSecretStore.read(this.ctx())
       this.baseUrlDraft = snapshot.baseUrl
-      this.credentialDraft = credential
+      this.loadedCredential = credential.copy()
+      this.usernameDraft = credential.username
+      this.passwordDraft = credential.password
+      this.legacyCredentialPresent = credential.hasLegacySession()
+      this.credentialDirty = false
       this.loaded = true
     } catch (error) {
       DiagnosticLogger.warn('comic-translation', 'render_service_load_failed', (error as Error).message)
@@ -67,8 +79,17 @@ export struct MangaRenderingServiceSettingsPage {
       new MangaRenderingServiceSettingsSnapshot()
     snapshot.baseUrl = this.baseUrlDraft
     try {
+      const credential: MangaRenderingServiceCredential | null = this.credentialDirty
+        ? this.draftCredential()
+        : null
       await MangaRenderingServiceSettings.save(this.ctx(), snapshot)
-      await MangaRenderingServiceSecretStore.save(this.ctx(), this.credentialDraft)
+      if (credential !== null) {
+        await MangaRenderingServiceSecretStore.save(this.ctx(), credential)
+        this.loadedCredential = credential.copy()
+        this.legacyCredentialPresent = credential.hasLegacySession()
+        this.credentialDirty = false
+        MangaTranslatorUiSidecarSessionService.clearCachedSessions()
+      }
       const stored: MangaRenderingServiceSettingsSnapshot =
         await MangaRenderingServiceSettings.load(this.ctx())
       this.baseUrlDraft = stored.baseUrl
@@ -80,6 +101,24 @@ export struct MangaRenderingServiceSettingsPage {
       }
       return false
     }
+  }
+
+  private draftCredential(): MangaRenderingServiceCredential {
+    if (this.usernameDraft.length === 0 && this.passwordDraft.length === 0) {
+      return new MangaRenderingServiceCredential()
+    }
+    return MangaRenderingServiceCredential.account(this.usernameDraft, this.passwordDraft)
+  }
+
+  private effectiveCredential(): MangaRenderingServiceCredential {
+    return this.credentialDirty ? this.draftCredential() : this.loadedCredential.copy()
+  }
+
+  private passwordPlaceholder(): ResourceStr {
+    if (this.legacyCredentialPresent && !this.credentialDirty) {
+      return $r('app.string.comic_render_service_legacy_credential_hint')
+    }
+    return $r('app.string.comic_render_service_password_hint')
   }
 
   private connectionSubtitle(): ResourceStr {
@@ -106,8 +145,11 @@ export struct MangaRenderingServiceSettingsPage {
     this.connectionState = CONNECTION_RUNNING
     this.connectionFailure = ''
     const config: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
+    const credential: MangaRenderingServiceCredential = this.effectiveCredential()
     config.baseUrl = this.baseUrlDraft
-    config.sessionToken = this.credentialDraft
+    config.username = credential.username
+    config.password = credential.password
+    config.sessionToken = credential.legacySessionToken
     try {
       const result: MangaTranslatorUiSidecarConnectionResult =
         await MangaTranslatorUiSidecarConnectionService.check(config)
@@ -145,8 +187,20 @@ export struct MangaRenderingServiceSettingsPage {
         .onChange(() => {
           this.connectionState = CONNECTION_IDLE
         })
+    } else if (field === 'username') {
+      TextInput({ text: $$this.usernameDraft, placeholder: placeholder })
+        .type(InputType.Normal)
+        .width('100%')
+        .height(48)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+        .onChange(() => {
+          this.credentialDirty = true
+          this.connectionState = CONNECTION_IDLE
+        })
     } else {
-      TextInput({ text: $$this.credentialDraft, placeholder: placeholder })
+      TextInput({ text: $$this.passwordDraft, placeholder: placeholder })
         .type(InputType.Password)
         .width('100%')
         .height(48)
@@ -154,6 +208,7 @@ export struct MangaRenderingServiceSettingsPage {
         .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
         .onChange(() => {
+          this.credentialDirty = true
           this.connectionState = CONNECTION_IDLE
         })
     }
@@ -210,9 +265,15 @@ export struct MangaRenderingServiceSettingsPage {
               )
               this.rowDivider()
               this.TextInputRow(
-                $r('app.string.comic_render_service_credential'),
-                'credential',
-                $r('app.string.comic_render_service_credential_hint'),
+                $r('app.string.comic_render_service_username'),
+                'username',
+                $r('app.string.comic_render_service_username_hint'),
+              )
+              this.rowDivider()
+              this.TextInputRow(
+                $r('app.string.comic_render_service_password'),
+                'password',
+                this.passwordPlaceholder(),
               )
             }
           }
