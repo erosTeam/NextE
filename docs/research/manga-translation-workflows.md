@@ -83,7 +83,7 @@
 
 | 服务 | 公开能力 | 与 NextE 的匹配 | 当前判定 |
 |---|---|---|---|
-| [Torii Image Translator API](https://toriitranslate.com/api) | `POST /api/v2/upload` 一次返回最终译图、消字图、逐块原文/译文/坐标/方向/颜色/字体和更新后的跨页 `context`；支持自带 OpenAI/OpenRouter/Google/Anthropic/DeepSeek/xAI 或自托管兼容密钥。 | 作为独立 `ComicWholePageRenderBackend`：NextE 只上传整页和上下文、接收最终图片，不把 Torii 的 OCR/inpaint/typeset 子端点拆入端侧管线。`context` 最多 10,000 字符，可承接前页摘要和术语。 | **首个已验证云端整图 provider**：两页真实出图、跨页姓名一致和本地缓存不重复扣费已通过；站牌/拟声词质量仍需更广样本。其[隐私政策](https://toriitranslate.com/privacy)说明部分图片可能临时进入私有存储做诊断/质量控制，提取文本会转发给所选模型。 |
+| [Torii Image Translator API](https://toriitranslate.com/api) | `POST /api/v2/upload` 一次返回最终译图、消字图、逐块原文/译文/坐标/方向/颜色/字体和更新后的跨页 `context`；支持自带 OpenAI/OpenRouter/Google/Anthropic/DeepSeek/xAI 或自托管兼容密钥。 | 作为独立 `ComicWholePageRenderBackend`：NextE 只上传整页和上下文、接收最终图片，不把 Torii 的 OCR/inpaint/typeset 子端点拆入端侧管线。`context` 最多 10,000 字符，可承接前页摘要和术语。 | **首个已验证云端整图 provider**：两页真实出图、上下文续接和本地缓存不重复扣费已通过；严格称呼一致性、站牌和拟声词质量仍需更广样本。其[隐私政策](https://toriitranslate.com/privacy)说明部分图片可能临时进入私有存储做诊断/质量控制，提取文本会转发给所选模型。 |
 | [ImageTranslate.ai API](https://imagetranslate.ai/docs/api) | `POST /translate/image` 接收最大 20 MB base64 图片，提供 `manga` 模式、1000 字符 custom prompt、幂等键和 base64 PNG 结果；API 只对 Professional/Enterprise 开放，每次 10 advanced credits。 | 接口最短，适合 opaque whole-page render；只返回最终图片，无法逐块复核或只改一个人名。 | **协议可接但暂不推荐**：其[隐私政策](https://imagetranslate.ai/legal/privacy-policy)写明默认数据可无限期保留，实施前必须取得更明确的数据删除/保留承诺。 |
 | [PixLab IMG-TRANSLATE](https://pixlab.io/endpoints/image-text-translate) | `POST /imgtranslate` 上传图片并完成检测、翻译、inpaint 和回填，支持日/中/韩等语言和字体/颜色/字号提示，可返回 base64 或原始图片。 | 通用图片翻译而非漫画专用；没有公开的跨页 context、逐块结果或幂等语义，但 whole-page adapter 很简单。 | **第二验证候选**：其[隐私政策](https://pixlab.io/privacy-policy)说明 API 图片默认内存处理并在完成后清除，且不用于训练，仍需实测竖排、拟声词和长图。 |
 | [ImgText API](https://imgtext.io/api-docs) | 返回最终译图、消字图和 region breakdown，支持异步批量与 webhook。 | 数据形态很好，但当前 API 文档的 supported languages 只列出十种欧洲语言，与产品页声称的日/中/韩等 27 种语言不一致。 | **等待厂商确认**，不作为日文漫画候选。 |
@@ -141,9 +141,10 @@ $0.10/$0.40、$1/$5、$5/$25，则 LLM 部分分别约 $0.0005、$0.0055、$0.02
 
 NextE 在 2026-07-22 用设备 `237`、两页 `nexte-original-manga-eval-v1`、managed billing 与
 `gemini-3.1-flash-lite` 完成真实验证：一次新鲜两页运行耗时 13.0 秒、返回产物合计 3.8 MiB、扣除
-2.42 credits；第二页继续使用“优”，与第一页姓名一致。官方示例把 `image` 写成 PNG data URL，但真实
-响应为 JPEG data URL，因此接入方不能只匹配字符串前缀；必须同时校验声明 MIME、文件签名、可解码尺寸，
-再归一化到自身稳定产物格式。NextE 的稳定 fixture identity 与本地 artifact 缓存使杀进程后的同配置复跑
+2.42 credits。首轮成功输出两页都使用“优”，后续新鲜复跑的第二页则使用“小优”；核心姓名被保留，但
+严格称呼一致性不能据此宣布通过。官方示例把 `image` 写成 PNG data URL，但真实响应为 JPEG data URL，
+因此接入方不能只匹配字符串前缀；必须同时校验声明 MIME、文件签名、可解码尺寸，再归一化到自身稳定
+产物格式。NextE 的稳定 fixture identity 与本地 artifact 缓存使杀进程后的同配置复跑
 降到 25–28 ms，复跑前后余额均为 6016.71。整轮接入诊断从 6030.00 降到 6016.71；其中 13.29 credits
 包含修复前被客户端错误拒绝的成功 JPEG 响应和重复定位请求，不能把该总额当作正常两页价格。
 
