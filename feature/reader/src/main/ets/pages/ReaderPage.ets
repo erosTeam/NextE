@@ -1555,7 +1555,7 @@ export struct ReaderPage {
     this.comicTranslationRunning = true
     ComicTranslationRuntimeService.runReaderPage(this.hostContext(), input, forceRefresh)
       .then((result: ComicVisualTranslationRunResult): void => {
-        if (!this.isComicTranslationPublicationCurrent(
+        if (!this.isComicTranslationRequestCurrent(
           uiEpoch,
           routeEpoch,
           gid,
@@ -1566,22 +1566,28 @@ export struct ReaderPage {
         )) {
           return
         }
+        const resultPageIsVisible: boolean = this.vm.currentIndex === pageIndex
         this.rememberComicTranslationPage(result.renderedPage)
         this.comicTranslationCacheHit = result.cacheHit
         this.comicTranslationErrorCode = ''
         this.comicTranslationRunning = false
-        this.getUIContext().getPromptAction().showToast({
-          message: $r('app.string.reader_comic_translation_result_visible'),
-        })
+        if (resultPageIsVisible) {
+          this.getUIContext().getPromptAction().showToast({
+            message: $r('app.string.reader_comic_translation_result_visible'),
+          })
+        } else {
+          this.comicTranslationPageIndex = -1
+        }
         DiagnosticLogger.info(
           'comic-translation',
           'reader_page_ready',
           `page=${pageIndex} cache=${result.cacheHit ? 1 : 0} ` +
-            `bytes=${result.renderedPage.byteLength} artifact=${result.renderedPage.artifactHash.substring(0, 12)}`,
+            `visible=${resultPageIsVisible ? 1 : 0} bytes=${result.renderedPage.byteLength} ` +
+            `artifact=${result.renderedPage.artifactHash.substring(0, 12)}`,
         )
       })
       .catch((error: Error): void => {
-        if (!this.isComicTranslationPublicationCurrent(
+        if (!this.isComicTranslationRequestCurrent(
           uiEpoch,
           routeEpoch,
           gid,
@@ -1592,19 +1598,23 @@ export struct ReaderPage {
         )) {
           return
         }
+        const resultPageIsVisible: boolean = this.vm.currentIndex === pageIndex
         const errorCode: string = ComicTranslationErrorClassifier.classify(error)
-        this.comicTranslationErrorCode = errorCode
+        this.comicTranslationErrorCode = resultPageIsVisible ? errorCode : ''
         this.comicTranslationRunning = false
+        if (!resultPageIsVisible) {
+          this.comicTranslationPageIndex = -1
+        }
         DiagnosticLogger.warn(
           'comic-translation',
           'reader_page_failed',
-          `page=${pageIndex} code=${errorCode} ` +
+          `page=${pageIndex} code=${errorCode} visible=${resultPageIsVisible ? 1 : 0} ` +
             `reason=${error.name}:${error.message}`,
         )
       })
   }
 
-  private isComicTranslationPublicationCurrent(
+  private isComicTranslationRequestCurrent(
     uiEpoch: number,
     routeEpoch: number,
     gid: string,
@@ -1613,7 +1623,7 @@ export struct ReaderPage {
     pageIndex: number,
     filePath: string,
   ): boolean {
-    if (uiEpoch !== this.comicTranslationUiEpoch || this.vm.currentIndex !== pageIndex ||
+    if (uiEpoch !== this.comicTranslationUiEpoch ||
       !this.isReaderRouteIdentityCurrent(routeEpoch, gid, token, isEx) ||
       !this.vm.hasPreviewAt(pageIndex)) {
       return false
@@ -2331,7 +2341,8 @@ export struct ReaderPage {
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
     if (this.comicTranslationPageIndex >= 0 &&
-      this.comicTranslationPageIndex !== this.vm.currentIndex) {
+      this.comicTranslationPageIndex !== this.vm.currentIndex &&
+      !this.comicTranslationRunning) {
       this.resetComicTranslationPresentation()
     }
     if (this.sliderPreview < 0) {
