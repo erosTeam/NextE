@@ -5161,6 +5161,10 @@
       "value": "先に漫画翻訳設定で画像処理サービスを構成してください"
     },
     {
+      "name": "reader_comic_translation_local_visual_unavailable",
+      "value": "端末上の漫画画像処理は一時的に利用できません"
+    },
+    {
       "name": "reader_comic_translation_cached",
       "value": "キャッシュ"
     },

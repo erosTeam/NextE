@@ -5,16 +5,14 @@ import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { ComicRenderProfile } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
-import {
-  MangaRenderingServiceSettings,
-  MangaRenderingServiceSettingsSnapshot,
-} from '../settings/MangaRenderingServiceSettings'
 import { CacheStat } from './CacheStat'
 import { PersistentComicRenderedPageRepository } from './ComicRenderedPageRepository'
+import { ComicLocalVisualBackend } from './ComicLocalVisualBackend'
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
 import { ComicTranslationRepository } from './ComicTranslationRepository'
 import { PersistentComicTranslationRepository } from './ComicTranslationPersistentRepository'
 import {
+  ComicRegionRenderBackend,
   ComicTextTranslator,
   ComicVisualPageSource,
 } from './ComicVisualTranslationBackend'
@@ -23,21 +21,12 @@ import {
   ComicVisualTranslationRequest,
   ComicVisualTranslationRunResult,
 } from './ComicVisualTranslationOrchestrator'
-import {
-  MangaTranslatorUiSidecarBackend,
-  MangaTranslatorUiSidecarConfig,
-} from './MangaTranslatorUiSidecarBackend'
-import {
-  MangaRenderingServiceCredential,
-  MangaRenderingServiceSecretStore,
-} from './MangaRenderingServiceSecretStore'
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
-const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-manga-translator-ui-render-v1'
-const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string =
-  'manga-translator-ui-v1.9.9-source-treatment-v1'
-const COMIC_READER_LAYOUT_PROFILE_ID: string = 'manga-translator-ui-v1.9.9-layout-v1'
+const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-basic-render-v1'
+const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-opaque-mask-v1'
+const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-centered-text-v1'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096
@@ -64,6 +53,7 @@ export class ComicTranslationReaderPageInput {
 export class ComicTranslationRuntimeService {
   private static documentRepository: ComicTranslationRepository | null = null
   private static renderedRepository: PersistentComicRenderedPageRepository | null = null
+  private static localBackend: ComicRegionRenderBackend | null = null
   private static orchestrators: Map<string, ComicVisualTranslationOrchestrator> = new Map()
 
   static async runReaderPage(
@@ -79,31 +69,16 @@ export class ComicTranslationRuntimeService {
       'source_identity_resolved',
       `reader=${input.imageWidth}x${input.imageHeight} file=${metadata.imageWidth}x${metadata.imageHeight}`,
     )
-    const settings: MangaRenderingServiceSettingsSnapshot =
-      await MangaRenderingServiceSettings.load(context)
-    if (!settings.configured()) {
-      throw new Error('Manga rendering service base URL is not configured')
-    }
-    const credential: MangaRenderingServiceCredential =
-      await MangaRenderingServiceSecretStore.read(context)
-    const config: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
-    config.baseUrl = settings.baseUrl
-    config.username = credential.username
-    config.password = credential.password
-    config.sessionToken = credential.legacySessionToken
-    config.applySourceLanguage(input.sourceLanguage)
-    config.validatedBaseUrl()
-    const backend: MangaTranslatorUiSidecarBackend =
-      new MangaTranslatorUiSidecarBackend(context, config)
+    const backend: ComicRegionRenderBackend =
+      ComicTranslationRuntimeService.localBackendFor(context)
     const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(context)
-    const regionRevision: number = ComicTranslationRuntimeService.regionRevision(config)
+    const regionRevision: number = backend.protocolRevision()
     const orchestrator: ComicVisualTranslationOrchestrator =
       ComicTranslationRuntimeService.orchestrator(
         context,
         backend,
         translator,
         regionRevision,
-        ComicTranslationRuntimeService.credentialRuntimeFingerprint(credential),
       )
     const request: ComicVisualTranslationRequest = new ComicVisualTranslationRequest()
     request.source = new ComicVisualPageSource()
@@ -155,17 +130,15 @@ export class ComicTranslationRuntimeService {
 
   private static orchestrator(
     context: common.UIAbilityContext,
-    backend: MangaTranslatorUiSidecarBackend,
+    backend: ComicRegionRenderBackend,
     translator: ComicTextTranslator,
     regionRevision: number,
-    credentialRuntimeFingerprint: string,
   ): ComicVisualTranslationOrchestrator {
     const runtimeKey: string = ComicTranslationRuntimeService.digest(JSON.stringify([
       backend.backendId(),
       backend.profileId(),
       `${backend.protocolRevision()}`,
       `${regionRevision}`,
-      credentialRuntimeFingerprint,
       translator.sourceProfileId(),
       `${translator.sourceRevision()}`,
       translator.modelId(),
@@ -186,6 +159,16 @@ export class ComicTranslationRuntimeService {
       ComicTranslationRuntimeService.renderedRepositoryFor(context),
     )
     ComicTranslationRuntimeService.orchestrators.set(runtimeKey, created)
+    return created
+  }
+
+  private static localBackendFor(context: common.UIAbilityContext): ComicRegionRenderBackend {
+    const existing: ComicRegionRenderBackend | null = ComicTranslationRuntimeService.localBackend
+    if (existing !== null) {
+      return existing
+    }
+    const created: ComicRegionRenderBackend = new ComicLocalVisualBackend(context)
+    ComicTranslationRuntimeService.localBackend = created
     return created
   }
 
@@ -224,26 +207,6 @@ export class ComicTranslationRuntimeService {
     profile.targetMimeType = 'image/png'
     profile.revision = 1
     return profile
-  }
-
-  private static regionRevision(config: MangaTranslatorUiSidecarConfig): number {
-    const fingerprint: string = ComicTranslationRuntimeService.digest(JSON.stringify([
-      config.validatedBaseUrl(),
-      config.translationConfigJson,
-      `${config.connectTimeoutMs}`,
-      `${config.readTimeoutMs}`,
-    ]))
-    return Math.max(1, Number.parseInt(fingerprint.substring(0, 12), 16))
-  }
-
-  private static credentialRuntimeFingerprint(
-    credential: MangaRenderingServiceCredential,
-  ): string {
-    return ComicTranslationRuntimeService.digest(JSON.stringify([
-      credential.username,
-      credential.password,
-      credential.legacySessionToken,
-    ]))
   }
 
   private static validateInput(input: ComicTranslationReaderPageInput): void {

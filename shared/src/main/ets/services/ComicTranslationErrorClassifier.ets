@@ -53,6 +53,9 @@ export class ComicTranslationErrorClassifier {
     if (message.includes('stream failed')) {
       return 'provider_stream_failed'
     }
+    if (message.includes('harmony device ocr') || message.includes('local comic')) {
+      return 'local_visual_unavailable'
+    }
     if (message.includes('timeout') || message.includes('network') || message.includes('dns') ||
       message.includes('socket') || message.includes('connection') || message.includes('certificate')) {
       return 'provider_transport_failed'

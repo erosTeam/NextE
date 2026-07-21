@@ -62,6 +62,7 @@ import mangaTranslatorUiSidecarSessionTest from './MangaTranslatorUiSidecarSessi
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
 import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
+import comicLocalVisualBackendTest from './ComicLocalVisualBackend.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -128,4 +129,5 @@ export default function testsuite(): void {
   llmSourceProfileRepositoryTest()
   llmSourceMigrationTest()
   indexRouteCoordinatorTest()
+  comicLocalVisualBackendTest()
 }

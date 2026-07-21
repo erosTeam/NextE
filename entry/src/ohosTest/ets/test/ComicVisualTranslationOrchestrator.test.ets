@@ -320,6 +320,28 @@ export default function comicVisualTranslationOrchestratorTest(): void {
         done()
       })
 
+    it('reuses the exact translated document when only the render profile changes', 0,
+      async (done: Function) => {
+        const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        const translator: FixtureTextTranslator = new FixtureTextTranslator()
+        const orchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(backend, translator)
+        const first: ComicVisualTranslationRequest = fixtureRequest(0, 'a')
+        await orchestrator.run(first)
+        const changed: ComicVisualTranslationRequest = fixtureRequest(0, 'a')
+        changed.renderProfile.profileId = 'fixture-reader-render-v2'
+        changed.renderProfile.layoutProfileId = 'fixture-layout-v2'
+        changed.renderProfile.revision = 2
+        const rerendered = await orchestrator.run(changed)
+        expect(rerendered.cacheHit).assertEqual(false)
+        expect(backend.analyzeCalls).assertEqual(2)
+        expect(translator.translateCalls).assertEqual(1)
+        expect(backend.renderCalls).assertEqual(2)
+        expect(rerendered.renderedPage.identity.layoutProfileId)
+          .assertEqual('fixture-layout-v2')
+        done()
+      })
+
     it('rejects a translation batch that is not bound to the active translator', 0,
       async (done: Function) => {
         const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
@@ -372,6 +394,7 @@ export default function comicVisualTranslationOrchestratorTest(): void {
           request.context.targetLanguage,
         )
         expect(rejected).assertEqual(true)
+        expect(translator.translateCalls).assertEqual(2)
         expect(retained?.identity.cacheKey()).assertEqual(first.renderedPage.identity.cacheKey())
         done()
       })

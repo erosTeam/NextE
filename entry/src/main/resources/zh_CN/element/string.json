@@ -5161,6 +5161,10 @@
       "value": "请先在漫画翻译设置中配置制图服务"
     },
     {
+      "name": "reader_comic_translation_local_visual_unavailable",
+      "value": "端侧漫画图像处理暂不可用，请稍后重试"
+    },
+    {
       "name": "reader_comic_translation_cached",
       "value": "缓存"
     },

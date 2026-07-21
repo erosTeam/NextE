@@ -5161,6 +5161,10 @@
       "value": "Configure the manga rendering service in Settings first"
     },
     {
+      "name": "reader_comic_translation_local_visual_unavailable",
+      "value": "On-device comic image processing is temporarily unavailable"
+    },
+    {
       "name": "reader_comic_translation_cached",
       "value": "Cached"
     },

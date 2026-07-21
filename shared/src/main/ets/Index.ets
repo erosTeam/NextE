@@ -301,6 +301,14 @@ export {
 } from './services/ComicVisualTranslationBackend'
 export { ComicVisualTranslationContract } from './services/ComicVisualTranslationContract'
 export {
+  ComicLocalOcrEngine,
+  ComicLocalOcrLine,
+  ComicLocalOcrPoint,
+  ComicLocalOcrResult,
+  HarmonyComicLocalOcrEngine,
+} from './services/ComicHarmonyOcrService'
+export { ComicLocalVisualBackend } from './services/ComicLocalVisualBackend'
+export {
   ComicRenderedPageRepository,
   ComicRenderedPageRepositoryContract,
   InMemoryComicRenderedPageRepository,

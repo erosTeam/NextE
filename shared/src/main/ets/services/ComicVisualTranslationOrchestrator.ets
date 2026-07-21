@@ -5,6 +5,7 @@ import {
   ComicRenderedPage,
   ComicRenderedPageIdentity,
   ComicRenderProfile,
+  ComicBlockTranslation,
   ComicTranslationBatch,
   ComicVisualTranslationRoute,
 } from '../model/ComicVisualTranslation'
@@ -109,6 +110,7 @@ export class ComicVisualTranslationOrchestrator {
       request,
       previous,
       lookupKey,
+      !forceRefresh,
     )
     this.inFlight.set(lookupKey, task)
     try {
@@ -139,6 +141,7 @@ export class ComicVisualTranslationOrchestrator {
     request: ComicVisualTranslationRequest,
     previous: ComicPageDocument[],
     lookupKey: string,
+    allowDocumentReuse: boolean,
   ): Promise<ComicVisualTranslationRunResult> {
     const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
     analysisRequest.source = request.source.copy()
@@ -164,27 +167,64 @@ export class ComicVisualTranslationOrchestrator {
     translationRequest.requestedTranslationRevision = request.requestedTranslationRevision
     const expectedContextFingerprint: string =
       this.translator.contextFingerprint(translationRequest)
-    const translation: ComicTextTranslationResult =
-      await this.translator.translate(translationRequest)
-    ComicVisualTranslationContract.validateTranslationBatch(
-      analysis.document,
-      translation.batch,
-    )
-    this.validateTranslationIdentity(
+    const documentIdentity: ComicTranslationRequestIdentity = this.documentIdentity(
       request,
-      translation.batch,
       expectedContextFingerprint,
     )
-    const translatedDocument: ComicPageDocument = ComicTranslationConsistencyService.audit(
-      ComicTranslationContextService.applyTranslationBatch(
+    let translation: ComicTextTranslationResult | null = null
+    let translatedDocument: ComicPageDocument | null = null
+    if (allowDocumentReuse) {
+      const cachedDocument: ComicPageDocument | null =
+        await this.documentRepository.load(documentIdentity)
+      if (cachedDocument !== null) {
+        translation = this.translationFromDocument(
+          request,
+          cachedDocument,
+          expectedContextFingerprint,
+        )
+        ComicVisualTranslationContract.validateTranslationBatch(
+          analysis.document,
+          translation.batch,
+        )
+        this.validateTranslationIdentity(
+          request,
+          translation.batch,
+          expectedContextFingerprint,
+        )
+        translatedDocument = ComicTranslationConsistencyService.audit(
+          ComicTranslationContextService.applyTranslationBatch(
+            analysis.document,
+            translation.batch,
+            translation.pageSummary,
+            request.context.rollingSummary,
+          ),
+          previous,
+        )
+        translatedDocument.imagePreparationProfile.profileId = this.regionBackend.profileId()
+      }
+    }
+    if (translation === null || translatedDocument === null) {
+      translation = await this.translator.translate(translationRequest)
+      ComicVisualTranslationContract.validateTranslationBatch(
         analysis.document,
         translation.batch,
-        translation.pageSummary,
-        request.context.rollingSummary,
-      ),
-      previous,
-    )
-    translatedDocument.imagePreparationProfile.profileId = this.regionBackend.profileId()
+      )
+      this.validateTranslationIdentity(
+        request,
+        translation.batch,
+        expectedContextFingerprint,
+      )
+      translatedDocument = ComicTranslationConsistencyService.audit(
+        ComicTranslationContextService.applyTranslationBatch(
+          analysis.document,
+          translation.batch,
+          translation.pageSummary,
+          request.context.rollingSummary,
+        ),
+        previous,
+      )
+      translatedDocument.imagePreparationProfile.profileId = this.regionBackend.profileId()
+    }
     const identity: ComicRenderedPageIdentity = this.renderedIdentity(
       request,
       analysis.regionRevision,
@@ -203,16 +243,41 @@ export class ComicVisualTranslationOrchestrator {
     ComicVisualTranslationContract.validateRenderedPage(identity, renderedPage)
 
     if (this.cacheWritesEnabled) {
-      const documentIdentity: ComicTranslationRequestIdentity = this.documentIdentity(
-        request,
-        translation.batch.contextFingerprint,
-      )
       await this.documentRepository.save(documentIdentity, translatedDocument)
       await this.renderedRepository.save(lookupKey, renderedPage)
     } else {
       await this.renderedRepository.discardArtifact(renderedPage)
     }
     return ComicVisualTranslationOrchestrator.result(renderedPage, false)
+  }
+
+  private translationFromDocument(
+    request: ComicVisualTranslationRequest,
+    document: ComicPageDocument,
+    contextFingerprint: string,
+  ): ComicTextTranslationResult {
+    const batch: ComicTranslationBatch = new ComicTranslationBatch()
+    batch.projectId = request.source.projectId
+    batch.pageIndex = request.source.pageIndex
+    batch.sourceImageHash = request.source.imageHash
+    batch.targetLanguage = request.context.targetLanguage
+    batch.sourceProfileId = this.translator.sourceProfileId()
+    batch.sourceRevision = this.translator.sourceRevision()
+    batch.modelId = this.translator.modelId()
+    batch.promptVersion = this.translator.promptVersion()
+    batch.contextFingerprint = contextFingerprint
+    batch.glossaryRevision = request.context.glossaryRevision
+    batch.translationRevision = request.requestedTranslationRevision
+    for (let index: number = 0; index < document.blocks.length; index++) {
+      const block: ComicBlockTranslation = new ComicBlockTranslation()
+      block.blockId = document.blocks[index].blockId
+      block.translatedText = document.blocks[index].translatedText
+      batch.blocks.push(block)
+    }
+    const result: ComicTextTranslationResult = new ComicTextTranslationResult()
+    result.batch = batch
+    result.pageSummary = document.pageSummary
+    return result
   }
 
   private renderedIdentity(
