@@ -59,7 +59,7 @@ class PngDimensions {
 
 export class MangaTranslatorUiSidecarConfig {
   baseUrl: string = ''
-  authorizationValue: string = ''
+  sessionToken: string = ''
   translationConfigJson: string = '{}'
   connectTimeoutMs: number = 15000
   readTimeoutMs: number = 5 * 60 * 1000
@@ -78,7 +78,7 @@ export class MangaTranslatorUiSidecarConfig {
     if (match[1] === 'http' && !MangaTranslatorUiSidecarConfig.isPrivateAuthority(match[2])) {
       throw new Error('Public Manga translator UI services require HTTPS')
     }
-    MangaTranslatorUiSidecarConfig.validateAuthorization(this.authorizationValue)
+    MangaTranslatorUiSidecarConfig.validateSessionToken(this.sessionToken)
     MangaTranslatorUiSidecarConfig.validateConfigJson(this.translationConfigJson)
     MangaTranslatorUiSidecarConfig.validateTimeout(this.connectTimeoutMs)
     MangaTranslatorUiSidecarConfig.validateTimeout(this.readTimeoutMs)
@@ -148,7 +148,7 @@ export class MangaTranslatorUiSidecarConfig {
     return [authority.substring(0, lastColon), authority.substring(lastColon + 1)]
   }
 
-  private static validateAuthorization(value: string): void {
+  private static validateSessionToken(value: string): void {
     if (value.length > MAX_AUTHORIZATION_CHARS || /[\r\n]/.test(value)) {
       throw new Error('Manga translator UI authorization value is invalid')
     }
@@ -337,8 +337,8 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'Content-Length': `${body.length}`,
     }
-    if (this.config.authorizationValue.length > 0) {
-      request.headers['Authorization'] = this.config.authorizationValue
+    if (this.config.sessionToken.length > 0) {
+      request.headers['X-Session-Token'] = this.config.sessionToken
     }
     request.body = body
     request.maxResponseBytes = maxResponseBytes

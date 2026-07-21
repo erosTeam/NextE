@@ -44,7 +44,7 @@ class TestOpenApiEnvelope {
 function config(baseUrl: string): MangaTranslatorUiSidecarConfig {
   const value: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
   value.baseUrl = baseUrl
-  value.authorizationValue = 'Bearer fixture-render-service-token'
+  value.sessionToken = 'fixture-render-service-session-token'
   return value
 }
 
@@ -73,8 +73,8 @@ export default function mangaTranslatorUiSidecarConnectionTest(): void {
       expect(transport.urls[0]).assertEqual('http://192.168.50.10:5003/openapi.json')
       expect(transport.methods[0]).assertEqual('GET')
       expect(transport.bodies[0]).assertEqual('')
-      expect(transport.headers[0]['Authorization'])
-        .assertEqual('Bearer fixture-render-service-token')
+      expect(transport.headers[0]['X-Session-Token'])
+        .assertEqual('fixture-render-service-session-token')
     })
 
     it('rejects a service missing the pinned import route', 0, async () => {

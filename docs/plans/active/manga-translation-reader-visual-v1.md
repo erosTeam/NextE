@@ -176,3 +176,10 @@ signed app、`entry@ohosTest`、V2 门禁和 `git diff --check` 通过；设备 
 门禁和 `git diff --check` 通过，设备 `237` 完整 Hypium 为 221/221。该设备当前未配置可达的
 `manga-translator-ui` sidecar，因此真实出图、原/译图对照、缩放切页与重启缓存证据仍未满足 F，不能称为 V1
 完成。
+
+2026-07-21：真实 sidecar 验收以 `manga-translator-ui v1.9.9` 对应提交
+`696dc63bd0b4803f96cc3d4f844322cef4910f8e` 的 ARM64 CPU 镜像启动，并从实际路由确认 export/import
+均通过 `X-Session-Token` 认证，而不是通用 `Authorization`。NextE 的传输、连接检查、secret 设置语义和
+fake transport 断言已统一到该固定协议，避免能力检查成功但首次上传必然 401。修正后资源 JSON、signed app、
+`entry@ohosTest`、V2 门禁和 `git diff --check` 通过，设备 `237` 完整 Hypium 为 221/221。真实样页出图与
+Reader 缓存交互证据仍按 F 继续执行。

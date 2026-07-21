@@ -4842,11 +4842,11 @@
     },
     {
       "name": "comic_render_service_credential",
-      "value": "Authorization"
+      "value": "Session token"
     },
     {
       "name": "comic_render_service_credential_hint",
-      "value": "Optional, for example Bearer ..."
+      "value": "Optional X-Session-Token from manga-translator-ui"
     },
     {
       "name": "comic_render_service_check",

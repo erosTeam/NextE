@@ -74,7 +74,7 @@ export class ComicTranslationRuntimeService {
     }
     const config: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
     config.baseUrl = settings.baseUrl
-    config.authorizationValue = await MangaRenderingServiceSecretStore.read(context)
+    config.sessionToken = await MangaRenderingServiceSecretStore.read(context)
     config.validatedBaseUrl()
     const backend: MangaTranslatorUiSidecarBackend =
       new MangaTranslatorUiSidecarBackend(context, config)
@@ -209,7 +209,7 @@ export class ComicTranslationRuntimeService {
   private static regionRevision(config: MangaTranslatorUiSidecarConfig): number {
     const fingerprint: string = ComicTranslationRuntimeService.digest(JSON.stringify([
       config.validatedBaseUrl(),
-      config.authorizationValue,
+      config.sessionToken,
       config.translationConfigJson,
       `${config.connectTimeoutMs}`,
       `${config.readTimeoutMs}`,

@@ -4842,11 +4842,11 @@
     },
     {
       "name": "comic_render_service_credential",
-      "value": "认证信息"
+      "value": "会话令牌"
     },
     {
       "name": "comic_render_service_credential_hint",
-      "value": "可选，例如 Bearer ..."
+      "value": "可选，manga-translator-ui 的 X-Session-Token"
     },
     {
       "name": "comic_render_service_check",

@@ -107,7 +107,7 @@ export struct MangaRenderingServiceSettingsPage {
     this.connectionFailure = ''
     const config: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
     config.baseUrl = this.baseUrlDraft
-    config.authorizationValue = this.credentialDraft
+    config.sessionToken = this.credentialDraft
     try {
       const result: MangaTranslatorUiSidecarConnectionResult =
         await MangaTranslatorUiSidecarConnectionService.check(config)

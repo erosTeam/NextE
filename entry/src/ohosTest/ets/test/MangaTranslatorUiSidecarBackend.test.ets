@@ -178,7 +178,7 @@ function renderRequest(
 function config(baseUrl: string = 'http://127.0.0.1:5003'): MangaTranslatorUiSidecarConfig {
   const value: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
   value.baseUrl = baseUrl
-  value.authorizationValue = 'Bearer fixture-sidecar-token'
+  value.sessionToken = 'fixture-sidecar-session-token'
   value.translationConfigJson = '{}'
   return value
 }
@@ -286,8 +286,8 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(transport.requests.length).assertEqual(1)
           expect(transport.requests[0].url.endsWith(MANGA_TRANSLATOR_UI_EXPORT_PATH)).assertEqual(true)
-          expect(transport.requests[0].headers['Authorization']).assertEqual(
-            'Bearer fixture-sidecar-token',
+          expect(transport.requests[0].headers['X-Session-Token']).assertEqual(
+            'fixture-sidecar-session-token',
           )
           expect(containsText(transport.requests[0].body, 'name="image"')).assertEqual(true)
           expect(containsText(transport.requests[0].body, 'name="config"')).assertEqual(true)

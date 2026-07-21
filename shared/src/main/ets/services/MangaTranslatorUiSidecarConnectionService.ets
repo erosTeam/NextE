@@ -68,8 +68,8 @@ export class MangaTranslatorUiSidecarConnectionService {
       'User-Agent': EhConstants.USER_AGENT,
       'Accept': 'application/json',
     }
-    if (config.authorizationValue.length > 0) {
-      headers['Authorization'] = config.authorizationValue
+    if (config.sessionToken.length > 0) {
+      headers['X-Session-Token'] = config.sessionToken
     }
     const response: AxiosTextResponse = await transport.requestText(
       baseUrl + OPENAPI_PATH,

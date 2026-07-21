@@ -4842,11 +4842,11 @@
     },
     {
       "name": "comic_render_service_credential",
-      "value": "認証情報"
+      "value": "セッショントークン"
     },
     {
       "name": "comic_render_service_credential_hint",
-      "value": "任意（例: Bearer ...）"
+      "value": "任意：manga-translator-ui の X-Session-Token"
     },
     {
       "name": "comic_render_service_check",
