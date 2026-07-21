@@ -91,7 +91,7 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 - [x] 实现 bounded multipart export 请求与 ZIP/JSON 解析，规范化区域、顺序、原文和 backend template；
 - [x] 实现 bounded import/render 请求，校验返回图片签名、尺寸、内容 hash 和页身份；
 - [x] sidecar 版本/能力不兼容时本地失败，不让部分结果覆盖最后成功检查点；
-- [ ] 设置页仅增加同级“制图服务”配置与连接检查，不改变三个翻译入口层级。
+- [x] 设置页仅增加同级“制图服务”配置与连接检查，不改变三个翻译入口层级。
 
 ### C. 上下文文本翻译
 

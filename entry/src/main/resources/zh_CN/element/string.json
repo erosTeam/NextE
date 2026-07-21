@@ -4809,6 +4809,82 @@
       "value": "漫画翻译"
     },
     {
+      "name": "comic_render_service_title",
+      "value": "制图服务"
+    },
+    {
+      "name": "comic_render_service_summary",
+      "value": "检测文字、消除原文并回填译文"
+    },
+    {
+      "name": "comic_render_service_configured",
+      "value": "已配置"
+    },
+    {
+      "name": "comic_render_service_not_configured",
+      "value": "未配置"
+    },
+    {
+      "name": "comic_render_service_profile",
+      "value": "兼容协议"
+    },
+    {
+      "name": "comic_render_service_profile_hint",
+      "value": "固定的导出与回填协议"
+    },
+    {
+      "name": "comic_render_service_url",
+      "value": "服务地址"
+    },
+    {
+      "name": "comic_render_service_url_required",
+      "value": "请先填写服务地址"
+    },
+    {
+      "name": "comic_render_service_credential",
+      "value": "认证信息"
+    },
+    {
+      "name": "comic_render_service_credential_hint",
+      "value": "可选，例如 Bearer ..."
+    },
+    {
+      "name": "comic_render_service_check",
+      "value": "检查连接"
+    },
+    {
+      "name": "comic_render_service_check_hint",
+      "value": "只读取服务能力，不上传漫画图片"
+    },
+    {
+      "name": "comic_render_service_check_running",
+      "value": "正在检查服务能力…"
+    },
+    {
+      "name": "comic_render_service_check_success",
+      "value": "导出与回填能力可用"
+    },
+    {
+      "name": "comic_render_service_check_success_revision",
+      "value": "连接可用（协议 r%d）"
+    },
+    {
+      "name": "comic_render_service_check_failed",
+      "value": "连接失败：%s"
+    },
+    {
+      "name": "comic_render_service_available",
+      "value": "可用"
+    },
+    {
+      "name": "comic_render_service_save_failed",
+      "value": "制图服务保存失败：%s"
+    },
+    {
+      "name": "comic_render_service_security_hint",
+      "value": "公网服务必须使用 HTTPS；HTTP 仅允许本机或私网地址。"
+    },
+    {
       "name": "comic_translation_settings_hint",
       "value": "整页多模态翻译、模型与提供方"
     },

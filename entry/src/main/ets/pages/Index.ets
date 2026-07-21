@@ -110,6 +110,7 @@ import {
   TagTranslationSettingsPage,
   CommentTranslationSettingsPage,
   ComicTranslationSettingsPage,
+  MangaRenderingServiceSettingsPage,
   LlmSourceManagerPage,
   LlmSourceDetailPage,
   SyncSettingsPage,
@@ -326,6 +327,11 @@ function IndexComicTranslationSettingsRoute() {
 }
 
 @Builder
+function IndexMangaRenderingServiceSettingsRoute() {
+  MangaRenderingServiceSettingsPage()
+}
+
+@Builder
 function IndexLlmSourceManagerRoute() {
   LlmSourceManagerPage()
 }
@@ -450,6 +456,7 @@ struct Index {
     'tagTranslationSettings': wrapBuilder<[]>(IndexTagTranslationSettingsRoute),
     'commentTranslationSettings': wrapBuilder<[]>(IndexCommentTranslationSettingsRoute),
     'comicTranslationSettings': wrapBuilder<[]>(IndexComicTranslationSettingsRoute),
+    'mangaRenderingServiceSettings': wrapBuilder<[]>(IndexMangaRenderingServiceSettingsRoute),
     'llmSourceManager': wrapBuilder<[]>(IndexLlmSourceManagerRoute),
     'llmSourceDetail': wrapBuilder<[]>(IndexLlmSourceDetailRoute),
     'syncSettings': wrapBuilder<[]>(IndexSyncSettingsRoute),

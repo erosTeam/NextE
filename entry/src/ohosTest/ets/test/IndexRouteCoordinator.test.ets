@@ -6,6 +6,8 @@ export default function indexRouteCoordinatorTest(): void {
     it('maps shared LLM source destinations to registered builder families', 0, (done: Function) => {
       expect(IndexRouteCoordinator.family('LlmSourceManager')).assertEqual('llmSourceManager')
       expect(IndexRouteCoordinator.family('LlmSourceDetail')).assertEqual('llmSourceDetail')
+      expect(IndexRouteCoordinator.family('MangaRenderingServiceSettings'))
+        .assertEqual('mangaRenderingServiceSettings')
       done()
     })
   })

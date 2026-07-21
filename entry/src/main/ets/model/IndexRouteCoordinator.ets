@@ -33,6 +33,7 @@ export type IndexDestinationFamily =
   'tagTranslationSettings' |
   'commentTranslationSettings' |
   'comicTranslationSettings' |
+  'mangaRenderingServiceSettings' |
   'llmSourceManager' |
   'llmSourceDetail' |
   'syncSettings' |
@@ -81,6 +82,7 @@ export class IndexRouteCoordinator {
     'TagTranslationSettings': 'tagTranslationSettings',
     'CommentTranslationSettings': 'commentTranslationSettings',
     'ComicTranslationSettings': 'comicTranslationSettings',
+    'MangaRenderingServiceSettings': 'mangaRenderingServiceSettings',
     'LlmSourceManager': 'llmSourceManager',
     'LlmSourceDetail': 'llmSourceDetail',
     'SyncSettings': 'syncSettings',

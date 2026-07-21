@@ -14,6 +14,8 @@ import {
   LlmSourceProfile,
   LlmSourceProfileRepository,
   LlmSourceProfilesState,
+  MangaRenderingServiceSettings,
+  MangaRenderingServiceSettingsSnapshot,
   SecondaryListScaffold,
   ThemeConstants,
   connectLlmSourceProfiles,
@@ -32,11 +34,24 @@ export struct ComicTranslationSettingsPage {
   @Local private selectedModelId: string = '';
   @Local private liveEvaluationRunning: boolean = false;
   @Local private liveEvaluationReport: ComicTranslationLiveEvaluationReport | null = null;
+  @Local private renderServiceConfigured: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
   aboutToAppear(): void {
     this.restoreBinding()
+    this.restoreRenderService()
+  }
+
+  private restoreRenderService(): void {
+    MangaRenderingServiceSettings.load(this.ctx())
+      .then((snapshot: MangaRenderingServiceSettingsSnapshot) => {
+        this.renderServiceConfigured = snapshot.configured()
+      })
+      .catch((error: Error) => {
+        this.renderServiceConfigured = false
+        DiagnosticLogger.warn('comic-translation', 'render_service_load_failed', error.message)
+      })
   }
 
   private ctx(): common.UIAbilityContext {
@@ -331,6 +346,19 @@ export struct ComicTranslationSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.modelMenuShown = false
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.comic_render_service_title'),
+              subtitle: $r('app.string.comic_render_service_summary'),
+              leadingIcon: $r('sys.symbol.picture'),
+              trailingText: this.renderServiceConfigured
+                ? $r('app.string.comic_render_service_configured')
+                : $r('app.string.comic_render_service_not_configured'),
+              showChevron: true,
+              action: () => {
+                this.stack.pushPathByName('MangaRenderingServiceSettings', null)
               },
             })
           }

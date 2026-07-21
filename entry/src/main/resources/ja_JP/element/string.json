@@ -4809,6 +4809,82 @@
       "value": "漫画翻訳"
     },
     {
+      "name": "comic_render_service_title",
+      "value": "組版サービス"
+    },
+    {
+      "name": "comic_render_service_summary",
+      "value": "文字を検出し、原文を消去して翻訳文を配置"
+    },
+    {
+      "name": "comic_render_service_configured",
+      "value": "設定済み"
+    },
+    {
+      "name": "comic_render_service_not_configured",
+      "value": "未設定"
+    },
+    {
+      "name": "comic_render_service_profile",
+      "value": "互換プロファイル"
+    },
+    {
+      "name": "comic_render_service_profile_hint",
+      "value": "固定されたエクスポート・インポート契約"
+    },
+    {
+      "name": "comic_render_service_url",
+      "value": "サービス URL"
+    },
+    {
+      "name": "comic_render_service_url_required",
+      "value": "先にサービス URL を入力してください"
+    },
+    {
+      "name": "comic_render_service_credential",
+      "value": "認証情報"
+    },
+    {
+      "name": "comic_render_service_credential_hint",
+      "value": "任意（例: Bearer ...）"
+    },
+    {
+      "name": "comic_render_service_check",
+      "value": "接続を確認"
+    },
+    {
+      "name": "comic_render_service_check_hint",
+      "value": "漫画画像を送信せずにサービス機能を確認"
+    },
+    {
+      "name": "comic_render_service_check_running",
+      "value": "サービス機能を確認中…"
+    },
+    {
+      "name": "comic_render_service_check_success",
+      "value": "必要なエクスポート・インポート機能を利用できます"
+    },
+    {
+      "name": "comic_render_service_check_success_revision",
+      "value": "接続可能（プロトコル r%d）"
+    },
+    {
+      "name": "comic_render_service_check_failed",
+      "value": "接続失敗: %s"
+    },
+    {
+      "name": "comic_render_service_available",
+      "value": "利用可能"
+    },
+    {
+      "name": "comic_render_service_save_failed",
+      "value": "組版サービスを保存できません: %s"
+    },
+    {
+      "name": "comic_render_service_security_hint",
+      "value": "公開サービスには HTTPS が必要です。HTTP はローカルまたはプライベートネットワークに限定されます。"
+    },
+    {
       "name": "comic_translation_settings_hint",
       "value": "ページ全体のマルチモーダル翻訳、モデル、プロバイダー"
     },

@@ -306,6 +306,13 @@ export {
   MangaTranslatorUiSidecarTransportResponse,
 } from './services/MangaTranslatorUiSidecarBackend'
 export {
+  DefaultMangaTranslatorUiSidecarConnectionTransport,
+  MangaTranslatorUiSidecarConnectionResult,
+  MangaTranslatorUiSidecarConnectionService,
+  MangaTranslatorUiSidecarConnectionTransport,
+} from './services/MangaTranslatorUiSidecarConnectionService'
+export { MangaRenderingServiceSecretStore } from './services/MangaRenderingServiceSecretStore'
+export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,
   ExperimentalCodexOAuthService,
@@ -542,6 +549,10 @@ export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
+export {
+  MangaRenderingServiceSettings,
+  MangaRenderingServiceSettingsSnapshot,
+} from './settings/MangaRenderingServiceSettings'
 export {
   ComicTranslationProviderSettingsState,
   connectComicTranslationProviderSettings,

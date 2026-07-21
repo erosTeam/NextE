@@ -51,6 +51,7 @@ export class SafeModeGate {
       name === 'TagTranslationSettings' ||
       name === 'CommentTranslationSettings' ||
       name === 'ComicTranslationSettings' ||
+      name === 'MangaRenderingServiceSettings' ||
       name === 'SyncSettings' ||
       name === 'WebDavSyncSettings' ||
       name === 'SecuritySettings') {

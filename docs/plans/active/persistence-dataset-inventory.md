@@ -122,6 +122,8 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE | volatile-cache | excluded | excluded | Account-scoped 5H/7D snapshot; refreshed from Codex in background |
 | StorageKeys.COMIC_TRANSLATION_LLM_SOURCE_PROFILE | setting | plaintext | excluded | Shared LLM source selected by manga translation; no implicit fallback after source deletion |
 | StorageKeys.COMIC_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Manga translation model selected within its shared source |
+| StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_URL | setting | plaintext | excluded | User-configured manga rendering sidecar endpoint; public endpoints require HTTPS |
+| StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_CREDENTIAL | secret | encrypted-only | excluded | Optional Authorization value for the manga rendering sidecar |
 | StorageKeys.LLM_SOURCE_PROFILES | setting | plaintext | excluded | Provider-neutral reusable source metadata; contains no API key or OAuth token |
 | StorageKeys.LLM_SOURCE_API_KEYS | secret | encrypted-only | excluded | Source-scoped API credentials keyed by stable source profile ID |
 | StorageKeys.LLM_SOURCE_CODEX_OAUTH_TOKENS | device-credential | excluded | excluded | Source-scoped rotating Codex OAuth credentials; never copied between devices |

@@ -4809,6 +4809,82 @@
       "value": "Comic translation"
     },
     {
+      "name": "comic_render_service_title",
+      "value": "Rendering service"
+    },
+    {
+      "name": "comic_render_service_summary",
+      "value": "Detect text, remove the original, and place translated text"
+    },
+    {
+      "name": "comic_render_service_configured",
+      "value": "Configured"
+    },
+    {
+      "name": "comic_render_service_not_configured",
+      "value": "Not configured"
+    },
+    {
+      "name": "comic_render_service_profile",
+      "value": "Compatibility profile"
+    },
+    {
+      "name": "comic_render_service_profile_hint",
+      "value": "Pinned export and import contract"
+    },
+    {
+      "name": "comic_render_service_url",
+      "value": "Service URL"
+    },
+    {
+      "name": "comic_render_service_url_required",
+      "value": "Enter a service URL first"
+    },
+    {
+      "name": "comic_render_service_credential",
+      "value": "Authorization"
+    },
+    {
+      "name": "comic_render_service_credential_hint",
+      "value": "Optional, for example Bearer ..."
+    },
+    {
+      "name": "comic_render_service_check",
+      "value": "Check connection"
+    },
+    {
+      "name": "comic_render_service_check_hint",
+      "value": "Read service capabilities without uploading a manga page"
+    },
+    {
+      "name": "comic_render_service_check_running",
+      "value": "Checking service capabilities..."
+    },
+    {
+      "name": "comic_render_service_check_success",
+      "value": "Required export and import capabilities are available"
+    },
+    {
+      "name": "comic_render_service_check_success_revision",
+      "value": "Connection available (protocol r%d)"
+    },
+    {
+      "name": "comic_render_service_check_failed",
+      "value": "Connection failed: %s"
+    },
+    {
+      "name": "comic_render_service_available",
+      "value": "Available"
+    },
+    {
+      "name": "comic_render_service_save_failed",
+      "value": "Could not save rendering service: %s"
+    },
+    {
+      "name": "comic_render_service_security_hint",
+      "value": "Public services require HTTPS; HTTP is limited to local or private-network addresses."
+    },
+    {
       "name": "comic_translation_settings_hint",
       "value": "Whole-page multimodal translation, model, and provider"
     },

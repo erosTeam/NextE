@@ -111,6 +111,11 @@ export class StorageKeys {
   static readonly COMIC_TRANSLATION_CODEX_USAGE_CACHE: string = 'comicTranslation.codexUsageCache'
   static readonly COMIC_TRANSLATION_LLM_SOURCE_PROFILE: string = 'comicTranslation.llmSourceProfile'
   static readonly COMIC_TRANSLATION_LLM_MODEL: string = 'comicTranslation.llmModel'
+  static readonly COMIC_TRANSLATION_RENDER_SERVICE_URL: string =
+    'comicTranslation.renderService.url'
+  // Optional sidecar Authorization header. Included only in encrypted backup; never sync.
+  static readonly COMIC_TRANSLATION_RENDER_SERVICE_CREDENTIAL: string =
+    'comicTranslation.renderService.credential'
   static readonly LLM_SOURCE_PROFILES: string = 'llmSources.profiles'
   // Source-scoped API credentials. Included only in encrypted backup; never sync.
   static readonly LLM_SOURCE_API_KEYS: string = 'llmSources.apiKeys'

@@ -282,7 +282,8 @@ provider 负责接收区域原文、整页图像和画廊上下文并返回按 b
 export/import multipart 字段、ZIP central/local header、固定条目、JSON 模板、源图 hash、PNG 签名/解码/尺寸
 和视觉产物 hash 都在写入前校验；公共 HTTP 被拒绝，私网 HTTP 仅供用户明确配置的本地 sidecar。该结论
 只证明 NextE 适配器和协议夹具，不代表真实 sidecar、真实 OCR/修复质量或 Reader 视觉替换已经验收。
-制图服务设置、真实 sidecar 连接检查和合法样页端到端结果仍按活动计划推进。
+同级制图服务设置和不上传图片的 `/openapi.json` 能力检查已经实现；真实运行 sidecar 的连接验证、真实
+OCR/修复质量和合法样页端到端结果仍按活动计划推进。
 
 整图出图是并列的完整路线，不被废弃。若未来 API、Codex 兼容通道或其他 provider 能返回译制图片，
 实现 `ComicWholePageRenderBackend` 后可以跳过 region export/import，直接进入渲染产物校验与缓存。当前
