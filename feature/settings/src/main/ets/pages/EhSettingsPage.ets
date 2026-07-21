@@ -295,7 +295,6 @@ export struct EhSettingsPage {
               title: $r('app.string.llm_sources_title'),
               subtitle: $r('app.string.llm_sources_hint'),
               leadingIcon: $r('sys.symbol.cloud'),
-              trailingText: `${this.llmSources.profiles.length}`,
               action: () => {
                 this.stack.pushPathByName('LlmSourceManager', null)
               },

@@ -24,6 +24,7 @@ import {
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
+  supportsCommentTranslation,
 } from 'shared'
 
 @ComponentV2
@@ -102,7 +103,7 @@ export struct CommentTranslationSettingsPage {
     const profiles: LlmSourceProfile[] = []
     for (let index: number = 0; index < this.llmSources.profiles.length; index++) {
       const profile: LlmSourceProfile = this.llmSources.profiles[index]
-      if (profile.capabilities.chatCompletions) {
+      if (supportsCommentTranslation(profile)) {
         profiles.push(profile)
       }
     }
@@ -112,7 +113,7 @@ export struct CommentTranslationSettingsPage {
   private restoreBinding(): void {
     const binding: LlmConsumerBinding = this.llmSources.commentBinding
     const profile: LlmSourceProfile | null = this.llmSources.findById(binding.sourceProfileId)
-    if (profile === null || !profile.capabilities.chatCompletions || !binding.configured()) {
+    if (profile === null || !supportsCommentTranslation(profile) || !binding.configured()) {
       this.selectedSourceId = ''
       this.selectedModelId = ''
       return

@@ -2750,7 +2750,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "Translate gallery comments with your API key, with Google as fallback."
+      "value": "Translate gallery comments with the selected LLM source, with Google as fallback."
     },
     {
       "name": "comment_translation_auto",
@@ -5195,6 +5195,18 @@
     {
       "name": "llm_source_codex_account",
       "value": "Codex account"
+    },
+    {
+      "name": "llm_source_codex_copy_code",
+      "value": "Copy"
+    },
+    {
+      "name": "llm_source_codex_code_copied",
+      "value": "Device code copied"
+    },
+    {
+      "name": "llm_source_codex_code_copy_failed",
+      "value": "Could not copy the device code"
     },
     {
       "name": "llm_source_codex_logout_confirm",

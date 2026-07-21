@@ -2750,7 +2750,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "使用你的 API key 翻译画廊评论，失败时回退到 Google。"
+      "value": "使用选定的 LLM 源翻译画廊评论，失败时回退到 Google。"
     },
     {
       "name": "comment_translation_auto",
@@ -5195,6 +5195,18 @@
     {
       "name": "llm_source_codex_account",
       "value": "Codex 账号"
+    },
+    {
+      "name": "llm_source_codex_copy_code",
+      "value": "复制"
+    },
+    {
+      "name": "llm_source_codex_code_copied",
+      "value": "已复制设备登录码"
+    },
+    {
+      "name": "llm_source_codex_code_copy_failed",
+      "value": "复制设备登录码失败"
     },
     {
       "name": "llm_source_codex_logout_confirm",

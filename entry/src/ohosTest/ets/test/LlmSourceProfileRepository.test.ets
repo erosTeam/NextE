@@ -10,6 +10,7 @@ import {
   LlmSourceProfileContract,
   LlmSourceProfileRepository,
   LlmSourceSecretStore,
+  supportsCommentTranslation,
 } from 'shared'
 
 function apiSource(id: string, name: string = 'Fixture API'): LlmSourceProfile {
@@ -94,6 +95,16 @@ export default function llmSourceProfileRepositoryTest(): void {
       expect(moved.sourceRevision).assertEqual(original.sourceRevision + 1)
       expect(moved.createdAt).assertEqual(original.createdAt)
       expect(moved.updatedAt > renamed.updatedAt).assertEqual(true)
+    })
+
+    it('allows both chat API and Codex Responses sources for comment translation', 0, () => {
+      const api: LlmSourceProfile = apiSource('source-comment-api')
+      api.capabilities.chatCompletions = true
+      const codex: LlmSourceProfile = codexSource('source-comment-codex')
+      expect(supportsCommentTranslation(api)).assertEqual(true)
+      expect(supportsCommentTranslation(codex)).assertEqual(true)
+      codex.capabilities.responses = false
+      expect(supportsCommentTranslation(codex)).assertEqual(false)
     })
 
     it('does not fall back when a referenced profile disappears', 0, () => {

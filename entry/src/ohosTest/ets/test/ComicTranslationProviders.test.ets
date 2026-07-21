@@ -8,6 +8,7 @@ import {
   CodexOAuthTokenSet,
   CodexOAuthDeviceSession,
   CodexOAuthHttpTransport,
+  CodexResponsesTextRequestBuilder,
   ComicGlossaryTerm,
   ComicGlossaryTermStatus,
   ComicImagePreparationProfile,
@@ -28,6 +29,7 @@ import {
   ComicResponsesProtocol,
   ExperimentalCodexOAuthService,
   OpenAiApiComicPageAnalyzer,
+  ResponsesTextProtocol,
 } from 'shared'
 
 const PROVIDER_FIXTURE_IMAGE_HASH: string = 'd'.repeat(64)
@@ -649,6 +651,24 @@ export default function comicTranslationProvidersTest(): void {
       )
       expect(publicBody.includes('"max_output_tokens":8192')).assertEqual(true)
       expect(publicBody.includes('"tool_choice"')).assertEqual(false)
+      done()
+    })
+
+    it('builds and extracts text-only Codex Responses payloads', 0, (done: Function) => {
+      const body: string = CodexResponsesTextRequestBuilder.build(
+        'codex-fixture',
+        'Translate to Simplified Chinese.',
+        'Hello',
+      )
+      expect(body.includes('"instructions":"Translate to Simplified Chinese."')).assertEqual(true)
+      expect(body.includes('"type":"input_text"')).assertEqual(true)
+      expect(body.includes('"stream":true')).assertEqual(true)
+      expect(body.includes('"input_image"')).assertEqual(false)
+      const stream: string =
+        'data: {"type":"response.output_text.delta","delta":"你"}\n' +
+        'data: {"type":"response.output_text.delta","delta":"好"}\n' +
+        'data: [DONE]\n'
+      expect(ResponsesTextProtocol.extract(stream, true)).assertEqual('你好')
       done()
     })
 

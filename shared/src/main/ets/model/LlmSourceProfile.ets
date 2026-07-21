@@ -99,6 +99,16 @@ export class LlmSourceResolution {
   modelId: string = ''
 }
 
+export function supportsCommentTranslation(profile: LlmSourceProfile): boolean {
+  if (profile.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
+    return profile.capabilities.chatCompletions
+  }
+  if (profile.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
+    return profile.capabilities.responses
+  }
+  return false
+}
+
 export function generateLlmSourceProfileId(): string {
   return util.generateRandomUUID(true)
 }

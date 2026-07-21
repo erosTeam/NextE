@@ -2750,7 +2750,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "APIキーでギャラリーコメントを翻訳し、失敗時はGoogleにフォールバックします。"
+      "value": "選択したLLMソースでギャラリーコメントを翻訳し、失敗時はGoogleにフォールバックします。"
     },
     {
       "name": "comment_translation_auto",
@@ -5195,6 +5195,18 @@
     {
       "name": "llm_source_codex_account",
       "value": "Codex アカウント"
+    },
+    {
+      "name": "llm_source_codex_copy_code",
+      "value": "コピー"
+    },
+    {
+      "name": "llm_source_codex_code_copied",
+      "value": "デバイスコードをコピーしました"
+    },
+    {
+      "name": "llm_source_codex_code_copy_failed",
+      "value": "デバイスコードをコピーできませんでした"
     },
     {
       "name": "llm_source_codex_logout_confirm",

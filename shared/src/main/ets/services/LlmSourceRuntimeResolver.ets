@@ -7,6 +7,7 @@ import {
   LlmConsumerBinding,
   LlmSourceProfile,
   LlmSourceResolution,
+  supportsCommentTranslation,
 } from '../model/LlmSourceProfile'
 import { LlmSourceProfileRepository } from '../settings/LlmSourceProfileRepository'
 import { LlmSourceSecretStore } from './LlmSourceSecretStore'
@@ -43,8 +44,7 @@ export class LlmSourceRuntimeResolver {
       LLM_CONSUMER_COMMENT_TRANSLATION,
     )
     const profile: LlmSourceProfile = LlmSourceRuntimeResolver.profile(config.sourceProfileId)
-    if (config.sourceType !== LLM_SOURCE_TYPE_OPENAI_COMPATIBLE ||
-      !profile.capabilities.chatCompletions) {
+    if (!supportsCommentTranslation(profile)) {
       throw new Error('Selected LLM source does not support comment translation')
     }
     return config

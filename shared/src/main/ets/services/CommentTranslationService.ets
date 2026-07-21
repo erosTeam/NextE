@@ -5,6 +5,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGalleryCommentTextSpan } from '../model/EhGalleryComment'
 import {
   LLM_CONSUMER_COMMENT_TRANSLATION,
+  LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
   LlmConsumerBinding,
   LlmSourceResolution,
 } from '../model/LlmSourceProfile'
@@ -14,6 +15,8 @@ import { CommentTranslationSettings } from '../settings/CommentTranslationSettin
 import { LlmSourceProfileRepository } from '../settings/LlmSourceProfileRepository'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import { CacheStat } from './CacheStat'
+import { ComicTranslationModelCatalogService } from './ComicTranslationModelCatalogService'
+import { ExperimentalCodexResponsesTextService } from './ExperimentalCodexResponsesTextService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 const COMMENT_TRANSLATION_TTL_MS: number = 7 * 24 * 60 * 60 * 1000
@@ -70,14 +73,6 @@ class ChatCompletionChoice {
 
 class ChatCompletionResponse {
   choices: ChatCompletionChoice[] = []
-}
-
-class LlmModelItem {
-  id: string = ''
-}
-
-class LlmModelsResponse {
-  data: LlmModelItem[] = []
 }
 
 class MemoryTranslationEntry {
@@ -863,19 +858,18 @@ export class CommentTranslationService {
   static async validateConfiguredLlm(context: common.UIAbilityContext): Promise<void> {
     const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
     await CommentTranslationService.callLlm(
+      context,
       'Hello',
       CommentTranslationService.targetLanguage(),
-      runtime.baseUrl,
-      runtime.apiKey,
-      runtime.modelId,
+      runtime,
     )
   }
 
   static async fetchConfiguredLlmModels(context: common.UIAbilityContext): Promise<string[]> {
     const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
-    return CommentTranslationService.fetchLlmModels(
-      runtime.baseUrl,
-      runtime.apiKey,
+    return ComicTranslationModelCatalogService.fetchSource(
+      context,
+      runtime.sourceProfileId,
     )
   }
 
@@ -1008,11 +1002,10 @@ export class CommentTranslationService {
           `target=${targetLang} len=${text.length} source=${runtime.sourceProfileId} revision=${runtime.sourceRevision} model=${runtime.modelId}`,
         )
         const llmResult: string = await CommentTranslationService.callLlm(
+          context,
           text,
           targetLang,
-          runtime.baseUrl,
-          runtime.apiKey,
-          runtime.modelId,
+          runtime,
         )
         DiagnosticLogger.info(
           'translation',
@@ -1040,19 +1033,26 @@ export class CommentTranslationService {
   }
 
   private static async callLlm(
+    context: common.UIAbilityContext,
     text: string,
     targetLang: string,
-    baseUrl: string,
-    apiKey: string,
-    model: string,
+    runtime: LlmSourceRuntimeConfig,
   ): Promise<string> {
+    const instructions: string = CommentTranslationService.translationInstructions(targetLang)
+    if (runtime.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
+      return ExperimentalCodexResponsesTextService.generate(
+        context,
+        runtime.sourceProfileId,
+        runtime.modelId,
+        instructions,
+        text,
+      )
+    }
     const reqBody = new ChatCompletionRequest()
-    reqBody.model = model
+    reqBody.model = runtime.modelId
     const system = new ChatMessage()
     system.role = 'system'
-    system.content =
-      `You are a translator. Translate the following text to ${CommentTranslationService.langName(targetLang)}. ` +
-      'Keep NEXTEATHEX...TOKEN placeholders unchanged. Output ONLY the translated text, no explanations.'
+    system.content = instructions
     const user = new ChatMessage()
     user.role = 'user'
     user.content = text
@@ -1060,13 +1060,13 @@ export class CommentTranslationService {
 
     try {
       const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
-        `${CommentTranslationService.stripV1(baseUrl)}/v1/chat/completions`,
+        `${CommentTranslationService.stripV1(runtime.baseUrl)}/v1/chat/completions`,
         'POST',
         {
           'User-Agent': EhConstants.USER_AGENT,
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${runtime.apiKey}`,
         },
         JSON.stringify(reqBody),
         TRANSLATION_CONNECT_TIMEOUT_MS,
@@ -1088,38 +1088,6 @@ export class CommentTranslationService {
     } catch (error) {
       throw error as Error
     }
-  }
-
-  private static async fetchLlmModels(baseUrl: string, apiKey: string): Promise<string[]> {
-    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
-      `${CommentTranslationService.stripV1(baseUrl)}/v1/models`,
-      'GET',
-      {
-        'User-Agent': EhConstants.USER_AGENT,
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      '',
-      TRANSLATION_CONNECT_TIMEOUT_MS,
-      TRANSLATION_READ_TIMEOUT_MS,
-    )
-    const body: string = resp.body
-    if (resp.statusCode !== 200) {
-      throw new Error(`LLM models HTTP ${resp.statusCode}`)
-    }
-    const raw: Object = JSON.parse(body) as Object
-    const parsed: LlmModelsResponse = raw as LlmModelsResponse
-    const out: string[] = []
-    if (Array.isArray(parsed.data)) {
-      for (let i = 0; i < parsed.data.length; i++) {
-        const item: LlmModelItem = parsed.data[i]
-        if (item.id.length > 0) {
-          out.push(item.id)
-        }
-      }
-    }
-    out.sort()
-    return out
   }
 
   private static async callGoogle(text: string, targetLang: string): Promise<string> {
@@ -1269,6 +1237,11 @@ export class CommentTranslationService {
       out = out.substring(0, out.length - 1)
     }
     return out.endsWith('/v1') ? out.substring(0, out.length - 3) : out
+  }
+
+  private static translationInstructions(targetLang: string): string {
+    return `You are a translator. Translate the following text to ${CommentTranslationService.langName(targetLang)}. ` +
+      'Keep NEXTEATHEX...TOKEN placeholders unchanged. Output ONLY the translated text, no explanations.'
   }
 
   private static langName(lang: string): string {

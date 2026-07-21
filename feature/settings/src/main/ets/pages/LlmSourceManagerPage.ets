@@ -40,17 +40,6 @@ export struct LlmSourceManagerPage {
       : $r('app.string.llm_source_type_api')
   }
 
-  private referenceCount(sourceProfileId: string): number {
-    let count: number = 0
-    if (this.sources.commentBinding.sourceProfileId === sourceProfileId) {
-      count++
-    }
-    if (this.sources.mangaBinding.sourceProfileId === sourceProfileId) {
-      count++
-    }
-    return count
-  }
-
   private openSource(sourceProfileId: string): void {
     const params: LlmSourceDetailRouteParams = new LlmSourceDetailRouteParams()
     params.sourceProfileId = sourceProfileId
@@ -147,9 +136,6 @@ export struct LlmSourceManagerPage {
                     leadingIcon: profile.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL
                       ? $r('sys.symbol.person')
                       : $r('sys.symbol.cloud'),
-                    trailingText: this.referenceCount(profile.sourceProfileId) > 0
-                      ? `${this.referenceCount(profile.sourceProfileId)}`
-                      : '',
                     action: () => {
                       this.openSource(profile.sourceProfileId)
                     },

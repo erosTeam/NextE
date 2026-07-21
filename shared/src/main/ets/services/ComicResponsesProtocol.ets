@@ -10,6 +10,7 @@ import {
   ComicPreviousPageContextPolicy,
   MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
 } from './ComicPreviousPageContextPolicy'
+import { ResponsesTextProtocol } from './ResponsesTextProtocol'
 
 const MAX_COMIC_RESPONSES_BODY_CHARS: number = 8 * 1024 * 1024
 const MAX_COMIC_PROMPT_CONTEXT_CHARS: number = 48000
@@ -28,33 +29,6 @@ const MAX_PREVIOUS_PAGE_LINE_CHARS: number = 15000
 const MAX_PREVIOUS_SOURCE_JSON_CHARS: number = 6000
 const MAX_PREVIOUS_TRANSLATION_JSON_CHARS: number = 6000
 const MAX_PREVIOUS_SUMMARY_JSON_CHARS: number = 2500
-
-class RawResponsesContentPart {
-  type: string = ''
-  text: string = ''
-}
-
-class RawResponsesOutputItem {
-  type: string = ''
-  phase: string = ''
-  content: RawResponsesContentPart[] = []
-}
-
-class RawResponsesEnvelope {
-  output: RawResponsesOutputItem[] | null = []
-}
-
-class RawResponsesError {
-  code: string = ''
-  message: string = ''
-}
-
-class RawResponsesStreamEvent {
-  type: string = ''
-  delta: string = ''
-  item: RawResponsesOutputItem | null = null
-  error: RawResponsesError | null = null
-}
 
 export class ComicResponsesProtocol {
   static buildPrompt(request: ComicPageAnalysisRequest): string {
@@ -140,9 +114,7 @@ export class ComicResponsesProtocol {
     if (body.length === 0 || body.length > MAX_COMIC_RESPONSES_BODY_CHARS) {
       throw new Error('Comic provider response size is invalid')
     }
-    const text: string = eventStream
-      ? ComicResponsesProtocol.extractEventStreamText(body)
-      : ComicResponsesProtocol.extractJsonResponseText(body)
+    const text: string = ResponsesTextProtocol.extract(body, eventStream)
     return ComicResponsesProtocol.normalizeJsonText(text)
   }
 
@@ -321,89 +293,6 @@ export class ComicResponsesProtocol {
       return value
     }
     return value.substring(0, Math.max(0, maxChars - 1)) + '…'
-  }
-
-  private static extractJsonResponseText(body: string): string {
-    const envelope: RawResponsesEnvelope = JSON.parse(body) as RawResponsesEnvelope
-    if (!Array.isArray(envelope.output)) {
-      throw new Error('Comic provider returned no output items')
-    }
-    const text: string = ComicResponsesProtocol.lastFinalMessageText(envelope.output)
-    if (text.length === 0) {
-      throw new Error('Comic provider returned empty output')
-    }
-    return text
-  }
-
-  private static extractEventStreamText(body: string): string {
-    const lines: string[] = body.split(/\r?\n/)
-    const deltas: string[] = []
-    let completedMessage: string = ''
-    for (let index: number = 0; index < lines.length; index++) {
-      const line: string = lines[index].trim()
-      if (!line.startsWith('data:')) {
-        continue
-      }
-      const payload: string = line.substring(5).trim()
-      if (payload.length === 0 || payload === '[DONE]') {
-        continue
-      }
-      const event: RawResponsesStreamEvent = JSON.parse(payload) as RawResponsesStreamEvent
-      if (event.type === 'error') {
-        const code: string = event.error !== null && typeof event.error.code === 'string'
-          ? event.error.code
-          : 'unknown'
-        throw new Error('Codex response stream failed (' + code + ')')
-      }
-      if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
-        deltas.push(event.delta)
-      }
-      if (event.type === 'response.output_item.done' && event.item !== null) {
-        const candidate: string = ComicResponsesProtocol.outputItemText(event.item)
-        const phase: string = typeof event.item.phase === 'string' ? event.item.phase.toLowerCase() : ''
-        if (candidate.length > 0 && phase !== 'analysis' && phase !== 'commentary') {
-          completedMessage = candidate
-        }
-      }
-    }
-    if (completedMessage.length > 0) {
-      return completedMessage
-    }
-    const streamed: string = deltas.join('')
-    if (streamed.length === 0) {
-      throw new Error('Codex response stream returned empty output')
-    }
-    return streamed
-  }
-
-  private static lastFinalMessageText(items: RawResponsesOutputItem[]): string {
-    let result: string = ''
-    for (let index: number = 0; index < items.length; index++) {
-      const item: RawResponsesOutputItem = items[index]
-      const phase: string = typeof item.phase === 'string' ? item.phase.toLowerCase() : ''
-      if (phase === 'analysis' || phase === 'commentary') {
-        continue
-      }
-      const candidate: string = ComicResponsesProtocol.outputItemText(item)
-      if (candidate.length > 0) {
-        result = candidate
-      }
-    }
-    return result
-  }
-
-  private static outputItemText(item: RawResponsesOutputItem): string {
-    if (item.type !== 'message' || !Array.isArray(item.content)) {
-      return ''
-    }
-    const parts: string[] = []
-    for (let index: number = 0; index < item.content.length; index++) {
-      const part: RawResponsesContentPart = item.content[index]
-      if (part.type === 'output_text' && typeof part.text === 'string') {
-        parts.push(part.text)
-      }
-    }
-    return parts.join('')
   }
 
   private static normalizeJsonText(value: string): string {

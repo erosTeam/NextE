@@ -1,5 +1,6 @@
 import { common, Want } from '@kit.AbilityKit'
 import { KeyboardAvoidMode } from '@kit.ArkUI'
+import { pasteboard } from '@kit.BasicServicesKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -216,6 +217,45 @@ export struct LlmSourceDetailPage {
         : $r('app.string.comic_translation_codex_connected')
     }
     return $r('app.string.comic_translation_codex_login_hint')
+  }
+
+  private codexStatusTrailingText(): ResourceStr {
+    if (this.codexConnected) {
+      return $r('app.string.comic_translation_codex_connected')
+    }
+    if (this.codexLoginBusy && this.codexUserCode.length > 0) {
+      return $r('app.string.llm_source_codex_copy_code')
+    }
+    return ''
+  }
+
+  private copyCodexUserCode(): void {
+    if (this.codexUserCode.length === 0) {
+      return
+    }
+    try {
+      const data: pasteboard.PasteData = pasteboard.createData(
+        pasteboard.MIMETYPE_TEXT_PLAIN,
+        this.codexUserCode,
+      )
+      pasteboard.getSystemPasteboard().setDataSync(data)
+      this.toast($r('app.string.llm_source_codex_code_copied'))
+    } catch (error) {
+      DiagnosticLogger.warn('llm-source', 'codex_code_copy_failed', (error as Error).message)
+      this.toast($r('app.string.llm_source_codex_code_copy_failed'))
+    }
+  }
+
+  private handleCodexAccountAction(): void {
+    if (this.codexConnected) {
+      this.confirmCodexLogout()
+      return
+    }
+    if (this.codexLoginBusy) {
+      this.copyCodexUserCode()
+      return
+    }
+    this.startCodexLogin()
   }
 
   private startCodexLogin(): void {
@@ -574,17 +614,10 @@ export struct LlmSourceDetailPage {
                       : $r('app.string.comic_translation_codex_login'),
                     subtitle: this.codexStatusSubtitle(),
                     leadingIcon: $r('sys.symbol.person'),
-                    trailingText: this.codexConnected
-                      ? $r('app.string.comic_translation_codex_connected')
-                      : '',
+                    trailingText: this.codexStatusTrailingText(),
                     showChevron: false,
-                    isEnabled: !this.codexLoginBusy,
                     action: () => {
-                      if (this.codexConnected) {
-                        this.confirmCodexLogout()
-                      } else {
-                        this.startCodexLogin()
-                      }
+                      this.handleCodexAccountAction()
                     },
                   })
                   if (this.usageText().length > 0) {

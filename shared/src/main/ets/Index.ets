@@ -102,6 +102,7 @@ export {
   LlmSourceProfile,
   LlmSourceResolution,
   generateLlmSourceProfileId,
+  supportsCommentTranslation,
 } from './model/LlmSourceProfile'
 export {
   ReaderSourceDescriptor,
@@ -232,6 +233,7 @@ export {
   ComicTranslationReferencePage,
 } from './services/ComicTranslationEvaluation'
 export { ComicResponsesProtocol } from './services/ComicResponsesProtocol'
+export { ResponsesTextProtocol } from './services/ResponsesTextProtocol'
 export {
   ComicPageAnalyzerFactory,
   ComicProviderHttpError,
@@ -284,6 +286,12 @@ export {
   DefaultCodexOAuthHttpTransport,
   ExperimentalCodexOAuthService,
 } from './services/ExperimentalCodexOAuthService'
+export {
+  CodexResponsesTextHttpTransport,
+  CodexResponsesTextRequestBuilder,
+  DefaultCodexResponsesTextHttpTransport,
+  ExperimentalCodexResponsesTextService,
+} from './services/ExperimentalCodexResponsesTextService'
 export {
   ComicModelCatalogHttpTransport,
   ComicTranslationModelCatalogService,
