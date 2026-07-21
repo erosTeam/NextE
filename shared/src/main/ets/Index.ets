@@ -92,6 +92,18 @@ export {
   ComicVisualTranslationRoute,
 } from './model/ComicVisualTranslation'
 export {
+  LLM_CONSUMER_COMMENT_TRANSLATION,
+  LLM_CONSUMER_MANGA_TRANSLATION,
+  LLM_SOURCE_PROFILE_SCHEMA_VERSION,
+  LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
+  LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
+  LlmConsumerBinding,
+  LlmSourceCapabilities,
+  LlmSourceProfile,
+  LlmSourceResolution,
+  generateLlmSourceProfileId,
+} from './model/LlmSourceProfile'
+export {
   ReaderSourceDescriptor,
   ReaderSourceKind,
   ReaderSourceVariant,
@@ -503,6 +515,26 @@ export {
   connectComicTranslationProviderSettings,
 } from './state/ComicTranslationProviderSettingsState'
 export { ComicTranslationProviderSettings } from './settings/ComicTranslationProviderSettings'
+export {
+  LlmSourceProfilesState,
+  connectLlmSourceProfiles,
+} from './state/LlmSourceProfilesState'
+export { LlmSourceProfileRepository } from './settings/LlmSourceProfileRepository'
+export { LlmSourceProfileCodec } from './services/LlmSourceProfileCodec'
+export {
+  LlmSourceProfileContract,
+  MAX_LLM_MODEL_ID_CHARS,
+  MAX_LLM_SOURCE_ID_CHARS,
+  MAX_LLM_SOURCE_NAME_CHARS,
+  MAX_LLM_SOURCE_PROFILES,
+  MAX_LLM_SOURCE_PROFILE_STORE_CHARS,
+  MAX_LLM_SOURCE_URL_CHARS,
+} from './services/LlmSourceProfileContract'
+export { LlmSourceSecretStore } from './services/LlmSourceSecretStore'
+export {
+  CODEX_OAUTH_TOKEN_STORE_MAX_CHARS,
+  CodexOAuthTokenCodec,
+} from './services/CodexOAuthTokenCodec'
 export {
   SYNC_STATUS_FAILED,
   SYNC_STATUS_IDLE,

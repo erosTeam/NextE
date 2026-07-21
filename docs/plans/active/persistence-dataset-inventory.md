@@ -111,6 +111,8 @@ Allowed `Sync` values:
 | StorageKeys.COMMENT_TRANSLATION_API_URL | setting | plaintext | excluded | Comment translation endpoint |
 | StorageKeys.COMMENT_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Comment translation credential |
 | StorageKeys.COMMENT_TRANSLATION_MODEL | setting | plaintext | excluded | Comment translation model |
+| StorageKeys.COMMENT_TRANSLATION_LLM_SOURCE_PROFILE | setting | plaintext | excluded | Shared LLM source selected by comment translation; a missing referenced profile remains explicitly unconfigured |
+| StorageKeys.COMMENT_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Comment translation model selected within its shared source |
 | StorageKeys.COMIC_TRANSLATION_PROVIDER | setting | plaintext | excluded | Active manga-analysis provider |
 | StorageKeys.COMIC_TRANSLATION_API_URL | setting | plaintext | excluded | Manga-analysis Responses endpoint |
 | StorageKeys.COMIC_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Manga-analysis API credential |
@@ -118,6 +120,13 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_CODEX_MODEL | setting | plaintext | excluded | User-selected experimental Codex model |
 | StorageKeys.COMIC_TRANSLATION_CODEX_OAUTH_TOKEN | device-credential | excluded | excluded | Rotating Codex OAuth pair; never copied between devices |
 | StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE | volatile-cache | excluded | excluded | Account-scoped 5H/7D snapshot; refreshed from Codex in background |
+| StorageKeys.COMIC_TRANSLATION_LLM_SOURCE_PROFILE | setting | plaintext | excluded | Shared LLM source selected by manga translation; no implicit fallback after source deletion |
+| StorageKeys.COMIC_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Manga translation model selected within its shared source |
+| StorageKeys.LLM_SOURCE_PROFILES | setting | plaintext | excluded | Provider-neutral reusable source metadata; contains no API key or OAuth token |
+| StorageKeys.LLM_SOURCE_API_KEYS | secret | encrypted-only | excluded | Source-scoped API credentials keyed by stable source profile ID |
+| StorageKeys.LLM_SOURCE_CODEX_OAUTH_TOKENS | device-credential | excluded | excluded | Source-scoped rotating Codex OAuth credentials; never copied between devices |
+| StorageKeys.LLM_SOURCE_MODEL_CATALOG_CACHE | volatile-cache | excluded | excluded | Regenerable source/account-scoped model catalog snapshots |
+| StorageKeys.LLM_SOURCE_USAGE_CACHE | volatile-cache | excluded | excluded | Regenerable source/account-scoped quota snapshots |
 | StorageKeys.SYNC_WEBDAV_URL | credential-group | encrypted-only | excluded | WebDAV endpoint; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_USERNAME | credential-group | encrypted-only | excluded | WebDAV username; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_ENABLED | credential-group | encrypted-only | excluded | WebDAV provider switch; restored atomically with the credential group |

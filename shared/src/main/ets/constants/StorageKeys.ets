@@ -98,6 +98,8 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_API_URL: string = 'commentTranslation.apiUrl'
   static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
+  static readonly COMMENT_TRANSLATION_LLM_SOURCE_PROFILE: string = 'commentTranslation.llmSourceProfile'
+  static readonly COMMENT_TRANSLATION_LLM_MODEL: string = 'commentTranslation.llmModel'
   static readonly COMIC_TRANSLATION_PROVIDER: string = 'comicTranslation.provider'
   static readonly COMIC_TRANSLATION_API_URL: string = 'comicTranslation.apiUrl'
   static readonly COMIC_TRANSLATION_API_KEY: string = 'comicTranslation.apiKey'
@@ -107,6 +109,15 @@ export class StorageKeys {
   static readonly COMIC_TRANSLATION_CODEX_OAUTH_TOKEN: string = 'comicTranslation.codexOAuthToken'
   // Device-local stale-while-revalidate snapshot. Never sync or copy through backup.
   static readonly COMIC_TRANSLATION_CODEX_USAGE_CACHE: string = 'comicTranslation.codexUsageCache'
+  static readonly COMIC_TRANSLATION_LLM_SOURCE_PROFILE: string = 'comicTranslation.llmSourceProfile'
+  static readonly COMIC_TRANSLATION_LLM_MODEL: string = 'comicTranslation.llmModel'
+  static readonly LLM_SOURCE_PROFILES: string = 'llmSources.profiles'
+  // Source-scoped API credentials. Included only in encrypted backup; never sync.
+  static readonly LLM_SOURCE_API_KEYS: string = 'llmSources.apiKeys'
+  // Source-scoped rotating Codex credentials. Strictly device-local.
+  static readonly LLM_SOURCE_CODEX_OAUTH_TOKENS: string = 'llmSources.codexOAuthTokens'
+  static readonly LLM_SOURCE_MODEL_CATALOG_CACHE: string = 'llmSources.modelCatalogCache'
+  static readonly LLM_SOURCE_USAGE_CACHE: string = 'llmSources.usageCache'
   static readonly SYNC_WEBDAV_URL: string = 'sync.webdav.url'
   static readonly SYNC_WEBDAV_USERNAME: string = 'sync.webdav.username'
   static readonly SYNC_WEBDAV_ENABLED: string = 'sync.webdav.enabled'

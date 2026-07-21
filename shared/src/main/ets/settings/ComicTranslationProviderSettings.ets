@@ -9,19 +9,7 @@ import {
   ComicTranslationProviderSettingsSnapshot,
 } from '../model/ComicTranslationProvider'
 import { connectComicTranslationProviderSettings } from '../state/ComicTranslationProviderSettingsState'
-
-const CODEX_OAUTH_TOKEN_STORE_MAX_CHARS: number = 512 * 1024
-const CODEX_OAUTH_TOKEN_MAX_CHARS: number = 128 * 1024
-const CODEX_OAUTH_ACCOUNT_ID_MAX_CHARS: number = 160
-
-class RawCodexOAuthTokenSet {
-  accessToken: string = ''
-  refreshToken: string = ''
-  idToken: string = ''
-  accountId: string = ''
-  expiresAt: number = 0
-  lastRefreshAt: number = 0
-}
+import { CodexOAuthTokenCodec } from '../services/CodexOAuthTokenCodec'
 
 export class ComicTranslationProviderSettings {
   static readonly API_URL_MAX_CHARS: number = 2048
@@ -141,16 +129,7 @@ export class ComicTranslationProviderSettings {
     context: common.UIAbilityContext,
     tokens: CodexOAuthTokenSet,
   ): Promise<void> {
-    if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) {
-      throw new Error('Codex OAuth token response is incomplete')
-    }
-    if (!ComicTranslationProviderSettings.isValidCodexTokens(tokens)) {
-      throw new Error('Codex OAuth token set is invalid')
-    }
-    const encoded: string = JSON.stringify(tokens)
-    if (encoded.length > CODEX_OAUTH_TOKEN_STORE_MAX_CHARS) {
-      throw new Error('Codex OAuth token set is invalid')
-    }
+    const encoded: string = CodexOAuthTokenCodec.serialize(tokens)
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -188,51 +167,11 @@ export class ComicTranslationProviderSettings {
   }
 
   static parseCodexTokens(rawText: string): CodexOAuthTokenSet | null {
-    if (rawText.trim().length === 0 || rawText.length > CODEX_OAUTH_TOKEN_STORE_MAX_CHARS) {
-      return null
-    }
-    try {
-      const raw: RawCodexOAuthTokenSet = JSON.parse(rawText) as RawCodexOAuthTokenSet
-      if (typeof raw.accessToken !== 'string' || raw.accessToken.length === 0 ||
-        typeof raw.refreshToken !== 'string' || raw.refreshToken.length === 0) {
-        return null
-      }
-      const tokens: CodexOAuthTokenSet = new CodexOAuthTokenSet()
-      tokens.accessToken = raw.accessToken
-      tokens.refreshToken = raw.refreshToken
-      tokens.idToken = typeof raw.idToken === 'string' ? raw.idToken : ''
-      tokens.accountId = typeof raw.accountId === 'string' ? raw.accountId : ''
-      tokens.expiresAt = ComicTranslationProviderSettings.safeTimestamp(raw.expiresAt)
-      tokens.lastRefreshAt = ComicTranslationProviderSettings.safeTimestamp(raw.lastRefreshAt)
-      return ComicTranslationProviderSettings.isValidCodexTokens(tokens) ? tokens : null
-    } catch (_error) {
-      return null
-    }
+    return CodexOAuthTokenCodec.parse(rawText)
   }
 
   static isValidCodexTokens(tokens: CodexOAuthTokenSet): boolean {
-    return ComicTranslationProviderSettings.validCredential(tokens.accessToken, true) &&
-      ComicTranslationProviderSettings.validCredential(tokens.refreshToken, true) &&
-      ComicTranslationProviderSettings.validCredential(tokens.idToken, false) &&
-      ComicTranslationProviderSettings.validAccountId(tokens.accountId) &&
-      ComicTranslationProviderSettings.validTimestamp(tokens.expiresAt) &&
-      ComicTranslationProviderSettings.validTimestamp(tokens.lastRefreshAt)
-  }
-
-  private static validCredential(value: string, required: boolean): boolean {
-    if (typeof value !== 'string' || value.length > CODEX_OAUTH_TOKEN_MAX_CHARS ||
-      value !== value.trim()) {
-      return false
-    }
-    if (required && value.length === 0) {
-      return false
-    }
-    return !ComicTranslationProviderSettings.containsControlCharacter(value)
-  }
-
-  private static validAccountId(value: string): boolean {
-    return typeof value === 'string' && value.length <= CODEX_OAUTH_ACCOUNT_ID_MAX_CHARS &&
-      value === value.trim() && !ComicTranslationProviderSettings.containsControlCharacter(value)
+    return CodexOAuthTokenCodec.isValid(tokens)
   }
 
   private static containsControlCharacter(value: string): boolean {
@@ -257,15 +196,4 @@ export class ComicTranslationProviderSettings {
     return normalized
   }
 
-  private static validTimestamp(value: number): boolean {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
-      Math.floor(value) === value && value <= Number.MAX_SAFE_INTEGER
-  }
-
-  private static safeTimestamp(value: number | null | undefined): number {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
-      value <= Number.MAX_SAFE_INTEGER
-      ? Math.floor(value)
-      : 0
-  }
 }

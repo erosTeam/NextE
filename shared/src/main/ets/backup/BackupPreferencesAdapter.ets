@@ -54,6 +54,9 @@ export class BackupPreferencesAdapter {
     StorageKeys.COMIC_TRANSLATION_CODEX_OAUTH_TOKEN,
     // Account-scoped quota cache is volatile runtime data and can be refreshed from the provider.
     StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE,
+    StorageKeys.LLM_SOURCE_CODEX_OAUTH_TOKENS,
+    StorageKeys.LLM_SOURCE_MODEL_CATALOG_CACHE,
+    StorageKeys.LLM_SOURCE_USAGE_CACHE,
     // Clipboard consent and its deduplication cursor are device-local. Restoring either on another
     // device could bypass that device's explicit opt-in flow or suppress a fresh clipboard value.
     StorageKeys.CLIPBOARD_LINK_ENABLED,
