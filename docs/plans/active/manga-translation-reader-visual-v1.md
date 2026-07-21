@@ -5,6 +5,7 @@
 - **product authority**: [漫画翻译设计与演进指南](../../manga-translation-design.md)
 - **reset audit**: [漫画翻译产品重置](../completed/manga-translation-product-reset.md)
 - **research**: [漫画翻译工作流调研](../../research/manga-translation-workflows.md)
+- **backend A/B**: [视觉后端与可替换技术栈](../../research/manga-translation-backend-comparison.md)
 
 ## 结果与边界
 
@@ -115,7 +116,9 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 - [ ] 固定首个可分发 detector/OCR 模型及许可证、模型大小、hash 和设备能力边界；
 - [ ] 在 HarmonyOS NDK/ncnn 上完成有界分块推理，输出原图坐标 geometry 与 OCR 文本；
 - [x] 接入 HarmonyOS Core Vision 系统 OCR 基线，按 2048px 有界分片并映射回原图 geometry；
-- [x] 实现端侧不透明原文处理、基础居中布局与 PNG 衍生页编码；
+- [x] 实现端侧方向保持、相邻纵列合并、局部背景遮盖、基础排版与 PNG 衍生页编码；
+- [x] 建立两页原创 fixture 的端侧准确率、方向、耗时、画面覆盖和 PSS 可复现基线；
+- [ ] 扩展合法质量集并完成 region recall、残留原文、遮盖越界、overflow 与连续多页 P50/P95 门禁；
 - [ ] 增加漫画专用 detector/OCR、内容感知修复、字体回退和布局 overflow 质量门；
 - [ ] 资源缺失、内存不足、模型不支持语言或处理失败时保留原图并给出可恢复状态；
 - [x] 本地后端不读取 sidecar 地址或凭据，默认运行时身份只依赖本地能力与渲染 profile。
@@ -177,6 +180,20 @@ Hypium 为 233/233，signed app、`entry@ohosTest`、资源 JSON、V2 门禁和 
 该结果只证明“无外部制图地址也能在设备上完成 OCR -> geometry -> 本地渲染”的端点无关闭环。它没有
 证明断网资源可用，也没有完成已选 Codex provider 的生产 Reader 全链路、漫画专用检测、内容感知修复或
 复杂排版质量；因此 B2 与 F 的相应项目继续开放，不能称为端侧视觉 Reader V1 完成。
+
+2026-07-21：端侧质量基线补齐并升到 v13，详见
+[漫画翻译端侧质量基线](../../research/manga-translation-local-quality-baseline.md)。设备 `237` 上最终
+`core-vision-ocr-directional-render-v13` 连续三次目标质量用例均为 1/1；signed app 与显式 signed `entry@ohosTest`
+构建通过。两页原创样例严格原文块命中 9/11（81.8%），已检测普通文本方向 9/9、reading-order error 0；
+单页 OCR 为 228–380 ms，本地回填与 PNG 编码为 487–1449 ms，总计 867–1677 ms，不含 LLM 网络时间。
+竖长气泡保持纵排，跨 Core Vision block 的相邻列按右到左合并，注音进入清理范围，竖排标点孤行已修正；
+原文处理改为字形 mask 与局部邻域恢复，页级字号约束消除了第二页对白约 42/30 px 的明显断层。
+
+同一次复核仍明确判定 V1 未完成：两页拟声词均漏检，复杂纹理和艺术字没有专用 detector/inpaint，系统
+字体也没有匹配源页面风格，质量集不足以代表真实漫画。系统 OCR 文档因此提升为待复核警告；不能用本次
+81.8% 或目标用例通过宣称通用可用。固定 Docker sidecar 的同页 A/B 为 10/11，并抓到第二页拟声词，但
+仍出现注音残影、标点冲突、过重拟声词和书页文字倾斜/下划线瑕疵；它是可替换重后端与质量参照，不是
+端侧成品质量捷径。
 
 2026-07-21：领域契约已在设备 `237` 完成 184/184 Hypium 回归，其中新增视觉契约 6/6 通过；signed app
 与 `entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过。随后固定首个 sidecar profile 为

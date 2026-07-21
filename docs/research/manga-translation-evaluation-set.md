@@ -35,6 +35,8 @@ All images are 1024 × 1536. The two production JPEGs total about 1.6 MB. Each m
 or derivatives must not be silently edited without updating hashes and re-reviewing every visible text block.
 The 2026-07-21 live review corrected one reference omission: the clearly visible `月影駅 東口` sign on page 2 is now
 an expected block in both manifests. The reference therefore contains 5 blocks on page 1 and 6 on page 2.
+The reviewed question-mark variant accepts both Japanese full-width `？` and OCR-normalized ASCII `?`; this does not
+relax any character or block-boundary match.
 
 ## Evaluation Rules
 
@@ -83,3 +85,16 @@ latency and aggregate structural/accuracy counts; credentials and complete respo
   matching. This proves failure visibility and stable document production, not general OCR accuracy.
 - The settings page showed 7D remaining quota at 95% before the first real request and 94% after the live diagnostic
   series; no 5H window was returned, so none was displayed. Rounded quota UI is not a per-call cost measurement.
+
+## 2026-07-21 Visual Backend A/B
+
+The same reference translations were rendered through the on-device v13 backend and the fixed Docker sidecar so that
+translation wording did not affect visual comparison. The local backend matched 9/11 strict source blocks; the sidecar
+using 48px OCR and YOLO OBB matched 10/11 because it detected page 2 SFX `パラ…`. Both missed page 1 SFX `ザアア…`.
+
+The sidecar preserved richer line polygons, angles, masks and source style metadata, but its rendered pages still showed
+furigana residue, punctuation conflicts, an oversized SFX and a tilted/underlined notebook date. The local renderer had
+more uniform dialogue size and cleaner ordinary text on this fixture, but used a generic system font and left both SFX
+untranslated. These pages therefore measure stage-specific trade-offs, not an overall winner. Full images, timing,
+deployment size and the replaceable-backend interpretation are recorded in
+[Visual backend and replaceable stack](manga-translation-backend-comparison.md).

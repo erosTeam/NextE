@@ -57,7 +57,7 @@
           "requiredTranslationTerms": ["优"]
         },
         {
-          "sourceVariants": ["兄さんの手紙？"],
+          "sourceVariants": ["兄さんの手紙？", "兄さんの手紙?"],
           "requiredTranslationTerms": []
         },
         {

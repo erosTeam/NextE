@@ -36,8 +36,8 @@ import {
 } from './ComicHarmonyOcrService'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-basic-render-v1'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 1
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-directional-render-v13'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 13
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-local-rendered-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -49,6 +49,8 @@ const LOCAL_MAX_RENDERED_BYTES: number = 80 * 1024 * 1024
 const LOCAL_MAX_RENDER_PIXELS: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
+const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
+const LOCAL_HORIZONTAL_STYLE_HINT: string = 'horizontal-ltr'
 
 class LocalOcrTile {
   x: number = 0
@@ -60,6 +62,15 @@ class LocalOcrTile {
 class LocalMappedLine {
   text: string = ''
   polygon: ComicPoint[] = []
+  tileIndex: number = 0
+  blockIndex: number = 0
+  lineIndex: number = 0
+}
+
+class LocalMappedBlock {
+  text: string = ''
+  polygon: ComicPoint[] = []
+  styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
   tileIndex: number = 0
 }
 
@@ -101,6 +112,27 @@ class LocalRenderRect {
 class LocalTextLayout {
   fontSize: number = 0
   lines: string[] = []
+}
+
+class LocalVerticalTextLayout {
+  fontSize: number = 0
+  columns: string[] = []
+}
+
+class LocalFillStyle {
+  red: number = 255
+  green: number = 255
+  blue: number = 255
+  textRed: number = 24
+  textGreen: number = 24
+  textBlue: number = 24
+}
+
+class LocalColorSample {
+  red: number = 0
+  green: number = 0
+  blue: number = 0
+  luminance: number = 0
 }
 
 /** First endpoint-free visual backend: system OCR geometry plus deterministic local source treatment and text drawing. */
@@ -172,12 +204,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           }
         }
       }
-      const lines: LocalMappedLine[] = ComicLocalVisualBackend.deduplicate(mapped)
+      const lines: LocalMappedLine[] = ComicLocalVisualBackend.suppressFurigana(
+        ComicLocalVisualBackend.deduplicate(mapped),
+      )
+      const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(lines)
       const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
       result.backendId = this.backendId()
       result.profileId = this.profileId()
       result.regionRevision = request.requestedRegionRevision
-      result.document = ComicLocalVisualBackend.document(request, lines, tiles.length)
+      result.document = ComicLocalVisualBackend.document(request, blocks, tiles.length)
       result.adapterTemplate = ComicLocalVisualBackend.template(request, result.document)
       ComicVisualTranslationContract.validateRegionAnalysisResult(
         request,
@@ -216,7 +251,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         editable: true,
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
       })
-      const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
       const translations: Map<string, string> = new Map<string, string>()
       for (let index: number = 0; index < request.translations.blocks.length; index++) {
         translations.set(
@@ -224,6 +258,49 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.translations.blocks[index].translatedText,
         )
       }
+      const fillStyles: LocalFillStyle[] = []
+      for (let index: number = 0; index < request.document.blocks.length; index++) {
+        const block: ComicTextBlock = request.document.blocks[index]
+        const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+        const treatment: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
+          raw,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          block.styleHint,
+        )
+        fillStyles.push(await ComicLocalVisualBackend.sampleFillStyle(
+          pixelMap,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          treatment,
+        ))
+      }
+      for (let index: number = 0; index < request.document.blocks.length; index++) {
+        const block: ComicTextBlock = request.document.blocks[index]
+        const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+        const treatment: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
+          raw,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          block.styleHint,
+        )
+        await ComicLocalVisualBackend.eraseSourceRegion(
+          pixelMap,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          raw,
+          treatment,
+          fillStyles[index],
+          block.styleHint,
+        )
+      }
+      const verticalFontCap: number = ComicLocalVisualBackend.verticalPageFontCap(
+        request.document,
+        translations,
+        request.source.imageWidth,
+        request.source.imageHeight,
+      )
+      const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
       for (let index: number = 0; index < request.document.blocks.length; index++) {
         const block: ComicTextBlock = request.document.blocks[index]
         const translated: string | undefined = translations.get(block.blockId)
@@ -236,6 +313,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           translated.trim(),
           request.source.imageWidth,
           request.source.imageHeight,
+          fillStyles[index],
+          verticalFontCap,
         )
       }
       packer = image.createImagePacker()
@@ -331,6 +410,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       const mapped: LocalMappedLine = new LocalMappedLine()
       mapped.text = text
       mapped.tileIndex = tileIndex
+      mapped.blockIndex = source.blockIndex
+      mapped.lineIndex = source.lineIndex
       for (let pointIndex: number = 0; pointIndex < source.polygon.length; pointIndex++) {
         const point: ComicLocalOcrPoint = source.polygon[pointIndex]
         const x: number = Math.max(0, Math.min(sourceWidth, point.x + tile.x))
@@ -385,9 +466,224 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       Math.abs(leftCenterY - rightCenterY) <= LOCAL_OCR_TILE_OVERLAP
   }
 
+  private static suppressFurigana(values: LocalMappedLine[]): LocalMappedLine[] {
+    const output: LocalMappedLine[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      const candidate: LocalMappedLine = values[index]
+      if (!ComicLocalVisualBackend.isFurigana(candidate, values, index)) {
+        output.push(candidate)
+      }
+    }
+    return output
+  }
+
+  private static isFurigana(
+    candidate: LocalMappedLine,
+    values: LocalMappedLine[],
+    candidateIndex: number,
+  ): boolean {
+    if (candidate.text.length > 4 || !/^[\u3041-\u3096ー]+$/.test(candidate.text)) {
+      return false
+    }
+    const candidateRect: LocalRenderRect = ComicLocalVisualBackend.bounds(candidate.polygon)
+    const candidateArea: number = candidateRect.width() * candidateRect.height()
+    const candidateCenterX: number = (candidateRect.left + candidateRect.right) / 2
+    const candidateCenterY: number = (candidateRect.top + candidateRect.bottom) / 2
+    for (let index: number = 0; index < values.length; index++) {
+      if (index === candidateIndex || values[index].tileIndex !== candidate.tileIndex) {
+        continue
+      }
+      const neighborRect: LocalRenderRect = ComicLocalVisualBackend.bounds(values[index].polygon)
+      const neighborArea: number = neighborRect.width() * neighborRect.height()
+      const neighborCenterX: number = (neighborRect.left + neighborRect.right) / 2
+      const neighborCenterY: number = (neighborRect.top + neighborRect.bottom) / 2
+      const nearX: boolean = Math.abs(candidateCenterX - neighborCenterX) <=
+        Math.max(28, neighborRect.width() * 0.9)
+      const nearY: boolean = Math.abs(candidateCenterY - neighborCenterY) <=
+        Math.max(32, neighborRect.height() * 0.7)
+      if (neighborArea >= candidateArea * 2.8 && nearX && nearY) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private static groupLines(values: LocalMappedLine[]): LocalMappedBlock[] {
+    const groups: LocalMappedLine[][] = []
+    const tileIndexes: number[] = []
+    const blockIndexes: number[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      const value: LocalMappedLine = values[index]
+      let groupIndex: number = -1
+      for (let candidateIndex: number = 0; candidateIndex < groups.length; candidateIndex++) {
+        if (tileIndexes[candidateIndex] === value.tileIndex &&
+          blockIndexes[candidateIndex] === value.blockIndex) {
+          groupIndex = candidateIndex
+          break
+        }
+      }
+      if (groupIndex < 0) {
+        groups.push([])
+        tileIndexes.push(value.tileIndex)
+        blockIndexes.push(value.blockIndex)
+        groupIndex = groups.length - 1
+      }
+      groups[groupIndex].push(value)
+    }
+    const grouped: LocalMappedBlock[] = []
+    for (let index: number = 0; index < groups.length; index++) {
+      if (groups[index].length <= 0) {
+        continue
+      }
+      grouped.push(ComicLocalVisualBackend.group(groups[index]))
+    }
+    const output: LocalMappedBlock[] = ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
+    output.sort((left: LocalMappedBlock, right: LocalMappedBlock): number => {
+      const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
+      const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
+      const verticalDelta: number = leftRect.top - rightRect.top
+      if (Math.abs(verticalDelta) > 12) {
+        return verticalDelta
+      }
+      return rightRect.right - leftRect.right
+    })
+    return output
+  }
+
+  private static group(lines: LocalMappedLine[]): LocalMappedBlock {
+    let verticalVotes: number = 0
+    for (let index: number = 0; index < lines.length; index++) {
+      const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(lines[index].polygon)
+      if (rect.height() > rect.width() * 1.15) {
+        verticalVotes = verticalVotes + 1
+      }
+    }
+    const vertical: boolean = verticalVotes * 2 >= lines.length
+    lines.sort((left: LocalMappedLine, right: LocalMappedLine): number => {
+      const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
+      const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
+      if (vertical) {
+        const horizontalDelta: number = rightRect.right - leftRect.right
+        if (Math.abs(horizontalDelta) > 8) {
+          return horizontalDelta
+        }
+        return leftRect.top - rightRect.top
+      }
+      const verticalDelta: number = leftRect.top - rightRect.top
+      if (Math.abs(verticalDelta) > 8) {
+        return verticalDelta
+      }
+      return leftRect.left - rightRect.left
+    })
+    const block: LocalMappedBlock = new LocalMappedBlock()
+    block.styleHint = vertical ? LOCAL_VERTICAL_STYLE_HINT : LOCAL_HORIZONTAL_STYLE_HINT
+    block.tileIndex = lines[0].tileIndex
+    const textParts: string[] = []
+    let left: number = Number.POSITIVE_INFINITY
+    let top: number = Number.POSITIVE_INFINITY
+    let right: number = Number.NEGATIVE_INFINITY
+    let bottom: number = Number.NEGATIVE_INFINITY
+    for (let index: number = 0; index < lines.length; index++) {
+      const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(lines[index].polygon)
+      left = Math.min(left, rect.left)
+      top = Math.min(top, rect.top)
+      right = Math.max(right, rect.right)
+      bottom = Math.max(bottom, rect.bottom)
+      textParts.push(lines[index].text)
+    }
+    block.text = textParts.join(vertical ? '' : '\n')
+    block.polygon.push(new ComicPoint(left, top))
+    block.polygon.push(new ComicPoint(right, top))
+    block.polygon.push(new ComicPoint(right, bottom))
+    block.polygon.push(new ComicPoint(left, bottom))
+    return block
+  }
+
+  private static mergeAdjacentVerticalBlocks(values: LocalMappedBlock[]): LocalMappedBlock[] {
+    const working: LocalMappedBlock[] = values.slice()
+    let changed: boolean = true
+    while (changed) {
+      changed = false
+      for (let leftIndex: number = 0; leftIndex < working.length; leftIndex++) {
+        for (let rightIndex: number = leftIndex + 1; rightIndex < working.length; rightIndex++) {
+          if (!ComicLocalVisualBackend.shouldMergeVerticalBlocks(
+            working[leftIndex],
+            working[rightIndex],
+          )) {
+            continue
+          }
+          working[leftIndex] = ComicLocalVisualBackend.mergeVerticalBlocks(
+            working[leftIndex],
+            working[rightIndex],
+          )
+          working.splice(rightIndex, 1)
+          changed = true
+          break
+        }
+        if (changed) {
+          break
+        }
+      }
+    }
+    return working
+  }
+
+  private static shouldMergeVerticalBlocks(
+    first: LocalMappedBlock,
+    second: LocalMappedBlock,
+  ): boolean {
+    if (first.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      second.styleHint !== LOCAL_VERTICAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
+      return false
+    }
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
+    const rightRect: LocalRenderRect = firstRect.left >= secondRect.left ? firstRect : secondRect
+    const leftRect: LocalRenderRect = firstRect.left >= secondRect.left ? secondRect : firstRect
+    const horizontalGap: number = rightRect.left - leftRect.right
+    const maximumGap: number = Math.max(firstRect.width(), secondRect.width()) * 0.55
+    if (horizontalGap < -Math.min(firstRect.width(), secondRect.width()) * 0.15 ||
+      horizontalGap > maximumGap) {
+      return false
+    }
+    const overlap: number = Math.min(firstRect.bottom, secondRect.bottom) -
+      Math.max(firstRect.top, secondRect.top)
+    const overlapRatio: number = overlap / Math.max(
+      1,
+      Math.min(firstRect.height(), secondRect.height()),
+    )
+    const firstCenterY: number = (firstRect.top + firstRect.bottom) / 2
+    const secondCenterY: number = (secondRect.top + secondRect.bottom) / 2
+    return overlapRatio >= 0.62 && Math.abs(firstCenterY - secondCenterY) <=
+      Math.max(firstRect.height(), secondRect.height()) * 0.32
+  }
+
+  private static mergeVerticalBlocks(
+    first: LocalMappedBlock,
+    second: LocalMappedBlock,
+  ): LocalMappedBlock {
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
+    const right: LocalMappedBlock = firstRect.left >= secondRect.left ? first : second
+    const left: LocalMappedBlock = firstRect.left >= secondRect.left ? second : first
+    const block: LocalMappedBlock = new LocalMappedBlock()
+    block.text = right.text + left.text
+    block.styleHint = LOCAL_VERTICAL_STYLE_HINT
+    block.tileIndex = first.tileIndex
+    const leftEdge: number = Math.min(firstRect.left, secondRect.left)
+    const topEdge: number = Math.min(firstRect.top, secondRect.top)
+    const rightEdge: number = Math.max(firstRect.right, secondRect.right)
+    const bottomEdge: number = Math.max(firstRect.bottom, secondRect.bottom)
+    block.polygon.push(new ComicPoint(leftEdge, topEdge))
+    block.polygon.push(new ComicPoint(rightEdge, topEdge))
+    block.polygon.push(new ComicPoint(rightEdge, bottomEdge))
+    block.polygon.push(new ComicPoint(leftEdge, bottomEdge))
+    return block
+  }
+
   private static document(
     request: ComicRegionAnalysisRequest,
-    lines: LocalMappedLine[],
+    lines: LocalMappedBlock[],
     tileCount: number,
   ): ComicPageDocument {
     const document: ComicPageDocument = new ComicPageDocument()
@@ -416,14 +712,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       block.sourceText = lines[index].text
       block.normalizedSourceText = lines[index].text.replace(/\s+/g, ' ').trim()
       block.polygon = lines[index].polygon
+      block.styleHint = lines[index].styleHint
       block.sourceOrigin = ComicSourceOrigin.OCR
       block.sourceRevision = request.requestedDocumentRevision
       document.blocks.push(block)
     }
     const signal: ComicQualitySignal = new ComicQualitySignal()
     signal.code = 'local_system_ocr_requires_visual_review'
-    signal.severity = ComicQualitySeverity.INFO
-    signal.message = 'System OCR can miss stylized text; the translation model should verify the page image.'
+    signal.severity = ComicQualitySeverity.WARNING
+    signal.message = 'System OCR can miss stylized text; local output requires visual review.'
     document.qualitySignals.push(signal)
     return document
   }
@@ -497,32 +794,40 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     translatedText: string,
     imageWidth: number,
     imageHeight: number,
+    fill: LocalFillStyle,
+    verticalFontCap: number,
   ): void {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
-    const rect: LocalRenderRect = ComicLocalVisualBackend.expandedRect(
+    const rect: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
       raw,
-      translatedText,
       imageWidth,
       imageHeight,
+      block.styleHint,
     )
-    const background: drawing.Brush = new drawing.Brush()
-    background.setColor(255, 250, 250, 248)
-    canvas.attachBrush(background)
-    const radius: number = Math.max(4, Math.min(18, Math.min(rect.width(), rect.height()) * 0.18))
-    canvas.drawRoundRect(new drawing.RoundRect({
-      left: rect.left,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom,
-    }, radius, radius))
-    canvas.detachBrush()
-
     const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
     const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
     const contentWidth: number = Math.max(1, rect.width() - horizontalPadding * 2)
     const contentHeight: number = Math.max(1, rect.height() - verticalPadding * 2)
     const font: drawing.Font = new drawing.Font()
     font.enableSubpixel(true)
+    const textBrush: drawing.Brush = new drawing.Brush()
+    textBrush.setColor(255, fill.textRed, fill.textGreen, fill.textBlue)
+    canvas.attachBrush(textBrush)
+    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT) {
+      ComicLocalVisualBackend.drawVerticalText(
+        canvas,
+        translatedText,
+        rect,
+        horizontalPadding,
+        verticalPadding,
+        contentWidth,
+        contentHeight,
+        font,
+        verticalFontCap,
+      )
+      canvas.detachBrush()
+      return
+    }
     const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
       translatedText,
       contentWidth,
@@ -530,9 +835,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       font,
     )
     font.setSize(layout.fontSize)
-    const textBrush: drawing.Brush = new drawing.Brush()
-    textBrush.setColor(255, 24, 24, 24)
-    canvas.attachBrush(textBrush)
     const lineHeight: number = layout.fontSize * 1.18
     const totalHeight: number = layout.lines.length * lineHeight
     const metrics: drawing.FontMetrics = font.getMetrics()
@@ -548,31 +850,430 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     canvas.detachBrush()
   }
 
-  private static expandedRect(
-    raw: LocalRenderRect,
-    text: string,
+  private static verticalPageFontCap(
+    document: ComicPageDocument,
+    translations: Map<string, string>,
     imageWidth: number,
     imageHeight: number,
+  ): number {
+    const fittedSizes: number[] = []
+    const font: drawing.Font = new drawing.Font()
+    font.enableSubpixel(true)
+    for (let index: number = 0; index < document.blocks.length; index++) {
+      const block: ComicTextBlock = document.blocks[index]
+      if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+        continue
+      }
+      const translated: string | undefined = translations.get(block.blockId)
+      if (translated === undefined || translated.trim().length <= 0) {
+        continue
+      }
+      const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+      const rect: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
+        raw,
+        imageWidth,
+        imageHeight,
+        block.styleHint,
+      )
+      const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
+      const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
+      const contentWidth: number = Math.max(1, rect.width() - horizontalPadding * 2)
+      const contentHeight: number = Math.max(1, rect.height() - verticalPadding * 2)
+      const layout: LocalVerticalTextLayout = ComicLocalVisualBackend.verticalLayout(
+        translated.trim(),
+        contentWidth,
+        contentHeight,
+        font,
+        LOCAL_MAX_FONT_SIZE,
+      )
+      fittedSizes.push(layout.fontSize)
+    }
+    if (fittedSizes.length <= 1) {
+      return LOCAL_MAX_FONT_SIZE
+    }
+    fittedSizes.sort((left: number, right: number): number => left - right)
+    return fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
+  }
+
+  private static sourceTreatmentRect(
+    raw: LocalRenderRect,
+    imageWidth: number,
+    imageHeight: number,
+    styleHint: string,
   ): LocalRenderRect {
     const rawWidth: number = Math.max(1, raw.width())
     const rawHeight: number = Math.max(1, raw.height())
-    let width: number = rawWidth + Math.max(8, Math.min(24, rawWidth * 0.24)) * 2
-    let height: number = rawHeight + Math.max(8, Math.min(24, rawHeight * 0.18)) * 2
-    if (rawHeight > rawWidth * 1.35) {
-      width = Math.max(width, Math.min(imageWidth * 0.38, 36 + Math.sqrt(text.length) * 28))
-    } else {
-      height = Math.max(height, Math.min(imageHeight * 0.16, 36 + Math.sqrt(text.length) * 18))
-    }
-    width = Math.min(imageWidth, Math.max(44, width))
-    height = Math.min(imageHeight, Math.max(38, height))
-    const centerX: number = (raw.left + raw.right) / 2
-    const centerY: number = (raw.top + raw.bottom) / 2
+    const leftPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      Math.max(4, Math.min(12, rawWidth * 0.18)) :
+      Math.max(2, Math.min(8, rawWidth * 0.08))
+    const rightPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      Math.max(10, Math.min(18, rawWidth * 0.42)) :
+      Math.max(2, Math.min(8, rawWidth * 0.08))
+    const yPadding: number = Math.max(2, Math.min(8, rawHeight * 0.05))
     const rect: LocalRenderRect = new LocalRenderRect()
-    rect.left = Math.max(0, Math.min(imageWidth - width, centerX - width / 2))
-    rect.top = Math.max(0, Math.min(imageHeight - height, centerY - height / 2))
-    rect.right = rect.left + width
-    rect.bottom = rect.top + height
+    rect.left = Math.max(0, raw.left - leftPadding)
+    rect.top = Math.max(0, raw.top - yPadding)
+    rect.right = Math.min(imageWidth, raw.right + rightPadding)
+    rect.bottom = Math.min(imageHeight, raw.bottom + yPadding)
     return rect
+  }
+
+  private static async sampleFillStyle(
+    pixelMap: image.PixelMap,
+    imageWidth: number,
+    imageHeight: number,
+    treatment: LocalRenderRect,
+  ): Promise<LocalFillStyle> {
+    const samples: LocalColorSample[] = []
+    const desiredWidth: number = Math.max(1, Math.ceil(treatment.width() + 8))
+    const desiredHeight: number = Math.max(1, Math.ceil(treatment.height() + 8))
+    const sampleWidth: number = Math.min(256, imageWidth, desiredWidth)
+    const sampleHeight: number = Math.min(256, imageHeight, desiredHeight)
+    const centerX: number = (treatment.left + treatment.right) / 2
+    const centerY: number = (treatment.top + treatment.bottom) / 2
+    const left: number = Math.max(
+      0,
+      Math.min(imageWidth - sampleWidth, Math.floor(centerX - sampleWidth / 2)),
+    )
+    const top: number = Math.max(
+      0,
+      Math.min(imageHeight - sampleHeight, Math.floor(centerY - sampleHeight / 2)),
+    )
+    const rowBytes: number = sampleWidth * 4
+    const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * sampleHeight)
+    const area: image.PositionArea = {
+      pixels: buffer,
+      offset: 0,
+      stride: rowBytes,
+      region: {
+        x: left,
+        y: top,
+        size: { width: sampleWidth, height: sampleHeight },
+      },
+    }
+    await pixelMap.readPixels(area)
+    const sourcePixels: Uint8Array = new Uint8Array(buffer)
+    for (let y: number = 0; y < sampleHeight; y += 2) {
+      for (let x: number = 0; x < sampleWidth; x += 2) {
+        const offset: number = y * rowBytes + x * 4
+        // PixelMap.readPixels returns BGRA_8888 regardless of the source pixel format.
+        const sample: LocalColorSample = new LocalColorSample()
+        sample.blue = sourcePixels[offset]
+        sample.green = sourcePixels[offset + 1]
+        sample.red = sourcePixels[offset + 2]
+        sample.luminance = sample.red * 0.299 + sample.green * 0.587 + sample.blue * 0.114
+        samples.push(sample)
+      }
+    }
+    const style: LocalFillStyle = new LocalFillStyle()
+    if (samples.length <= 0) {
+      return style
+    }
+    samples.sort((leftValue: LocalColorSample, rightValue: LocalColorSample): number =>
+      leftValue.luminance - rightValue.luminance)
+    // Source glyphs are sparse inside their bounding rectangle. The upper-middle local
+    // quartile rejects those dark strokes while retaining a dark fill for inverse text.
+    const backgroundIndex: number = Math.min(
+      samples.length - 1,
+      Math.floor(samples.length * 0.72),
+    )
+    style.red = samples[backgroundIndex].red
+    style.green = samples[backgroundIndex].green
+    style.blue = samples[backgroundIndex].blue
+    if (samples[backgroundIndex].luminance < 128) {
+      style.textRed = 245
+      style.textGreen = 245
+      style.textBlue = 245
+    }
+    return style
+  }
+
+  private static async eraseSourceRegion(
+    pixelMap: image.PixelMap,
+    imageWidth: number,
+    imageHeight: number,
+    raw: LocalRenderRect,
+    treatment: LocalRenderRect,
+    background: LocalFillStyle,
+    styleHint: string,
+  ): Promise<void> {
+    const treatmentLeft: number = Math.max(0, Math.floor(treatment.left))
+    const treatmentTop: number = Math.max(0, Math.floor(treatment.top))
+    const treatmentRight: number = Math.min(imageWidth, Math.ceil(treatment.right))
+    const treatmentBottom: number = Math.min(imageHeight, Math.ceil(treatment.bottom))
+    if (treatmentRight <= treatmentLeft || treatmentBottom <= treatmentTop) {
+      return
+    }
+    const border: number = 6
+    const outerLeft: number = Math.max(0, treatmentLeft - border)
+    const outerTop: number = Math.max(0, treatmentTop - border)
+    const outerRight: number = Math.min(imageWidth, treatmentRight + border)
+    const outerBottom: number = Math.min(imageHeight, treatmentBottom + border)
+    const width: number = outerRight - outerLeft
+    const height: number = outerBottom - outerTop
+    if (width <= 1 || height <= 1) {
+      return
+    }
+    const rowBytes: number = width * 4
+    const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * height)
+    const area: image.PositionArea = {
+      pixels: buffer,
+      offset: 0,
+      stride: rowBytes,
+      region: {
+        x: outerLeft,
+        y: outerTop,
+        size: { width: width, height: height },
+      },
+    }
+    await pixelMap.readPixels(area)
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    const mask: Uint8Array = new Uint8Array(width * height)
+    const rawLeft: number = Math.max(treatmentLeft, Math.floor(raw.left))
+    const rawTop: number = Math.max(treatmentTop, Math.floor(raw.top))
+    const rawRight: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      treatmentRight : Math.min(treatmentRight, Math.ceil(raw.right))
+    const rawBottom: number = Math.min(treatmentBottom, Math.ceil(raw.bottom))
+    const backgroundLuminance: number = background.red * 0.299 +
+      background.green * 0.587 + background.blue * 0.114
+    let masked: number = 0
+    for (let globalY: number = rawTop; globalY < rawBottom; globalY++) {
+      const y: number = globalY - outerTop
+      for (let globalX: number = rawLeft; globalX < rawRight; globalX++) {
+        const x: number = globalX - outerLeft
+        const offset: number = y * rowBytes + x * 4
+        const blue: number = pixels[offset]
+        const green: number = pixels[offset + 1]
+        const red: number = pixels[offset + 2]
+        const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
+        const colorDelta: number = Math.max(
+          Math.abs(red - background.red),
+          Math.abs(green - background.green),
+          Math.abs(blue - background.blue),
+        )
+        if (Math.abs(luminance - backgroundLuminance) >= 36 && colorDelta >= 44) {
+          mask[y * width + x] = 1
+          masked = masked + 1
+        }
+      }
+    }
+    if (masked <= 0) {
+      return
+    }
+    for (let dilation: number = 0; dilation < 2; dilation++) {
+      const expanded: Uint8Array = new Uint8Array(mask)
+      for (let y: number = 1; y < height - 1; y++) {
+        const globalY: number = outerTop + y
+        if (globalY < treatmentTop || globalY >= treatmentBottom) {
+          continue
+        }
+        for (let x: number = 1; x < width - 1; x++) {
+          const globalX: number = outerLeft + x
+          if (globalX < treatmentLeft || globalX >= treatmentRight ||
+            mask[y * width + x] === 0) {
+            continue
+          }
+          for (let yOffset: number = -1; yOffset <= 1; yOffset++) {
+            for (let xOffset: number = -1; xOffset <= 1; xOffset++) {
+              const expandedX: number = x + xOffset
+              const expandedY: number = y + yOffset
+              const expandedGlobalX: number = outerLeft + expandedX
+              const expandedGlobalY: number = outerTop + expandedY
+              if (expandedGlobalX >= treatmentLeft && expandedGlobalX < treatmentRight &&
+                expandedGlobalY >= treatmentTop && expandedGlobalY < treatmentBottom) {
+                expanded[expandedY * width + expandedX] = 1
+              }
+            }
+          }
+        }
+      }
+      mask.set(expanded)
+    }
+    let remaining: number = 0
+    for (let index: number = 0; index < mask.length; index++) {
+      if (mask[index] !== 0) {
+        remaining = remaining + 1
+      }
+    }
+    const maxPasses: number = Math.min(64, Math.max(width, height))
+    for (let pass: number = 0; pass < maxPasses && remaining > 0; pass++) {
+      const nextPixels: Uint8Array = new Uint8Array(pixels)
+      const nextMask: Uint8Array = new Uint8Array(mask)
+      let filled: number = 0
+      for (let y: number = 1; y < height - 1; y++) {
+        for (let x: number = 1; x < width - 1; x++) {
+          const index: number = y * width + x
+          if (mask[index] === 0) {
+            continue
+          }
+          let neighbors: number = 0
+          let blue: number = 0
+          let green: number = 0
+          let red: number = 0
+          for (let yOffset: number = -1; yOffset <= 1; yOffset++) {
+            for (let xOffset: number = -1; xOffset <= 1; xOffset++) {
+              if (xOffset === 0 && yOffset === 0) {
+                continue
+              }
+              const neighborIndex: number = (y + yOffset) * width + x + xOffset
+              if (mask[neighborIndex] !== 0) {
+                continue
+              }
+              const neighborOffset: number = neighborIndex * 4
+              blue = blue + pixels[neighborOffset]
+              green = green + pixels[neighborOffset + 1]
+              red = red + pixels[neighborOffset + 2]
+              neighbors = neighbors + 1
+            }
+          }
+          if (neighbors > 0) {
+            const offset: number = index * 4
+            nextPixels[offset] = Math.round(blue / neighbors)
+            nextPixels[offset + 1] = Math.round(green / neighbors)
+            nextPixels[offset + 2] = Math.round(red / neighbors)
+            nextMask[index] = 0
+            filled = filled + 1
+          }
+        }
+      }
+      if (filled <= 0) {
+        break
+      }
+      pixels.set(nextPixels)
+      mask.set(nextMask)
+      remaining = remaining - filled
+    }
+    if (remaining > 0) {
+      for (let index: number = 0; index < mask.length; index++) {
+        if (mask[index] === 0) {
+          continue
+        }
+        const offset: number = index * 4
+        pixels[offset] = background.blue
+        pixels[offset + 1] = background.green
+        pixels[offset + 2] = background.red
+      }
+    }
+    await pixelMap.writePixels(area)
+  }
+
+  private static drawVerticalText(
+    canvas: drawing.Canvas,
+    text: string,
+    rect: LocalRenderRect,
+    horizontalPadding: number,
+    verticalPadding: number,
+    contentWidth: number,
+    contentHeight: number,
+    font: drawing.Font,
+    maxFontSize: number,
+  ): void {
+    const layout: LocalVerticalTextLayout = ComicLocalVisualBackend.verticalLayout(
+      text,
+      contentWidth,
+      contentHeight,
+      font,
+      maxFontSize,
+    )
+    font.setSize(layout.fontSize)
+    const columnWidth: number = layout.fontSize * 1.16
+    const cellHeight: number = layout.fontSize * 1.12
+    const totalWidth: number = layout.columns.length * columnWidth
+    const right: number = rect.right - horizontalPadding -
+      Math.max(0, (contentWidth - totalWidth) / 2)
+    const metrics: drawing.FontMetrics = font.getMetrics()
+    for (let columnIndex: number = 0; columnIndex < layout.columns.length; columnIndex++) {
+      const column: string = layout.columns[columnIndex]
+      const totalHeight: number = column.length * cellHeight
+      const top: number = rect.top + verticalPadding +
+        Math.max(0, (contentHeight - totalHeight) / 2)
+      const centerX: number = right - columnWidth * (columnIndex + 0.5)
+      for (let rowIndex: number = 0; rowIndex < column.length; rowIndex++) {
+        const glyph: string = ComicLocalVisualBackend.verticalGlyph(column.charAt(rowIndex))
+        const glyphWidth: number = font.measureText(glyph, drawing.TextEncoding.TEXT_ENCODING_UTF8)
+        const x: number = centerX - glyphWidth / 2
+        const baseline: number = top + rowIndex * cellHeight - metrics.ascent
+        canvas.drawTextBlob(drawing.TextBlob.makeFromString(glyph, font), x, baseline)
+      }
+    }
+  }
+
+  private static verticalLayout(
+    text: string,
+    width: number,
+    height: number,
+    font: drawing.Font,
+    maxFontSize: number,
+  ): LocalVerticalTextLayout {
+    const normalized: string = text.replace(/\s+/g, '')
+    const initialSize: number = Math.max(
+      LOCAL_MIN_FONT_SIZE,
+      Math.min(LOCAL_MAX_FONT_SIZE, maxFontSize, Math.floor(Math.min(width, height))),
+    )
+    for (let size: number = initialSize; size >= LOCAL_MIN_FONT_SIZE; size--) {
+      font.setSize(size)
+      const cellHeight: number = size * 1.12
+      const columnWidth: number = size * 1.16
+      const charsPerColumn: number = Math.max(1, Math.floor(height / cellHeight))
+      const columnCount: number = Math.ceil(normalized.length / charsPerColumn)
+      if (columnCount * columnWidth > width ||
+        ComicLocalVisualBackend.hasInvalidVerticalBreak(normalized, charsPerColumn)) {
+        continue
+      }
+      const result: LocalVerticalTextLayout = new LocalVerticalTextLayout()
+      result.fontSize = size
+      for (let start: number = 0; start < normalized.length; start += charsPerColumn) {
+        result.columns.push(normalized.slice(start, start + charsPerColumn))
+      }
+      if (result.columns.length > 0) {
+        return result
+      }
+    }
+    throw new Error('Local vertical comic translation does not fit its detected region')
+  }
+
+  private static hasInvalidVerticalBreak(text: string, charsPerColumn: number): boolean {
+    for (let start: number = charsPerColumn; start < text.length; start += charsPerColumn) {
+      if ('，。！？、,.!?；：）】》」』…'.includes(text.charAt(start))) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private static verticalGlyph(value: string): string {
+    switch (value) {
+      case '，':
+      case ',':
+        return '︐'
+      case '。':
+      case '.':
+        return '︒'
+      case '、':
+        return '︑'
+      case '：':
+      case ':':
+        return '︓'
+      case '；':
+      case ';':
+        return '︔'
+      case '！':
+      case '!':
+        return '︕'
+      case '？':
+      case '?':
+        return '︖'
+      case '…':
+        return '︙'
+      case '（':
+      case '(':
+        return '︵'
+      case '）':
+      case ')':
+        return '︶'
+      default:
+        return value
+    }
   }
 
   private static layout(
@@ -585,6 +1286,22 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       LOCAL_MIN_FONT_SIZE,
       Math.min(LOCAL_MAX_FONT_SIZE, Math.floor(height * 0.62)),
     )
+    const compact: string = text.replace(/\s+/g, ' ').trim()
+    if (!text.includes('\n') && compact.length <= 8) {
+      for (let size: number = initialSize; size >= LOCAL_MIN_FONT_SIZE; size--) {
+        font.setSize(size)
+        const measured: number = font.measureText(
+          compact,
+          drawing.TextEncoding.TEXT_ENCODING_UTF8,
+        )
+        if (measured <= width && size * 1.18 <= height) {
+          const result: LocalTextLayout = new LocalTextLayout()
+          result.fontSize = size
+          result.lines.push(compact)
+          return result
+        }
+      }
+    }
     for (let size: number = initialSize; size >= LOCAL_MIN_FONT_SIZE; size--) {
       font.setSize(size)
       const lines: string[] = ComicLocalVisualBackend.wrap(text, width, font)

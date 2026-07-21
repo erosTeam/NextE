@@ -14,6 +14,8 @@ export class ComicLocalOcrPoint {
 export class ComicLocalOcrLine {
   text: string = ''
   polygon: ComicLocalOcrPoint[] = []
+  blockIndex: number = 0
+  lineIndex: number = 0
 }
 
 export class ComicLocalOcrResult {
@@ -107,6 +109,8 @@ export class HarmonyComicLocalOcrEngine implements ComicLocalOcrEngine {
         }
         const line: ComicLocalOcrLine = new ComicLocalOcrLine()
         line.text = text
+        line.blockIndex = blockIndex
+        line.lineIndex = lineIndex
         for (let pointIndex: number = 0; pointIndex < rawLine.cornerPoints.length; pointIndex++) {
           const point: textRecognition.PixelPoint = rawLine.cornerPoints[pointIndex]
           line.polygon.push(new ComicLocalOcrPoint(point.x, point.y))
