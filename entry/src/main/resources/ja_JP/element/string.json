@@ -4809,6 +4809,86 @@
       "value": "漫画翻訳"
     },
     {
+      "name": "comic_visual_route",
+      "value": "画像処理方式"
+    },
+    {
+      "name": "comic_visual_route_hint",
+      "value": "最終翻訳画像を端末またはクラウドで生成します"
+    },
+    {
+      "name": "comic_visual_route_local",
+      "value": "端末内処理"
+    },
+    {
+      "name": "comic_visual_route_torii",
+      "value": "Torii クラウド画像"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm_title",
+      "value": "Torii クラウド画像翻訳を使用しますか？"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm",
+      "value": "現在のページを明示的に翻訳した場合のみ、漫画画像とコンテキストを Torii に送信します。Torii は完成画像を返し、端末内の段階処理には参加しません。"
+    },
+    {
+      "name": "comic_torii_model",
+      "value": "翻訳モデル"
+    },
+    {
+      "name": "comic_torii_model_hint",
+      "value": "Torii 公式カタログのスナップショット（確認日 %s）"
+    },
+    {
+      "name": "comic_torii_billing",
+      "value": "モデル料金"
+    },
+    {
+      "name": "comic_torii_billing_managed",
+      "value": "Torii credits"
+    },
+    {
+      "name": "comic_torii_billing_byok",
+      "value": "自分のプロバイダー Key"
+    },
+    {
+      "name": "comic_torii_billing_managed_hint",
+      "value": "Torii がモデル料金を支払い credits を差し引きます"
+    },
+    {
+      "name": "comic_torii_billing_byok_hint",
+      "value": "画像ごとに 1 Torii credit とプロバイダー料金"
+    },
+    {
+      "name": "comic_torii_byok_provider",
+      "value": "Key プロバイダー"
+    },
+    {
+      "name": "comic_torii_api_key",
+      "value": "Torii API Key"
+    },
+    {
+      "name": "comic_torii_api_key_hint",
+      "value": "Torii 画像翻訳に必要です"
+    },
+    {
+      "name": "comic_torii_byok_api_key",
+      "value": "プロバイダー API Key"
+    },
+    {
+      "name": "comic_torii_byok_api_key_hint",
+      "value": "BYOK リクエスト時に Torii へ送信されます"
+    },
+    {
+      "name": "comic_torii_upload_notice",
+      "value": "クラウドルートのみ: Torii は画像、コンテキスト、任意のプロバイダー Key を受信します。端末内ルートはこれらを読み取りません。"
+    },
+    {
+      "name": "comic_torii_save_failed",
+      "value": "Torii 設定を保存できませんでした: %s"
+    },
+    {
       "name": "comic_render_service_title",
       "value": "組版サービス"
     },

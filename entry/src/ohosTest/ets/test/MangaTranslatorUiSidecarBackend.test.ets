@@ -214,24 +214,8 @@ function accountConfig(): MangaTranslatorUiSidecarConfig {
   return value
 }
 
-function containsText(bytes: Uint8Array, text: string): boolean {
-  const needle: Uint8Array = new util.TextEncoder().encodeInto(text)
-  if (needle.length <= 0 || needle.length > bytes.length) {
-    return false
-  }
-  for (let offset: number = 0; offset <= bytes.length - needle.length; offset++) {
-    let matches: boolean = true
-    for (let index: number = 0; index < needle.length; index++) {
-      if (bytes[offset + index] !== needle[index]) {
-        matches = false
-        break
-      }
-    }
-    if (matches) {
-      return true
-    }
-  }
-  return false
+function multipartText(bytes: Uint8Array): string {
+  return util.TextDecoder.create('utf-8', { ignoreBOM: true }).decodeToString(bytes)
 }
 
 function writeFile(path: string, bytes: Uint8Array): void {
@@ -341,29 +325,16 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           expect(transport.requests[0].headers['X-Session-Token']).assertEqual(
             'fixture-sidecar-session-token',
           )
-          expect(containsText(transport.requests[0].body, 'name="image"')).assertEqual(true)
-          expect(containsText(transport.requests[0].body, 'name="config"')).assertEqual(true)
-          expect(containsText(
-            transport.requests[0].body,
-            MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
-          )).assertEqual(true)
-          expect(containsText(
-            transport.requests[0].body,
-            '"box_threshold":0.5',
-          )).assertEqual(true)
-          expect(containsText(
-            transport.requests[0].body,
-            '"use_yolo_obb":true',
-          )).assertEqual(true)
-          expect(containsText(
-            transport.requests[0].body,
-            '"use_hybrid_ocr":true',
-          )).assertEqual(true)
-          expect(containsText(
-            transport.requests[0].body,
-            '"secondary_ocr":"mocr"',
-          )).assertEqual(true)
-          expect(containsText(transport.requests[0].body, 'openai')).assertEqual(false)
+          const analysisBodyText: string = multipartText(transport.requests[0].body)
+          expect(analysisBodyText.includes('name="image"')).assertEqual(true)
+          expect(analysisBodyText.includes('name="config"')).assertEqual(true)
+          expect(analysisBodyText.includes(MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON))
+            .assertEqual(true)
+          expect(analysisBodyText.includes('"box_threshold":0.5')).assertEqual(true)
+          expect(analysisBodyText.includes('"use_yolo_obb":true')).assertEqual(true)
+          expect(analysisBodyText.includes('"use_hybrid_ocr":true')).assertEqual(true)
+          expect(analysisBodyText.includes('"secondary_ocr":"mocr"')).assertEqual(true)
+          expect(analysisBodyText.includes('openai')).assertEqual(false)
 
           const render: ComicRegionRenderRequest = renderRequest(raw, sourcePath, analysis)
           const page: ComicRenderedPage = await backend.render(render)
@@ -374,9 +345,10 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           expect(fileIo.accessSync(page.localFilePath)).assertEqual(true)
           expect(transport.requests.length).assertEqual(2)
           expect(transport.requests[1].url.endsWith(MANGA_TRANSLATOR_UI_IMPORT_PATH)).assertEqual(true)
-          expect(containsText(transport.requests[1].body, 'name="json_file"')).assertEqual(true)
-          expect(containsText(transport.requests[1].body, '这是测试')).assertEqual(true)
-          expect(containsText(transport.requests[1].body, '去下一处吧')).assertEqual(true)
+          const renderBodyText: string = multipartText(transport.requests[1].body)
+          expect(renderBodyText.includes('name="json_file"')).assertEqual(true)
+          expect(renderBodyText.includes('这是测试')).assertEqual(true)
+          expect(renderBodyText.includes('去下一处吧')).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)

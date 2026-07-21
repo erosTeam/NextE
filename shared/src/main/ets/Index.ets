@@ -320,6 +320,32 @@ export {
   ComicVisualTranslationRunResult,
 } from './services/ComicVisualTranslationOrchestrator'
 export {
+  ComicWholePageTranslationOrchestrator,
+  ComicWholePageTranslationRequest,
+} from './services/ComicWholePageTranslationOrchestrator'
+export {
+  ToriiWholePageContextScope,
+  ToriiWholePageContextStore,
+} from './services/ToriiWholePageContextStore'
+export {
+  DefaultToriiWholePageTransport,
+  TORII_WHOLE_PAGE_ENDPOINT,
+  TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID,
+  TORII_WHOLE_PAGE_PROMPT_VERSION,
+  TORII_WHOLE_PAGE_RENDER_PROFILE_ID,
+  TORII_WHOLE_PAGE_SOURCE_REVISION,
+  TORII_WHOLE_PAGE_SOURCE_TREATMENT_PROFILE_ID,
+  ToriiWholePageConfig,
+  ToriiWholePageRenderBackend,
+  ToriiWholePageTransport,
+  ToriiWholePageTransportRequest,
+  ToriiWholePageTransportResponse,
+} from './services/ToriiWholePageRenderBackend'
+export {
+  ToriiWholePageCredential,
+  ToriiWholePageSecretStore,
+} from './services/ToriiWholePageSecretStore'
+export {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH,
   MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH,
@@ -607,6 +633,24 @@ export {
   MangaRenderingServiceSettings,
   MangaRenderingServiceSettingsSnapshot,
 } from './settings/MangaRenderingServiceSettings'
+export {
+  COMIC_VISUAL_ROUTE_LOCAL,
+  COMIC_VISUAL_ROUTE_TORII,
+  TORII_BILLING_BYOK,
+  TORII_BILLING_MANAGED,
+  TORII_BYOK_ANTHROPIC,
+  TORII_BYOK_DEEPSEEK,
+  TORII_BYOK_GOOGLE,
+  TORII_BYOK_OPENAI,
+  TORII_BYOK_OPENROUTER,
+  TORII_BYOK_XAI,
+  TORII_DEFAULT_MODEL_ID,
+  TORII_MODEL_CATALOG_REVIEWED_AT,
+  ComicVisualProviderSettings,
+  ComicVisualProviderSettingsSnapshot,
+  ToriiTranslatorModel,
+  ToriiTranslatorModelCatalog,
+} from './settings/ComicVisualProviderSettings'
 export {
   ComicTranslationProviderSettingsState,
   connectComicTranslationProviderSettings,

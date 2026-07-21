@@ -63,6 +63,9 @@ import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
 import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
 import comicLocalVisualBackendTest from './ComicLocalVisualBackend.test'
+import comicWholePageTranslationOrchestratorTest from './ComicWholePageTranslationOrchestrator.test'
+import toriiWholePageSettingsTest from './ToriiWholePageSettings.test'
+import toriiWholePageRenderBackendTest from './ToriiWholePageRenderBackend.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -130,4 +133,7 @@ export default function testsuite(): void {
   llmSourceMigrationTest()
   indexRouteCoordinatorTest()
   comicLocalVisualBackendTest()
+  comicWholePageTranslationOrchestratorTest()
+  toriiWholePageSettingsTest()
+  toriiWholePageRenderBackendTest()
 }

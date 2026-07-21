@@ -111,6 +111,15 @@ export class StorageKeys {
   static readonly COMIC_TRANSLATION_CODEX_USAGE_CACHE: string = 'comicTranslation.codexUsageCache'
   static readonly COMIC_TRANSLATION_LLM_SOURCE_PROFILE: string = 'comicTranslation.llmSourceProfile'
   static readonly COMIC_TRANSLATION_LLM_MODEL: string = 'comicTranslation.llmModel'
+  static readonly COMIC_TRANSLATION_VISUAL_ROUTE: string = 'comicTranslation.visualRoute'
+  static readonly COMIC_TRANSLATION_TORII_MODEL: string = 'comicTranslation.torii.model'
+  static readonly COMIC_TRANSLATION_TORII_BILLING_MODE: string =
+    'comicTranslation.torii.billingMode'
+  static readonly COMIC_TRANSLATION_TORII_BYOK_PROVIDER: string =
+    'comicTranslation.torii.byokProvider'
+  // Torii account and optional upstream BYOK secrets. Encrypted backup only; never sync.
+  static readonly COMIC_TRANSLATION_TORII_CREDENTIAL: string =
+    'comicTranslation.torii.credential'
   static readonly COMIC_TRANSLATION_RENDER_SERVICE_URL: string =
     'comicTranslation.renderService.url'
   // Sidecar login credentials; legacy session tokens remain readable. Encrypted backup only; never sync.

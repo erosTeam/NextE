@@ -4809,6 +4809,86 @@
       "value": "Comic translation"
     },
     {
+      "name": "comic_visual_route",
+      "value": "Image processing"
+    },
+    {
+      "name": "comic_visual_route_hint",
+      "value": "Choose who produces the final translated page"
+    },
+    {
+      "name": "comic_visual_route_local",
+      "value": "On-device"
+    },
+    {
+      "name": "comic_visual_route_torii",
+      "value": "Torii cloud image"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm_title",
+      "value": "Use Torii cloud image translation?"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm",
+      "value": "The current manga page and context will be uploaded to Torii only when you explicitly translate it. Torii returns a finished translated image; it does not join the on-device processing pipeline."
+    },
+    {
+      "name": "comic_torii_model",
+      "value": "Translation model"
+    },
+    {
+      "name": "comic_torii_model_hint",
+      "value": "Official Torii catalog snapshot reviewed %s"
+    },
+    {
+      "name": "comic_torii_billing",
+      "value": "Model billing"
+    },
+    {
+      "name": "comic_torii_billing_managed",
+      "value": "Torii credits"
+    },
+    {
+      "name": "comic_torii_billing_byok",
+      "value": "Use my provider key"
+    },
+    {
+      "name": "comic_torii_billing_managed_hint",
+      "value": "Torii pays the model provider and deducts credits"
+    },
+    {
+      "name": "comic_torii_billing_byok_hint",
+      "value": "1 Torii credit per image plus your provider bill"
+    },
+    {
+      "name": "comic_torii_byok_provider",
+      "value": "Key provider"
+    },
+    {
+      "name": "comic_torii_api_key",
+      "value": "Torii API key"
+    },
+    {
+      "name": "comic_torii_api_key_hint",
+      "value": "Required for Torii image translation"
+    },
+    {
+      "name": "comic_torii_byok_api_key",
+      "value": "Provider API key"
+    },
+    {
+      "name": "comic_torii_byok_api_key_hint",
+      "value": "Sent to Torii for this BYOK request"
+    },
+    {
+      "name": "comic_torii_upload_notice",
+      "value": "Cloud route only: Torii receives the page, context, and optional provider key. The on-device route never reads these credentials."
+    },
+    {
+      "name": "comic_torii_save_failed",
+      "value": "Could not save Torii settings: %s"
+    },
+    {
       "name": "comic_render_service_title",
       "value": "Rendering service"
     },

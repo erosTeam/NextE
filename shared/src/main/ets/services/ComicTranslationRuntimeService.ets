@@ -5,7 +5,16 @@ import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { ComicRenderProfile } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import {
+  COMIC_VISUAL_ROUTE_TORII,
+  ComicVisualProviderSettings,
+  ComicVisualProviderSettingsSnapshot,
+} from '../settings/ComicVisualProviderSettings'
 import { CacheStat } from './CacheStat'
+import {
+  ComicWholePageTranslationOrchestrator,
+  ComicWholePageTranslationRequest,
+} from './ComicWholePageTranslationOrchestrator'
 import { PersistentComicRenderedPageRepository } from './ComicRenderedPageRepository'
 import { ComicLocalVisualBackend } from './ComicLocalVisualBackend'
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
@@ -21,6 +30,18 @@ import {
   ComicVisualTranslationRequest,
   ComicVisualTranslationRunResult,
 } from './ComicVisualTranslationOrchestrator'
+import { ToriiWholePageContextStore } from './ToriiWholePageContextStore'
+import {
+  TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID,
+  TORII_WHOLE_PAGE_RENDER_PROFILE_ID,
+  TORII_WHOLE_PAGE_SOURCE_TREATMENT_PROFILE_ID,
+  ToriiWholePageConfig,
+  ToriiWholePageRenderBackend,
+} from './ToriiWholePageRenderBackend'
+import {
+  ToriiWholePageCredential,
+  ToriiWholePageSecretStore,
+} from './ToriiWholePageSecretStore'
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
@@ -55,6 +76,9 @@ export class ComicTranslationRuntimeService {
   private static renderedRepository: PersistentComicRenderedPageRepository | null = null
   private static localBackend: ComicRegionRenderBackend | null = null
   private static orchestrators: Map<string, ComicVisualTranslationOrchestrator> = new Map()
+  private static wholePageOrchestrators: Map<string, ComicWholePageTranslationOrchestrator> =
+    new Map<string, ComicWholePageTranslationOrchestrator>()
+  private static toriiContextStore: ToriiWholePageContextStore | null = null
 
   static async runReaderPage(
     context: common.UIAbilityContext,
@@ -69,6 +93,17 @@ export class ComicTranslationRuntimeService {
       'source_identity_resolved',
       `reader=${input.imageWidth}x${input.imageHeight} file=${metadata.imageWidth}x${metadata.imageHeight}`,
     )
+    const visualSettings: ComicVisualProviderSettingsSnapshot =
+      await ComicVisualProviderSettings.load(context)
+    if (visualSettings.route === COMIC_VISUAL_ROUTE_TORII) {
+      return ComicTranslationRuntimeService.runToriiWholePage(
+        context,
+        input,
+        metadata,
+        visualSettings,
+        forceRefresh,
+      )
+    }
     const backend: ComicRegionRenderBackend =
       ComicTranslationRuntimeService.localBackendFor(context)
     const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(context)
@@ -109,9 +144,16 @@ export class ComicTranslationRuntimeService {
       },
     )
     ComicTranslationRuntimeService.orchestrators.clear()
+    ComicTranslationRuntimeService.wholePageOrchestrators.forEach(
+      (orchestrator: ComicWholePageTranslationOrchestrator): void => {
+        orchestrator.invalidateCacheWrites()
+      },
+    )
+    ComicTranslationRuntimeService.wholePageOrchestrators.clear()
     await Promise.all([
       ComicTranslationRuntimeService.documentRepositoryFor(context).clear(),
       ComicTranslationRuntimeService.renderedRepositoryFor(context).clear(),
+      ComicTranslationRuntimeService.toriiContextStoreFor(context).clear(),
     ])
   }
 
@@ -119,6 +161,7 @@ export class ComicTranslationRuntimeService {
     const stats: CacheStat[] = await Promise.all([
       ComicTranslationRuntimeService.documentRepositoryFor(context).stat(),
       ComicTranslationRuntimeService.renderedRepositoryFor(context).stat(),
+      ComicTranslationRuntimeService.toriiContextStoreFor(context).stat(),
     ])
     const result: CacheStat = new CacheStat()
     for (let index: number = 0; index < stats.length; index++) {
@@ -126,6 +169,52 @@ export class ComicTranslationRuntimeService {
       result.bytes += stats[index].bytes
     }
     return result
+  }
+
+  private static async runToriiWholePage(
+    context: common.UIAbilityContext,
+    input: ComicTranslationReaderPageInput,
+    metadata: ComicTranslationReaderFileMetadata,
+    settings: ComicVisualProviderSettingsSnapshot,
+    forceRefresh: boolean,
+  ): Promise<ComicVisualTranslationRunResult> {
+    const credential: ToriiWholePageCredential =
+      await ToriiWholePageSecretStore.read(context)
+    const config: ToriiWholePageConfig = new ToriiWholePageConfig()
+    config.toriiApiKey = credential.toriiApiKey
+    config.modelId = settings.toriiModelId
+    config.billingMode = settings.toriiBillingMode
+    config.byokProvider = settings.toriiByokProvider
+    config.byokApiKey = credential.byokApiKey
+    config.assertValid()
+    const contextStore: ToriiWholePageContextStore =
+      ComicTranslationRuntimeService.toriiContextStoreFor(context)
+    const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+      context,
+      config,
+      contextStore,
+    )
+    const request: ComicWholePageTranslationRequest =
+      new ComicWholePageTranslationRequest()
+    request.source = ComicTranslationRuntimeService.visualSource(input, metadata)
+    request.context.sourceLanguage = input.sourceLanguage
+    request.context.targetLanguage = input.targetLanguage
+    request.context.styleGuide =
+      'Use concise natural Chinese. Keep names, forms of address, tone, and references consistent across pages.'
+    request.context.rollingSummary = await contextStore.loadPrevious(
+      backend.contextScope(input.projectId, input.pageIndex, input.targetLanguage),
+    )
+    request.context.glossaryRevision = 0
+    request.context.styleGuideRevision = 1
+    request.context.contextRevision = 1
+    request.renderProfile = ComicTranslationRuntimeService.toriiRenderProfile()
+    request.requestedTranslationRevision = 1
+    const orchestrator: ComicWholePageTranslationOrchestrator =
+      ComicTranslationRuntimeService.wholePageOrchestrator(
+        context,
+        backend,
+      )
+    return orchestrator.run(request, forceRefresh)
   }
 
   private static orchestrator(
@@ -172,6 +261,47 @@ export class ComicTranslationRuntimeService {
     return created
   }
 
+  private static wholePageOrchestrator(
+    context: common.UIAbilityContext,
+    backend: ToriiWholePageRenderBackend,
+  ): ComicWholePageTranslationOrchestrator {
+    const runtimeKey: string = ComicTranslationRuntimeService.digest(JSON.stringify([
+      backend.sourceProfileId(),
+      `${backend.sourceRevision()}`,
+      backend.modelId(),
+      backend.promptVersion(),
+    ]))
+    const existing: ComicWholePageTranslationOrchestrator | undefined =
+      ComicTranslationRuntimeService.wholePageOrchestrators.get(runtimeKey)
+    if (existing !== undefined) {
+      return existing
+    }
+    if (ComicTranslationRuntimeService.wholePageOrchestrators.size >=
+      MAX_RUNTIME_ORCHESTRATORS) {
+      ComicTranslationRuntimeService.wholePageOrchestrators.clear()
+    }
+    const created: ComicWholePageTranslationOrchestrator =
+      new ComicWholePageTranslationOrchestrator(
+        backend,
+        ComicTranslationRuntimeService.renderedRepositoryFor(context),
+      )
+    ComicTranslationRuntimeService.wholePageOrchestrators.set(runtimeKey, created)
+    return created
+  }
+
+  private static toriiContextStoreFor(
+    context: common.UIAbilityContext,
+  ): ToriiWholePageContextStore {
+    const existing: ToriiWholePageContextStore | null =
+      ComicTranslationRuntimeService.toriiContextStore
+    if (existing !== null) {
+      return existing
+    }
+    const created: ToriiWholePageContextStore = new ToriiWholePageContextStore(context)
+    ComicTranslationRuntimeService.toriiContextStore = created
+    return created
+  }
+
   private static documentRepositoryFor(
     context: common.UIAbilityContext,
   ): ComicTranslationRepository {
@@ -207,6 +337,30 @@ export class ComicTranslationRuntimeService {
     profile.targetMimeType = 'image/png'
     profile.revision = 1
     return profile
+  }
+
+  private static toriiRenderProfile(): ComicRenderProfile {
+    const profile: ComicRenderProfile = new ComicRenderProfile()
+    profile.profileId = TORII_WHOLE_PAGE_RENDER_PROFILE_ID
+    profile.sourceTreatmentProfileId = TORII_WHOLE_PAGE_SOURCE_TREATMENT_PROFILE_ID
+    profile.layoutProfileId = TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID
+    profile.targetMimeType = 'image/png'
+    profile.revision = 1
+    return profile
+  }
+
+  private static visualSource(
+    input: ComicTranslationReaderPageInput,
+    metadata: ComicTranslationReaderFileMetadata,
+  ): ComicVisualPageSource {
+    const source: ComicVisualPageSource = new ComicVisualPageSource()
+    source.projectId = input.projectId
+    source.pageIndex = input.pageIndex
+    source.imageFilePath = input.imageFilePath
+    source.imageHash = metadata.imageHash
+    source.imageWidth = metadata.imageWidth
+    source.imageHeight = metadata.imageHeight
+    return source
   }
 
   private static validateInput(input: ComicTranslationReaderPageInput): void {

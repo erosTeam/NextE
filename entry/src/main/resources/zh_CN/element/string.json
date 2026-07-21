@@ -4809,6 +4809,86 @@
       "value": "漫画翻译"
     },
     {
+      "name": "comic_visual_route",
+      "value": "制图方式"
+    },
+    {
+      "name": "comic_visual_route_hint",
+      "value": "选择由端侧还是云端生成最终译图"
+    },
+    {
+      "name": "comic_visual_route_local",
+      "value": "端侧处理"
+    },
+    {
+      "name": "comic_visual_route_torii",
+      "value": "Torii 云端整图"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm_title",
+      "value": "使用 Torii 云端整图？"
+    },
+    {
+      "name": "comic_visual_route_torii_confirm",
+      "value": "只有你主动翻译当前页时，漫画图片和上下文才会上传到 Torii。Torii 直接返回完整译图，不会接入端侧分阶段管线。"
+    },
+    {
+      "name": "comic_torii_model",
+      "value": "翻译模型"
+    },
+    {
+      "name": "comic_torii_model_hint",
+      "value": "Torii 官方目录快照，复核于 %s"
+    },
+    {
+      "name": "comic_torii_billing",
+      "value": "模型计费"
+    },
+    {
+      "name": "comic_torii_billing_managed",
+      "value": "Torii credits 代付"
+    },
+    {
+      "name": "comic_torii_billing_byok",
+      "value": "使用自有供应商 Key"
+    },
+    {
+      "name": "comic_torii_billing_managed_hint",
+      "value": "Torii 代付模型供应商并扣除 credits"
+    },
+    {
+      "name": "comic_torii_billing_byok_hint",
+      "value": "每图 1 Torii credit，另由供应商计费"
+    },
+    {
+      "name": "comic_torii_byok_provider",
+      "value": "Key 供应商"
+    },
+    {
+      "name": "comic_torii_api_key",
+      "value": "Torii API Key"
+    },
+    {
+      "name": "comic_torii_api_key_hint",
+      "value": "使用 Torii 整图翻译时必填"
+    },
+    {
+      "name": "comic_torii_byok_api_key",
+      "value": "供应商 API Key"
+    },
+    {
+      "name": "comic_torii_byok_api_key_hint",
+      "value": "BYOK 请求时会发送给 Torii"
+    },
+    {
+      "name": "comic_torii_upload_notice",
+      "value": "仅限云端路线：Torii 会收到图片、上下文和可选供应商 Key；端侧路线不会读取这些凭据。"
+    },
+    {
+      "name": "comic_torii_save_failed",
+      "value": "保存 Torii 设置失败：%s"
+    },
+    {
       "name": "comic_render_service_title",
       "value": "制图服务"
     },
