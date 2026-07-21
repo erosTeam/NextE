@@ -92,7 +92,8 @@
 该版本的 [response model](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/server/to_json.py)
 与 [region serializer](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/utils/textblock.py)
 字段一致，且同时包含 [export/import routes](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/server/routes/translation.py)。
-这是源码级协议固定，不等同于已经完成 NextE 到真实 sidecar 的网络验收；后者仍须在阶段 B/F 完成。
+这是源码级协议固定。NextE 已用 synthetic ZIP/PNG 和 fake transport 验证客户端 multipart、解包、回填与
+产物校验闭环，但这不等同于真实 sidecar 的网络与质量验收；后者仍须在阶段 F 用合法样页完成。
 
 这给 NextE 一个不重写整套 Python/模型栈的首条质量路线：把该类服务当作可替换的区域/修复/渲染
 sidecar，NextE 继续用自己的 API/Codex provider 负责带画廊上下文的翻译。客户端只实现窄的版本化协议

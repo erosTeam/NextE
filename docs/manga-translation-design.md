@@ -278,6 +278,12 @@ provider 负责接收区域原文、整页图像和画廊上下文并返回按 b
 校验过的译文写回 region 的 `translation` 字段并调用 `/translate/import/json`。不使用 TXT 模糊匹配，
 避免重复原文被字典键合并。profile 之外的字段形状必须本地失败；新增上游版本需要显式增加并验证新 profile。
 
+截至 2026-07-21，固定 profile 的客户端传输适配器已经实现并通过设备上的 fake transport 闭环：
+export/import multipart 字段、ZIP central/local header、固定条目、JSON 模板、源图 hash、PNG 签名/解码/尺寸
+和视觉产物 hash 都在写入前校验；公共 HTTP 被拒绝，私网 HTTP 仅供用户明确配置的本地 sidecar。该结论
+只证明 NextE 适配器和协议夹具，不代表真实 sidecar、真实 OCR/修复质量或 Reader 视觉替换已经验收。
+制图服务设置、真实 sidecar 连接检查和合法样页端到端结果仍按活动计划推进。
+
 整图出图是并列的完整路线，不被废弃。若未来 API、Codex 兼容通道或其他 provider 能返回译制图片，
 实现 `ComicWholePageRenderBackend` 后可以跳过 region export/import，直接进入渲染产物校验与缓存。当前
 Responses/Codex analyzer 只重建结构化文本响应，因此尚不具备该能力。整图出图的优势是接入短、无需

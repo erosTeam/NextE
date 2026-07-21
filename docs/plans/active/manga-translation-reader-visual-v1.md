@@ -88,9 +88,9 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 ### B. Sidecar 适配器
 
-- [ ] 实现 bounded multipart export 请求与 ZIP/JSON 解析，规范化区域、顺序、原文和 backend template；
-- [ ] 实现 bounded import/render 请求，校验返回图片签名、尺寸、内容 hash 和页身份；
-- [ ] sidecar 版本/能力不兼容时本地失败，不让部分结果覆盖最后成功检查点；
+- [x] 实现 bounded multipart export 请求与 ZIP/JSON 解析，规范化区域、顺序、原文和 backend template；
+- [x] 实现 bounded import/render 请求，校验返回图片签名、尺寸、内容 hash 和页身份；
+- [x] sidecar 版本/能力不兼容时本地失败，不让部分结果覆盖最后成功检查点；
 - [ ] 设置页仅增加同级“制图服务”配置与连接检查，不改变三个翻译入口层级。
 
 ### C. 上下文文本翻译
@@ -139,3 +139,11 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 模板 hash 拒绝测试；阶段 A 至此关闭。最终 signed app 与 `entry@ohosTest` 构建通过，设备 `237` 完整
 Hypium 为 205/205，其中新增 sidecar 协议 4/4 通过。真实 sidecar 网络调用、ZIP 解包和返回 PNG 校验
 仍属于阶段 B。
+
+2026-07-21：阶段 B 的无 UI 传输子阶段完成。NextE 按固定提交的真实 FastAPI 字段发送
+`image + config` 到 export、发送 `image + json_file + config` 到 import；请求图片、multipart、响应 ZIP、
+JSON/TXT 和 PNG 均有独立上限。ZIP central/local header 会在系统 zlib 解包前检查，且只允许固定两个根
+条目；公共 HTTP、认证 header 注入、源图 hash 漂移、profile 字段漂移、非 PNG、不可解码 PNG 和尺寸不符
+均在写入视觉产物前失败。设备 `237` 的 fake transport 完整链路、ZIP 解包、blockId 回填、PNG 解码与原子
+落盘测试 3/3 通过；完整 Hypium 为 208/208。制图服务设置与真实 sidecar 连接检查仍是 B 的剩余项，
+当前代码不会因 Reader 出现或预取而上传图片。

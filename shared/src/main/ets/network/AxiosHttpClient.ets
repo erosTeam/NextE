@@ -79,6 +79,41 @@ export class AxiosHttpClient {
     return out
   }
 
+  static async requestBinaryWithBody(
+    url: string,
+    method: string,
+    headers: Record<string, string>,
+    body: ArrayBuffer,
+    maxResponseBytes: number,
+    connectTimeoutMs: number,
+    readTimeoutMs: number,
+  ): Promise<AxiosBinaryResponse> {
+    const config: AxiosRequestConfig<ArrayBuffer> = {
+      url: url,
+      method: method,
+      headers: headers,
+      data: body,
+      responseType: 'array_buffer',
+      maxContentLength: maxResponseBytes,
+      maxBodyLength: body.byteLength,
+      connectTimeout: connectTimeoutMs,
+      readTimeout: readTimeoutMs,
+      timeout: readTimeoutMs,
+      validateStatus: AxiosHttpClient.acceptStatus,
+    }
+    const resp: AxiosResponse<ArrayBuffer, ArrayBuffer> =
+      await axios.request<ArrayBuffer, AxiosResponse<ArrayBuffer, ArrayBuffer>, ArrayBuffer>(config)
+    const out: AxiosBinaryResponse = new AxiosBinaryResponse()
+    out.statusCode = resp.status
+    out.rawHeader = JSON.stringify(resp.headers)
+    if (resp.data instanceof ArrayBuffer) {
+      out.bytes = resp.data
+    } else {
+      out.body = JSON.stringify(resp.data)
+    }
+    return out
+  }
+
   private static acceptStatus(status: number): boolean {
     return status >= 100 && status <= 599
   }

@@ -294,6 +294,18 @@ export {
   MangaTranslatorUiSidecarProtocol,
 } from './services/MangaTranslatorUiSidecarProtocol'
 export {
+  MangaTranslatorUiExportFiles,
+  MangaTranslatorUiSidecarArchive,
+} from './services/MangaTranslatorUiSidecarArchive'
+export {
+  DefaultMangaTranslatorUiSidecarTransport,
+  MangaTranslatorUiSidecarBackend,
+  MangaTranslatorUiSidecarConfig,
+  MangaTranslatorUiSidecarTransport,
+  MangaTranslatorUiSidecarTransportRequest,
+  MangaTranslatorUiSidecarTransportResponse,
+} from './services/MangaTranslatorUiSidecarBackend'
+export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,
   ExperimentalCodexOAuthService,

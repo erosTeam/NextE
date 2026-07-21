@@ -8,11 +8,12 @@
   "zipEntries": ["translation.json", "original.txt"],
   "projectId": "fixture-manga-translator-ui:zh-CN",
   "pageIndex": 3,
-  "sourceImageHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-  "imageWidth": 800,
-  "imageHeight": 1200,
+  "sourceImageHash": "b12a64700e64a9e707152d0570a8af8c5296055226f953c769307cb59e3176a9",
+  "imageWidth": 1024,
+  "imageHeight": 1536,
   "targetLanguage": "zh-CN",
   "originalText": "テストです\n次へ行こう\n",
+  "exportZipBase64": "UEsDBBQAAAAIADhl9VynH8U+kAEAAGYDAAAQAAAAdHJhbnNsYXRpb24uanNvbqWRv07DMBDG38WzVSVpWkpWFsSAkBirynLTS2rqOpXtUETVIVSqGNiYGDux8ADwPJEQj8G5TaukiAWUWPnuu9yf/LIgFqYzJqY8BRItiIZUZMqQqL8gUihwqt/vedQPvAHtt726CraqtxODAcVed9ZVkHK1Lh8+ytVjWbyWxQupciT6kcGE5spIbnEu5tHgKpW4jEdJkinLjLjHKOhhmLI4k5l2IzyKF7Yd1ryg06HVwcxIaIirrmPXVopUTUG5LWJ8gHbDuU7BMokz0T47v0bPZLmOYe9dXF2i51gwM+OxcKaP3SHhucTtrM4mwOZiZMe4cyvAQaOb3Fi234xEVudAyUxnQ/fG6cmS1uGGHY92tyS7DdXbqrBSDbyfb5uyeP/aPJXFc1msa3iPM7/jDRt4214Tb4A/1d3HhEOkuztHhG+PCEtI7N/5tv5H2F/idpkWqVBc7it9Lwhr7hhEOsZN/U67S0k+MzGXwLQDRSKVS3kw9T7eDkNcB2PKzQRL5o1YGKYhwe8ZkSjh0sBy+Q1QSwMEFAAAAAgAOGX1XHLwzK8lAAAAIAAAAAwAAABvcmlnaW5hbC50eHQBIADf/+ODhuOCueODiOOBp+OBmQrmrKHjgbjooYzjgZPjgYYKUEsBAhQDFAAAAAgAOGX1XKcfxT6QAQAAZgMAABAAAAAAAAAAAAAAAIABAAAAAHRyYW5zbGF0aW9uLmpzb25QSwECFAMUAAAACAA4ZfVccvDMryUAAAAgAAAADAAAAAAAAAAAAAAAgAG+AQAAb3JpZ2luYWwudHh0UEsFBgAAAAACAAIAeAAAAA0CAAAAAA==",
   "translationJson": {
     "temp_image": {
       "regions": [
@@ -53,8 +54,8 @@
           "prob": 0.91
         }
       ],
-      "original_width": 800,
-      "original_height": 1200,
+      "original_width": 1024,
+      "original_height": 1536,
       "upscale_ratio": null,
       "upscaler": null,
       "colorizer": null,
