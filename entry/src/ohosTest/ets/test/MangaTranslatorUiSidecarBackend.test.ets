@@ -324,6 +324,22 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
             transport.requests[0].body,
             MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
           )).assertEqual(true)
+          expect(containsText(
+            transport.requests[0].body,
+            '"box_threshold":0.5',
+          )).assertEqual(true)
+          expect(containsText(
+            transport.requests[0].body,
+            '"use_yolo_obb":true',
+          )).assertEqual(true)
+          expect(containsText(
+            transport.requests[0].body,
+            '"use_hybrid_ocr":true',
+          )).assertEqual(true)
+          expect(containsText(
+            transport.requests[0].body,
+            '"secondary_ocr":"mocr"',
+          )).assertEqual(true)
           expect(containsText(transport.requests[0].body, 'openai')).assertEqual(false)
 
           const render: ComicRegionRenderRequest = renderRequest(raw, sourcePath, analysis)

@@ -19,7 +19,7 @@ import { ComicVisualTranslationContract } from './ComicVisualTranslationContract
 
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
 export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
-  'manga-translator-ui-v1.9.9-nexte-load-text-v1'
+  'manga-translator-ui-v1.9.9-nexte-load-text-v1-recall-v1'
 export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 3
 export const MANGA_TRANSLATOR_UI_UPSTREAM_TAG: string = 'v1.9.9'
 export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
@@ -31,9 +31,20 @@ export const MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH: string = '/auth/login'
 export const MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH: string = '/auth/check'
 export const MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY: string = 'translation.json'
 export const MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY: string = 'original.txt'
-/** Keeps the sidecar visual-only: OCR text is copied through, then NextE's selected LLM translates it. */
+/**
+ * Keeps the sidecar visual-only: OCR text is copied through, then NextE's selected LLM translates it.
+ * The detector values pin the upstream v1.9.9 example's recall profile instead of inheriting the
+ * stricter Pydantic defaults. Hybrid OCR retries empty/low-confidence 48px lines with MangaOCR.
+ */
 export const MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON: string =
-  '{"translator":{"translator":"original","target_lang":"CHS"}}'
+  '{"translator":{"translator":"original","target_lang":"CHS"},' +
+    '"detector":{"detector":"default","detection_size":2048,"text_threshold":0.5,' +
+    '"det_rotate":false,"det_auto_rotate":false,"det_invert":false,' +
+    '"det_gamma_correct":false,"box_threshold":0.5,"unclip_ratio":2.5,' +
+    '"use_yolo_obb":true,"yolo_obb_conf":0.4,"yolo_obb_iou":0.6,' +
+    '"yolo_obb_overlap_threshold":0.1,"min_box_area_ratio":0},' +
+    '"ocr":{"ocr":"48px","use_hybrid_ocr":true,"secondary_ocr":"mocr",' +
+    '"min_text_length":0,"ignore_bubble":0,"prob":0.1}}'
 
 const MANGA_TRANSLATOR_UI_TEMPLATE_MIME: string =
   'application/vnd.manga-translator-ui.translation+json'
