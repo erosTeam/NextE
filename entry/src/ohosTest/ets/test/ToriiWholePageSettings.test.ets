@@ -139,5 +139,39 @@ export default function toriiWholePageSettingsTest(): void {
       expect(ToriiCreditsService.parseCached(cached, 'fixture-torii-key-b'))
         .assertEqual(null)
     })
+
+    it('rejects failed or invalid balance responses without exposing the key', 0, async () => {
+      const transport: FakeToriiCreditsTransport = new FakeToriiCreditsTransport()
+      transport.response.statusCode = 401
+      transport.response.body = '{"detail":"unauthorized"}'
+      let message: string = ''
+      try {
+        await ToriiCreditsService.fetch('fixture-sensitive-torii-key', transport)
+      } catch (error) {
+        message = (error as Error).message
+      }
+      expect(message).assertEqual('Torii credits query failed (HTTP 401)')
+      expect(message.includes('fixture-sensitive-torii-key')).assertFalse()
+
+      let invalidRejected: boolean = false
+      try {
+        ToriiCreditsService.parse('{"credits":-1}')
+      } catch (_error) {
+        invalidRejected = true
+      }
+      expect(invalidRejected).assertTrue()
+    })
+
+    it('expires a cached balance after twenty-four hours', 0, () => {
+      const snapshot: ToriiCreditsSnapshot = new ToriiCreditsSnapshot()
+      snapshot.credits = 88
+      snapshot.fetchedAtMs = Date.now() - 24 * 60 * 60 * 1000 - 1
+      const cached: string = ToriiCreditsService.serializeCached(
+        'fixture-torii-key',
+        snapshot,
+      )
+      expect(ToriiCreditsService.parseCached(cached, 'fixture-torii-key'))
+        .assertEqual(null)
+    })
   })
 }
