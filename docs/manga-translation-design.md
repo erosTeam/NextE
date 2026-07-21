@@ -267,11 +267,16 @@ contextAwareTranslation
 4. **Whole-page render**：输入整页图像与画廊上下文，直接返回视觉译制图片；不要求中间 geometry，但必须
    声明 image-output 能力，并接受图片保真、尺寸/MIME/hash、缓存身份和失败回退校验。
 
-Reader V1 的首条完整质量路线采用分阶段 sidecar：兼容 `manga-translator-ui` 当前公开
-“导出原文 -> 导入译文并渲染”API 的服务负责区域检测/OCR、原文处理和图片渲染；NextE 的 API/Codex
+Reader V1 的首条完整质量路线采用分阶段 sidecar：首个 profile 固定兼容 `manga-translator-ui v1.9.9`
+的“导出原文 -> 导入 JSON 并渲染”API，由服务负责区域检测/OCR、原文处理和图片渲染；NextE 的 API/Codex
 provider 负责接收区域原文、整页图像和画廊上下文并返回按 blockId 对齐的译文。sidecar 是可替换能力，
 不是内部文档格式，也不与翻译 provider 共用认证。服务不可达、协议不兼容或输出校验失败时保留原图，
 不能回退到文字面板并宣称完成。
+
+首个 profile 固定到 commit `696dc63bd0b4803f96cc3d4f844322cef4910f8e`，使用
+`/translate/export/original` 返回的 `translation.json` 作为短期 adapter template，再把按 blockId
+校验过的译文写回 region 的 `translation` 字段并调用 `/translate/import/json`。不使用 TXT 模糊匹配，
+避免重复原文被字典键合并。profile 之外的字段形状必须本地失败；新增上游版本需要显式增加并验证新 profile。
 
 整图出图是并列的完整路线，不被废弃。若未来 API、Codex 兼容通道或其他 provider 能返回译制图片，
 实现 `ComicWholePageRenderBackend` 后可以跳过 region export/import，直接进入渲染产物校验与缓存。当前

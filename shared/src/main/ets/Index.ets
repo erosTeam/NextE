@@ -282,6 +282,18 @@ export {
 } from './services/ComicVisualTranslationBackend'
 export { ComicVisualTranslationContract } from './services/ComicVisualTranslationContract'
 export {
+  MANGA_TRANSLATOR_UI_BACKEND_ID,
+  MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY,
+  MANGA_TRANSLATOR_UI_EXPORT_PATH,
+  MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY,
+  MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_PROFILE_ID,
+  MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
+  MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT,
+  MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
+  MangaTranslatorUiSidecarProtocol,
+} from './services/MangaTranslatorUiSidecarProtocol'
+export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,
   ExperimentalCodexOAuthService,

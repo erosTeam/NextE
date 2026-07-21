@@ -1,0 +1,69 @@
+{
+  "provenance": "Protocol-derived synthetic fixture for NextE. No third-party manga page, OCR output, or character is included.",
+  "upstreamTag": "v1.9.9",
+  "upstreamCommit": "696dc63bd0b4803f96cc3d4f844322cef4910f8e",
+  "profileId": "manga-translator-ui-v1.9.9-export-json-v1",
+  "exportEndpoint": "/translate/export/original",
+  "importEndpoint": "/translate/import/json",
+  "zipEntries": ["translation.json", "original.txt"],
+  "projectId": "fixture-manga-translator-ui:zh-CN",
+  "pageIndex": 3,
+  "sourceImageHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "imageWidth": 800,
+  "imageHeight": 1200,
+  "targetLanguage": "zh-CN",
+  "originalText": "テストです\n次へ行こう\n",
+  "translationJson": {
+    "temp_image": {
+      "regions": [
+        {
+          "lines": [[[80, 120], [300, 120], [300, 220], [80, 220]]],
+          "texts": ["テストです"],
+          "text": "テストです",
+          "translation": "",
+          "angle": 0,
+          "font_size": 28,
+          "fg_colors": [0, 0, 0],
+          "bg_colors": [255, 255, 255],
+          "direction": "h",
+          "alignment": "center",
+          "target_lang": "CHS",
+          "source_lang": "JPN",
+          "line_spacing": 1,
+          "default_stroke_width": 0.2,
+          "adjust_bg_color": true,
+          "prob": 0.97
+        },
+        {
+          "lines": [[[450, 620], [650, 620], [650, 820], [450, 820]]],
+          "texts": ["次へ行こう"],
+          "text": "次へ行こう",
+          "translation": "",
+          "angle": 4,
+          "font_size": 30,
+          "fg_colors": [20, 20, 20],
+          "bg_colors": [245, 245, 245],
+          "direction": "v",
+          "alignment": "left",
+          "target_lang": "CHS",
+          "source_lang": "JPN",
+          "line_spacing": 1.1,
+          "default_stroke_width": 0.2,
+          "adjust_bg_color": true,
+          "prob": 0.91
+        }
+      ],
+      "original_width": 800,
+      "original_height": 1200,
+      "upscale_ratio": null,
+      "upscaler": null,
+      "colorizer": null,
+      "mask_raw": null,
+      "mask_is_refined": false
+    }
+  },
+  "translations": [
+    {"blockId": "p3-r0", "translatedText": "这是测试"},
+    {"blockId": "p3-r1", "translatedText": "去下一处吧"}
+  ]
+}

@@ -27,7 +27,9 @@ Reader 原图
   -> Reader：显示视觉译制页
 ```
 
-首个 sidecar profile 兼容 `manga-translator-ui` 当前公开的“导出原文”和“导入译文并渲染”Web API。
+首个 sidecar profile 兼容 `manga-translator-ui` 的“导出原文”和“导入 JSON 并渲染”Web API，协议固定为
+`v1.9.9` / `696dc63bd0b4803f96cc3d4f844322cef4910f8e`。不能把未固定的 `main` 或 v2.x 当作同一
+profile：截至 2026-07-21 的静态复核中，其导出响应模型与 `TextBlock.to_dict()` 字段已经失配。
 NextE 只做窄协议互操作，不复制其 GPL 实现或模型权重。sidecar 是初始外部质量路线，不是永久绑定；
 未来本地检测/渲染或其他服务实现同一内部接口即可替换。
 
@@ -78,7 +80,7 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 ### A. 协议与领域契约
 
-- [ ] 固定 upstream revision/profile，并保存不含漫画隐私的最小 export/import fixture；
+- [x] 固定 upstream revision/profile，并保存不含漫画隐私的最小 export/import fixture；
 - [x] 定义 region、adapter template、translation batch、render profile 和 rendered artifact 模型；
 - [x] 同时定义 `ComicWholePageRenderBackend` 能力与统一产物校验接口，首个提交不要求真实 provider 实现；
 - [x] 明确各 revision、cache key、stale 传播、失败保留和清理语义；
@@ -132,5 +134,8 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 领先于真实产物。
 
 2026-07-21：领域契约已在设备 `237` 完成 184/184 Hypium 回归，其中新增视觉契约 6/6 通过；signed app
-与 `entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过。真实 sidecar upstream revision/profile 与
-export/import fixture 仍未固定，因此 A 尚未整体关闭。
+与 `entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过。随后固定首个 sidecar profile 为
+`manga-translator-ui v1.9.9`，保存协议派生的原创合成 export/import fixture，并加入字段漂移、页身份和
+模板 hash 拒绝测试；阶段 A 至此关闭。最终 signed app 与 `entry@ohosTest` 构建通过，设备 `237` 完整
+Hypium 为 205/205，其中新增 sidecar 协议 4/4 通过。真实 sidecar 网络调用、ZIP 解包和返回 PNG 校验
+仍属于阶段 B。
