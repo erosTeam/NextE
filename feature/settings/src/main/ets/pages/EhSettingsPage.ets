@@ -13,6 +13,7 @@ import {
   EhConstants,
   EhCookieStore,
   GroupedListSection,
+  LlmSourceProfilesState,
   LocalBlockState,
   SecondaryListScaffold,
   SiteModeSettings,
@@ -26,6 +27,7 @@ import {
   connectClipboardLinkSettings,
   connectCommentTranslationSettings,
   connectLocalBlock,
+  connectLlmSourceProfiles,
   connectNavStack,
   NavStackHolder,
   connectSiteMode,
@@ -47,6 +49,7 @@ export struct EhSettingsPage {
   @Local clipboardLink: ClipboardLinkSettingsState = connectClipboardLinkSettings();
   @Local commentTranslation: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local llmSources: LlmSourceProfilesState = connectLlmSourceProfiles();
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
@@ -285,6 +288,16 @@ export struct EhSettingsPage {
               trailingText: this.enabledText(this.tagTranslation.enabled),
               action: () => {
                 this.stack.pushPathByName('TagTranslationSettings', null)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.llm_sources_title'),
+              subtitle: $r('app.string.llm_sources_hint'),
+              leadingIcon: $r('sys.symbol.cloud'),
+              trailingText: `${this.llmSources.profiles.length}`,
+              action: () => {
+                this.stack.pushPathByName('LlmSourceManager', null)
               },
             })
           }

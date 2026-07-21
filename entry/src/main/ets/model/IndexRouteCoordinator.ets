@@ -33,6 +33,8 @@ export type IndexDestinationFamily =
   'tagTranslationSettings' |
   'commentTranslationSettings' |
   'comicTranslationSettings' |
+  'llmSourceManager' |
+  'llmSourceDetail' |
   'syncSettings' |
   'webDavSyncSettings' |
   'advancedSettings' |
@@ -79,6 +81,8 @@ export class IndexRouteCoordinator {
     'TagTranslationSettings': 'tagTranslationSettings',
     'CommentTranslationSettings': 'commentTranslationSettings',
     'ComicTranslationSettings': 'comicTranslationSettings',
+    'LlmSourceManager': 'llmSourceManager',
+    'LlmSourceDetail': 'llmSourceDetail',
     'SyncSettings': 'syncSettings',
     'WebDavSyncSettings': 'webDavSyncSettings',
     'AdvancedSettings': 'advancedSettings',

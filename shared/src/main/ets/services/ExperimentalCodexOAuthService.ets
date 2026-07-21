@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import {
   CodexOAuthAuthorizationExchange,
   CodexOAuthDeviceSession,
@@ -249,6 +250,23 @@ export class ExperimentalCodexOAuthService {
 
   static extractAccountId(token: string): string {
     return ExperimentalCodexOAuthService.jwtStringClaim(token, 'chatgpt_account_id')
+  }
+
+  /** Stable non-secret account identity used only to invalidate source-scoped request caches. */
+  static accountIdentityHash(accountId: string): string {
+    const normalized: string = accountId.trim()
+    if (normalized.length === 0) {
+      return ''
+    }
+    const encoded: Uint8Array = new util.TextEncoder().encodeInto(normalized)
+    const md = cryptoFramework.createMd('SHA256')
+    md.updateSync({ data: encoded })
+    const bytes: Uint8Array = md.digestSync().data
+    const parts: string[] = []
+    for (let index: number = 0; index < bytes.length; index++) {
+      parts.push(bytes[index].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
   }
 
   static jwtExpiry(token: string): number {

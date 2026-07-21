@@ -16,6 +16,11 @@ export { ImageBlockSettingsPage } from './pages/ImageBlockSettingsPage'
 export { TagTranslationSettingsPage } from './pages/TagTranslationSettingsPage'
 export { CommentTranslationSettingsPage } from './pages/CommentTranslationSettingsPage'
 export { ComicTranslationSettingsPage } from './pages/ComicTranslationSettingsPage'
+export {
+  LlmSourceDetailRouteParams,
+  LlmSourceManagerPage,
+} from './pages/LlmSourceManagerPage'
+export { LlmSourceDetailPage } from './pages/LlmSourceDetailPage'
 export { SyncSettingsPage } from './pages/SyncSettingsPage'
 export { WebDavSyncSettingsPage } from './pages/WebDavSyncSettingsPage'
 export { AdvancedSettingsPage } from './pages/AdvancedSettingsPage'

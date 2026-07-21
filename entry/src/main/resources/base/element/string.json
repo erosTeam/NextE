@@ -5087,6 +5087,166 @@
     {
       "name": "reader_comic_translation_target",
       "value": "Translation: %s"
+    },
+    {
+      "name": "llm_sources_title",
+      "value": "LLM Sources"
+    },
+    {
+      "name": "llm_sources_hint",
+      "value": "Manage reusable API and Codex OAuth connections"
+    },
+    {
+      "name": "llm_sources_empty",
+      "value": "No LLM sources"
+    },
+    {
+      "name": "llm_sources_empty_hint",
+      "value": "Add a source, then select it from comment or manga translation"
+    },
+    {
+      "name": "llm_source_add",
+      "value": "Add LLM source"
+    },
+    {
+      "name": "llm_source_add_hint",
+      "value": "API and Codex OAuth sources can coexist"
+    },
+    {
+      "name": "llm_source_type",
+      "value": "Source type"
+    },
+    {
+      "name": "llm_source_type_api",
+      "value": "OpenAI-compatible API"
+    },
+    {
+      "name": "llm_source_type_codex",
+      "value": "Codex OAuth (experimental)"
+    },
+    {
+      "name": "llm_source_create_failed",
+      "value": "Could not create source: %s"
+    },
+    {
+      "name": "llm_source_detail_title",
+      "value": "LLM Source"
+    },
+    {
+      "name": "llm_source_missing",
+      "value": "This LLM source no longer exists"
+    },
+    {
+      "name": "llm_source_name",
+      "value": "Name"
+    },
+    {
+      "name": "llm_source_name_hint",
+      "value": "A name that identifies this connection"
+    },
+    {
+      "name": "llm_source_base_url",
+      "value": "Base URL"
+    },
+    {
+      "name": "llm_source_api_key",
+      "value": "API key"
+    },
+    {
+      "name": "llm_source_save_failed",
+      "value": "Could not save source: %s"
+    },
+    {
+      "name": "llm_source_support_comments",
+      "value": "Comment translation"
+    },
+    {
+      "name": "llm_source_support_comments_hint",
+      "value": "Supports Chat Completions text requests"
+    },
+    {
+      "name": "llm_source_support_manga",
+      "value": "Manga translation"
+    },
+    {
+      "name": "llm_source_support_manga_hint",
+      "value": "Supports Responses requests with image input"
+    },
+    {
+      "name": "llm_source_support_catalog",
+      "value": "Model catalog"
+    },
+    {
+      "name": "llm_source_support_catalog_hint",
+      "value": "Allows available models to be queried"
+    },
+    {
+      "name": "llm_source_catalog",
+      "value": "Query available models"
+    },
+    {
+      "name": "llm_source_catalog_hint",
+      "value": "Test the connection and load its current model list"
+    },
+    {
+      "name": "llm_source_catalog_count",
+      "value": "%d models available"
+    },
+    {
+      "name": "llm_source_codex_account",
+      "value": "Codex account"
+    },
+    {
+      "name": "llm_source_codex_logout_confirm",
+      "value": "Remove this source's Codex login from this device?"
+    },
+    {
+      "name": "llm_source_delete",
+      "value": "Delete LLM source"
+    },
+    {
+      "name": "llm_source_delete_hint",
+      "value": "Credentials and source-scoped caches will also be removed"
+    },
+    {
+      "name": "llm_source_delete_confirm",
+      "value": "Delete this LLM source?"
+    },
+    {
+      "name": "llm_source_delete_referenced",
+      "value": "This source is selected by %s. Deleting it will leave that feature unconfigured."
+    },
+    {
+      "name": "llm_source_delete_failed",
+      "value": "Could not delete source: %s"
+    },
+    {
+      "name": "llm_binding_source",
+      "value": "LLM source"
+    },
+    {
+      "name": "llm_binding_model",
+      "value": "Model"
+    },
+    {
+      "name": "llm_binding_not_configured",
+      "value": "Not configured"
+    },
+    {
+      "name": "llm_binding_no_compatible_source",
+      "value": "Add a compatible source in LLM Sources first"
+    },
+    {
+      "name": "llm_binding_source_hint",
+      "value": "Choose a reusable connection"
+    },
+    {
+      "name": "llm_binding_model_hint",
+      "value": "Query this source and select a model"
+    },
+    {
+      "name": "llm_binding_save_failed",
+      "value": "Could not save selection: %s"
     }
   ]
 }

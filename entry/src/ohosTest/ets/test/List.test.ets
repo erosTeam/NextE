@@ -55,6 +55,7 @@ import comicTranslationPersistentRepositoryTest from './ComicTranslationPersiste
 import comicVisualTranslationContractTest from './ComicVisualTranslationContract.test'
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
+import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -114,4 +115,5 @@ export default function testsuite(): void {
   comicVisualTranslationContractTest()
   llmSourceProfileRepositoryTest()
   llmSourceMigrationTest()
+  indexRouteCoordinatorTest()
 }

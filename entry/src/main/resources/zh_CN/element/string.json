@@ -5087,6 +5087,166 @@
     {
       "name": "reader_comic_translation_target",
       "value": "译文：%s"
+    },
+    {
+      "name": "llm_sources_title",
+      "value": "LLM 源"
+    },
+    {
+      "name": "llm_sources_hint",
+      "value": "统一管理可复用的 API 与 Codex OAuth 连接"
+    },
+    {
+      "name": "llm_sources_empty",
+      "value": "暂无 LLM 源"
+    },
+    {
+      "name": "llm_sources_empty_hint",
+      "value": "添加后，可在评论翻译或漫画翻译中选择"
+    },
+    {
+      "name": "llm_source_add",
+      "value": "添加 LLM 源"
+    },
+    {
+      "name": "llm_source_add_hint",
+      "value": "API 与 Codex OAuth 源可以同时存在"
+    },
+    {
+      "name": "llm_source_type",
+      "value": "源类型"
+    },
+    {
+      "name": "llm_source_type_api",
+      "value": "OpenAI 兼容 API"
+    },
+    {
+      "name": "llm_source_type_codex",
+      "value": "Codex OAuth（实验）"
+    },
+    {
+      "name": "llm_source_create_failed",
+      "value": "无法创建源：%s"
+    },
+    {
+      "name": "llm_source_detail_title",
+      "value": "LLM 源"
+    },
+    {
+      "name": "llm_source_missing",
+      "value": "该 LLM 源已不存在"
+    },
+    {
+      "name": "llm_source_name",
+      "value": "名称"
+    },
+    {
+      "name": "llm_source_name_hint",
+      "value": "用于区分这条连接"
+    },
+    {
+      "name": "llm_source_base_url",
+      "value": "基础 URL"
+    },
+    {
+      "name": "llm_source_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "llm_source_save_failed",
+      "value": "无法保存源：%s"
+    },
+    {
+      "name": "llm_source_support_comments",
+      "value": "评论翻译"
+    },
+    {
+      "name": "llm_source_support_comments_hint",
+      "value": "支持 Chat Completions 文本请求"
+    },
+    {
+      "name": "llm_source_support_manga",
+      "value": "漫画翻译"
+    },
+    {
+      "name": "llm_source_support_manga_hint",
+      "value": "支持带图片输入的 Responses 请求"
+    },
+    {
+      "name": "llm_source_support_catalog",
+      "value": "模型列表"
+    },
+    {
+      "name": "llm_source_support_catalog_hint",
+      "value": "允许查询当前账号可用模型"
+    },
+    {
+      "name": "llm_source_catalog",
+      "value": "查询可用模型"
+    },
+    {
+      "name": "llm_source_catalog_hint",
+      "value": "验证连接并读取当前模型列表"
+    },
+    {
+      "name": "llm_source_catalog_count",
+      "value": "可用模型 %d 个"
+    },
+    {
+      "name": "llm_source_codex_account",
+      "value": "Codex 账号"
+    },
+    {
+      "name": "llm_source_codex_logout_confirm",
+      "value": "从本设备移除该源的 Codex 登录？"
+    },
+    {
+      "name": "llm_source_delete",
+      "value": "删除 LLM 源"
+    },
+    {
+      "name": "llm_source_delete_hint",
+      "value": "同时删除凭据与该源的缓存"
+    },
+    {
+      "name": "llm_source_delete_confirm",
+      "value": "确定删除该 LLM 源？"
+    },
+    {
+      "name": "llm_source_delete_referenced",
+      "value": "%s 正在使用该源。删除后对应功能将保持未配置，不会自动切换。"
+    },
+    {
+      "name": "llm_source_delete_failed",
+      "value": "无法删除源：%s"
+    },
+    {
+      "name": "llm_binding_source",
+      "value": "LLM 源"
+    },
+    {
+      "name": "llm_binding_model",
+      "value": "模型"
+    },
+    {
+      "name": "llm_binding_not_configured",
+      "value": "未配置"
+    },
+    {
+      "name": "llm_binding_no_compatible_source",
+      "value": "请先在 LLM 源中添加兼容连接"
+    },
+    {
+      "name": "llm_binding_source_hint",
+      "value": "选择一条可复用连接"
+    },
+    {
+      "name": "llm_binding_model_hint",
+      "value": "查询该源并选择模型"
+    },
+    {
+      "name": "llm_binding_save_failed",
+      "value": "无法保存选择：%s"
     }
   ]
 }

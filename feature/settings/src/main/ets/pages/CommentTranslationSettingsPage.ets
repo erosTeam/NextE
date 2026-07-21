@@ -1,6 +1,6 @@
-import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
   COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
@@ -9,38 +9,42 @@ import {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
   CommentTranslationSettingsState,
+  ComicTranslationModelCatalogService,
   ConciseListRow,
+  DiagnosticLogger,
   GroupedListSection,
+  LLM_CONSUMER_COMMENT_TRANSLATION,
+  LlmConsumerBinding,
+  LlmSourceProfile,
+  LlmSourceProfileRepository,
+  LlmSourceProfilesState,
   SecondaryListScaffold,
   ThemeConstants,
   connectCommentTranslationSettings,
+  connectLlmSourceProfiles,
+  connectNavStack,
   immersiveTitleBar,
 } from 'shared'
+
 @ComponentV2
 export struct CommentTranslationSettingsPage {
-  @Local settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
-  @Local displayMenuShown: boolean = false;
-  @Local modelMenuShown: boolean = false;
-  @Local fetchingModels: boolean = false;
-  @Local modelOptions: string[] = [];
-  @Local apiUrlDraft: string = '';
-  @Local apiKeyDraft: string = '';
-  @Local modelDraft: string = '';
-  @Local clearingCache: boolean = false;
-  @Local validatingApi: boolean = false;
-  @Local cacheCount: number = 0;
+  @Local private settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
+  @Local private llmSources: LlmSourceProfilesState = connectLlmSourceProfiles();
+  @Local private displayMenuShown: boolean = false;
+  @Local private sourceMenuShown: boolean = false;
+  @Local private modelMenuShown: boolean = false;
+  @Local private fetchingModels: boolean = false;
+  @Local private modelOptions: string[] = [];
+  @Local private selectedSourceId: string = '';
+  @Local private selectedModelId: string = '';
+  @Local private cacheCount: number = 0;
+  @Local private clearingCache: boolean = false;
   private scroller: Scroller = new Scroller();
+  private stack: NavPathStack = connectNavStack().stack;
 
   aboutToAppear(): void {
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
-    this.apiUrlDraft = this.settings.apiUrl
-    this.apiKeyDraft = this.settings.apiKey
-    this.modelDraft = this.settings.model
+    this.restoreBinding()
     this.refreshCacheCount()
-  }
-
-  aboutToDisappear(): void {
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private ctx(): common.UIAbilityContext {
@@ -48,7 +52,7 @@ export struct CommentTranslationSettingsPage {
   }
 
   private snapshot(): CommentTranslationSettingsSnapshot {
-    const snapshot = new CommentTranslationSettingsSnapshot()
+    const snapshot: CommentTranslationSettingsSnapshot = new CommentTranslationSettingsSnapshot()
     snapshot.enabled = this.settings.enabled
     snapshot.autoTranslate = this.settings.autoTranslate
     snapshot.displayMode = this.settings.displayMode
@@ -64,87 +68,153 @@ export struct CommentTranslationSettingsPage {
   }
 
   private setEnabled(value: boolean): void {
-    const snapshot = this.snapshot()
+    const snapshot: CommentTranslationSettingsSnapshot = this.snapshot()
     snapshot.enabled = value
     this.save(snapshot)
   }
 
   private setAutoTranslate(value: boolean): void {
-    const snapshot = this.snapshot()
+    const snapshot: CommentTranslationSettingsSnapshot = this.snapshot()
     snapshot.autoTranslate = value
     this.save(snapshot)
   }
 
   private setUseGoogleOnly(value: boolean): void {
-    const snapshot = this.snapshot()
+    const snapshot: CommentTranslationSettingsSnapshot = this.snapshot()
     snapshot.useGoogleOnly = value
     this.save(snapshot)
   }
 
-  private setDisplayMode(mode: string): void {
-    const snapshot = this.snapshot()
-    snapshot.displayMode = mode
+  private setDisplayMode(value: string): void {
+    const snapshot: CommentTranslationSettingsSnapshot = this.snapshot()
+    snapshot.displayMode = value
     this.save(snapshot)
     this.displayMenuShown = false
   }
 
-  private setApiUrl(value: string): void {
-    this.apiUrlDraft = value
-    const snapshot = this.snapshot()
-    snapshot.apiUrl = value.trim()
-    this.save(snapshot)
-  }
-
-  private setApiKey(value: string): void {
-    this.apiKeyDraft = value
-    const snapshot = this.snapshot()
-    snapshot.apiKey = value.trim()
-    this.save(snapshot)
-  }
-
-  private setModel(value: string): void {
-    this.modelDraft = value
-    const snapshot = this.snapshot()
-    snapshot.model = value.trim()
-    this.save(snapshot)
-  }
-
-  private displayModeText(): Resource {
+  private displayModeText(): ResourceStr {
     return this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
       ? $r('app.string.comment_translation_display_bilingual')
       : $r('app.string.comment_translation_display_replace')
   }
 
-  private apiUrlText(): string {
-    return this.settings.apiUrl.length > 0 ? this.settings.apiUrl : 'https://api.openai.com'
+  private compatibleSources(): LlmSourceProfile[] {
+    const profiles: LlmSourceProfile[] = []
+    for (let index: number = 0; index < this.llmSources.profiles.length; index++) {
+      const profile: LlmSourceProfile = this.llmSources.profiles[index]
+      if (profile.capabilities.chatCompletions) {
+        profiles.push(profile)
+      }
+    }
+    return profiles
   }
 
-  private modelText(): string {
-    return this.settings.model.length > 0 ? this.settings.model : 'gpt-4o-mini'
+  private restoreBinding(): void {
+    const binding: LlmConsumerBinding = this.llmSources.commentBinding
+    const profile: LlmSourceProfile | null = this.llmSources.findById(binding.sourceProfileId)
+    if (profile === null || !profile.capabilities.chatCompletions || !binding.configured()) {
+      this.selectedSourceId = ''
+      this.selectedModelId = ''
+      return
+    }
+    this.selectedSourceId = binding.sourceProfileId
+    this.selectedModelId = binding.modelId
   }
 
-  private keyStateText(): Resource {
-    return this.settings.apiKey.length > 0
-      ? $r('app.string.comment_translation_api_key_saved')
-      : $r('app.string.comment_translation_api_key_empty')
+  private selectedSourceText(): ResourceStr {
+    const profile: LlmSourceProfile | null = this.llmSources.findById(this.selectedSourceId)
+    return profile === null
+      ? $r('app.string.llm_binding_not_configured')
+      : profile.displayName
+  }
+
+  private selectedModelText(): ResourceStr {
+    return this.selectedModelId.length > 0
+      ? this.selectedModelId
+      : $r('app.string.llm_binding_not_configured')
+  }
+
+  private openSourceSelector(): void {
+    if (this.compatibleSources().length === 0) {
+      this.stack.pushPathByName('LlmSourceManager', null)
+      return
+    }
+    this.sourceMenuShown = true
+  }
+
+  private selectSource(sourceProfileId: string): void {
+    this.sourceMenuShown = false
+    if (sourceProfileId === this.selectedSourceId) {
+      return
+    }
+    this.selectedSourceId = sourceProfileId
+    this.selectedModelId = ''
+    this.modelOptions = []
+    // Publish source and model together only after the user picks a model.
+    this.fetchModels()
+  }
+
+  private fetchModels(): void {
+    if (this.fetchingModels || this.selectedSourceId.length === 0) {
+      return
+    }
+    this.fetchingModels = true
+    ComicTranslationModelCatalogService.fetchSource(this.ctx(), this.selectedSourceId)
+      .then((models: string[]) => {
+        this.modelOptions = models
+        if (models.length === 0) {
+          this.toast($r('app.string.comment_translation_models_empty'))
+          return
+        }
+        this.modelMenuShown = true
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('comment-translation', 'model_catalog_failed', error.message)
+        this.toast($r('app.string.comment_translation_models_failed', error.message))
+      })
+      .finally(() => {
+        this.fetchingModels = false
+      })
+  }
+
+  private selectModel(modelId: string): void {
+    const binding: LlmConsumerBinding = new LlmConsumerBinding()
+    binding.consumerId = LLM_CONSUMER_COMMENT_TRANSLATION
+    binding.sourceProfileId = this.selectedSourceId
+    binding.modelId = modelId
+    LlmSourceProfileRepository.saveBinding(this.ctx(), binding)
+      .then(() => {
+        this.selectedModelId = modelId
+        this.modelMenuShown = false
+      })
+      .catch((error: Error) => {
+        this.toast($r('app.string.llm_binding_save_failed', error.message))
+      })
   }
 
   private refreshCacheCount(): void {
-    CommentTranslationService.count(this.ctx()).then((count: number) => {
-      this.cacheCount = count
-    })
+    CommentTranslationService.count(this.ctx())
+      .then((count: number) => {
+        this.cacheCount = count
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('comment-translation', 'cache_count_failed', error.message)
+      })
   }
 
   private confirmClearCache(): void {
+    if (this.clearingCache) {
+      return
+    }
     this.getUIContext().showAlertDialog({
+      title: $r('app.string.comment_translation_clear_cache'),
       message: $r('app.string.comment_translation_clear_cache_confirm'),
       primaryButton: {
         value: $r('app.string.common_cancel'),
         action: () => {},
       },
       secondaryButton: {
-        value: $r('app.string.common_clear'),
-        fontColor: Color.Red,
+        value: $r('app.string.common_delete'),
         action: () => {
           this.clearCache()
         },
@@ -153,96 +223,19 @@ export struct CommentTranslationSettingsPage {
   }
 
   private clearCache(): void {
-    if (this.clearingCache) {
-      return
-    }
     this.clearingCache = true
     CommentTranslationService.clear(this.ctx())
       .then(() => {
         this.cacheCount = 0
-        this.getUIContext()
-          .getPromptAction()
-          .showToast({
-            message: $r('app.string.comment_translation_cache_cleared'),
-          })
+        this.toast($r('app.string.comment_translation_cache_cleared'))
       })
       .finally(() => {
         this.clearingCache = false
       })
   }
 
-  private validateApi(): void {
-    if (this.validatingApi) {
-      return
-    }
-    if (this.settings.apiKey.length === 0) {
-      this.getUIContext()
-        .getPromptAction()
-        .showToast({
-          message: $r('app.string.comment_translation_validate_missing_key'),
-        })
-      return
-    }
-    this.validatingApi = true
-    CommentTranslationService.validateConfiguredLlm(this.ctx())
-      .then(() => {
-        this.getUIContext()
-          .getPromptAction()
-          .showToast({
-            message: $r('app.string.comment_translation_validate_success'),
-          })
-      })
-      .catch((error: Error) => {
-        this.getUIContext()
-          .getPromptAction()
-          .showToast({
-            message: $r('app.string.comment_translation_validate_failed', error.message),
-          })
-      })
-      .finally(() => {
-        this.validatingApi = false
-      })
-  }
-
-  private fetchModels(): void {
-    if (this.fetchingModels) {
-      return
-    }
-    if (this.settings.apiKey.length === 0) {
-      this.getUIContext()
-        .getPromptAction()
-        .showToast({
-          message: $r('app.string.comment_translation_validate_missing_key'),
-        })
-      return
-    }
-    this.fetchingModels = true
-    CommentTranslationService.fetchConfiguredLlmModels(this.ctx())
-      .then((models: string[]) => {
-        this.modelOptions = models
-        if (models.length === 0) {
-          this.getUIContext()
-            .getPromptAction()
-            .showToast({
-              message: $r('app.string.comment_translation_models_empty'),
-            })
-          return
-        }
-        if (this.settings.model.length === 0 || models.length === 1) {
-          this.setModel(models[0])
-        }
-        this.modelMenuShown = true
-      })
-      .catch((error: Error) => {
-        this.getUIContext()
-          .getPromptAction()
-          .showToast({
-            message: $r('app.string.comment_translation_models_failed', error.message),
-          })
-      })
-      .finally(() => {
-        this.fetchingModels = false
-      })
+  private toast(message: ResourceStr): void {
+    this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
   @Builder
@@ -258,24 +251,40 @@ export struct CommentTranslationSettingsPage {
     Menu() {
       MenuItem({
         content: $r('app.string.comment_translation_display_replace'),
-        symbolEndIcon:
-          this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
       })
-        .onClick(() => {
-          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
-        })
       MenuItem({
         content: $r('app.string.comment_translation_display_bilingual'),
-        symbolEndIcon:
-          this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
       })
-        .onClick(() => {
-          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
-        })
+    }
+  }
+
+  @Builder
+  private SourceMenu() {
+    Menu() {
+      ForEach(
+        this.compatibleSources(),
+        (profile: LlmSourceProfile) => {
+          MenuItem({
+            content: profile.displayName,
+            symbolEndIcon: this.selectedSourceId === profile.sourceProfileId
+              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+              : undefined,
+          }).onClick(() => {
+            this.selectSource(profile.sourceProfileId)
+          })
+        },
+        (profile: LlmSourceProfile) => profile.sourceProfileId,
+      )
     }
   }
 
@@ -287,85 +296,16 @@ export struct CommentTranslationSettingsPage {
         (model: string) => {
           MenuItem({
             content: model,
-            symbolEndIcon:
-              this.modelText() === model
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
+            symbolEndIcon: this.selectedModelId === model
+              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+              : undefined,
           }).onClick(() => {
-            this.setModel(model)
-            this.modelMenuShown = false
+            this.selectModel(model)
           })
         },
         (model: string) => model,
       )
     }
-  }
-
-  @Builder
-  private TextInputField(
-    field: string,
-    placeholder: ResourceStr,
-    secret: boolean,
-    onChange: (value: string) => void,
-  ) {
-    if (field === 'apiUrl') {
-      TextInput({ text: $$this.apiUrlDraft, placeholder: placeholder })
-        .type(secret ? InputType.Password : InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange((next: string) => {
-          onChange(next)
-        })
-    } else if (field === 'apiKey') {
-      TextInput({ text: $$this.apiKeyDraft, placeholder: placeholder })
-        .type(secret ? InputType.Password : InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange((next: string) => {
-          onChange(next)
-        })
-    } else {
-      TextInput({ text: $$this.modelDraft, placeholder: placeholder })
-        .type(secret ? InputType.Password : InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange((next: string) => {
-          onChange(next)
-        })
-    }
-  }
-
-  @Builder
-  private TextFieldRow(
-    label: ResourceStr,
-    field: string,
-    placeholder: ResourceStr,
-    secret: boolean,
-    onChange: (value: string) => void,
-  ) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      this.TextInputField(field, placeholder, secret, onChange)
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   build() {
@@ -434,47 +374,40 @@ export struct CommentTranslationSettingsPage {
               },
             })
             this.rowDivider()
-            this.TextFieldRow(
-              $r('app.string.comment_translation_api_url'),
-              'apiUrl',
-              $r('app.string.comment_translation_api_url_hint'),
-              false,
-              (value: string) => {
-                this.setApiUrl(value)
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.llm_binding_source'),
+                subtitle: this.compatibleSources().length === 0
+                  ? $r('app.string.llm_binding_no_compatible_source')
+                  : $r('app.string.llm_binding_source_hint'),
+                leadingIcon: $r('sys.symbol.externaldrive'),
+                trailingText: this.selectedSourceText(),
+                trailingDropdown: this.compatibleSources().length > 0,
+                showChevron: this.compatibleSources().length === 0,
+                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly,
+                action: () => {
+                  this.openSourceSelector()
+                },
+              })
+            }
+            .bindMenu(this.sourceMenuShown, this.SourceMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.sourceMenuShown = false
               },
-            )
-            this.rowDivider()
-            this.TextFieldRow(
-              $r('app.string.comment_translation_api_key'),
-              'apiKey',
-              this.keyStateText(),
-              true,
-              (value: string) => {
-                this.setApiKey(value)
-              },
-            )
-            this.rowDivider()
-            this.TextFieldRow(
-              $r('app.string.comment_translation_model'),
-              'model',
-              $r('app.string.comment_translation_model_hint'),
-              false,
-              (value: string) => {
-                this.setModel(value)
-              },
-            )
+            })
             this.rowDivider()
             Column() {
               ConciseListRow({
-                title: $r('app.string.comment_translation_fetch_models'),
+                title: $r('app.string.llm_binding_model'),
                 subtitle: this.fetchingModels
                   ? $r('app.string.comment_translation_fetch_models_loading')
-                  : $r('app.string.comment_translation_fetch_models_hint'),
+                  : $r('app.string.llm_binding_model_hint'),
                 leadingIcon: $r('sys.symbol.arrow_down_circle'),
-                trailingText: this.modelOptions.length > 0 ? `${this.modelOptions.length}` : '',
-                showChevron: true,
-                isEnabled:
-                  this.settings.enabled && !this.settings.useGoogleOnly && !this.fetchingModels,
+                trailingText: this.selectedModelText(),
+                trailingDropdown: true,
+                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly &&
+                  this.selectedSourceId.length > 0 && !this.fetchingModels,
                 action: () => {
                   this.fetchModels()
                 },
@@ -484,29 +417,6 @@ export struct CommentTranslationSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.modelMenuShown = false
-              },
-            })
-            this.rowDivider()
-            ConciseListRow({
-              title: $r('app.string.comment_translation_effective_service'),
-              subtitle: this.apiUrlText(),
-              leadingIcon: $r('sys.symbol.externaldrive'),
-              trailingText: this.modelText(),
-              showChevron: false,
-              isEnabled: this.settings.enabled && !this.settings.useGoogleOnly,
-            })
-            this.rowDivider()
-            ConciseListRow({
-              title: $r('app.string.comment_translation_validate_api'),
-              subtitle: this.settings.useGoogleOnly
-                ? $r('app.string.comment_translation_validate_google_only_hint')
-                : $r('app.string.comment_translation_validate_api_hint'),
-              leadingIcon: $r('sys.symbol.checkmark'),
-              showChevron: false,
-              isEnabled:
-                this.settings.enabled && !this.settings.useGoogleOnly && !this.validatingApi,
-              action: () => {
-                this.validateApi()
               },
             })
           }

@@ -110,6 +110,8 @@ import {
   TagTranslationSettingsPage,
   CommentTranslationSettingsPage,
   ComicTranslationSettingsPage,
+  LlmSourceManagerPage,
+  LlmSourceDetailPage,
   SyncSettingsPage,
   WebDavSyncSettingsPage,
   AdvancedSettingsPage,
@@ -324,6 +326,16 @@ function IndexComicTranslationSettingsRoute() {
 }
 
 @Builder
+function IndexLlmSourceManagerRoute() {
+  LlmSourceManagerPage()
+}
+
+@Builder
+function IndexLlmSourceDetailRoute() {
+  LlmSourceDetailPage()
+}
+
+@Builder
 function IndexSyncSettingsRoute() {
   SyncSettingsPage()
 }
@@ -438,6 +450,8 @@ struct Index {
     'tagTranslationSettings': wrapBuilder<[]>(IndexTagTranslationSettingsRoute),
     'commentTranslationSettings': wrapBuilder<[]>(IndexCommentTranslationSettingsRoute),
     'comicTranslationSettings': wrapBuilder<[]>(IndexComicTranslationSettingsRoute),
+    'llmSourceManager': wrapBuilder<[]>(IndexLlmSourceManagerRoute),
+    'llmSourceDetail': wrapBuilder<[]>(IndexLlmSourceDetailRoute),
     'syncSettings': wrapBuilder<[]>(IndexSyncSettingsRoute),
     'webDavSyncSettings': wrapBuilder<[]>(IndexWebDavSyncSettingsRoute),
     'advancedSettings': wrapBuilder<[]>(IndexAdvancedSettingsRoute),

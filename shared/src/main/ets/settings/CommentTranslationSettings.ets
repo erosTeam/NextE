@@ -18,7 +18,7 @@ export class CommentTranslationSettingsSnapshot {
   model: string = ''
 }
 
-/** Preferences-backed comment translation settings. API key is sensitive: never log it or export it. */
+/** Preferences-backed comment policy. Legacy API fields remain read-only migration input. */
 export class CommentTranslationSettings {
   static normalizeDisplayMode(mode: string): string {
     return mode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
@@ -80,9 +80,6 @@ export class CommentTranslationSettings {
       store.putSync(StorageKeys.COMMENT_TRANSLATION_AUTO, snapshot.autoTranslate)
       store.putSync(StorageKeys.COMMENT_TRANSLATION_DISPLAY_MODE, snapshot.displayMode)
       store.putSync(StorageKeys.COMMENT_TRANSLATION_GOOGLE_ONLY, snapshot.useGoogleOnly)
-      store.putSync(StorageKeys.COMMENT_TRANSLATION_API_URL, snapshot.apiUrl)
-      store.putSync(StorageKeys.COMMENT_TRANSLATION_API_KEY, snapshot.apiKey)
-      store.putSync(StorageKeys.COMMENT_TRANSLATION_MODEL, snapshot.model)
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'comment_translation_save_failed', (error as Error).message)

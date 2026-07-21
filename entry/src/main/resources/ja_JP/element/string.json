@@ -5087,6 +5087,166 @@
     {
       "name": "reader_comic_translation_target",
       "value": "翻訳：%s"
+    },
+    {
+      "name": "llm_sources_title",
+      "value": "LLM ソース"
+    },
+    {
+      "name": "llm_sources_hint",
+      "value": "再利用できる API と Codex OAuth 接続を管理します"
+    },
+    {
+      "name": "llm_sources_empty",
+      "value": "LLM ソースがありません"
+    },
+    {
+      "name": "llm_sources_empty_hint",
+      "value": "追加後、コメント翻訳または漫画翻訳で選択できます"
+    },
+    {
+      "name": "llm_source_add",
+      "value": "LLM ソースを追加"
+    },
+    {
+      "name": "llm_source_add_hint",
+      "value": "API と Codex OAuth ソースを併用できます"
+    },
+    {
+      "name": "llm_source_type",
+      "value": "ソースの種類"
+    },
+    {
+      "name": "llm_source_type_api",
+      "value": "OpenAI 互換 API"
+    },
+    {
+      "name": "llm_source_type_codex",
+      "value": "Codex OAuth（実験）"
+    },
+    {
+      "name": "llm_source_create_failed",
+      "value": "ソースを作成できません：%s"
+    },
+    {
+      "name": "llm_source_detail_title",
+      "value": "LLM ソース"
+    },
+    {
+      "name": "llm_source_missing",
+      "value": "この LLM ソースは存在しません"
+    },
+    {
+      "name": "llm_source_name",
+      "value": "名前"
+    },
+    {
+      "name": "llm_source_name_hint",
+      "value": "この接続を識別する名前"
+    },
+    {
+      "name": "llm_source_base_url",
+      "value": "ベース URL"
+    },
+    {
+      "name": "llm_source_api_key",
+      "value": "API キー"
+    },
+    {
+      "name": "llm_source_save_failed",
+      "value": "ソースを保存できません：%s"
+    },
+    {
+      "name": "llm_source_support_comments",
+      "value": "コメント翻訳"
+    },
+    {
+      "name": "llm_source_support_comments_hint",
+      "value": "Chat Completions のテキスト要求に対応"
+    },
+    {
+      "name": "llm_source_support_manga",
+      "value": "漫画翻訳"
+    },
+    {
+      "name": "llm_source_support_manga_hint",
+      "value": "画像入力付き Responses 要求に対応"
+    },
+    {
+      "name": "llm_source_support_catalog",
+      "value": "モデル一覧"
+    },
+    {
+      "name": "llm_source_support_catalog_hint",
+      "value": "利用可能なモデルの照会を許可"
+    },
+    {
+      "name": "llm_source_catalog",
+      "value": "利用可能なモデルを照会"
+    },
+    {
+      "name": "llm_source_catalog_hint",
+      "value": "接続を確認して現在のモデル一覧を読み込みます"
+    },
+    {
+      "name": "llm_source_catalog_count",
+      "value": "%d 個のモデルが利用可能"
+    },
+    {
+      "name": "llm_source_codex_account",
+      "value": "Codex アカウント"
+    },
+    {
+      "name": "llm_source_codex_logout_confirm",
+      "value": "このソースの Codex ログインを端末から削除しますか？"
+    },
+    {
+      "name": "llm_source_delete",
+      "value": "LLM ソースを削除"
+    },
+    {
+      "name": "llm_source_delete_hint",
+      "value": "認証情報とソース別キャッシュも削除されます"
+    },
+    {
+      "name": "llm_source_delete_confirm",
+      "value": "この LLM ソースを削除しますか？"
+    },
+    {
+      "name": "llm_source_delete_referenced",
+      "value": "%s がこのソースを使用中です。削除後、その機能は未設定のままになります。"
+    },
+    {
+      "name": "llm_source_delete_failed",
+      "value": "ソースを削除できません：%s"
+    },
+    {
+      "name": "llm_binding_source",
+      "value": "LLM ソース"
+    },
+    {
+      "name": "llm_binding_model",
+      "value": "モデル"
+    },
+    {
+      "name": "llm_binding_not_configured",
+      "value": "未設定"
+    },
+    {
+      "name": "llm_binding_no_compatible_source",
+      "value": "先に LLM ソースで互換接続を追加してください"
+    },
+    {
+      "name": "llm_binding_source_hint",
+      "value": "再利用する接続を選択"
+    },
+    {
+      "name": "llm_binding_model_hint",
+      "value": "このソースを照会してモデルを選択"
+    },
+    {
+      "name": "llm_binding_save_failed",
+      "value": "選択を保存できません：%s"
     }
   ]
 }
