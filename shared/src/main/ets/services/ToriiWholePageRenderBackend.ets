@@ -4,6 +4,7 @@ import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { ComicRenderedPage } from '../model/ComicVisualTranslation'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { AxiosBinaryResponse, AxiosHttpClient } from '../network/AxiosHttpClient'
 import {
   TORII_BILLING_BYOK,
@@ -35,6 +36,7 @@ const MAX_TORII_SOURCE_IMAGE_BYTES: number = 20 * 1024 * 1024
 const MAX_TORII_MULTIPART_BYTES: number = 24 * 1024 * 1024
 const MAX_TORII_RESPONSE_BYTES: number = 96 * 1024 * 1024
 const MAX_TORII_RENDERED_IMAGE_BYTES: number = 80 * 1024 * 1024
+const MAX_TORII_NORMALIZE_PIXELS: number = 40 * 1024 * 1024
 const MAX_TORII_ERROR_DETAIL_CHARS: number = 512
 const MAX_TORII_CONTEXT_CHARS: number = 10000
 const TORII_CONNECT_TIMEOUT_MS: number = 15000
@@ -57,6 +59,11 @@ class ToriiSourceImage {
 class ToriiPngDimensions {
   width: number = 0
   height: number = 0
+}
+
+class ToriiDecodedImage {
+  mimeType: string = ''
+  bytes: Uint8Array = new Uint8Array(0)
 }
 
 export class ToriiWholePageConfig {
@@ -250,9 +257,34 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     const response: ToriiWholePageTransportResponse =
       await this.transport.post(transportRequest)
     const responseText: string = ToriiWholePageRenderBackend.responseText(response)
+    const successHeader: string = ToriiWholePageRenderBackend.headerValue(
+      response.rawHeader,
+      'success',
+    )
+    const contentType: string = ToriiWholePageRenderBackend.headerValue(
+      response.rawHeader,
+      'content-type',
+    )
+    const contentEncoding: string = ToriiWholePageRenderBackend.headerValue(
+      response.rawHeader,
+      'content-encoding',
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'torii_whole_page_response',
+      `status=${response.statusCode} success=${successHeader || 'missing'} ` +
+        `type=${contentType || 'missing'} encoding=${contentEncoding || 'identity'} ` +
+        `bodyBytes=${response.body.length}`,
+    )
     if (response.statusCode < 200 || response.statusCode > 299) {
       throw new Error(
         `Torii whole-page request failed with HTTP ${response.statusCode}${
+          ToriiWholePageRenderBackend.errorSuffix(responseText)}`,
+      )
+    }
+    if (successHeader.toLowerCase() !== 'true') {
+      throw new Error(
+        `Torii whole-page request did not confirm success (${successHeader || 'missing'})${
           ToriiWholePageRenderBackend.errorSuffix(responseText)}`,
       )
     }
@@ -260,21 +292,19 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       responseText,
       'image',
     )
-    if (dataUrl === null || !dataUrl.startsWith('data:image/png;base64,')) {
-      throw new Error('Torii whole-page response is missing a PNG image')
+    if (dataUrl === null || !dataUrl.startsWith('data:image/')) {
+      throw new Error(
+        `Torii whole-page response is missing a PNG image (` +
+          `${ToriiWholePageRenderBackend.responseShape(responseText, dataUrl, contentType)})`,
+      )
     }
-    const encoded: string = dataUrl.substring('data:image/png;base64,'.length)
-    if (encoded.length <= 0 || encoded.length > Math.ceil(
-      MAX_TORII_RENDERED_IMAGE_BYTES * 4 / 3,
-    ) + 4) {
-      throw new Error('Torii whole-page image payload size is invalid')
-    }
-    let bytes: Uint8Array
-    try {
-      bytes = new util.Base64Helper().decodeSync(encoded)
-    } catch (_error) {
-      throw new Error('Torii whole-page image payload is invalid')
-    }
+    const decoded: ToriiDecodedImage = ToriiWholePageRenderBackend.decodeImageDataUrl(dataUrl)
+    const bytes: Uint8Array = await ToriiWholePageRenderBackend.normalizeRenderedPng(
+      this.context,
+      decoded,
+      request.source.imageWidth,
+      request.source.imageHeight,
+    )
     const dimensions: ToriiPngDimensions = await ToriiWholePageRenderBackend.validatePng(
       bytes,
       request.source.imageWidth,
@@ -483,13 +513,171 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
 
   private static errorSuffix(body: string): string {
     const detail: string | null = ToriiWholePageRenderBackend.jsonStringField(body, 'error') ??
-      ToriiWholePageRenderBackend.jsonStringField(body, 'message')
+      ToriiWholePageRenderBackend.jsonStringField(body, 'message') ??
+      ToriiWholePageRenderBackend.jsonStringField(body, 'detail')
     if (detail === null || detail.trim().length === 0) {
       return ''
     }
     const bounded: string = detail.replace(/[\r\n\t]+/g, ' ').trim()
       .substring(0, MAX_TORII_ERROR_DETAIL_CHARS)
     return bounded.length > 0 ? `: ${bounded}` : ''
+  }
+
+  private static responseShape(
+    body: string,
+    imageValue: string | null,
+    contentType: string,
+  ): string {
+    const bodyKind: string = body.trimStart().startsWith('{') ? 'json-object' :
+      body.trimStart().startsWith('[') ? 'json-array' : 'non-json'
+    let imageKind: string = 'missing'
+    if (imageValue !== null) {
+      if (imageValue.length === 0) {
+        imageKind = 'empty'
+      } else if (imageValue.startsWith('data:')) {
+        const commaIndex: number = imageValue.indexOf(',')
+        const metadata: string = commaIndex > 0
+          ? imageValue.substring(5, Math.min(commaIndex, 85))
+          : 'invalid-data-url'
+        imageKind = `data:${metadata}`
+      } else if (imageValue.startsWith('iVBOR')) {
+        imageKind = 'raw-png-base64'
+      } else {
+        imageKind = 'string'
+      }
+    }
+    const safeContentType: string = /^[A-Za-z0-9+./;=_ -]{1,100}$/.test(contentType)
+      ? contentType
+      : 'invalid'
+    return `type=${safeContentType || 'missing'},body=${bodyKind},image=${imageKind}`
+  }
+
+  private static decodeImageDataUrl(value: string): ToriiDecodedImage {
+    const commaIndex: number = value.indexOf(',')
+    if (commaIndex <= 0 || value !== value.trim()) {
+      throw new Error('Torii whole-page image payload is invalid')
+    }
+    const metadata: string = value.substring(0, commaIndex).toLowerCase()
+    const output: ToriiDecodedImage = new ToriiDecodedImage()
+    if (metadata === 'data:image/png;base64') {
+      output.mimeType = 'image/png'
+    } else if (metadata === 'data:image/jpeg;base64' ||
+      metadata === 'data:image/jpg;base64') {
+      output.mimeType = 'image/jpeg'
+    } else if (metadata === 'data:image/webp;base64') {
+      output.mimeType = 'image/webp'
+    } else {
+      throw new Error('Torii whole-page image MIME type is unsupported')
+    }
+    const encoded: string = value.substring(commaIndex + 1)
+    if (encoded.length <= 0 || encoded.length > Math.ceil(
+      MAX_TORII_RENDERED_IMAGE_BYTES * 4 / 3,
+    ) + 4) {
+      throw new Error('Torii whole-page image payload size is invalid')
+    }
+    try {
+      output.bytes = new util.Base64Helper().decodeSync(encoded)
+    } catch (_error) {
+      throw new Error('Torii whole-page image payload is invalid')
+    }
+    const matchesMime: boolean = output.mimeType === 'image/png'
+      ? ToriiWholePageRenderBackend.isPng(output.bytes)
+      : output.mimeType === 'image/jpeg'
+        ? ToriiWholePageRenderBackend.isJpeg(output.bytes)
+        : ToriiWholePageRenderBackend.isWebp(output.bytes)
+    if (!matchesMime) {
+      throw new Error('Torii whole-page image MIME type does not match its bytes')
+    }
+    return output
+  }
+
+  private static async normalizeRenderedPng(
+    context: common.UIAbilityContext,
+    decoded: ToriiDecodedImage,
+    expectedWidth: number,
+    expectedHeight: number,
+  ): Promise<Uint8Array> {
+    if (decoded.mimeType === 'image/png') {
+      return decoded.bytes
+    }
+    if (expectedWidth * expectedHeight > MAX_TORII_NORMALIZE_PIXELS) {
+      throw new Error('Torii whole-page image is too large to normalize on this device')
+    }
+    const temporaryPath: string = `${context.cacheDir}/torii-normalized-` +
+      `${util.generateRandomUUID(true)}.png`
+    let source: image.ImageSource | undefined = undefined
+    let pixelMap: image.PixelMap | undefined = undefined
+    let packer: image.ImagePacker | undefined = undefined
+    let outputFile: fileIo.File | null = null
+    try {
+      const buffer: ArrayBuffer = decoded.bytes.buffer.slice(
+        decoded.bytes.byteOffset,
+        decoded.bytes.byteOffset + decoded.bytes.byteLength,
+      )
+      source = image.createImageSource(buffer)
+      pixelMap = await source.createPixelMap({
+        editable: false,
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+      })
+      const info: image.ImageInfo = await pixelMap.getImageInfo()
+      if (info.size.width !== expectedWidth || info.size.height !== expectedHeight) {
+        throw new Error('Torii whole-page result dimensions do not match the source')
+      }
+      packer = image.createImagePacker()
+      outputFile = fileIo.openSync(
+        temporaryPath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
+      await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+      fileIo.closeSync(outputFile)
+      outputFile = null
+      const stat: fileIo.Stat = fileIo.statSync(temporaryPath)
+      if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_TORII_RENDERED_IMAGE_BYTES) {
+        throw new Error('Torii normalized PNG size is invalid')
+      }
+      return ToriiWholePageRenderBackend.readExact(temporaryPath, Math.floor(stat.size))
+    } catch (error) {
+      const message: string = (error as Error).message
+      if (message === 'Torii whole-page result dimensions do not match the source' ||
+        message === 'Torii normalized PNG size is invalid') {
+        throw error as Error
+      }
+      throw new Error('Torii whole-page image cannot be normalized to PNG')
+    } finally {
+      if (outputFile !== null) {
+        fileIo.closeSync(outputFile)
+      }
+      if (packer !== undefined) {
+        await packer.release()
+      }
+      if (pixelMap !== undefined) {
+        await pixelMap.release()
+      }
+      if (source !== undefined) {
+        await source.release()
+      }
+      ToriiWholePageRenderBackend.removeFile(temporaryPath)
+    }
+  }
+
+  private static headerValue(rawHeader: string, name: string): string {
+    if (rawHeader.trim().length === 0 || name.trim().length === 0) {
+      return ''
+    }
+    try {
+      const headers: Record<string, Object> = JSON.parse(rawHeader) as Record<string, Object>
+      const expected: string = name.toLowerCase()
+      const names: string[] = Object.keys(headers)
+      for (let index: number = 0; index < names.length; index++) {
+        if (names[index].toLowerCase() !== expected) {
+          continue
+        }
+        const value: Object | undefined = headers[names[index]]
+        return value === undefined || value === null ? '' : `${value}`.trim()
+      }
+    } catch (_error) {
+    }
+    return ''
   }
 
   /** Extracts a bounded JSON string field without materializing Torii's unused inpainted image. */
@@ -687,6 +875,17 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       }
     }
     return true
+  }
+
+  private static isJpeg(bytes: Uint8Array): boolean {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 &&
+      bytes[2] === 0xff
+  }
+
+  private static isWebp(bytes: Uint8Array): boolean {
+    return bytes.length >= 12 &&
+      ToriiWholePageRenderBackend.asciiAt(bytes, 0, 'RIFF') &&
+      ToriiWholePageRenderBackend.asciiAt(bytes, 8, 'WEBP')
   }
 
   private static asciiAt(bytes: Uint8Array, offset: number, expected: string): boolean {

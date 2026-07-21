@@ -1,6 +1,6 @@
 # 漫画翻译端侧视觉 Reader V1
 
-- **status**: active; 2026-07-22 local-first + independent whole-page cloud route
+- **status**: active; 2026-07-22 local-first + validated independent whole-page cloud route
 - **created**: 2026-07-21
 - **product authority**: [漫画翻译设计与演进指南](../../manga-translation-design.md)
 - **reset audit**: [漫画翻译产品重置](../completed/manga-translation-product-reset.md)
@@ -148,7 +148,7 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 - [x] 记录公开费用与 BYOK 拆分：Torii 整图 BYOK 为 1 credit/页加用户供应商账单；
 - [x] 区分 Torii `translator` 模型选择与可选 BYOK 账单模式；非 BYOK 同样允许选择 Torii 目录中的具体模型；
 - [x] 明确否决 Torii 分阶段接入：只调用一键整图端点，端侧/sidecar 管线继续独立演进；
-- [ ] 在用户明确选择服务、提供测试密钥并接受费用/图片上传边界后，用两页原创 fixture 做同译文 A/B；
+- [x] 在用户明确选择服务、提供测试密钥并接受费用/图片上传边界后，用两页原创 fixture 做同译文 A/B；
 - [x] 固定 provider profile、认证、带复核日期的内置官方模型快照、请求/响应上限、超时、重复扣费、缓存
   命中和数据删除语义；`translator` 与 BYOK 账单模式独立保存，不抓取 HTML 充当模型目录；
 - [x] 通过 `ComicWholePageRenderBackend` 发布并复用现有 artifact 校验、缓存、原图回退和 Reader fence；
@@ -395,5 +395,22 @@ identity、持久缓存和失败不写缓存；不会访问 `/ocr`、`/inpaint` 
 为 242/242；测试过程中定位并修复 multipart 合法字段名下划线被本地校验误拒的问题。另一个既有 sidecar
 fixture 测试曾因在大图片 multipart 上逐字节反复扫描触发 `THREAD_BLOCK_6S`，改为每请求只解码一次后，
 该组由约 17 秒降到 0.694 秒，完整套件恢复稳定。最终 i18n、持久化、secret/backup、V2、`git diff --check`
-和 signed app 构建全部通过。尚未使用真实 Torii key 产生付费译图，因此 D2 的原创样页 A/B 仍保持未完成；
-当前完成的是可运行协议、设置、安全、缓存与 Reader 路由，不把 fake transport 结果称作真实云端质量验收。
+和 signed app 构建全部通过。该提交当时尚未使用真实 Torii key 产生付费译图，因此只完成了可运行协议、
+设置、安全、缓存与 Reader 路由，没有把 fake transport 结果称作真实云端质量验收。
+
+2026-07-22：Torii 两页原创 fixture 已在用户指定设备 `237`、managed billing、
+`gemini-3.1-flash-lite` 上完成真实付费验收。固定端点返回的 JSON `image` 实际为
+`data:image/jpeg;base64,...`，与官方示例所写 PNG 不一致；NextE 现按声明 MIME 与真实文件签名共同校验
+PNG/JPEG/WebP，并在设备上把 JPEG/WebP 有界归一化为同尺寸 PNG 后才进入统一 `ComicRenderedPage`
+契约。两页最终产物合计 3.8 MiB，首次完整运行 13.0 秒；第 1 页与第 2 页均保持竖排中文，跨页姓名
+`優 -> 优` 一致，证明上一页 `context` 实际进入了下一页请求。站牌和部分拟声词的处理仍有语义/视觉瑕疵，
+这次通过只关闭 Torii 接口、出图、跨页上下文与缓存边界，不外推为通用画质达标。
+
+同一配置的一次新鲜两页运行从 6021.55 降到 6019.13，实际消耗 2.42 credits；整轮响应契约诊断和验收从
+6030.00 降到 6016.71，共消耗 13.29 credits，其中包含修复前被客户端误拒的成功 JPEG 响应及一次用于定位
+强制刷新语义的重复运行。评测身份随后改为稳定 fixture project，并取消无条件 force refresh；杀进程后
+复跑分别为 28 ms、25 ms，余额在复跑前后都为 6016.71，证明命中本地衍生页缓存且没有再次调用 provider。
+结果页安全区也已实机复核，标题、运行摘要和第一页内容不再互相遮挡。最终 signed app、显式 signed
+`entry@ohosTest`、设备完整 Hypium 250/250、i18n、持久化、secret/backup、AppStorageV2、V2 inventory
+与 `git diff --check` 全部通过。D2 的首个真实 provider 验收关闭；端侧 B2/F 与长图质量门仍保持开放，
+不能因此宣称整个端侧视觉 Reader V1 完成。

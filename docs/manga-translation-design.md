@@ -413,6 +413,12 @@ OCR/inpaint/typeset 子端点不接入 NextE；拆接它们会模糊“端侧能
 整页重跑，所以必须保留原图切换并把非文字区域保真列入验收。共享 API/Codex LLM 源不自动进入 Torii
 路线；Torii API Key 与可选 BYOK Key 单独保存并在用户明确选择云端整图后才读取。
 
+Torii adapter 不能把官方示例中的 PNG data URL 当作唯一响应格式。2026-07-22 的真实设备请求返回了 JPEG
+data URL；稳定边界因此是“允许的声明 MIME + 对应文件签名 + 可解码同尺寸图片”，随后由端侧有界归一化
+为统一 PNG 产物。声明 MIME 与字节不匹配、尺寸漂移、像素数超限或无法解码时都必须在发布前失败。评测
+和生产请求使用稳定 project/page/source hash/context/provider/model identity；只有显式重试语义才允许绕过
+缓存，普通再次查看或进程重启不得无条件 force refresh。
+
 `ComicTextTranslator` 是独立能力，但不是每次页面翻译都必须额外调用：
 
 - whole-page provider 已接收项目上下文并给出有效译文时，可以把它保存为 `provisional` 或 `ready`；

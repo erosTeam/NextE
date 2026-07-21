@@ -33,12 +33,15 @@ import {
   ToriiCreditsSnapshot,
   ToriiTranslatorModel,
   ToriiTranslatorModelCatalog,
+  ToriiWholePageLiveEvaluationReport,
+  ToriiWholePageLiveEvaluationService,
   ToriiWholePageCredential,
   ToriiWholePageSecretStore,
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
 } from 'shared'
+import { ToriiWholePageLiveEvaluationRouteParams } from './ToriiWholePageLiveEvaluationPage'
 
 @ComponentV2
 export struct ComicTranslationSettingsPage {
@@ -63,6 +66,8 @@ export struct ComicTranslationSettingsPage {
   @Local private toriiByokApiKeyDraft: string = '';
   @Local private toriiCredits: ToriiCreditsSnapshot | null = null;
   @Local private toriiCreditsRefreshing: boolean = false;
+  @Local private toriiLiveEvaluationRunning: boolean = false;
+  @Local private toriiLiveEvaluationReport: ToriiWholePageLiveEvaluationReport | null = null;
   @Local private visualSettingsLoaded: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
@@ -300,6 +305,108 @@ export struct ComicTranslationSettingsPage {
       return 'xAI'
     }
     return provider
+  }
+
+  private toriiLiveEvaluationTrailingText(): ResourceStr {
+    if (this.toriiLiveEvaluationRunning) {
+      return $r('app.string.comic_torii_live_evaluation_running_short')
+    }
+    if (this.toriiLiveEvaluationReport === null) {
+      return $r('app.string.comic_torii_live_evaluation_pages')
+    }
+    return this.toriiLiveEvaluationReport.passed()
+      ? $r('app.string.comic_torii_live_evaluation_view')
+      : $r('app.string.comic_torii_live_evaluation_failed_short')
+  }
+
+  private toriiLiveEvaluationFailureMessage(
+    report: ToriiWholePageLiveEvaluationReport,
+  ): string {
+    const page: string = report.failedPageIndex >= 0
+      ? `P${report.failedPageIndex + 1}`
+      : 'setup'
+    const detail: string = report.errorDetail.length > 0
+      ? `\n${report.errorDetail}`
+      : ''
+    return `${page} · ${report.errorCode || 'failed'}${detail}`
+  }
+
+  private openToriiLiveEvaluation(): void {
+    if (this.toriiLiveEvaluationRunning) {
+      return
+    }
+    if (this.toriiLiveEvaluationReport !== null) {
+      if (!this.toriiLiveEvaluationReport.passed()) {
+        this.showToriiLiveEvaluationFailure(this.toriiLiveEvaluationReport)
+        return
+      }
+      const params: ToriiWholePageLiveEvaluationRouteParams =
+        new ToriiWholePageLiveEvaluationRouteParams()
+      params.report = this.toriiLiveEvaluationReport
+      this.stack.pushPathByName('ToriiWholePageLiveEvaluation', params)
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.comic_translation_live_evaluation_title'),
+      message: $r('app.string.comic_translation_live_evaluation_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.comic_translation_live_evaluation_start'),
+        action: () => {
+          this.runToriiLiveEvaluation()
+        },
+      },
+    })
+  }
+
+  private async runToriiLiveEvaluation(): Promise<void> {
+    if (this.toriiLiveEvaluationRunning || this.toriiApiKeyDraft.trim().length === 0) {
+      return
+    }
+    this.toriiLiveEvaluationRunning = true
+    this.toriiLiveEvaluationReport = null
+    try {
+      if (!await this.persistVisualSettings(true)) {
+        return
+      }
+      const report: ToriiWholePageLiveEvaluationReport =
+        await ToriiWholePageLiveEvaluationService.run(this.ctx())
+      this.toriiLiveEvaluationReport = report
+      this.refreshToriiCredits()
+      if (report.passed()) {
+        const params: ToriiWholePageLiveEvaluationRouteParams =
+          new ToriiWholePageLiveEvaluationRouteParams()
+        params.report = report
+        this.stack.pushPathByName('ToriiWholePageLiveEvaluation', params)
+      } else {
+        this.showToriiLiveEvaluationFailure(report)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'torii_live_evaluation_failed',
+        (error as Error).message,
+      )
+      this.toast($r('app.string.comic_translation_live_evaluation_not_passed'))
+    } finally {
+      this.toriiLiveEvaluationRunning = false
+    }
+  }
+
+  private showToriiLiveEvaluationFailure(
+    report: ToriiWholePageLiveEvaluationReport,
+  ): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.comic_torii_live_evaluation_failed_short'),
+      message: this.toriiLiveEvaluationFailureMessage(report),
+      primaryButton: {
+        value: $r('app.string.common_ok'),
+        action: () => {},
+      },
+    })
   }
 
   private compatibleSources(): LlmSourceProfile[] {
@@ -837,6 +944,19 @@ export struct ComicTranslationSettingsPage {
                   'byok',
                   $r('app.string.comic_torii_byok_api_key_hint'),
                 )
+              }
+              if (this.toriiApiKeyDraft.trim().length > 0) {
+                this.rowDivider()
+                ConciseListRow({
+                  title: $r('app.string.comic_translation_live_evaluation_title'),
+                  leadingIcon: $r('sys.symbol.checkmark_circle'),
+                  trailingText: this.toriiLiveEvaluationTrailingText(),
+                  showChevron: this.toriiLiveEvaluationReport !== null &&
+                    this.toriiLiveEvaluationReport.passed(),
+                  action: () => {
+                    this.openToriiLiveEvaluation()
+                  },
+                })
               }
             }
           }

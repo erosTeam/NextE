@@ -55,11 +55,28 @@ function transportResponse(statusCode: number, text: string): ToriiWholePageTran
   const response: ToriiWholePageTransportResponse = new ToriiWholePageTransportResponse()
   response.statusCode = statusCode
   response.body = new util.TextEncoder().encodeInto(text)
+  response.rawHeader = JSON.stringify({
+    success: statusCode >= 200 && statusCode <= 299 ? 'true' : 'false',
+    'content-type': 'application/json',
+  })
   return response
 }
 
-function successfulResponse(imageBytes: Uint8Array, context: string): ToriiWholePageTransportResponse {
-  const dataUrl: string = 'data:image/png;base64,' +
+function failedBusinessResponse(message: string): ToriiWholePageTransportResponse {
+  const response: ToriiWholePageTransportResponse = transportResponse(
+    200,
+    JSON.stringify({ message: message }),
+  )
+  response.rawHeader = JSON.stringify({ success: 'false' })
+  return response
+}
+
+function successfulResponse(
+  imageBytes: Uint8Array,
+  context: string,
+  mimeType: string = 'image/png',
+): ToriiWholePageTransportResponse {
+  const dataUrl: string = `data:${mimeType};base64,` +
     new util.Base64Helper().encodeToStringSync(imageBytes)
   const body: string = '{"image":' + JSON.stringify(dataUrl) +
     ',"inpainted":"unused-stage-artifact","context":' + JSON.stringify(context) +
@@ -162,6 +179,23 @@ function writeFile(path: string, bytes: Uint8Array): void {
     if (written !== bytes.length) {
       throw new Error('Fixture image write failed')
     }
+  } finally {
+    if (file !== null) {
+      fileIo.closeSync(file)
+    }
+  }
+}
+
+function readFile(path: string, length: number): Uint8Array {
+  let file: fileIo.File | null = null
+  try {
+    file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+    const buffer: ArrayBuffer = new ArrayBuffer(length)
+    const read: number = fileIo.readSync(file.fd, buffer, { length: length })
+    if (read !== length) {
+      throw new Error('Fixture image read failed')
+    }
+    return new Uint8Array(buffer)
   } finally {
     if (file !== null) {
       fileIo.closeSync(file)
@@ -291,6 +325,55 @@ export default function toriiWholePageRenderBackendTest(): void {
         done()
       })
 
+    it('normalizes a Torii JPEG response to the PNG render contract', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const appContext: common.UIAbilityContext = ability.context as common.UIAbilityContext
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const sourceBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const jpegBytes: Uint8Array = await appContext.resourceManager.getRawFileContent(
+          'comic_translation_live_eval_page_01.jpg',
+        )
+        const sourcePath: string = `${appContext.cacheDir}/torii-jpeg-response-source.png`
+        writeFile(sourcePath, sourceBytes)
+        const contextStore: ToriiWholePageContextStore =
+          new ToriiWholePageContextStore(appContext)
+        const transport: FakeToriiTransport = new FakeToriiTransport()
+        transport.responses.push(successfulResponse(
+          jpegBytes,
+          'JPEG fixture context',
+          'image/jpeg',
+        ))
+        const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          managedConfig(),
+          contextStore,
+          transport,
+        )
+        let renderedPath: string = ''
+        try {
+          const page: ComicRenderedPage = await backend.render(renderRequest(
+            backend,
+            source(sourcePath, sourceBytes, 0),
+            '',
+          ))
+          renderedPath = page.localFilePath
+          expect(page.mimeType).assertEqual('image/png')
+          const renderedBytes: Uint8Array = readFile(renderedPath, page.byteLength)
+          expect(renderedBytes[0]).assertEqual(0x89)
+          expect(renderedBytes[1]).assertEqual(0x50)
+          expect(renderedBytes[2]).assertEqual(0x4e)
+          expect(renderedBytes[3]).assertEqual(0x47)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+          await contextStore.clear()
+        }
+        done()
+      })
+
     it('rejects a wrong-size result before publishing an artifact', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -331,6 +414,91 @@ export default function toriiWholePageRenderBackendTest(): void {
         expect(rejected).assertEqual(true)
         expect(message).assertEqual(
           'Torii whole-page result dimensions do not match the source',
+        )
+        done()
+      })
+
+    it('rejects an explicit Torii business failure returned with HTTP 200', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const appContext: common.UIAbilityContext = ability.context as common.UIAbilityContext
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const imageBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const sourcePath: string = `${appContext.cacheDir}/torii-business-failure-source.png`
+        writeFile(sourcePath, imageBytes)
+        const contextStore: ToriiWholePageContextStore =
+          new ToriiWholePageContextStore(appContext)
+        const transport: FakeToriiTransport = new FakeToriiTransport()
+        transport.responses.push(failedBusinessResponse('fixture provider rejected request'))
+        const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          managedConfig(),
+          contextStore,
+          transport,
+        )
+        let message: string = ''
+        try {
+          await backend.render(renderRequest(
+            backend,
+            source(sourcePath, imageBytes, 0),
+            '',
+          ))
+        } catch (error) {
+          message = (error as Error).message
+        } finally {
+          removeFile(sourcePath)
+          await contextStore.clear()
+        }
+        expect(message).assertEqual(
+          'Torii whole-page request did not confirm success (false): ' +
+            'fixture provider rejected request',
+        )
+        done()
+      })
+
+    it('rejects a 200 response that does not explicitly confirm success', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const appContext: common.UIAbilityContext = ability.context as common.UIAbilityContext
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const imageBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const sourcePath: string = `${appContext.cacheDir}/torii-missing-success-source.png`
+        writeFile(sourcePath, imageBytes)
+        const contextStore: ToriiWholePageContextStore =
+          new ToriiWholePageContextStore(appContext)
+        const transport: FakeToriiTransport = new FakeToriiTransport()
+        const response: ToriiWholePageTransportResponse = transportResponse(
+          200,
+          JSON.stringify({ detail: 'fixture response omitted success' }),
+        )
+        response.rawHeader = JSON.stringify({ 'content-type': 'application/json' })
+        transport.responses.push(response)
+        const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          managedConfig(),
+          contextStore,
+          transport,
+        )
+        let message: string = ''
+        try {
+          await backend.render(renderRequest(
+            backend,
+            source(sourcePath, imageBytes, 0),
+            '',
+          ))
+        } catch (error) {
+          message = (error as Error).message
+        } finally {
+          removeFile(sourcePath)
+          await contextStore.clear()
+        }
+        expect(message).assertEqual(
+          'Torii whole-page request did not confirm success (missing): ' +
+            'fixture response omitted success',
         )
         done()
       })

@@ -15,6 +15,8 @@ import {
   ToriiCreditsSnapshot,
   ToriiTranslatorModel,
   ToriiTranslatorModelCatalog,
+  ToriiWholePageLiveEvaluationPageReport,
+  ToriiWholePageLiveEvaluationReport,
   ToriiWholePageCredential,
 } from 'shared'
 
@@ -172,6 +174,31 @@ export default function toriiWholePageSettingsTest(): void {
       )
       expect(ToriiCreditsService.parseCached(cached, 'fixture-torii-key'))
         .assertEqual(null)
+    })
+
+    it('accepts only two complete visual evaluation artifacts', 0, () => {
+      const report: ToriiWholePageLiveEvaluationReport =
+        new ToriiWholePageLiveEvaluationReport()
+      for (let index: number = 0; index < 2; index++) {
+        const page: ToriiWholePageLiveEvaluationPageReport =
+          new ToriiWholePageLiveEvaluationPageReport()
+        page.pageIndex = index
+        page.artifactHash = 'a'.repeat(64)
+        page.artifactBytes = 1024
+        page.artifactPath = `/data/fixture-${index}.png`
+        page.width = 1024
+        page.height = 1536
+        report.pages.push(page)
+      }
+      expect(report.passed()).assertTrue()
+      report.pages[1].errorCode = 'provider_failure'
+      report.pages[1].errorDetail = 'fixture failure'
+      report.errorCode = report.pages[1].errorCode
+      report.errorDetail = report.pages[1].errorDetail
+      report.failedPageIndex = 1
+      expect(report.passed()).assertFalse()
+      expect(report.failedPageIndex).assertEqual(1)
+      expect(report.errorDetail).assertEqual('fixture failure')
     })
   })
 }

@@ -5178,7 +5178,7 @@
     },
     {
       "name": "comic_translation_live_evaluation_confirm",
-      "value": "内蔵のオリジナルサンプル 2 ページを現在のプロバイダーへ送信し、利用枠を消費します。実際のギャラリーページは含まず、集計指標のみ記録します。続行しますか？"
+      "value": "内蔵のオリジナル 2 ページを現在のプロバイダーで評価しますか？利用枠を消費する場合があります。ギャラリーページは使用しません。"
     },
     {
       "name": "comic_translation_live_evaluation_start",
@@ -5199,6 +5199,42 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "要確認"
+    },
+    {
+      "name": "comic_torii_live_evaluation_running_short",
+      "value": "実行中"
+    },
+    {
+      "name": "comic_torii_live_evaluation_pages",
+      "value": "2ページ"
+    },
+    {
+      "name": "comic_torii_live_evaluation_view",
+      "value": "表示"
+    },
+    {
+      "name": "comic_torii_live_evaluation_failed_short",
+      "value": "失敗"
+    },
+    {
+      "name": "comic_torii_live_evaluation_result_title",
+      "value": "Torii 実測"
+    },
+    {
+      "name": "comic_torii_live_evaluation_summary",
+      "value": "%s · %s · %s"
+    },
+    {
+      "name": "comic_torii_live_evaluation_page",
+      "value": "%dページ目"
+    },
+    {
+      "name": "comic_torii_live_evaluation_original",
+      "value": "原画像"
+    },
+    {
+      "name": "comic_torii_live_evaluation_translated",
+      "value": "翻訳画像"
     },
     {
       "name": "reader_comic_translation_action",

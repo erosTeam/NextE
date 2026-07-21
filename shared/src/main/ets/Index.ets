@@ -428,6 +428,11 @@ export {
   ComicTranslationLiveEvaluationService,
 } from './services/ComicTranslationLiveEvaluationService'
 export {
+  ToriiWholePageLiveEvaluationPageReport,
+  ToriiWholePageLiveEvaluationReport,
+  ToriiWholePageLiveEvaluationService,
+} from './services/ToriiWholePageLiveEvaluationService'
+export {
   ReaderSuperResolutionCapabilities,
   ReaderSuperResolutionResult,
   ReaderSuperResolutionService,

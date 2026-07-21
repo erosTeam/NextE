@@ -16,6 +16,10 @@ export { ImageBlockSettingsPage } from './pages/ImageBlockSettingsPage'
 export { TagTranslationSettingsPage } from './pages/TagTranslationSettingsPage'
 export { CommentTranslationSettingsPage } from './pages/CommentTranslationSettingsPage'
 export { ComicTranslationSettingsPage } from './pages/ComicTranslationSettingsPage'
+export {
+  ToriiWholePageLiveEvaluationPage,
+  ToriiWholePageLiveEvaluationRouteParams,
+} from './pages/ToriiWholePageLiveEvaluationPage'
 export { MangaRenderingServiceSettingsPage } from './pages/MangaRenderingServiceSettingsPage'
 export {
   LlmSourceDetailRouteParams,

@@ -5178,7 +5178,7 @@
     },
     {
       "name": "comic_translation_live_evaluation_confirm",
-      "value": "将向当前提供方上传 2 张内置原创样例并消耗额度；不包含真实画廊页面，只记录聚合指标。是否继续？"
+      "value": "使用当前提供方评测 2 张内置原创页？可能消耗额度，不会使用画廊页面。"
     },
     {
       "name": "comic_translation_live_evaluation_start",
@@ -5199,6 +5199,42 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "待复核"
+    },
+    {
+      "name": "comic_torii_live_evaluation_running_short",
+      "value": "进行中"
+    },
+    {
+      "name": "comic_torii_live_evaluation_pages",
+      "value": "2 页"
+    },
+    {
+      "name": "comic_torii_live_evaluation_view",
+      "value": "查看"
+    },
+    {
+      "name": "comic_torii_live_evaluation_failed_short",
+      "value": "失败"
+    },
+    {
+      "name": "comic_torii_live_evaluation_result_title",
+      "value": "Torii 实测"
+    },
+    {
+      "name": "comic_torii_live_evaluation_summary",
+      "value": "%s · %s · %s"
+    },
+    {
+      "name": "comic_torii_live_evaluation_page",
+      "value": "第 %d 页"
+    },
+    {
+      "name": "comic_torii_live_evaluation_original",
+      "value": "原图"
+    },
+    {
+      "name": "comic_torii_live_evaluation_translated",
+      "value": "译图"
     },
     {
       "name": "reader_comic_translation_action",

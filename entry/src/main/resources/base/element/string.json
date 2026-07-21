@@ -5178,7 +5178,7 @@
     },
     {
       "name": "comic_translation_live_evaluation_confirm",
-      "value": "This uploads 2 bundled original sample pages to the current provider and consumes quota. No real gallery page is included, and only aggregate metrics are recorded. Continue?"
+      "value": "Evaluate 2 bundled original pages with the current provider? This may consume quota; no gallery pages are used."
     },
     {
       "name": "comic_translation_live_evaluation_start",
@@ -5199,6 +5199,42 @@
     {
       "name": "comic_translation_live_evaluation_not_passed",
       "value": "Needs review"
+    },
+    {
+      "name": "comic_torii_live_evaluation_running_short",
+      "value": "Running"
+    },
+    {
+      "name": "comic_torii_live_evaluation_pages",
+      "value": "2 pages"
+    },
+    {
+      "name": "comic_torii_live_evaluation_view",
+      "value": "View"
+    },
+    {
+      "name": "comic_torii_live_evaluation_failed_short",
+      "value": "Failed"
+    },
+    {
+      "name": "comic_torii_live_evaluation_result_title",
+      "value": "Torii test"
+    },
+    {
+      "name": "comic_torii_live_evaluation_summary",
+      "value": "%s · %s · %s"
+    },
+    {
+      "name": "comic_torii_live_evaluation_page",
+      "value": "Page %d"
+    },
+    {
+      "name": "comic_torii_live_evaluation_original",
+      "value": "Original"
+    },
+    {
+      "name": "comic_torii_live_evaluation_translated",
+      "value": "Translated"
     },
     {
       "name": "reader_comic_translation_action",
