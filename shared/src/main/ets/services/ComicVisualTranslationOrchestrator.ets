@@ -209,6 +209,8 @@ export class ComicVisualTranslationOrchestrator {
       )
       await this.documentRepository.save(documentIdentity, translatedDocument)
       await this.renderedRepository.save(lookupKey, renderedPage)
+    } else {
+      await this.renderedRepository.discardArtifact(renderedPage)
     }
     return ComicVisualTranslationOrchestrator.result(renderedPage, false)
   }
@@ -263,6 +265,7 @@ export class ComicVisualTranslationOrchestrator {
         this.regionBackend.backendId(),
         this.regionBackend.profileId(),
         `${this.regionBackend.protocolRevision()}`,
+        `${request.requestedRegionRevision}`,
         this.translator.sourceProfileId(),
         `${this.translator.sourceRevision()}`,
       ]),

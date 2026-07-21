@@ -5101,6 +5101,18 @@
       "value": "翻译当前页"
     },
     {
+      "name": "reader_comic_translation_show_original",
+      "value": "显示原图"
+    },
+    {
+      "name": "reader_comic_translation_show_result",
+      "value": "显示译图"
+    },
+    {
+      "name": "reader_comic_translation_result_visible",
+      "value": "已显示译图"
+    },
+    {
       "name": "reader_comic_translation_title",
       "value": "第 %d 页翻译"
     },
@@ -5131,6 +5143,10 @@
     {
       "name": "reader_comic_translation_provider_unavailable",
       "value": "请先在设置中配置漫画翻译提供方和模型"
+    },
+    {
+      "name": "reader_comic_translation_rendering_service_unavailable",
+      "value": "请先在漫画翻译设置中配置制图服务"
     },
     {
       "name": "reader_comic_translation_cached",

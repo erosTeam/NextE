@@ -338,6 +338,20 @@ export default function comicVisualTranslationOrchestratorTest(): void {
         done()
       })
 
+    it('does not reuse previous-page context across a region configuration revision', 0,
+      async (done: Function) => {
+        const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        const translator: FixtureTextTranslator = new FixtureTextTranslator()
+        const orchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(backend, translator)
+        await orchestrator.run(fixtureRequest(0, 'a'))
+        const changed: ComicVisualTranslationRequest = fixtureRequest(1, 'b')
+        changed.requestedRegionRevision = 2
+        await orchestrator.run(changed)
+        expect(translator.lastPreviousTranslation).assertEqual('')
+        done()
+      })
+
     it('retains the last successful rendered page when a forced rerender fails', 0,
       async (done: Function) => {
         const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
@@ -420,6 +434,8 @@ export default function comicVisualTranslationOrchestratorTest(): void {
           changed[0] = 2
           writeBytes(path, changed)
           expect(await restoredRepository.load(lookupKey)).assertEqual(null)
+          await restoredRepository.discardArtifact(page)
+          expect(fileIo.accessSync(path)).assertEqual(false)
         } finally {
           await first.clear()
           try {

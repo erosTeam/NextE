@@ -5101,6 +5101,18 @@
       "value": "現在のページを翻訳"
     },
     {
+      "name": "reader_comic_translation_show_original",
+      "value": "元のページを表示"
+    },
+    {
+      "name": "reader_comic_translation_show_result",
+      "value": "翻訳済みページを表示"
+    },
+    {
+      "name": "reader_comic_translation_result_visible",
+      "value": "翻訳済みページを表示しました"
+    },
+    {
       "name": "reader_comic_translation_title",
       "value": "%d ページの翻訳"
     },
@@ -5131,6 +5143,10 @@
     {
       "name": "reader_comic_translation_provider_unavailable",
       "value": "先に設定で漫画翻訳プロバイダーとモデルを構成してください"
+    },
+    {
+      "name": "reader_comic_translation_rendering_service_unavailable",
+      "value": "先に漫画翻訳設定で画像処理サービスを構成してください"
     },
     {
       "name": "reader_comic_translation_cached",

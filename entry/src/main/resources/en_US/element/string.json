@@ -5101,6 +5101,18 @@
       "value": "Translate current page"
     },
     {
+      "name": "reader_comic_translation_show_original",
+      "value": "Show original page"
+    },
+    {
+      "name": "reader_comic_translation_show_result",
+      "value": "Show translated page"
+    },
+    {
+      "name": "reader_comic_translation_result_visible",
+      "value": "Translated page is now displayed"
+    },
+    {
       "name": "reader_comic_translation_title",
       "value": "Page %d translation"
     },
@@ -5131,6 +5143,10 @@
     {
       "name": "reader_comic_translation_provider_unavailable",
       "value": "Configure a comic translation provider and model in Settings first"
+    },
+    {
+      "name": "reader_comic_translation_rendering_service_unavailable",
+      "value": "Configure the manga rendering service in Settings first"
     },
     {
       "name": "reader_comic_translation_cached",

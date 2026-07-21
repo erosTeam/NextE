@@ -104,26 +104,26 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 - [x] 将现有 orchestrator 收窄为分析/翻译检查点，再组合 region -> translation -> render stages；
 - [x] 建立有界衍生页缓存；进程重启可命中，清理不会被旧飞行请求回填；
-- [ ] 失败保留原图和最后成功衍生页，过期结果只写回创建它的 page identity；
+- [x] 失败保留原图和最后成功衍生页，过期结果只写回创建它的 page identity；
 - [x] 任何 analysis-only 文档都不能返回 Reader-ready 状态。
 - [ ] 分阶段 sidecar 与整图出图 backend 汇合到同一 `ComicRenderedPage` 发布边界，Reader 不感知路线差异；
 
 ### E. Reader 替换
 
-- [ ] 保留现有显式动作、本地文件输入和 route/page/file/UI epoch fences；
-- [ ] 删除 `ComicTranslationSheet` 作为主结果，生成中/失败/待复核改为页面状态；
-- [ ] Reader 在同一页原图与衍生页间切换，衍生页走现有图片加载、缩放、平移和切页路径；
+- [x] 保留现有显式动作、本地文件输入和 route/page/file/UI epoch fences；
+- [x] 删除 `ComicTranslationSheet` 作为主结果，生成中/失败/待复核改为页面状态；
+- [x] Reader 在同一页原图与衍生页间切换，衍生页走现有图片加载、缩放、平移和切页路径；
 - [ ] 原文/译文检查仅作为翻译页的次级入口，未实现时可以暂不提供，不能阻塞视觉结果；
 - [ ] 快速切页、单双页、长图、失败重试、返回缓存均不串页、不重复调用 provider。
 
 ### F. 验收与关闭
 
-- [ ] fake backend、fixture、parser、identity、cache、failure 和 security tests 通过；
-- [ ] signed app、`entry@ohosTest`、持久化/secret/backup/i18n/V2 门禁通过；
+- [x] fake backend、fixture、parser、identity、cache、failure 和 security tests 通过；
+- [x] signed app、`entry@ohosTest`、持久化/secret/backup/i18n/V2 门禁通过；
 - [ ] 在用户指定设备上用合法样页完成一次受控 sidecar + 已选 provider 真实链路；
 - [ ] 提供同页原图与视觉译制页截图，证明原文不与译文竞争；
 - [ ] 证明缩放/平移/切页正常，返回同页命中衍生页缓存且不调用 sidecar/provider；
-- [ ] 失败时原图保持可读，不出现文字列表替代品。
+- [x] 失败时原图保持可读，不出现文字列表替代品。
 
 只有 F 全部满足才允许称为“漫画翻译视觉 Reader V1 完成”。A–D 单独完成只能称为基础设施阶段。
 
@@ -167,3 +167,12 @@ provider、sidecar 和 render profile 的严格 lookup key 持久化，启动后
 signed app、`entry@ohosTest`、V2 门禁和 `git diff --check` 通过；设备 `237` 完整 Hypium 为 220/220，
 其中本阶段新增编排测试 6/6 通过。Reader 原图回退/发布 fence 与整图 backend 路由仍属于 D/E 的剩余项，
 因此此时仍只是视觉基础设施，不是可验收的 Reader 翻译结果。
+
+2026-07-21：Reader 分阶段路线已接入生产运行时。显式“翻译当前页”会使用已选共享 LLM 源与制图服务，
+只读取当前页已验证的本地原图；成功结果以 `file://` 衍生图片重新进入现有单双页/连续阅读图片路径，菜单可在
+原图与译图之间切换。旧文字结果 sheet 已从主结果路径移除，route/page/file/UI epoch fence 会拒绝快速切页后
+的迟到发布。制图服务未配置的设备验收中，Reader 保持原图且只在顶栏下方显示非交互失败状态，没有文字列表
+替代品；提示会明确指向制图服务而不是误报模型。最终 signed app 与 `entry@ohosTest` 构建、资源 JSON、V2
+门禁和 `git diff --check` 通过，设备 `237` 完整 Hypium 为 221/221。该设备当前未配置可达的
+`manga-translator-ui` sidecar，因此真实出图、原/译图对照、缩放切页与重启缓存证据仍未满足 F，不能称为 V1
+完成。

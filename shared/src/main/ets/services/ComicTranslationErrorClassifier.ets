@@ -56,6 +56,9 @@ export class ComicTranslationErrorClassifier {
       message.includes('socket') || message.includes('connection') || message.includes('certificate')) {
       return 'provider_transport_failed'
     }
+    if (message.includes('manga rendering service')) {
+      return 'rendering_service_configuration'
+    }
     if (message.includes('credential') || message.includes('api key') ||
       message.includes('model') || message.includes('base url') || message.includes('oauth')) {
       return 'provider_configuration'

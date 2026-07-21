@@ -38,6 +38,8 @@ export interface ComicRenderedPageRepository {
 
   save(lookupKey: string, page: ComicRenderedPage): Promise<void>
 
+  discardArtifact(page: ComicRenderedPage): Promise<void>
+
   stat(): Promise<CacheStat>
 
   clear(): Promise<void>
@@ -92,6 +94,9 @@ export class InMemoryComicRenderedPageRepository implements ComicRenderedPageRep
       }
       this.records.delete(oldest)
     }
+  }
+
+  async discardArtifact(_page: ComicRenderedPage): Promise<void> {
   }
 
   async stat(): Promise<CacheStat> {
@@ -210,6 +215,20 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
       }
       this.writeRecord(this.metadataPath(lookupKey), lookupKey, queuedPage)
       this.prune(this.metadataPath(lookupKey))
+    })
+  }
+
+  async discardArtifact(page: ComicRenderedPage): Promise<void> {
+    ComicVisualTranslationContract.validateRenderedPage(page.identity, page)
+    const path: string = page.localFilePath
+    await this.enqueueMutation(async (): Promise<void> => {
+      const records: ComicRenderedPageDiskRecord[] = this.diskRecords(false)
+      for (let index: number = 0; index < records.length; index++) {
+        if (records[index].page.localFilePath === path) {
+          return
+        }
+      }
+      this.removeSafeArtifact(path)
     })
   }
 
