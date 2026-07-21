@@ -2,9 +2,9 @@
   "provenance": "Protocol-derived synthetic fixture for NextE. No third-party manga page, OCR output, or character is included.",
   "upstreamTag": "v1.9.9",
   "upstreamCommit": "696dc63bd0b4803f96cc3d4f844322cef4910f8e",
-  "profileId": "manga-translator-ui-v1.9.9-nexte-load-text-v1-recall-v1",
+  "profileId": "manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2",
   "exportEndpoint": "/translate/export/original",
-  "importEndpoint": "/translate/import/json/nexte-load-text-v1",
+  "importEndpoint": "/translate/import/json/nexte-load-text-v2",
   "zipEntries": ["translation.json", "original.txt"],
   "projectId": "fixture-manga-translator-ui:zh-CN",
   "pageIndex": 3,
@@ -12,7 +12,7 @@
   "imageWidth": 1024,
   "imageHeight": 1536,
   "targetLanguage": "zh-CN",
-  "originalText": "テストです\n次へ行こう\n",
+  "originalText": "テストです\n次へ行こう\nI\n",
   "exportZipBase64": "UEsDBBQAAAAIADhl9VynH8U+kAEAAGYDAAAQAAAAdHJhbnNsYXRpb24uanNvbqWRv07DMBDG38WzVSVpWkpWFsSAkBirynLTS2rqOpXtUETVIVSqGNiYGDux8ADwPJEQj8G5TaukiAWUWPnuu9yf/LIgFqYzJqY8BRItiIZUZMqQqL8gUihwqt/vedQPvAHtt726CraqtxODAcVed9ZVkHK1Lh8+ytVjWbyWxQupciT6kcGE5spIbnEu5tHgKpW4jEdJkinLjLjHKOhhmLI4k5l2IzyKF7Yd1ryg06HVwcxIaIirrmPXVopUTUG5LWJ8gHbDuU7BMokz0T47v0bPZLmOYe9dXF2i51gwM+OxcKaP3SHhucTtrM4mwOZiZMe4cyvAQaOb3Fi234xEVudAyUxnQ/fG6cmS1uGGHY92tyS7DdXbqrBSDbyfb5uyeP/aPJXFc1msa3iPM7/jDRt4214Tb4A/1d3HhEOkuztHhG+PCEtI7N/5tv5H2F/idpkWqVBc7it9Lwhr7hhEOsZN/U67S0k+MzGXwLQDRSKVS3kw9T7eDkNcB2PKzQRL5o1YGKYhwe8ZkSjh0sBy+Q1QSwMEFAAAAAgAOGX1XHLwzK8lAAAAIAAAAAwAAABvcmlnaW5hbC50eHQBIADf/+ODhuOCueODiOOBp+OBmQrmrKHjgbjooYzjgZPjgYYKUEsBAhQDFAAAAAgAOGX1XKcfxT6QAQAAZgMAABAAAAAAAAAAAAAAAIABAAAAAHRyYW5zbGF0aW9uLmpzb25QSwECFAMUAAAACAA4ZfVccvDMryUAAAAgAAAADAAAAAAAAAAAAAAAgAG+AQAAb3JpZ2luYWwudHh0UEsFBgAAAAACAAIAeAAAAA0CAAAAAA==",
   "translationJson": {
     "temp_image": {
@@ -52,6 +52,24 @@
           "default_stroke_width": 0.2,
           "adjust_bg_color": true,
           "prob": 0.91
+        },
+        {
+          "lines": [[[380, 900], [410, 900], [410, 922], [380, 922]]],
+          "texts": ["I"],
+          "text": "I",
+          "translation": "",
+          "angle": 0,
+          "font_size": 10,
+          "fg_colors": [0, 0, 0],
+          "bg_colors": [255, 255, 255],
+          "direction": "h",
+          "alignment": "center",
+          "target_lang": "CHS",
+          "source_lang": "ENG",
+          "line_spacing": 1,
+          "default_stroke_width": 0.2,
+          "adjust_bg_color": true,
+          "prob": 0.31
         }
       ],
       "original_width": 1024,
@@ -59,8 +77,8 @@
       "upscale_ratio": null,
       "upscaler": null,
       "colorizer": null,
-      "mask_raw": null,
-      "mask_is_refined": false
+      "mask_raw": "synthetic-mask-that-must-be-discarded",
+      "mask_is_refined": true
     }
   },
   "translations": [

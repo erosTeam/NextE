@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly upstream_commit='696dc63bd0b4803f96cc3d4f844322cef4910f8e'
 readonly upstream_source="${1:-https://github.com/hgmzhn/manga-translator-ui.git}"
-readonly image_tag="${2:-nexte/manga-translator-ui:v1.9.9-nexte1}"
+readonly image_tag="${2:-nexte/manga-translator-ui:v1.9.9-nexte2}"
 readonly base_image="${3:-nexte/manga-translator-ui:v1.9.9}"
 readonly repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly patch_path="${repository_root}/sidecar/manga-translator-ui-v1.9.9/0001-fix-load-text-workflow.patch"

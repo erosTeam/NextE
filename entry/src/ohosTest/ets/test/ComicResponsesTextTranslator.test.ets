@@ -283,6 +283,7 @@ export default function comicResponsesTextTranslatorTest(): void {
         expect(prompt.includes('OCR text is evidence rather than ground truth')).assertEqual(true)
         expect(prompt.includes('do not copy an OCR mistake into the translation')).assertEqual(true)
         expect(prompt.includes('labeled enlarged region crops')).assertEqual(true)
+        expect(prompt.includes('Never invent parenthetical narration')).assertEqual(true)
         expect(prompt.includes('"polygon":[[10,10],[200,10]')).assertEqual(true)
         expect(prompt.includes('Every supplied blockId must appear exactly once')).assertEqual(true)
         done()

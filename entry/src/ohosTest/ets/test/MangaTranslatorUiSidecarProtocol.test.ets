@@ -32,6 +32,8 @@ class RawSidecarPage {
   regions: RawSidecarRegion[] = []
   original_width: number = 0
   original_height: number = 0
+  mask_raw: string | null = null
+  mask_is_refined: boolean = false
 }
 
 class RawSidecarEnvelope {
@@ -144,6 +146,14 @@ export default function mangaTranslatorUiSidecarProtocolTest(): void {
         expect(analysis.document.blocks[0].polygon.length).assertEqual(4)
         expect(analysis.document.blocks[1].blockId).assertEqual('p3-r1')
         expect(analysis.adapterTemplate.profileId).assertEqual(MANGA_TRANSLATOR_UI_PROFILE_ID)
+        const decoder = util.TextDecoder.create('utf-8', { ignoreBOM: true })
+        const filtered: RawSidecarEnvelope = JSON.parse(
+          decoder.decodeToString(analysis.adapterTemplate.payload),
+        ) as RawSidecarEnvelope
+        expect(raw.translationJson.temp_image.regions.length).assertEqual(3)
+        expect(filtered.temp_image.regions.length).assertEqual(2)
+        expect(filtered.temp_image.mask_raw === null).assertEqual(true)
+        expect(filtered.temp_image.mask_is_refined).assertEqual(false)
         done()
       })
 

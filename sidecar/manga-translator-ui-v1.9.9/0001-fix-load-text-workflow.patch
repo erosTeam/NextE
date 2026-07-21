@@ -37,9 +37,25 @@ index 1ec313e..1d38449 100644
 +                    _run_translate_sync, pil_image, config, None, None, workflow_params
 +                )
 diff --git a/manga_translator/server/routes/translation.py b/manga_translator/server/routes/translation.py
-index dee7a83..27499d1 100644
+index dee7a83..5a432f1 100644
 --- a/manga_translator/server/routes/translation.py
 +++ b/manga_translator/server/routes/translation.py
-@@ -995,1 +995,2 @@
+@@ -995,1 +995,3 @@
  @router.post("/import/json", response_class=StreamingResponse, tags=["api", "import"])
 +@router.post("/import/json/nexte-load-text-v1", response_class=StreamingResponse, tags=["api", "import"])
++@router.post("/import/json/nexte-load-text-v2", response_class=StreamingResponse, tags=["api", "import"])
+@@ -1039,1 +1041,4 @@
+         ctx = await get_ctx(req, conf, temp_image, "load_text")
++        translation_error = getattr(ctx, "translation_error", None)
++        if translation_error:
++            raise RuntimeError(f"load_text failed: {translation_error}")
+diff --git a/manga_translator/manga_translator.py b/manga_translator/manga_translator.py
+index 9630e75..664b51f 100644
+--- a/manga_translator/manga_translator.py
++++ b/manga_translator/manga_translator.py
+@@ -2787,1 +2787,4 @@
+-                                    polygons = [p.reshape((-1, 1, 2)) for r in ctx.text_regions for p in r.lines]
++                                    polygons = [
++                                        p.astype(np.int32).reshape((-1, 1, 2))
++                                        for r in ctx.text_regions for p in r.lines
++                                    ]

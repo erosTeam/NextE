@@ -651,10 +651,28 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     operation: string,
   ): void {
     if (response.statusCode < 200 || response.statusCode > 299) {
-      throw new Error(`Manga translator UI ${operation} failed with HTTP ${response.statusCode}`)
+      const detail: string = MangaTranslatorUiSidecarBackend.boundedErrorDetail(response.body)
+      const suffix: string = detail.length > 0 ? `: ${detail}` : ''
+      throw new Error(
+        `Manga translator UI ${operation} failed with HTTP ${response.statusCode}${suffix}`,
+      )
     }
     if (response.body.length <= 0 || response.body.length > maxBytes) {
       throw new Error(`Manga translator UI ${operation} response size is invalid`)
+    }
+  }
+
+  private static boundedErrorDetail(body: Uint8Array): string {
+    if (body.length <= 0) {
+      return ''
+    }
+    try {
+      const bounded: Uint8Array = body.slice(0, Math.min(body.length, 1024))
+      const decoded: string = util.TextDecoder.create('utf-8', { ignoreBOM: true })
+        .decodeToString(bounded)
+      return decoded.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 512)
+    } catch (_error) {
+      return ''
     }
   }
 

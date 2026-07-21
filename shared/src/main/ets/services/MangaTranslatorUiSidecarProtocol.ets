@@ -19,14 +19,14 @@ import { ComicVisualTranslationContract } from './ComicVisualTranslationContract
 
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
 export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
-  'manga-translator-ui-v1.9.9-nexte-load-text-v1-recall-v1'
-export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 3
+  'manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2'
+export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 4
 export const MANGA_TRANSLATOR_UI_UPSTREAM_TAG: string = 'v1.9.9'
 export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
   '696dc63bd0b4803f96cc3d4f844322cef4910f8e'
 export const MANGA_TRANSLATOR_UI_EXPORT_PATH: string = '/translate/export/original'
 export const MANGA_TRANSLATOR_UI_IMPORT_PATH: string =
-  '/translate/import/json/nexte-load-text-v1'
+  '/translate/import/json/nexte-load-text-v2'
 export const MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH: string = '/auth/login'
 export const MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH: string = '/auth/check'
 export const MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY: string = 'translation.json'
@@ -54,6 +54,8 @@ const MAX_REGIONS: number = 512
 const MAX_LINES_PER_REGION: number = 64
 const MAX_SOURCE_TEXT_CHARS: number = 8192
 const COORDINATE_TOLERANCE: number = 1
+const LOW_SIGNAL_ASCII_CONFIDENCE_CEILING: number = 0.5
+const LOW_SIGNAL_ASCII_MAX_AREA_RATIO: number = 0.0005
 
 class RawMangaTranslatorUiRegion {
   lines: number[][][] = []
@@ -78,6 +80,8 @@ class RawMangaTranslatorUiPage {
   regions: RawMangaTranslatorUiRegion[] = []
   original_width: number = 0
   original_height: number = 0
+  mask_raw: string | null = null
+  mask_is_refined: boolean = false
 }
 
 class RawMangaTranslatorUiEnvelope {
@@ -105,6 +109,12 @@ export class MangaTranslatorUiSidecarProtocol {
     const page: RawMangaTranslatorUiPage =
       MangaTranslatorUiSidecarProtocol.requirePage(envelope, request)
     MangaTranslatorUiSidecarProtocol.validateOriginalText(originalText, page.regions.length)
+    const filteredLowSignalRegions: boolean =
+      MangaTranslatorUiSidecarProtocol.filterLowSignalRegions(
+        page,
+        request.source.imageWidth,
+        request.source.imageHeight,
+      )
 
     const document: ComicPageDocument = new ComicPageDocument()
     document.projectId = request.source.projectId
@@ -133,12 +143,18 @@ export class MangaTranslatorUiSidecarProtocol {
     }
 
     const template: ComicBackendTemplate = new ComicBackendTemplate()
+    const templatePayload: Uint8Array = filteredLowSignalRegions
+      ? new util.TextEncoder().encodeInto(JSON.stringify(envelope))
+      : new Uint8Array(translationJson)
+    if (templatePayload.length <= 0 || templatePayload.length > MAX_EXPORT_JSON_BYTES) {
+      throw new Error('Manga translator UI filtered template size is invalid')
+    }
     template.backendId = MANGA_TRANSLATOR_UI_BACKEND_ID
     template.profileId = MANGA_TRANSLATOR_UI_PROFILE_ID
     template.protocolRevision = MANGA_TRANSLATOR_UI_PROTOCOL_REVISION
-    template.contentHash = MangaTranslatorUiSidecarProtocol.sha256(translationJson)
+    template.contentHash = MangaTranslatorUiSidecarProtocol.sha256(templatePayload)
     template.mimeType = MANGA_TRANSLATOR_UI_TEMPLATE_MIME
-    template.payload = new Uint8Array(translationJson)
+    template.payload = templatePayload
 
     const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
     result.backendId = MANGA_TRANSLATOR_UI_BACKEND_ID
@@ -281,6 +297,62 @@ export class MangaTranslatorUiSidecarProtocol {
       block.polygon.push(polygon[index])
     }
     return block
+  }
+
+  /**
+   * High-recall detection can emit tiny low-confidence Latin strokes such as a panel line read as
+   * "I". Drop only that narrow, deterministic noise class before the LLM sees it. Clearing the
+   * exported mask makes load_text rebuild masking from the retained regions, so a rejected region
+   * remains pixel-identical instead of being inpainted without replacement text.
+   */
+  private static filterLowSignalRegions(
+    page: RawMangaTranslatorUiPage,
+    width: number,
+    height: number,
+  ): boolean {
+    const retained: RawMangaTranslatorUiRegion[] = []
+    let filtered: boolean = false
+    for (let index: number = 0; index < page.regions.length; index++) {
+      const region: RawMangaTranslatorUiRegion = page.regions[index]
+      MangaTranslatorUiSidecarProtocol.validatePinnedRegion(region)
+      if (MangaTranslatorUiSidecarProtocol.isLowSignalAsciiRegion(region, width, height)) {
+        filtered = true
+      } else {
+        retained.push(region)
+      }
+    }
+    if (filtered) {
+      page.regions = retained
+      page.mask_raw = null
+      page.mask_is_refined = false
+    }
+    return filtered
+  }
+
+  private static isLowSignalAsciiRegion(
+    region: RawMangaTranslatorUiRegion,
+    width: number,
+    height: number,
+  ): boolean {
+    if (!/^[A-Za-z]$/.test(region.text.trim()) ||
+      region.prob >= LOW_SIGNAL_ASCII_CONFIDENCE_CEILING) {
+      return false
+    }
+    let minX: number = Number.POSITIVE_INFINITY
+    let minY: number = Number.POSITIVE_INFINITY
+    let maxX: number = Number.NEGATIVE_INFINITY
+    let maxY: number = Number.NEGATIVE_INFINITY
+    for (let lineIndex: number = 0; lineIndex < region.lines.length; lineIndex++) {
+      const line: number[][] = region.lines[lineIndex]
+      for (let pointIndex: number = 0; pointIndex < line.length; pointIndex++) {
+        minX = Math.min(minX, line[pointIndex][0])
+        minY = Math.min(minY, line[pointIndex][1])
+        maxX = Math.max(maxX, line[pointIndex][0])
+        maxY = Math.max(maxY, line[pointIndex][1])
+      }
+    }
+    const areaRatio: number = ((maxX - minX) * (maxY - minY)) / (width * height)
+    return areaRatio <= LOW_SIGNAL_ASCII_MAX_AREA_RATIO
   }
 
   private static validatePinnedRegion(region: RawMangaTranslatorUiRegion): void {
