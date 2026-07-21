@@ -54,6 +54,7 @@ import comicTranslationOrchestratorTest from './ComicTranslationOrchestrator.tes
 import comicTranslationPersistentRepositoryTest from './ComicTranslationPersistentRepository.test'
 import comicVisualTranslationContractTest from './ComicVisualTranslationContract.test'
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
+import llmSourceMigrationTest from './LlmSourceMigration.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -112,4 +113,5 @@ export default function testsuite(): void {
   comicTranslationPersistentRepositoryTest()
   comicVisualTranslationContractTest()
   llmSourceProfileRepositoryTest()
+  llmSourceMigrationTest()
 }

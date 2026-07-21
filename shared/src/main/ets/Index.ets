@@ -532,6 +532,15 @@ export {
 } from './services/LlmSourceProfileContract'
 export { LlmSourceSecretStore } from './services/LlmSourceSecretStore'
 export {
+  LLM_SOURCE_MIGRATION_VERSION,
+  LegacyCommentLlmSettings,
+  LegacyMangaLlmSettings,
+  LlmSourceMigrationInput,
+  LlmSourceMigrationPlan,
+  LlmSourceMigrationPlanner,
+  LlmSourceMigrationService,
+} from './services/LlmSourceMigrationService'
+export {
   CODEX_OAUTH_TOKEN_STORE_MAX_CHARS,
   CodexOAuthTokenCodec,
 } from './services/CodexOAuthTokenCodec'

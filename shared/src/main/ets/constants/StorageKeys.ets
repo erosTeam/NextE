@@ -118,6 +118,7 @@ export class StorageKeys {
   static readonly LLM_SOURCE_CODEX_OAUTH_TOKENS: string = 'llmSources.codexOAuthTokens'
   static readonly LLM_SOURCE_MODEL_CATALOG_CACHE: string = 'llmSources.modelCatalogCache'
   static readonly LLM_SOURCE_USAGE_CACHE: string = 'llmSources.usageCache'
+  static readonly LLM_SOURCE_MIGRATION_VERSION: string = 'llmSources.migrationVersion'
   static readonly SYNC_WEBDAV_URL: string = 'sync.webdav.url'
   static readonly SYNC_WEBDAV_USERNAME: string = 'sync.webdav.username'
   static readonly SYNC_WEBDAV_ENABLED: string = 'sync.webdav.enabled'

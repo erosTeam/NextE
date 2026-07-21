@@ -22,6 +22,54 @@ type SecretStringMap = Record<string, string>
 
 /** Device persistence for source-scoped credentials. No method logs secret values. */
 export class LlmSourceSecretStore {
+  static decodeApiKeyMap(rawText: string): SecretStringMap {
+    return LlmSourceSecretStore.decodeStringMap(
+      rawText,
+      MAX_LLM_API_KEY_MAP_CHARS,
+      MAX_LLM_API_KEY_CHARS,
+    )
+  }
+
+  static encodeApiKeyMap(values: SecretStringMap): string {
+    return LlmSourceSecretStore.encodeStringMap(
+      values,
+      MAX_LLM_API_KEY_MAP_CHARS,
+      MAX_LLM_API_KEY_CHARS,
+    )
+  }
+
+  static decodeCodexTokenMap(rawText: string): SecretStringMap {
+    return LlmSourceSecretStore.decodeStringMap(
+      rawText,
+      MAX_LLM_CODEX_TOKEN_MAP_CHARS,
+      CODEX_OAUTH_TOKEN_STORE_MAX_CHARS,
+    )
+  }
+
+  static encodeCodexTokenMap(values: SecretStringMap): string {
+    return LlmSourceSecretStore.encodeStringMap(
+      values,
+      MAX_LLM_CODEX_TOKEN_MAP_CHARS,
+      CODEX_OAUTH_TOKEN_STORE_MAX_CHARS,
+    )
+  }
+
+  static decodeCacheMap(rawText: string): SecretStringMap {
+    return LlmSourceSecretStore.decodeStringMap(
+      rawText,
+      MAX_LLM_CACHE_MAP_CHARS,
+      MAX_LLM_CACHE_MAP_CHARS,
+    )
+  }
+
+  static encodeCacheMap(values: SecretStringMap): string {
+    return LlmSourceSecretStore.encodeStringMap(
+      values,
+      MAX_LLM_CACHE_MAP_CHARS,
+      MAX_LLM_CACHE_MAP_CHARS,
+    )
+  }
+
   static async readApiKey(
     context: common.UIAbilityContext,
     sourceProfileId: string,

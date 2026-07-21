@@ -34,6 +34,7 @@ import { TagTranslationSettings } from './TagTranslationSettings'
 import { CommentTranslationSettings } from './CommentTranslationSettings'
 import { ComicTranslationProviderSettings } from './ComicTranslationProviderSettings'
 import { LlmSourceProfileRepository } from './LlmSourceProfileRepository'
+import { LlmSourceMigrationService } from '../services/LlmSourceMigrationService'
 import { LocalBlockSettings } from './LocalBlockSettings'
 import { DiagnosticsSettings } from './DiagnosticsSettings'
 import { SyncSettings } from './SyncSettings'
@@ -113,6 +114,7 @@ export class SettingsBootstrap {
       await TagTranslationSettings.restore(context)
       await CommentTranslationSettings.restore(context)
       await ComicTranslationProviderSettings.restore(context)
+      await LlmSourceMigrationService.migrateIfNeeded(context)
       await LlmSourceProfileRepository.restore(context)
       await LocalBlockSettings.restore(context)
       await SyncSettings.restore(context)

@@ -127,6 +127,7 @@ Allowed `Sync` values:
 | StorageKeys.LLM_SOURCE_CODEX_OAUTH_TOKENS | device-credential | excluded | excluded | Source-scoped rotating Codex OAuth credentials; never copied between devices |
 | StorageKeys.LLM_SOURCE_MODEL_CATALOG_CACHE | volatile-cache | excluded | excluded | Regenerable source/account-scoped model catalog snapshots |
 | StorageKeys.LLM_SOURCE_USAGE_CACHE | volatile-cache | excluded | excluded | Regenerable source/account-scoped quota snapshots |
+| StorageKeys.LLM_SOURCE_MIGRATION_VERSION | setting | plaintext | excluded | Idempotent legacy comment/manga provider migration marker |
 | StorageKeys.SYNC_WEBDAV_URL | credential-group | encrypted-only | excluded | WebDAV endpoint; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_USERNAME | credential-group | encrypted-only | excluded | WebDAV username; restored atomically with the credential group |
 | StorageKeys.SYNC_WEBDAV_ENABLED | credential-group | encrypted-only | excluded | WebDAV provider switch; restored atomically with the credential group |
