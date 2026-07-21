@@ -54,6 +54,7 @@ import comicResponsesTextTranslatorTest from './ComicResponsesTextTranslator.tes
 import comicTranslationOrchestratorTest from './ComicTranslationOrchestrator.test'
 import comicTranslationPersistentRepositoryTest from './ComicTranslationPersistentRepository.test'
 import comicVisualTranslationContractTest from './ComicVisualTranslationContract.test'
+import comicVisualTranslationOrchestratorTest from './ComicVisualTranslationOrchestrator.test'
 import mangaTranslatorUiSidecarProtocolTest from './MangaTranslatorUiSidecarProtocol.test'
 import mangaTranslatorUiSidecarBackendTest from './MangaTranslatorUiSidecarBackend.test'
 import mangaTranslatorUiSidecarConnectionTest from './MangaTranslatorUiSidecarConnection.test'
@@ -118,6 +119,7 @@ export default function testsuite(): void {
   comicTranslationOrchestratorTest()
   comicTranslationPersistentRepositoryTest()
   comicVisualTranslationContractTest()
+  comicVisualTranslationOrchestratorTest()
   mangaTranslatorUiSidecarProtocolTest()
   mangaTranslatorUiSidecarBackendTest()
   mangaTranslatorUiSidecarConnectionTest()

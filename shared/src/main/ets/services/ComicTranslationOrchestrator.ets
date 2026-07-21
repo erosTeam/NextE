@@ -1,15 +1,12 @@
 import { ComicPageDocument } from '../model/ComicTranslation'
 import {
-  ComicPageAnalysisContext,
   ComicPageAnalysisRequest,
   ComicPageAnalysisResult,
   ComicPageAnalyzer,
-  ComicPreviousPageContext,
 } from './ComicPageAnalyzer'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 import { ComicTranslationConsistencyService } from './ComicTranslationConsistencyService'
-import { ComicTranslationMemoryService } from './ComicTranslationMemoryService'
-import { ComicTranslationReviewService } from './ComicTranslationReviewService'
+import { ComicTranslationContextService } from './ComicTranslationContextService'
 import {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,
@@ -55,18 +52,11 @@ export class ComicTranslationOrchestrator {
       baseIdentity,
       MAX_COMIC_CONSISTENCY_PREVIOUS_PAGES,
     )
-    ComicTranslationOrchestrator.mergePreviousContext(
+    request.context = ComicTranslationContextService.prepare(
       request.context,
-      ComicTranslationOrchestrator.recentDocuments(
-        previous,
-        MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
-      ),
-      request.pageIndex,
-    )
-    ComicTranslationOrchestrator.fillRollingSummary(request.context, request.pageIndex)
-    request.context.translationMemory = ComicTranslationMemoryService.merge(
-      request.context.translationMemory,
       previous,
+      request.pageIndex,
+      MAX_COMIC_PREVIOUS_PAGE_CONTEXT,
     )
     const identity: ComicTranslationRequestIdentity =
       ComicTranslationRequestIdentity.from(request, this.analyzer)
@@ -132,28 +122,6 @@ export class ComicTranslationOrchestrator {
     )
   }
 
-  private static recentDocuments(
-    documents: ComicPageDocument[],
-    limit: number,
-  ): ComicPageDocument[] {
-    const reversed: ComicPageDocument[] = []
-    const boundedLimit: number = Math.max(0, limit)
-    for (let index: number = documents.length - 1;
-      index >= 0 && reversed.length < boundedLimit; index--) {
-      if (ComicTranslationReviewService.documentHasPageLevelReviewSignal(
-        documents[index],
-      )) {
-        continue
-      }
-      reversed.push(documents[index])
-    }
-    const selected: ComicPageDocument[] = []
-    for (let index: number = reversed.length - 1; index >= 0; index--) {
-      selected.push(reversed[index])
-    }
-    return selected
-  }
-
   private static copyRequest(source: ComicPageAnalysisRequest): ComicPageAnalysisRequest {
     const request: ComicPageAnalysisRequest = new ComicPageAnalysisRequest()
     request.projectId = source.projectId
@@ -167,72 +135,6 @@ export class ComicTranslationOrchestrator {
     request.imagePreparationProfile = source.imagePreparationProfile.copy()
     request.context = source.context.copy()
     return request
-  }
-
-  private static mergePreviousContext(
-    context: ComicPageAnalysisContext,
-    documents: ComicPageDocument[],
-    currentPageIndex: number,
-  ): void {
-    const combined: ComicPreviousPageContext[] = []
-    for (let documentIndex: number = 0; documentIndex < documents.length; documentIndex++) {
-      combined.push(ComicTranslationOrchestrator.previousContext(documents[documentIndex]))
-    }
-    for (let contextIndex: number = 0; contextIndex < context.previousPages.length; contextIndex++) {
-      combined.push(context.previousPages[contextIndex].copy())
-    }
-    context.previousPages = ComicPreviousPageContextPolicy.normalize(
-      combined,
-      currentPageIndex,
-    )
-  }
-
-  private static previousContext(document: ComicPageDocument): ComicPreviousPageContext {
-    const previous: ComicPreviousPageContext = new ComicPreviousPageContext()
-    previous.pageIndex = document.pageIndex
-    const source: string[] = []
-    const translated: string[] = []
-    for (let index: number = 0; index < document.blocks.length; index++) {
-      if (ComicTranslationReviewService.blockNeedsReview(
-        document,
-        document.blocks[index].blockId,
-      )) {
-        continue
-      }
-      const sourceText: string = document.blocks[index].sourceText.trim()
-      const translatedText: string = document.blocks[index].translatedText.trim()
-      if (sourceText.length > 0) {
-        source.push(sourceText)
-      }
-      if (translatedText.length > 0) {
-        translated.push(translatedText)
-      }
-    }
-    previous.sourceText = source.join('\n')
-    previous.translatedText = translated.join('\n')
-    previous.pageSummary = document.pageSummary
-    return previous
-  }
-
-  private static fillRollingSummary(
-    context: ComicPageAnalysisContext,
-    currentPageIndex: number,
-  ): void {
-    if (context.rollingSummary.trim().length > 0) {
-      return
-    }
-    let latestPageIndex: number = -1
-    let latestSummary: string = ''
-    for (let index: number = 0; index < context.previousPages.length; index++) {
-      const page: ComicPreviousPageContext = context.previousPages[index]
-      const summary: string = page.pageSummary.trim()
-      if (page.pageIndex >= 0 && page.pageIndex < currentPageIndex &&
-        page.pageIndex > latestPageIndex && summary.length > 0) {
-        latestPageIndex = page.pageIndex
-        latestSummary = summary
-      }
-    }
-    context.rollingSummary = latestSummary
   }
 
   private static result(

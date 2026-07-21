@@ -102,10 +102,10 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 ### D. 视觉编排与缓存
 
-- [ ] 将现有 orchestrator 收窄为分析/翻译检查点，再组合 region -> translation -> render stages；
-- [ ] 建立有界衍生页缓存；进程重启可命中，清理不会被旧飞行请求回填；
+- [x] 将现有 orchestrator 收窄为分析/翻译检查点，再组合 region -> translation -> render stages；
+- [x] 建立有界衍生页缓存；进程重启可命中，清理不会被旧飞行请求回填；
 - [ ] 失败保留原图和最后成功衍生页，过期结果只写回创建它的 page identity；
-- [ ] 任何 analysis-only 文档都不能返回 Reader-ready 状态。
+- [x] 任何 analysis-only 文档都不能返回 Reader-ready 状态。
 - [ ] 分阶段 sidecar 与整图出图 backend 汇合到同一 `ComicRenderedPage` 发布边界，Reader 不感知路线差异；
 
 ### E. Reader 替换
@@ -157,3 +157,13 @@ blockId、未知 blockId、空译文和 project/page/image/language 身份漂移
 `entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过；设备 `237` 完整 Hypium 为 214/214，其中新增
 多模态逐块翻译器协议 3/3 通过。阶段 D 的视觉编排与持久衍生页缓存仍未完成，因此当前 Reader 仍不能
 把本阶段单独当作完整漫画翻译结果。
+
+2026-07-21：阶段 D 的分阶段路线基础设施已闭环。`ComicVisualTranslationOrchestrator` 只发布经过
+完整 identity 校验的 `ComicRenderedPage`，按 region -> context-aware translation -> render 顺序执行；
+analysis document 与 translation batch 不再具有 Reader-ready 出口。Translator 返回的 source/model/prompt/
+context/glossary identity 必须与当前请求逐项一致，错误批次在 render 前失败。衍生页仓库以原图、上下文、
+provider、sidecar 和 render profile 的严格 lookup key 持久化，启动后复核文件大小和 SHA-256；最多保留
+64 页/512 MiB，cache clear epoch 阻止旧飞行请求重新写入可命中索引。失败重渲染不会覆盖最后成功页。
+signed app、`entry@ohosTest`、V2 门禁和 `git diff --check` 通过；设备 `237` 完整 Hypium 为 220/220，
+其中本阶段新增编排测试 6/6 通过。Reader 原图回退/发布 fence 与整图 backend 路由仍属于 D/E 的剩余项，
+因此此时仍只是视觉基础设施，不是可验收的 Reader 翻译结果。

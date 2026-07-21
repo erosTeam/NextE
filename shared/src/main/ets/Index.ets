@@ -276,6 +276,7 @@ export {
   ComicTranslationConsistencyService,
 } from './services/ComicTranslationConsistencyService'
 export { ComicTranslationMemoryService } from './services/ComicTranslationMemoryService'
+export { ComicTranslationContextService } from './services/ComicTranslationContextService'
 export { ComicTranslationReviewService } from './services/ComicTranslationReviewService'
 export { ComicTranslationErrorClassifier } from './services/ComicTranslationErrorClassifier'
 export {
@@ -294,6 +295,17 @@ export {
   ComicWholePageRenderRequest,
 } from './services/ComicVisualTranslationBackend'
 export { ComicVisualTranslationContract } from './services/ComicVisualTranslationContract'
+export {
+  ComicRenderedPageRepository,
+  ComicRenderedPageRepositoryContract,
+  InMemoryComicRenderedPageRepository,
+  PersistentComicRenderedPageRepository,
+} from './services/ComicRenderedPageRepository'
+export {
+  ComicVisualTranslationOrchestrator,
+  ComicVisualTranslationRequest,
+  ComicVisualTranslationRunResult,
+} from './services/ComicVisualTranslationOrchestrator'
 export {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY,
