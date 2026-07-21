@@ -2,7 +2,7 @@
 
 - **性质**：外部方案与可行性参考，不是 NextE 实现规范或任务授权
 - **首次整理**：2026-07-20
-- **最近复核**：2026-07-21
+- **最近复核**：2026-07-22
 - **对应设计**：[NextE 漫画翻译设计与演进指南](../manga-translation-design.md)
 
 ## 调研问题
@@ -74,6 +74,37 @@
 这些项目主要是桌面或服务端技术栈，不能视为可直接嵌入 ArkTS 的移动端 SDK。GPL 项目可以用于理解
 行为、数据形态和交互，但将其实现代码纳入 NextE 前必须单独评估许可证边界。Apache 项目也仍需
 逐项核对依赖和模型权重条款。
+
+## 可直接接入的托管图片翻译 API（2026-07-22）
+
+下面只记录具有公开开发者文档和认证端点的服务。只有网页上传界面、浏览器扩展或营销页但没有公开 API
+契约的产品不算可接入候选。当前结论来自官方文档静态复核，尚未用 NextE 样页、真实密钥或付费额度验证
+质量、延迟、可用性和账单。
+
+| 服务 | 公开能力 | 与 NextE 的匹配 | 当前判定 |
+|---|---|---|---|
+| [Torii Image Translator API](https://toriitranslate.com/api) | `POST /api/v2/upload` 一次返回最终译图、消字图、逐块原文/译文/坐标/方向/颜色/字体和更新后的跨页 `context`；另有独立 OCR、inpaint、typeset 和 credits API。支持自带 OpenAI/OpenRouter/Google/Anthropic/DeepSeek/xAI 或自托管兼容密钥。 | 最接近漫画专用完整后端；可先作为 `ComicWholePageRenderBackend`，以后也能评估分阶段接入。`context` 最多 10,000 字符，可承接前页摘要和术语。 | **首个云端候选**，但需真实样页 A/B、重试扣费和隐私验收；其[隐私政策](https://toriitranslate.com/privacy)说明部分图片可能临时进入私有存储做诊断/质量控制，提取文本会转发给所选模型。 |
+| [ImageTranslate.ai API](https://imagetranslate.ai/docs/api) | `POST /translate/image` 接收最大 20 MB base64 图片，提供 `manga` 模式、1000 字符 custom prompt、幂等键和 base64 PNG 结果；API 只对 Professional/Enterprise 开放，每次 10 advanced credits。 | 接口最短，适合 opaque whole-page render；只返回最终图片，无法逐块复核或只改一个人名。 | **协议可接但暂不推荐**：其[隐私政策](https://imagetranslate.ai/legal/privacy-policy)写明默认数据可无限期保留，实施前必须取得更明确的数据删除/保留承诺。 |
+| [PixLab IMG-TRANSLATE](https://pixlab.io/endpoints/image-text-translate) | `POST /imgtranslate` 上传图片并完成检测、翻译、inpaint 和回填，支持日/中/韩等语言和字体/颜色/字号提示，可返回 base64 或原始图片。 | 通用图片翻译而非漫画专用；没有公开的跨页 context、逐块结果或幂等语义，但 whole-page adapter 很简单。 | **第二验证候选**：其[隐私政策](https://pixlab.io/privacy-policy)说明 API 图片默认内存处理并在完成后清除，且不用于训练，仍需实测竖排、拟声词和长图。 |
+| [ImgText API](https://imgtext.io/api-docs) | 返回最终译图、消字图和 region breakdown，支持异步批量与 webhook。 | 数据形态很好，但当前 API 文档的 supported languages 只列出十种欧洲语言，与产品页声称的日/中/韩等 27 种语言不一致。 | **等待厂商确认**，不作为日文漫画候选。 |
+
+[MangaTranslate](https://www.mangatranslate.com/) 和 [MangaTrans](https://www.mangatrans.org/) 提供网页端漫画
+OCR/翻译/回填或 overlay，但本次没有找到可公开复现的 API reference、认证和响应契约，因此不能当作
+NextE provider。`manga-translator-ui` 则是已经验证的自托管 API，不属于第三方托管服务。
+
+### 托管 API 的边界
+
+托管服务不等同于“一个通用 LLM 直接修改图片”。Torii、PixLab 等仍在云端组合 detector、OCR、翻译、
+inpaint 和 renderer，只是把整条流水线封装成 API。对 NextE 来说它们有两种接法：
+
+1. **整图后端**：上传原图、目标语言、术语/上下文，直接保存返回图片；客户端简单，但厂商独占 OCR、
+   翻译和排版，局部修订通常整页重跑。
+2. **分阶段云端后端**：使用公开 OCR/inpaint/typeset 结构，NextE 继续用共享 LLM 源翻译；可控性更强，
+   但多次 API 调用、坐标协议和费用更复杂。Torii 当前最接近这一能力，PixLab 当前更适合整图模式。
+
+任何真实接入都必须先固定 provider profile，并验证：源图/结果大小和 MIME、请求超时、取消与幂等扣费、
+服务端缓存/删除、第三方模型转发、长图限制、逐页上下文、非文字区域保真以及失败时原图回退。网页宣传的
+准确率和延迟不能替代两页原创 fixture 与真实 Reader 链路证据。
 
 ### 可复用的服务端阶段边界
 

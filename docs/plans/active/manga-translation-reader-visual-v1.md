@@ -138,6 +138,14 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 - [x] 任何 analysis-only 文档都不能返回 Reader-ready 状态。
 - [ ] 分阶段 sidecar 与整图出图 backend 汇合到同一 `ComicRenderedPage` 发布边界，Reader 不感知路线差异；
 
+### D2. 可选托管整图后端
+
+- [x] 静态复核具有公开 API 契约的托管候选；Torii 为首个漫画专用验证候选，PixLab 为通用图片翻译备选；
+- [ ] 在用户明确选择服务、提供测试密钥并接受费用/图片上传边界后，用两页原创 fixture 做同译文 A/B；
+- [ ] 固定 provider profile、认证、请求/响应上限、超时、幂等扣费和数据删除语义；营销页不得成为契约；
+- [ ] 通过 `ComicWholePageRenderBackend` 发布并复用现有 artifact 校验、缓存、原图回退和 Reader fence；
+- [ ] 若评估分阶段云端 OCR/inpaint/typeset，继续由共享 LLM 源翻译，不复制第二套用户模型设置。
+
 ### E. Reader 替换
 
 - [x] 保留现有显式动作、本地文件输入和 route/page/file/UI epoch fences；
