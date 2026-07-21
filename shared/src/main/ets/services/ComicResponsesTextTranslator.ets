@@ -14,16 +14,21 @@ import {
   ComicProviderHttpError,
   ComicResponsesCallConfig,
   ComicResponsesHttpTransport,
+  ComicResponsesLabeledImage,
   ComicResponsesProviderCore,
   DefaultComicResponsesHttpTransport,
 } from './ComicResponsesPageAnalyzer'
 import { ComicResponsesImagePayload } from './ComicResponsesImagePayload'
+import {
+  ComicResponsesRegionImage,
+  ComicResponsesRegionImagePayload,
+} from './ComicResponsesRegionImagePayload'
 import { ComicResponsesTextTranslationProtocol } from './ComicResponsesTextTranslationProtocol'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 export const COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION: string =
-  'comic-text-responses-v1'
+  'comic-text-responses-v3'
 
 class ComicResponsesTextTranslatorCore {
   private readonly providerCore: ComicResponsesProviderCore
@@ -38,14 +43,28 @@ class ComicResponsesTextTranslatorCore {
     sourceRevision: number,
   ): Promise<ComicTextTranslationResult> {
     const prompt: string = ComicResponsesTextTranslationProtocol.buildPrompt(request)
+    ComicResponsesImagePayload.dataUrl(
+      request.source.imageFilePath,
+      request.source.imageHash,
+    )
+    const crops: ComicResponsesRegionImage[] =
+      await ComicResponsesRegionImagePayload.build(request)
     const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
       request.source.imageFilePath,
       request.source.imageHash,
     )
+    const additionalImages: ComicResponsesLabeledImage[] = []
+    for (let index: number = 0; index < crops.length; index++) {
+      const input: ComicResponsesLabeledImage = new ComicResponsesLabeledImage()
+      input.label = 'Region crop blockId=' + crops[index].blockId
+      input.imageDataUrl = crops[index].dataUrl
+      additionalImages.push(input)
+    }
     const providerJson: string = await this.providerCore.requestJson(
       prompt,
       imageDataUrl,
       config,
+      additionalImages,
     )
     try {
       return ComicResponsesTextTranslationProtocol.parse(

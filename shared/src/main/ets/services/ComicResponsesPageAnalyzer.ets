@@ -44,6 +44,11 @@ class ResponsesInputMessage {
   content: ResponsesInputContent[] = []
 }
 
+export class ComicResponsesLabeledImage {
+  label: string = ''
+  imageDataUrl: string = ''
+}
+
 class PublicResponsesRequestBody {
   model: string = ''
   input: ResponsesInputMessage[] = []
@@ -74,6 +79,7 @@ export class ComicResponsesRequestBuilder {
     imageDataUrl: string,
     eventStream: boolean,
     codexCompatibility: boolean,
+    additionalImages: ComicResponsesLabeledImage[] = [],
   ): string {
     const message: ResponsesInputMessage = new ResponsesInputMessage()
     const promptItem: ResponsesInputText = {
@@ -86,6 +92,19 @@ export class ComicResponsesRequestBuilder {
       detail: 'high',
     }
     message.content = [promptItem, imageItem]
+    for (let index: number = 0; index < additionalImages.length; index++) {
+      const additional: ComicResponsesLabeledImage = additionalImages[index]
+      if (additional.label.trim().length <= 0 ||
+        !additional.imageDataUrl.startsWith('data:image/')) {
+        throw new Error('Comic provider labeled image is invalid')
+      }
+      message.content.push({ type: 'input_text', text: additional.label })
+      message.content.push({
+        type: 'input_image',
+        image_url: additional.imageDataUrl,
+        detail: 'high',
+      })
+    }
     if (codexCompatibility) {
       const body: CodexResponsesRequestBody = new CodexResponsesRequestBody()
       body.model = model
@@ -251,6 +270,7 @@ export class ComicResponsesProviderCore {
     prompt: string,
     imageDataUrl: string,
     config: ComicResponsesCallConfig,
+    additionalImages: ComicResponsesLabeledImage[] = [],
   ): Promise<string> {
     if (config.accessToken.length === 0) {
       throw new Error('Comic translation provider credential is missing')
@@ -264,6 +284,7 @@ export class ComicResponsesProviderCore {
       imageDataUrl,
       config.eventStream,
       config.codexCompatibility,
+      additionalImages,
     )
     let response: AxiosTextResponse
     try {

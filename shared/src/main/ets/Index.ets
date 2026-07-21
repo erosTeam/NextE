@@ -240,6 +240,7 @@ export {
   ComicProviderHttpError,
   ComicProviderStageError,
   ComicResponsesCallConfig,
+  ComicResponsesLabeledImage,
   ComicResponsesRequestBuilder,
   ComicResponsesHttpTransport,
   ComicResponsesProviderCore,
@@ -248,6 +249,10 @@ export {
   OpenAiApiComicPageAnalyzer,
 } from './services/ComicResponsesPageAnalyzer'
 export { ComicResponsesImagePayload } from './services/ComicResponsesImagePayload'
+export {
+  ComicResponsesRegionImage,
+  ComicResponsesRegionImagePayload,
+} from './services/ComicResponsesRegionImagePayload'
 export {
   ComicResponsesTextTranslationProtocol,
 } from './services/ComicResponsesTextTranslationProtocol'

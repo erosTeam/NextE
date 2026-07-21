@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit'
+import { application, common } from '@kit.AbilityKit'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
@@ -135,8 +135,8 @@ function translationRequest(imageFilePath: string, imageHash: string): ComicText
   source.pageIndex = 2
   source.imageFilePath = imageFilePath
   source.imageHash = imageHash
-  source.imageWidth = 1200
-  source.imageHeight = 1800
+  source.imageWidth = 1024
+  source.imageHeight = 1536
   request.source = source
 
   const document: ComicPageDocument = new ComicPageDocument()
@@ -208,10 +208,10 @@ export default function comicResponsesTextTranslatorTest(): void {
       async (done: Function) => {
         const context: common.UIAbilityContext = await appContext()
         const path: string = `${context.cacheDir}/comic-text-translator-fixture.jpg`
-        const bytes: Uint8Array = new Uint8Array([
-          0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
-          0x49, 0x46, 0x00, 0x01, 0x02, 0x03, 0xff, 0xd9,
-        ])
+        const fixtureContext = await application.createModuleContext(context, 'entry_test')
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          'comic_translation_eval_page_01.png',
+        )
         const request: ComicTextTranslationRequest = translationRequest(path, sha256(bytes))
         const transport: FixedTranslationTransport =
           new FixedTranslationTransport(outputPayload(request))
@@ -228,6 +228,9 @@ export default function comicResponsesTextTranslatorTest(): void {
           const result = await translator.translate(request)
           expect(transport.requestCount).assertEqual(1)
           expect(transport.requestBody.includes('"type":"input_image"')).assertEqual(true)
+          expect(transport.requestBody.includes('data:image/png;base64,')).assertEqual(true)
+          expect(transport.requestBody.split('"type":"input_image"').length - 1).assertEqual(3)
+          expect(transport.requestBody.includes('Region crop blockId=p2-r0')).assertEqual(true)
           expect(transport.requestBody.includes('data:image/jpeg;base64,')).assertEqual(true)
           expect(transport.requestBody.includes('お兄ちゃん')).assertEqual(true)
           expect(transport.requestBody.includes('我在找哥哥。')).assertEqual(true)
@@ -277,6 +280,10 @@ export default function comicResponsesTextTranslatorTest(): void {
           firstFingerprint).assertEqual(false)
         const prompt: string = ComicResponsesTextTranslationProtocol.buildPrompt(first)
         expect(prompt.includes('attached full page image')).assertEqual(true)
+        expect(prompt.includes('OCR text is evidence rather than ground truth')).assertEqual(true)
+        expect(prompt.includes('do not copy an OCR mistake into the translation')).assertEqual(true)
+        expect(prompt.includes('labeled enlarged region crops')).assertEqual(true)
+        expect(prompt.includes('"polygon":[[10,10],[200,10]')).assertEqual(true)
         expect(prompt.includes('Every supplied blockId must appear exactly once')).assertEqual(true)
         done()
       })
