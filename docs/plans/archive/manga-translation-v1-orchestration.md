@@ -1,11 +1,16 @@
-# Manga Translation V1 Orchestration And Reader Entry
+# Historical Manga Translation Orchestration And Reader Text Entry
 
-- **status**: completed
+- **status**: superseded as a product milestone; retained only as historical implementation evidence
 - **created**: 2026-07-21
 - **last reviewed**: 2026-07-21
 - **source**: continue the user-authorized manga-translation implementation after Phase 0 closure
 
-## Goal
+> This implementation was technically validated under an incorrect product scope. Its Reader text sheet is not an
+> accepted manga-translation V1 and this file cannot authorize restoring or extending that primary UI. Provider,
+> orchestration, cache and page-ownership evidence may be reused only after audit under the
+> [Manga Translation Product Reset](../completed/manga-translation-product-reset.md).
+
+## Historical Goal
 
 Build the first V1 runtime path from a provider-neutral page request to an explicitly requested Reader result. Keep
 provider calls out of image loading and prefetch, preserve page ownership across navigation, and make the service layer
@@ -83,8 +88,8 @@ Reader closure evidence on 2026-07-21:
 - screenshots/layout dumps remain local under `.hvigor/outputs/manga-reader-translation/` and are excluded from Git
   because they contain private gallery imagery/text.
 
-## Completion
+## Historical Closure
 
-Completed: repository/orchestrator contracts and the Reader explicit current-page path are implemented and independently
-validated with static, full-device-test, real-provider, cache-hit, and page-ownership evidence. Durable generated-cache
-recovery and user-owned editing remain separate follow-up plans.
+The repository/orchestrator contracts and Reader text-entry path were implemented and independently validated with
+static, full-device-test, real-provider, cache-hit, and page-ownership evidence. This closure proves infrastructure
+behavior only. It does not prove or complete a visual translated comic page, and it is superseded as a product milestone.

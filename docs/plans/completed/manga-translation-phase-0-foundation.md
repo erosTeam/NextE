@@ -5,6 +5,10 @@
 - **last reviewed**: 2026-07-21
 - **source**: user requested starting the documented manga-translation work
 
+> Historical infrastructure record only. This phase proved provider and document plumbing; it never defined or
+> completed the user-visible manga-translation product. Current product authority is the
+> [Manga Translation Product Reset](manga-translation-product-reset.md).
+
 ## Goal And Non-Goals
 
 - Goal: establish a provider-neutral structured comic-page foundation and prove that public Responses API and an
@@ -17,7 +21,8 @@
 
 - Reference workflow: [Manga Translation Workflows](../../research/manga-translation-workflows.md).
 - Primary information: original text, reading order, optional translation and quality signals belong to a versioned
-  page document; geometry is an optional capability.
+  page document. Geometry was optional for this analysis-only foundation, but is required or must be supplemented before
+  a document can produce the current Reader visual result.
 - Primary action: validate a provider-neutral structured result against project/page/image identity and revisions.
 - Current closure: production ArkTS models, parsers, both provider adapters and provider settings compile; a reviewed
   two-page original fixture now proves file identity, structural parsing and deterministic transcript/order/name-term
@@ -100,14 +105,14 @@
 - The UI and redacted diagnostics both kept the remaining SFX mismatch in review. The 7D remaining display moved from
   95% before the live diagnostic series to 94% afterward; the provider returned no 5H window.
 
-## Follow-up Outside Phase 0
+## Historical Follow-up Outside Phase 0
 
 - Expand the current reviewed two-page original fixture beyond its vertical text, furigana, small text, SFX, complex
   background and multi-page name-consistency baseline to include color pages and denser multi-speaker layouts.
 - Decide whether the production path may call a direct API or must use a NextE-compatible gateway, and migrate OAuth
   secrets to HUKS/system credential storage before considering the experimental path production-ready.
-- Build the repository/orchestrator and Reader explicit-trigger path under a separate V1 plan. Public API and a
-  detection/OCR route still need their own real-provider evaluations before broad quality comparisons.
+- The repository/orchestrator and Reader text-entry path were subsequently built, but the current product reset no longer
+  treats that path as V1. Detection/OCR, rendering and visual Reader acceptance now follow the active reset plan.
 
 ## Completion
 

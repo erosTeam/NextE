@@ -8,11 +8,13 @@ The old milestone snapshot is archived at
 
 ## Current Maintained Sources
 
-- [Manga Translation Design](manga-translation-design.md) — provider-neutral page documents, gallery context,
-  progressive multimodal/OCR integration and staged acceptance; Phase 0 is closed with a real two-page Codex fixture
-  run and explicit review boundary. The V1 repository/orchestrator, explicit Reader current-page path, bounded durable
-  generated cache, and actionable cross-page consistency review are implemented and real-provider validated; manual
-  revisions and user-owned glossary workflow remain open.
+- [Manga Translation Design](manga-translation-design.md) — product definition reset is active. The non-negotiable
+  current target is lightweight Reader translation whose result is a visual translated comic page, not a text panel.
+  A later production/edit/export workflow may share the document and renderer but has separate scope and acceptance.
+  Existing provider-neutral documents, provider adapters, context, cache and consistency code are infrastructure
+  candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
+  [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); current execution is
+  [Manga Translation Visual Reader V1](plans/active/manga-translation-reader-visual-v1.md).
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.

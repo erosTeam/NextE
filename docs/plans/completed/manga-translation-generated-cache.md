@@ -3,7 +3,7 @@
 - **status**: completed
 - **created**: 2026-07-21
 - **last reviewed**: 2026-07-21
-- **source**: continue the user-authorized manga-translation implementation after the Reader V1 entry closed
+- **source**: historical generated-document cache slice built after the superseded Reader text entry
 
 ## Goal
 
@@ -12,8 +12,9 @@ The cache must remain bounded, identity-safe, provider-neutral, and optional to 
 
 ## Product And Data Boundary
 
-- The reference behavior is the existing explicit Reader `翻译当前页` path: the user action remains the only provider
-  trigger, and a durable hit is presented through the same result sheet as a process-local hit.
+- The historical reference behavior was the explicit Reader `翻译当前页` path: the user action remained the only provider
+  trigger, and a durable hit was presented through the then-current text sheet. The cache evidence remains useful, but
+  the sheet is superseded and does not define the current visual result.
 - The primary information is the normalized `ComicPageDocument` associated with the existing exact request identity.
 - This phase owns only **regenerable generated cache**. It stores no provider raw response, image bytes/path, prompt,
   credential, API token, manually edited text, locked glossary term, or user note.
