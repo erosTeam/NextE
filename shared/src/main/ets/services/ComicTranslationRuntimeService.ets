@@ -91,6 +91,7 @@ export class ComicTranslationRuntimeService {
     config.username = credential.username
     config.password = credential.password
     config.sessionToken = credential.legacySessionToken
+    config.applySourceLanguage(input.sourceLanguage)
     config.validatedBaseUrl()
     const backend: MangaTranslatorUiSidecarBackend =
       new MangaTranslatorUiSidecarBackend(context, config)

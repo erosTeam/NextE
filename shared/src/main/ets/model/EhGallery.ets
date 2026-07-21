@@ -140,6 +140,31 @@ export class EhGallery {
       : ''
   }
 
+  /** Prefer the explicit language tag because the detail information row can describe the source work. */
+  contentLanguage(): string {
+    for (let i: number = 0; i < this.tagGroups.length; i++) {
+      const group: TagGroup = this.tagGroups[i]
+      if (group.namespace.trim().toLowerCase() !== 'language') {
+        continue
+      }
+      for (let j: number = 0; j < group.tags.length; j++) {
+        const value: string = group.tags[j].text.trim()
+        if (value.length > 0 && value.toLowerCase() !== 'translated') {
+          return value
+        }
+      }
+    }
+    for (let i: number = 0; i < this.simpleTags.length; i++) {
+      const tag: SimpleTag = this.simpleTags[i]
+      const value: string = tag.text.trim()
+      if (tag.namespace.trim().toLowerCase() === 'language' && value.length > 0 &&
+        value.toLowerCase() !== 'translated') {
+        return value
+      }
+    }
+    return this.language.trim()
+  }
+
   /** LazyForEach identity must change when async tag translation fills display text. */
   renderKey(): string {
     if (this.renderKeyCache.length > 0) {

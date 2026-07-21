@@ -20,6 +20,8 @@ import { ComicVisualTranslationContract } from './ComicVisualTranslationContract
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
 export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
   'manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2-geometry-v2'
+export const MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID: string =
+  'manga-translator-ui-v1.9.9-nexte-load-text-v2-non-japanese-v1-geometry-v2'
 export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 5
 export const MANGA_TRANSLATOR_UI_UPSTREAM_TAG: string = 'v1.9.9'
 export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
@@ -44,6 +46,15 @@ export const MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON: string =
     '"use_yolo_obb":true,"yolo_obb_conf":0.4,"yolo_obb_iou":0.6,' +
     '"yolo_obb_overlap_threshold":0.1,"min_box_area_ratio":0},' +
     '"ocr":{"ocr":"48px","use_hybrid_ocr":true,"secondary_ocr":"mocr",' +
+    '"min_text_length":0,"ignore_bubble":0,"prob":0.1}}'
+export const MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON: string =
+  '{"translator":{"translator":"original","target_lang":"CHS"},' +
+    '"detector":{"detector":"default","detection_size":2048,"text_threshold":0.5,' +
+    '"det_rotate":false,"det_auto_rotate":false,"det_invert":false,' +
+    '"det_gamma_correct":false,"box_threshold":0.5,"unclip_ratio":2.5,' +
+    '"use_yolo_obb":true,"yolo_obb_conf":0.4,"yolo_obb_iou":0.6,' +
+    '"yolo_obb_overlap_threshold":0.1,"min_box_area_ratio":0},' +
+    '"ocr":{"ocr":"48px","use_hybrid_ocr":false,"secondary_ocr":"48px",' +
     '"min_text_length":0,"ignore_bubble":0,"prob":0.1}}'
 
 const MANGA_TRANSLATOR_UI_TEMPLATE_MIME: string =
@@ -100,8 +111,10 @@ export class MangaTranslatorUiSidecarProtocol {
     request: ComicRegionAnalysisRequest,
     translationJson: Uint8Array,
     originalText: Uint8Array,
+    profileId: string = MANGA_TRANSLATOR_UI_PROFILE_ID,
   ): ComicRegionAnalysisResult {
     ComicVisualTranslationContract.validateRegionAnalysisRequest(request)
+    MangaTranslatorUiSidecarProtocol.validateProfileId(profileId)
     MangaTranslatorUiSidecarProtocol.validateExportSizes(translationJson, originalText)
     const jsonText: string = MangaTranslatorUiSidecarProtocol.decode(translationJson)
     const envelope: RawMangaTranslatorUiEnvelope =
@@ -122,7 +135,7 @@ export class MangaTranslatorUiSidecarProtocol {
     document.imageHash = request.source.imageHash
     document.imageWidth = request.source.imageWidth
     document.imageHeight = request.source.imageHeight
-    document.imagePreparationProfile.profileId = MANGA_TRANSLATOR_UI_PROFILE_ID + ':source-original'
+    document.imagePreparationProfile.profileId = profileId + ':source-original'
     document.imagePreparationProfile.preparedWidth = request.source.imageWidth
     document.imagePreparationProfile.preparedHeight = request.source.imageHeight
     document.imagePreparationProfile.tileCount = 1
@@ -150,7 +163,7 @@ export class MangaTranslatorUiSidecarProtocol {
       throw new Error('Manga translator UI filtered template size is invalid')
     }
     template.backendId = MANGA_TRANSLATOR_UI_BACKEND_ID
-    template.profileId = MANGA_TRANSLATOR_UI_PROFILE_ID
+    template.profileId = profileId
     template.protocolRevision = MANGA_TRANSLATOR_UI_PROTOCOL_REVISION
     template.contentHash = MangaTranslatorUiSidecarProtocol.sha256(templatePayload)
     template.mimeType = MANGA_TRANSLATOR_UI_TEMPLATE_MIME
@@ -158,7 +171,7 @@ export class MangaTranslatorUiSidecarProtocol {
 
     const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
     result.backendId = MANGA_TRANSLATOR_UI_BACKEND_ID
-    result.profileId = MANGA_TRANSLATOR_UI_PROFILE_ID
+    result.profileId = profileId
     result.regionRevision = request.requestedRegionRevision
     result.document = document
     result.adapterTemplate = template
@@ -510,13 +523,24 @@ export class MangaTranslatorUiSidecarProtocol {
 
   private static validateTemplate(template: ComicBackendTemplate): void {
     if (template.backendId !== MANGA_TRANSLATOR_UI_BACKEND_ID ||
-      template.profileId !== MANGA_TRANSLATOR_UI_PROFILE_ID ||
+      !MangaTranslatorUiSidecarProtocol.isProfileId(template.profileId) ||
       template.protocolRevision !== MANGA_TRANSLATOR_UI_PROTOCOL_REVISION ||
       template.mimeType !== MANGA_TRANSLATOR_UI_TEMPLATE_MIME ||
       template.payload.length <= 0 || template.payload.length > MAX_EXPORT_JSON_BYTES ||
       template.contentHash !== MangaTranslatorUiSidecarProtocol.sha256(template.payload)) {
       throw new Error('Manga translator UI adapter template is invalid')
     }
+  }
+
+  private static validateProfileId(profileId: string): void {
+    if (!MangaTranslatorUiSidecarProtocol.isProfileId(profileId)) {
+      throw new Error('Manga translator UI profile identity is invalid')
+    }
+  }
+
+  private static isProfileId(profileId: string): boolean {
+    return profileId === MANGA_TRANSLATOR_UI_PROFILE_ID ||
+      profileId === MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID
   }
 
   private static blockId(pageIndex: number, regionIndex: number): string {

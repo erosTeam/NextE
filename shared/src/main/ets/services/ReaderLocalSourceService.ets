@@ -109,6 +109,7 @@ export class ReaderLocalSourceService {
       )
       if (prepared !== null) {
         prepared.initialChromeVisible = params.initialChromeVisible
+        prepared.sourceLanguage = params.sourceLanguage
         ReaderLocalSourceService.logSelection(prepared)
         return prepared
       }
@@ -135,6 +136,7 @@ export class ReaderLocalSourceService {
         )
         if (prepared !== null) {
           prepared.initialChromeVisible = params.initialChromeVisible
+          prepared.sourceLanguage = params.sourceLanguage
           ReaderLocalSourceService.logSelection(prepared)
           return prepared
         }

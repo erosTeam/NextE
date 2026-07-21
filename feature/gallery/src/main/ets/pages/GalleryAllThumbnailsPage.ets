@@ -131,20 +131,20 @@ export struct GalleryAllThumbnailsPage {
 
   private openReader(img: EhGalleryImage): void {
     const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
-    connectReaderOverlayNavigation().open(
-      new ReaderParams(
-        this.params.gid,
-        this.params.token,
-        pageZeroBased,
-        this.params.fileCount,
-        this.params.title,
-        this.vm.loadedImages(),
-        this.vm.loadedPreviewPages(),
-        this.vm.seedPerPage(),
-        this.vm.loadedPreviewPageNumbers(),
-        img.sUrl,
-      ),
+    const params: ReaderParams = new ReaderParams(
+      this.params.gid,
+      this.params.token,
+      pageZeroBased,
+      this.params.fileCount,
+      this.params.title,
+      this.vm.loadedImages(),
+      this.vm.loadedPreviewPages(),
+      this.vm.seedPerPage(),
+      this.vm.loadedPreviewPageNumbers(),
+      img.sUrl,
     )
+    params.sourceLanguage = this.params.sourceLanguage
+    connectReaderOverlayNavigation().open(params)
   }
 
   private previewTitleBar(): Record<string, Object> {

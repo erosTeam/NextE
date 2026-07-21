@@ -18,6 +18,8 @@ import {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
+  MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
   MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
   MangaTranslatorUiSidecarArchive,
@@ -287,6 +289,27 @@ function replaceAll(bytes: Uint8Array, original: string, replacement: string): U
 
 export default function mangaTranslatorUiSidecarBackendTest(): void {
   describe('Manga translator UI sidecar backend', () => {
+    it('uses MangaOCR fallback only for auto or explicit Japanese source text', 0, () => {
+      const automatic: MangaTranslatorUiSidecarConfig = config()
+      automatic.applySourceLanguage('auto')
+      expect(automatic.profileId()).assertEqual(MANGA_TRANSLATOR_UI_PROFILE_ID)
+      expect(automatic.translationConfigJson).assertEqual(MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON)
+
+      const japanese: MangaTranslatorUiSidecarConfig = config()
+      japanese.applySourceLanguage('Japanese')
+      expect(japanese.profileId()).assertEqual(MANGA_TRANSLATOR_UI_PROFILE_ID)
+
+      const ukrainian: MangaTranslatorUiSidecarConfig = config()
+      ukrainian.applySourceLanguage('Ukrainian')
+      expect(ukrainian.profileId()).assertEqual(MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID)
+      expect(ukrainian.translationConfigJson).assertEqual(
+        MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
+      )
+      expect(ukrainian.translationConfigJson.includes('"use_hybrid_ocr":false')).assertEqual(true)
+      expect(ukrainian.translationConfigJson.includes('mocr')).assertEqual(false)
+      expect(ukrainian.validatedBaseUrl()).assertEqual('http://127.0.0.1:5003')
+    })
+
     it('connects export and JSON import to one validated rendered page', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()

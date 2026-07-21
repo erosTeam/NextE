@@ -568,18 +568,21 @@ export struct GalleryDetailPage {
   }
 
   private openReader(index: number): void {
-    connectReaderOverlayNavigation().open(
-      new ReaderParams(
-        this.params.gid,
-        this.params.token,
-        index,
-        this.fileCountNum(),
-        this.navTitle(),
-        this.vm.images,
-        this.vm.images.length > 0 ? 1 : 0,
-        this.vm.images.length,
-      ),
+    const contentLanguage: string = this.vm.gallery.contentLanguage()
+    const params: ReaderParams = new ReaderParams(
+      this.params.gid,
+      this.params.token,
+      index,
+      this.fileCountNum(),
+      this.navTitle(),
+      this.vm.images,
+      this.vm.images.length > 0 ? 1 : 0,
+      this.vm.images.length,
     )
+    params.sourceLanguage = contentLanguage.length > 0
+      ? contentLanguage
+      : 'auto'
+    connectReaderOverlayNavigation().open(params)
   }
 
   private openFullPreviewReader(img: EhGalleryImage): void {
@@ -588,20 +591,23 @@ export struct GalleryDetailPage {
     }
     this.ensureFullPreviewSeeded()
     const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
-    connectReaderOverlayNavigation().open(
-      new ReaderParams(
-        this.params.gid,
-        this.params.token,
-        pageZeroBased,
-        this.fileCountNum(),
-        this.navTitle(),
-        this.fullPreviewVm.loadedImages(),
-        this.fullPreviewVm.loadedPreviewPages(),
-        this.fullPreviewVm.seedPerPage(),
-        this.fullPreviewVm.loadedPreviewPageNumbers(),
-        img.sUrl,
-      ),
+    const contentLanguage: string = this.vm.gallery.contentLanguage()
+    const params: ReaderParams = new ReaderParams(
+      this.params.gid,
+      this.params.token,
+      pageZeroBased,
+      this.fileCountNum(),
+      this.navTitle(),
+      this.fullPreviewVm.loadedImages(),
+      this.fullPreviewVm.loadedPreviewPages(),
+      this.fullPreviewVm.seedPerPage(),
+      this.fullPreviewVm.loadedPreviewPageNumbers(),
+      img.sUrl,
     )
+    params.sourceLanguage = contentLanguage.length > 0
+      ? contentLanguage
+      : 'auto'
+    connectReaderOverlayNavigation().open(params)
   }
 
   private readFabLabel(): ResourceStr {
@@ -1380,6 +1386,7 @@ export struct GalleryDetailPage {
       seedPreviewPages,
       seedPerPage,
       seedCurrentPreviewPage,
+      this.vm.gallery.contentLanguage(),
     )
   }
 

@@ -23,6 +23,8 @@ import {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
+  MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
   MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
@@ -73,6 +75,26 @@ export class MangaTranslatorUiSidecarConfig {
   translationConfigJson: string = MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
   connectTimeoutMs: number = 15000
   readTimeoutMs: number = 5 * 60 * 1000
+
+  applySourceLanguage(sourceLanguage: string): void {
+    const normalized: string = sourceLanguage.trim().toLowerCase()
+    if (normalized === 'auto' || normalized === 'ja' || normalized === 'jp' ||
+      normalized === 'jpn' || normalized === 'japanese') {
+      this.translationConfigJson = MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
+      return
+    }
+    this.translationConfigJson = MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON
+  }
+
+  profileId(): string {
+    if (this.translationConfigJson === MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON) {
+      return MANGA_TRANSLATOR_UI_PROFILE_ID
+    }
+    if (this.translationConfigJson === MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON) {
+      return MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID
+    }
+    throw new Error('Manga translator UI config must use a pinned visual-only profile')
+  }
 
   validatedBaseUrl(): string {
     const value: string = this.baseUrl.trim()
@@ -195,7 +217,8 @@ export class MangaTranslatorUiSidecarConfig {
   private static validateConfigJson(value: string): void {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(value)
     if (bytes.length <= 0 || bytes.length > MAX_CONFIG_JSON_BYTES ||
-      value !== MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON) {
+      (value !== MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON &&
+        value !== MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON)) {
       throw new Error('Manga translator UI config must use the pinned visual-only profile')
     }
     try {
@@ -286,7 +309,7 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
   }
 
   profileId(): string {
-    return MANGA_TRANSLATOR_UI_PROFILE_ID
+    return this.config.profileId()
   }
 
   protocolRevision(): number {
@@ -310,6 +333,7 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
       request,
       files.translationJson,
       files.originalText,
+      this.profileId(),
     )
   }
 

@@ -139,6 +139,7 @@ export class ReaderParams {
   seedImagePageUrl: string = '' // exact tapped /s/ image-page URL; resolved first for the initial page
   initialChromeVisible: boolean = false // hidden QA paths may start with chrome visible for stable automation
   source: ReaderSourceDescriptor = new ReaderSourceDescriptor()
+  sourceLanguage: string = 'auto' // gallery metadata hint for OCR/translation; 'auto' when unavailable
 
   constructor(
     gid: string = '',
@@ -225,6 +226,7 @@ export class AllThumbnailsParams {
   seedPreviewPages: number[] = []
   seedPerPage: number = 0
   seedCurrentPreviewPage: number = 0
+  sourceLanguage: string = 'auto'
 
   constructor(
     gid: string = '',
@@ -239,6 +241,7 @@ export class AllThumbnailsParams {
     seedPreviewPages: number[] = [],
     seedPerPage: number = 0,
     seedCurrentPreviewPage: number = 0,
+    sourceLanguage: string = 'auto',
   ) {
     this.gid = gid
     this.token = token
@@ -252,6 +255,7 @@ export class AllThumbnailsParams {
     this.seedPreviewPages = seedPreviewPages
     this.seedPerPage = seedPerPage
     this.seedCurrentPreviewPage = seedCurrentPreviewPage
+    this.sourceLanguage = sourceLanguage.trim().length > 0 ? sourceLanguage.trim() : 'auto'
   }
 }
 

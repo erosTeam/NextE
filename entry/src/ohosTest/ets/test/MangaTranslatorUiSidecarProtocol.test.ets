@@ -13,6 +13,7 @@ import {
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
   MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT,
   MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
@@ -121,11 +122,15 @@ function encode(value: string): Uint8Array {
   return new util.TextEncoder().encodeInto(value)
 }
 
-function parseFixture(raw: RawSidecarFixture): ComicRegionAnalysisResult {
+function parseFixture(
+  raw: RawSidecarFixture,
+  profileId: string = MANGA_TRANSLATOR_UI_PROFILE_ID,
+): ComicRegionAnalysisResult {
   return MangaTranslatorUiSidecarProtocol.parseExport(
     analysisRequest(raw),
     encode(JSON.stringify(raw.translationJson)),
     encode(raw.originalText),
+    profileId,
   )
 }
 
@@ -158,6 +163,29 @@ export default function mangaTranslatorUiSidecarProtocolTest(): void {
         expect(filtered.temp_image.regions.length).assertEqual(2)
         expect(filtered.temp_image.mask_raw === null).assertEqual(true)
         expect(filtered.temp_image.mask_is_refined).assertEqual(false)
+        done()
+      })
+
+    it('keeps a non-Japanese OCR profile in analysis and render template identity', 0,
+      async (done: Function) => {
+        const raw: RawSidecarFixture = await loadFixture()
+        const analysis: ComicRegionAnalysisResult = parseFixture(
+          raw,
+          MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
+        )
+        expect(analysis.profileId).assertEqual(MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID)
+        expect(analysis.adapterTemplate.profileId).assertEqual(
+          MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
+        )
+        expect(analysis.document.imagePreparationProfile.profileId).assertEqual(
+          MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID + ':source-original',
+        )
+        const output: Uint8Array = MangaTranslatorUiSidecarProtocol.buildImportJson(
+          analysis.document,
+          translationBatch(raw, analysis),
+          analysis.adapterTemplate,
+        )
+        expect(output.length > 0).assertEqual(true)
         done()
       })
 

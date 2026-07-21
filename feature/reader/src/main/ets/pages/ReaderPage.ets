@@ -1546,7 +1546,8 @@ export struct ReaderPage {
     input.imageFilePath = filePath
     input.imageWidth = width
     input.imageHeight = height
-    input.sourceLanguage = 'auto'
+    const sourceLanguage: string = this.params.sourceLanguage.trim()
+    input.sourceLanguage = sourceLanguage.length > 0 ? sourceLanguage : 'auto'
     input.targetLanguage = 'zh-CN'
 
     this.comicTranslationPageIndex = pageIndex

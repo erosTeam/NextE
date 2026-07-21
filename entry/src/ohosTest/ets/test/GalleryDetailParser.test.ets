@@ -1,7 +1,13 @@
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { application } from '@kit.AbilityKit'
 import { describe, expect, it } from '@ohos/hypium'
-import { EhGalleryDetailParser, EhGalleryImageParser } from 'shared'
+import {
+  EhGallery,
+  EhGalleryDetailParser,
+  EhGalleryImageParser,
+  SimpleTag,
+  TagGroup,
+} from 'shared'
 
 const FIXTURE_MODULE: string = 'entry_test'
 const FIXTURE_PATH: string = 'gallery_detail_standard.html'
@@ -47,6 +53,20 @@ export default function galleryDetailParserTest(): void {
       expect(images[0].sUrl.startsWith('https://e-hentai.org/s/0000000000/100001-')).assertEqual(true)
       expect(EhGalleryImageParser.parsePageCount(html) > 1).assertEqual(true)
       done()
+    })
+
+    it('prefers the explicit content-language tag over the source-work info row', 0, () => {
+      const gallery: EhGallery = new EhGallery()
+      gallery.language = 'Japanese'
+      gallery.tagGroups = [new TagGroup('language', [
+        new SimpleTag('translated'),
+        new SimpleTag('ukrainian'),
+      ])]
+      expect(gallery.contentLanguage()).assertEqual('ukrainian')
+
+      const fallback: EhGallery = new EhGallery()
+      fallback.language = 'Japanese'
+      expect(fallback.contentLanguage()).assertEqual('Japanese')
     })
   })
 }
