@@ -27,9 +27,11 @@ Reader 原图
   -> Reader：显示视觉译制页
 ```
 
-首个 sidecar profile 兼容 `manga-translator-ui` 的“导出原文”和“导入 JSON 并渲染”Web API，协议固定为
-`v1.9.9` / `696dc63bd0b4803f96cc3d4f844322cef4910f8e`。不能把未固定的 `main` 或 v2.x 当作同一
-profile：截至 2026-07-21 的静态复核中，其导出响应模型与 `TextBlock.to_dict()` 字段已经失配。
+首个 sidecar profile 以 `manga-translator-ui v1.9.9` / commit
+`696dc63bd0b4803f96cc3d4f844322cef4910f8e` 为上游基线，并要求 NextE 兼容补丁提供
+`/translate/import/json/nexte-load-text-v1`。vanilla v1.9.9 的 import 虽返回 200，却没有真正应用
+`load_text` 工作流参数；未暴露专用路由的服务不属于该 profile。不能把未固定的 `main` 或 v2.x 当作
+同一 profile：截至 2026-07-21 的静态复核中，其导出响应模型与 `TextBlock.to_dict()` 字段也已失配。
 NextE 只做窄协议互操作，不复制其 GPL 实现或模型权重。sidecar 是初始外部质量路线，不是永久绑定；
 未来本地检测/渲染或其他服务实现同一内部接口即可替换。
 
@@ -120,9 +122,9 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 - [x] fake backend、fixture、parser、identity、cache、failure 和 security tests 通过；
 - [x] signed app、`entry@ohosTest`、持久化/secret/backup/i18n/V2 门禁通过；
-- [ ] 在用户指定设备上用合法样页完成一次受控 sidecar + 已选 provider 真实链路；
-- [ ] 提供同页原图与视觉译制页截图，证明原文不与译文竞争；
-- [ ] 证明缩放/平移/切页正常，返回同页命中衍生页缓存且不调用 sidecar/provider；
+- [x] 在用户指定设备上用合法样页完成一次受控 sidecar + 已选 provider 真实链路；
+- [x] 提供同页原图与视觉译制页截图，证明原文不与译文竞争；
+- [x] 证明缩放/平移/切页正常，返回同页命中衍生页缓存且不调用 sidecar/provider；
 - [x] 失败时原图保持可读，不出现文字列表替代品。
 
 只有 F 全部满足才允许称为“漫画翻译视觉 Reader V1 完成”。A–D 单独完成只能称为基础设施阶段。
@@ -183,3 +185,25 @@ signed app、`entry@ohosTest`、V2 门禁和 `git diff --check` 通过；设备 
 fake transport 断言已统一到该固定协议，避免能力检查成功但首次上传必然 401。修正后资源 JSON、signed app、
 `entry@ohosTest`、V2 门禁和 `git diff --check` 通过，设备 `237` 完整 Hypium 为 221/221。真实样页出图与
 Reader 缓存交互证据仍按 F 继续执行。
+
+2026-07-21：真实 export 首次通过认证后暴露上游空配置会默认调用自身 OpenAI，空 key 导致 500；这与
+“sidecar 负责视觉、NextE 选中的共享 LLM 源负责翻译”的边界冲突。使用同一真实镜像直接验证
+`translator=original` 后，`/translate/export/original` 返回 200、OCR 区域和原文 ZIP，且不触发远端翻译。
+协议 revision 因此升为 2，并固定 visual-only config；fake transport 同时断言 multipart 包含 `original`
+且不包含 `openai`。后续真实链路不得向 sidecar 配置第二套 LLM。
+
+2026-07-21：真实链路继续暴露 vanilla v1.9.9 的 `/translate/import/json` 会返回 200，却忽略
+`prepare_translator_params()` 产生的 `load_text` 参数，随后再次检测/OCR并运行 sidecar translator；这正是
+“接口成功但译图仍是原文”的根因。协议 revision 升为 3，固定上游 commit 的独立 GPL sidecar 补丁增加
+`/translate/import/json/nexte-load-text-v1`，构建器会校验 commit、应用补丁并生成独立镜像；NextE 的
+OpenAPI 检查要求专用路由，vanilla 服务会在图片上传前被拒绝。
+
+同日设备 `237` 用合法日文画廊第 4 页完成真实验收。Reader 回调尺寸为 `2560x3634`，实际缓存源文件为
+`1280x1817`；运行时现以编码文件的真实尺寸建立视觉身份，避免 export 身份误判。sidecar export 得到五个
+区域，已选 Codex 源返回五个中文译文，专用 import 日志为 200 且没有第二次检测/OCR或 sidecar translator。
+同页原图与视觉译制页、双击缩放、拖动平移、切到下一页再返回均已实机检查。切页返回以及应用重启后的
+显式“翻译当前页”恢复得到同一 SHA-256
+`8ecebff860bb4852d45d94bbafc786af49420b523495479235501ce966cdbb66`，期间 sidecar 无 POST，持久缓存路径
+在 provider 调用前返回。F 的首条分阶段视觉 Reader 验收已满足；长图、双页和更广语料仍保留在 E 的后续
+覆盖项，不能从这一个样本推断字体排版质量已经完成。最终 signed app 与 `entry@ohosTest` 构建、资源
+JSON、sidecar builder 语法、V2 门禁和 `git diff --check` 通过；设备 `237` 完整 Hypium 为 221/221。

@@ -19,6 +19,7 @@ import {
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
+  MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
   MangaTranslatorUiSidecarArchive,
   MangaTranslatorUiSidecarBackend,
   MangaTranslatorUiSidecarConfig,
@@ -179,7 +180,6 @@ function config(baseUrl: string = 'http://127.0.0.1:5003'): MangaTranslatorUiSid
   const value: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
   value.baseUrl = baseUrl
   value.sessionToken = 'fixture-sidecar-session-token'
-  value.translationConfigJson = '{}'
   return value
 }
 
@@ -291,6 +291,11 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           )
           expect(containsText(transport.requests[0].body, 'name="image"')).assertEqual(true)
           expect(containsText(transport.requests[0].body, 'name="config"')).assertEqual(true)
+          expect(containsText(
+            transport.requests[0].body,
+            MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
+          )).assertEqual(true)
+          expect(containsText(transport.requests[0].body, 'openai')).assertEqual(false)
 
           const render: ComicRegionRenderRequest = renderRequest(raw, sourcePath, analysis)
           const page: ComicRenderedPage = await backend.render(render)
@@ -321,6 +326,17 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
           publicHttpRejected = true
         }
         expect(publicHttpRejected).assertEqual(true)
+
+        const sidecarLlmConfig: MangaTranslatorUiSidecarConfig = config()
+        sidecarLlmConfig.translationConfigJson =
+          '{"translator":{"translator":"openai","target_lang":"CHS"}}'
+        let sidecarLlmRejected: boolean = false
+        try {
+          sidecarLlmConfig.validatedBaseUrl()
+        } catch (_error) {
+          sidecarLlmRejected = true
+        }
+        expect(sidecarLlmRejected).assertEqual(true)
 
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const ability = await delegator.getCurrentTopAbility()

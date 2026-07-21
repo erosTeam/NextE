@@ -1,0 +1,45 @@
+diff --git a/manga_translator/server/request_extraction.py b/manga_translator/server/request_extraction.py
+index 1ec313e..1d38449 100644
+--- a/manga_translator/server/request_extraction.py
++++ b/manga_translator/server/request_extraction.py
+@@ -131,2 +131,3 @@
+-def _run_translate_sync(pil_image, config: Config, task_id: str = None, cancel_check_callback=None):
++def _run_translate_sync(pil_image, config: Config, task_id: str = None, cancel_check_callback=None,
++                        workflow_params: dict = None):
+     """
+@@ -152,1 +153,6 @@
+     translator = get_global_translator()
++    previous_workflow_params = {}
++    for key, value in (workflow_params or {}).items():
++        if hasattr(translator, key):
++            previous_workflow_params[key] = getattr(translator, key)
++            setattr(translator, key, value)
+@@ -164,3 +170,5 @@
+     finally:
+         try:
++            for key, value in previous_workflow_params.items():
++                setattr(translator, key, value)
+             # 清除取消回调，避免影响下一个任务
+@@ -323,2 +331,2 @@
+         # 准备工作流参数（这些会影响翻译行为，但不需要重建翻译器）
+-        prepare_translator_params(config, workflow)
++        workflow_params = prepare_translator_params(config, workflow)
+@@ -340,2 +348,4 @@
+                     from manga_translator.server.core.task_manager import run_in_translator_thread
+-                    ctx = await run_in_translator_thread(_run_translate_sync, pil_image, config)
++                    ctx = await run_in_translator_thread(
++                        _run_translate_sync, pil_image, config, None, None, workflow_params
++                    )
+@@ -344,2 +354,4 @@
+                 from manga_translator.server.core.task_manager import run_in_translator_thread
+-                ctx = await run_in_translator_thread(_run_translate_sync, pil_image, config)
++                ctx = await run_in_translator_thread(
++                    _run_translate_sync, pil_image, config, None, None, workflow_params
++                )
+diff --git a/manga_translator/server/routes/translation.py b/manga_translator/server/routes/translation.py
+index dee7a83..27499d1 100644
+--- a/manga_translator/server/routes/translation.py
++++ b/manga_translator/server/routes/translation.py
+@@ -995,1 +995,2 @@
+ @router.post("/import/json", response_class=StreamingResponse, tags=["api", "import"])
++@router.post("/import/json/nexte-load-text-v1", response_class=StreamingResponse, tags=["api", "import"])

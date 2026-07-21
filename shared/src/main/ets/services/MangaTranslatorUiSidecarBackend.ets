@@ -25,6 +25,7 @@ import {
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
+  MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
   MangaTranslatorUiSidecarProtocol,
 } from './MangaTranslatorUiSidecarProtocol'
 
@@ -60,7 +61,7 @@ class PngDimensions {
 export class MangaTranslatorUiSidecarConfig {
   baseUrl: string = ''
   sessionToken: string = ''
-  translationConfigJson: string = '{}'
+  translationConfigJson: string = MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
   connectTimeoutMs: number = 15000
   readTimeoutMs: number = 5 * 60 * 1000
 
@@ -156,8 +157,9 @@ export class MangaTranslatorUiSidecarConfig {
 
   private static validateConfigJson(value: string): void {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(value)
-    if (bytes.length <= 0 || bytes.length > MAX_CONFIG_JSON_BYTES) {
-      throw new Error('Manga translator UI config JSON size is invalid')
+    if (bytes.length <= 0 || bytes.length > MAX_CONFIG_JSON_BYTES ||
+      value !== MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON) {
+      throw new Error('Manga translator UI config must use the pinned visual-only profile')
     }
     try {
       const parsed: Object = JSON.parse(value) as Object

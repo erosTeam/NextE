@@ -88,12 +88,21 @@
 仍要求 `default_stroke_width` / `adjust_bg_color`，而
 [`TextBlock.to_dict()`](https://github.com/hgmzhn/manga-translator-ui/blob/b311816edddc8f3c61b3edd66cc064da96762011/manga_translator/utils/textblock.py)
 输出 `stroke_width` 且不再给出 `adjust_bg_color`；按静态调用路径会在生成导出 ZIP 前发生 Pydantic 字段校验失败。
-因此 NextE 首个 profile 固定到 [v1.9.9 commit `696dc63b`](https://github.com/hgmzhn/manga-translator-ui/commit/696dc63bd0b4803f96cc3d4f844322cef4910f8e)：
+因此 NextE 首个上游基线固定到 [v1.9.9 commit `696dc63b`](https://github.com/hgmzhn/manga-translator-ui/commit/696dc63bd0b4803f96cc3d4f844322cef4910f8e)：
 该版本的 [response model](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/server/to_json.py)
 与 [region serializer](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/utils/textblock.py)
 字段一致，且同时包含 [export/import routes](https://github.com/hgmzhn/manga-translator-ui/blob/696dc63bd0b4803f96cc3d4f844322cef4910f8e/manga_translator/server/routes/translation.py)。
-这是源码级协议固定。NextE 已用 synthetic ZIP/PNG 和 fake transport 验证客户端 multipart、解包、回填与
-产物校验闭环，但这不等同于真实 sidecar 的网络与质量验收；后者仍须在阶段 F 用合法样页完成。
+但真实链路进一步证明“路由存在、字段一致、返回 HTTP 200”仍不是回填能力证明：v1.9.9 的 vanilla
+`/translate/import/json` 没有把 `prepare_translator_params()` 返回的 `load_text` 工作流参数应用到共享
+translator，会重新执行检测/OCR和已配置 translator，而不是加载提交 JSON 的 `translation` 字段。
+NextE 因此用独立 sidecar 补丁提供 `/translate/import/json/nexte-load-text-v1`，协议能力检查明确要求该
+专用路由；未打补丁的服务被视为不兼容。补丁和固定版本构建器位于 `sidecar/manga-translator-ui-v1.9.9/`
+与 `scripts/build_manga_translator_ui_sidecar.sh`，上游 GPL 程序和模型仍作为独立服务，不进入 HAP。
+
+2026-07-21 的设备 `237` 合法样页验收中，export 产生五个日文区域，NextE 选中的 Codex provider 返回
+五个按 blockId 对齐的中文译文，专用 import 路由直接完成消字、排版和渲染；服务日志没有第二次 OCR 或
+sidecar translator。Reader 原/译图切换、译图缩放/平移、切页返回与持久缓存恢复均通过。这证明当前固定
+profile 的真实衔接成立，但不能外推为广泛语料、字体排版或长图/双页质量已经完成。
 
 这给 NextE 一个不重写整套 Python/模型栈的首条质量路线：把该类服务当作可替换的区域/修复/渲染
 sidecar，NextE 继续用自己的 API/Codex provider 负责带画廊上下文的翻译。客户端只实现窄的版本化协议

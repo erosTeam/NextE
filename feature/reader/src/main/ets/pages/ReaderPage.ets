@@ -1598,7 +1598,8 @@ export struct ReaderPage {
         DiagnosticLogger.warn(
           'comic-translation',
           'reader_page_failed',
-          `page=${pageIndex} code=${errorCode}`,
+          `page=${pageIndex} code=${errorCode} ` +
+            `reason=${error.name}:${error.message}`,
         )
       })
   }

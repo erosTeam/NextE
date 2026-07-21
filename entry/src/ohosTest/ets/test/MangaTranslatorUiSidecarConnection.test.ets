@@ -3,6 +3,7 @@ import {
   AxiosTextResponse,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
   MangaTranslatorUiSidecarConfig,
   MangaTranslatorUiSidecarConnectionService,
   MangaTranslatorUiSidecarConnectionTransport,
@@ -69,7 +70,7 @@ export default function mangaTranslatorUiSidecarConnectionTest(): void {
         transport,
       )
 
-      expect(result.protocolRevision).assertEqual(1)
+      expect(result.protocolRevision).assertEqual(MANGA_TRANSLATOR_UI_PROTOCOL_REVISION)
       expect(transport.urls[0]).assertEqual('http://192.168.50.10:5003/openapi.json')
       expect(transport.methods[0]).assertEqual('GET')
       expect(transport.bodies[0]).assertEqual('')

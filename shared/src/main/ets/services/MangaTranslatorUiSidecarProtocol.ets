@@ -18,15 +18,20 @@ import { ComicRegionAnalysisRequest } from './ComicVisualTranslationBackend'
 import { ComicVisualTranslationContract } from './ComicVisualTranslationContract'
 
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
-export const MANGA_TRANSLATOR_UI_PROFILE_ID: string = 'manga-translator-ui-v1.9.9-export-json-v1'
-export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 1
+export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
+  'manga-translator-ui-v1.9.9-nexte-load-text-v1'
+export const MANGA_TRANSLATOR_UI_PROTOCOL_REVISION: number = 3
 export const MANGA_TRANSLATOR_UI_UPSTREAM_TAG: string = 'v1.9.9'
 export const MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT: string =
   '696dc63bd0b4803f96cc3d4f844322cef4910f8e'
 export const MANGA_TRANSLATOR_UI_EXPORT_PATH: string = '/translate/export/original'
-export const MANGA_TRANSLATOR_UI_IMPORT_PATH: string = '/translate/import/json'
+export const MANGA_TRANSLATOR_UI_IMPORT_PATH: string =
+  '/translate/import/json/nexte-load-text-v1'
 export const MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY: string = 'translation.json'
 export const MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY: string = 'original.txt'
+/** Keeps the sidecar visual-only: OCR text is copied through, then NextE's selected LLM translates it. */
+export const MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON: string =
+  '{"translator":{"translator":"original","target_lang":"CHS"}}'
 
 const MANGA_TRANSLATOR_UI_TEMPLATE_MIME: string =
   'application/vnd.manga-translator-ui.translation+json'
@@ -206,7 +211,14 @@ export class MangaTranslatorUiSidecarProtocol {
     if (page.original_width !== request.source.imageWidth ||
       page.original_height !== request.source.imageHeight ||
       !Array.isArray(page.regions) || page.regions.length > MAX_REGIONS) {
-      throw new Error('Manga translator UI export page identity is invalid')
+      const regionCount: string = Array.isArray(page.regions)
+        ? `${page.regions.length}`
+        : 'invalid'
+      throw new Error(
+        'Manga translator UI export page identity is invalid ' +
+          `(source=${request.source.imageWidth}x${request.source.imageHeight},` +
+          `export=${page.original_width}x${page.original_height},regions=${regionCount})`,
+      )
     }
     return page
   }

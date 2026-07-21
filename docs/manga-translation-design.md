@@ -275,15 +275,24 @@ provider 负责接收区域原文、整页图像和画廊上下文并返回按 b
 
 首个 profile 固定到 commit `696dc63bd0b4803f96cc3d4f844322cef4910f8e`，使用
 `/translate/export/original` 返回的 `translation.json` 作为短期 adapter template，再把按 blockId
-校验过的译文写回 region 的 `translation` 字段并调用 `/translate/import/json`。不使用 TXT 模糊匹配，
-避免重复原文被字典键合并。profile 之外的字段形状必须本地失败；新增上游版本需要显式增加并验证新 profile。
+校验过的译文写回 region 的 `translation` 字段并调用 NextE 兼容 sidecar 的
+`/translate/import/json/nexte-load-text-v1`。不使用 TXT 模糊匹配，避免重复原文被字典键合并。profile
+之外的字段形状必须本地失败；新增上游版本需要显式增加并验证新 profile。export/import 请求固定携带
+`translator=original`，让上游只复制 OCR 原文而不调用其默认 OpenAI 翻译器；实际翻译始终由漫画设置中
+选中的共享 API/Codex LLM 源完成，避免出现两套模型、两套上下文和两份凭据。
 
-截至 2026-07-21，固定 profile 的客户端传输适配器已经实现并通过设备上的 fake transport 闭环：
-export/import multipart 字段、ZIP central/local header、固定条目、JSON 模板、源图 hash、PNG 签名/解码/尺寸
-和视觉产物 hash 都在写入前校验；公共 HTTP 被拒绝，私网 HTTP 仅供用户明确配置的本地 sidecar。该结论
-只证明 NextE 适配器和协议夹具，不代表真实 sidecar、真实 OCR/修复质量或 Reader 视觉替换已经验收。
-同级制图服务设置和不上传图片的 `/openapi.json` 能力检查已经实现；真实运行 sidecar 的连接验证、真实
-OCR/修复质量和合法样页端到端结果仍按活动计划推进。
+不能把未经验证的上游 `/translate/import/json` 当作该 profile 的回填端点。真实链路发现 v1.9.9 会返回
+HTTP 200，但 `prepare_translator_params()` 产生的 `load_text` 工作流参数没有应用到共享 translator，随后
+再次检测/OCR并使用已配置 translator，因而可能输出未使用提交译文的“假成功”图片。NextE 的独立 GPL
+sidecar 补丁只修复这条工作流并增加专用路由；构建脚本固定上游 commit、应用补丁并生成独立镜像，HAP
+不包含上游代码或模型。协议 revision 3 的 `/openapi.json` 能力检查要求专用路由，未打补丁的 vanilla
+v1.9.9 会在上传漫画页前失败。
+
+截至 2026-07-21，设备 `237` 已用合法日文样页完成真实 sidecar + 已选 Codex provider 链路：源缓存文件
+为 `1280x1817`，同页五个区域均得到中文，import 日志命中专用路由且没有第二次检测/OCR或 sidecar
+translator。Reader 原图/译图切换、译图缩放和平移、切页返回均通过；切页返回和应用重启后的显式恢复
+命中同一持久衍生页 hash，没有再次调用 sidecar/provider。该验收证明首条分阶段路线能产出可直接阅读的
+视觉页，但只覆盖一个代表性单页样本；字体排版质量、长图、单双页和更广语种语料仍需继续评测。
 
 整图出图是并列的完整路线，不被废弃。若未来 API、Codex 兼容通道或其他 provider 能返回译制图片，
 实现 `ComicWholePageRenderBackend` 后可以跳过 region export/import，直接进入渲染产物校验与缓存。当前

@@ -316,6 +316,7 @@ export {
   MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
   MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT,
   MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
+  MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
   MangaTranslatorUiSidecarProtocol,
 } from './services/MangaTranslatorUiSidecarProtocol'
 export {

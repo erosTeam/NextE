@@ -2,7 +2,9 @@ import { common } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
+import { image } from '@kit.ImageKit'
 import { ComicRenderProfile } from '../model/ComicVisualTranslation'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
   MangaRenderingServiceSettings,
   MangaRenderingServiceSettingsSnapshot,
@@ -41,6 +43,8 @@ const MAX_COMIC_READER_IMAGE_EDGE: number = 100000
 class ComicTranslationReaderFileMetadata {
   imageHash: string = ''
   mimeType: string = ''
+  imageWidth: number = 0
+  imageHeight: number = 0
 }
 
 export class ComicTranslationReaderPageInput {
@@ -66,7 +70,12 @@ export class ComicTranslationRuntimeService {
   ): Promise<ComicVisualTranslationRunResult> {
     ComicTranslationRuntimeService.validateInput(input)
     const metadata: ComicTranslationReaderFileMetadata =
-      ComicTranslationRuntimeService.fileMetadata(input.imageFilePath)
+      await ComicTranslationRuntimeService.fileMetadata(input.imageFilePath)
+    DiagnosticLogger.info(
+      'comic-translation',
+      'source_identity_resolved',
+      `reader=${input.imageWidth}x${input.imageHeight} file=${metadata.imageWidth}x${metadata.imageHeight}`,
+    )
     const settings: MangaRenderingServiceSettingsSnapshot =
       await MangaRenderingServiceSettings.load(context)
     if (!settings.configured()) {
@@ -93,8 +102,8 @@ export class ComicTranslationRuntimeService {
     request.source.pageIndex = input.pageIndex
     request.source.imageFilePath = input.imageFilePath
     request.source.imageHash = metadata.imageHash
-    request.source.imageWidth = input.imageWidth
-    request.source.imageHeight = input.imageHeight
+    request.source.imageWidth = metadata.imageWidth
+    request.source.imageHeight = metadata.imageHeight
     request.context.sourceLanguage = input.sourceLanguage
     request.context.targetLanguage = input.targetLanguage
     request.context.styleGuide =
@@ -257,17 +266,17 @@ export class ComicTranslationRuntimeService {
       ComicTranslationRuntimeService.nonNegativeSafeInteger(value)
   }
 
-  private static fileMetadata(path: string): ComicTranslationReaderFileMetadata {
+  private static async fileMetadata(path: string): Promise<ComicTranslationReaderFileMetadata> {
     const stat: fileIo.Stat = fileIo.statSync(path)
     if (stat.size <= 0 || stat.size > COMIC_READER_MAX_IMAGE_BYTES) {
       throw new Error('Comic provider image file size is invalid')
     }
+    const metadata: ComicTranslationReaderFileMetadata = new ComicTranslationReaderFileMetadata()
     let file: fileIo.File | null = null
     try {
       file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
       const headerBuffer: ArrayBuffer = new ArrayBuffer(16)
       const headerRead: number = fileIo.readSync(file.fd, headerBuffer, { length: 16 })
-      const metadata: ComicTranslationReaderFileMetadata = new ComicTranslationReaderFileMetadata()
       metadata.mimeType = ComicTranslationRuntimeService.detectMime(
         new Uint8Array(headerBuffer, 0, headerRead),
       )
@@ -284,10 +293,31 @@ export class ComicTranslationRuntimeService {
         md.updateSync({ data: new Uint8Array(buffer, 0, read) })
       }
       metadata.imageHash = ComicTranslationRuntimeService.toHex(md.digestSync().data)
-      return metadata
     } finally {
       if (file !== null) {
         fileIo.closeSync(file)
+      }
+    }
+    let source: image.ImageSource | undefined = undefined
+    try {
+      source = image.createImageSource(path)
+      const info: image.ImageInfo = await source.getImageInfo()
+      metadata.imageWidth = Math.floor(info.size.width)
+      metadata.imageHeight = Math.floor(info.size.height)
+      if (!ComicTranslationRuntimeService.positiveImageEdge(metadata.imageWidth) ||
+        !ComicTranslationRuntimeService.positiveImageEdge(metadata.imageHeight)) {
+        throw new Error('Comic provider image dimensions are invalid')
+      }
+      return metadata
+    } catch (error) {
+      const message: string = error instanceof Error ? error.message : `${error}`
+      if (message === 'Comic provider image dimensions are invalid') {
+        throw new Error(message)
+      }
+      throw new Error('Comic provider image dimensions cannot be decoded')
+    } finally {
+      if (source !== undefined) {
+        await source.release()
       }
     }
   }
