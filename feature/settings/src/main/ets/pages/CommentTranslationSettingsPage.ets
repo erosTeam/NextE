@@ -184,7 +184,7 @@ export struct CommentTranslationSettingsPage {
       return
     }
     this.validatingApi = true
-    CommentTranslationService.validateConfiguredLlm()
+    CommentTranslationService.validateConfiguredLlm(this.ctx())
       .then(() => {
         this.getUIContext()
           .getPromptAction()
@@ -217,7 +217,7 @@ export struct CommentTranslationSettingsPage {
       return
     }
     this.fetchingModels = true
-    CommentTranslationService.fetchConfiguredLlmModels()
+    CommentTranslationService.fetchConfiguredLlmModels(this.ctx())
       .then((models: string[]) => {
         this.modelOptions = models
         if (models.length === 0) {

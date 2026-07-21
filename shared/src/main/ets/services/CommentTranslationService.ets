@@ -3,11 +3,18 @@ import { relationalStore } from '@kit.ArkData'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGalleryCommentTextSpan } from '../model/EhGalleryComment'
+import {
+  LLM_CONSUMER_COMMENT_TRANSLATION,
+  LlmConsumerBinding,
+  LlmSourceResolution,
+} from '../model/LlmSourceProfile'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { connectLanguageState } from '../state/AppearanceState'
 import { CommentTranslationSettings } from '../settings/CommentTranslationSettings'
+import { LlmSourceProfileRepository } from '../settings/LlmSourceProfileRepository'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import { CacheStat } from './CacheStat'
+import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 const COMMENT_TRANSLATION_TTL_MS: number = 7 * 24 * 60 * 60 * 1000
 const TRANSLATION_CONNECT_TIMEOUT_MS: number = 12000
@@ -22,8 +29,6 @@ export const COMMENT_TRANSLATION_PRIORITY_INTERACTIVE: number = 0
 export const COMMENT_TRANSLATION_PRIORITY_AUTO: number = 1
 const COMMENT_TRANSLATION_QUEUE_EVICTED_ERROR: string = 'comment_translation_queue_evicted'
 const COMMENT_TRANSLATION_QUEUE_FULL_ERROR: string = 'comment_translation_queue_full'
-const DEFAULT_LLM_BASE_URL: string = 'https://api.openai.com'
-const DEFAULT_LLM_MODEL: string = 'gpt-4o-mini'
 const SQL_SELECT_COMMENT_TRANSLATION: string =
   'SELECT translated FROM comment_translation_cache WHERE text_hash = ? AND target_lang = ? AND expires_at > ? LIMIT 1'
 const SQL_UPSERT_COMMENT_TRANSLATION: string =
@@ -588,7 +593,8 @@ export class CommentTranslationService {
     targetLang: string,
   ): Promise<string> {
     const cacheEpoch: number = CommentTranslationService.cacheEpoch.snapshot()
-    const key: string = CommentTranslationService.cacheKey(text, targetLang)
+    const cacheScope: string = CommentTranslationService.cacheScope(targetLang)
+    const key: string = CommentTranslationService.cacheKey(text, cacheScope)
     const now: number = Date.now()
     const memoryHit: string = CommentTranslationService.memory.get(key, now)
     if (memoryHit.length > 0) {
@@ -598,7 +604,7 @@ export class CommentTranslationService {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(
       SQL_SELECT_COMMENT_TRANSLATION,
-      [CommentTranslationService.textHash(text), targetLang, now],
+      [CommentTranslationService.textHash(text), cacheScope, now],
     )
     try {
       if (resultSet.goToFirstRow()) {
@@ -625,7 +631,8 @@ export class CommentTranslationService {
       return ''
     }
     const targetLang: string = CommentTranslationService.targetLanguage()
-    const key: string = CommentTranslationService.cacheKey(source, targetLang)
+    const cacheScope: string = CommentTranslationService.cacheScope(targetLang)
+    const key: string = CommentTranslationService.cacheKey(source, cacheScope)
     if (!force) {
       const cached: string = await CommentTranslationService.getCached(context, source, targetLang)
       if (cached.length > 0) {
@@ -658,6 +665,7 @@ export class CommentTranslationService {
         context,
         source,
         targetLang,
+        cacheScope,
         cacheEpoch,
       ),
       CommentTranslationService.scheduler,
@@ -852,28 +860,22 @@ export class CommentTranslationService {
     return out
   }
 
-  static async validateConfiguredLlm(): Promise<void> {
-    const settings = CommentTranslationSettings.current()
-    if (settings.apiKey.length === 0) {
-      throw new Error('missing_api_key')
-    }
+  static async validateConfiguredLlm(context: common.UIAbilityContext): Promise<void> {
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
     await CommentTranslationService.callLlm(
       'Hello',
       CommentTranslationService.targetLanguage(),
-      settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL,
-      settings.apiKey,
-      settings.model.length > 0 ? settings.model : DEFAULT_LLM_MODEL,
+      runtime.baseUrl,
+      runtime.apiKey,
+      runtime.modelId,
     )
   }
 
-  static async fetchConfiguredLlmModels(): Promise<string[]> {
-    const settings = CommentTranslationSettings.current()
-    if (settings.apiKey.length === 0) {
-      throw new Error('missing_api_key')
-    }
+  static async fetchConfiguredLlmModels(context: common.UIAbilityContext): Promise<string[]> {
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
     return CommentTranslationService.fetchLlmModels(
-      settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL,
-      settings.apiKey,
+      runtime.baseUrl,
+      runtime.apiKey,
     )
   }
 
@@ -881,6 +883,7 @@ export class CommentTranslationService {
     context: common.UIAbilityContext,
     text: string,
     targetLang: string,
+    cacheScope: string,
     cacheEpoch: number,
   ): Promise<string> {
     const startedAt: number = Date.now()
@@ -889,9 +892,13 @@ export class CommentTranslationService {
       'comment_translate_start',
       `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
     )
-    const rawResult: string = await CommentTranslationService.callTranslation(text, targetLang)
+    const rawResult: string = await CommentTranslationService.callTranslation(
+      context,
+      text,
+      targetLang,
+    )
     const result: string = CommentTranslationService.restoreMentionTokens(rawResult)
-    await CommentTranslationService.save(context, text, targetLang, result, cacheEpoch)
+    await CommentTranslationService.save(context, text, cacheScope, result, cacheEpoch)
     DiagnosticLogger.info(
       'translation',
       'comment_translate_done',
@@ -903,7 +910,7 @@ export class CommentTranslationService {
   private static async save(
     context: common.UIAbilityContext,
     text: string,
-    targetLang: string,
+    cacheScope: string,
     translated: string,
     cacheEpoch: number,
   ): Promise<void> {
@@ -913,7 +920,7 @@ export class CommentTranslationService {
       return
     }
     CommentTranslationService.putMemory(
-      CommentTranslationService.cacheKey(text, targetLang),
+      CommentTranslationService.cacheKey(text, cacheScope),
       translated,
       expiresAt,
     )
@@ -923,7 +930,7 @@ export class CommentTranslationService {
     }
     await store.executeSql(SQL_UPSERT_COMMENT_TRANSLATION, [
       CommentTranslationService.textHash(text),
-      targetLang,
+      cacheScope,
       translated,
       now,
       expiresAt,
@@ -984,22 +991,28 @@ export class CommentTranslationService {
     CommentTranslationService.persistedCacheMaintenanceFollowUp = false
   }
 
-  private static async callTranslation(text: string, targetLang: string): Promise<string> {
+  private static async callTranslation(
+    context: common.UIAbilityContext,
+    text: string,
+    targetLang: string,
+  ): Promise<string> {
     const settings = CommentTranslationSettings.current()
-    if (!settings.useGoogleOnly && settings.apiKey.length > 0) {
+    if (!settings.useGoogleOnly) {
       try {
+        const runtime: LlmSourceRuntimeConfig =
+          await LlmSourceRuntimeResolver.resolveComment(context)
         const llmStartedAt: number = Date.now()
         DiagnosticLogger.info(
           'translation',
           'comment_llm_start',
-          `target=${targetLang} len=${text.length} model=${settings.model.length > 0 ? settings.model : DEFAULT_LLM_MODEL} baseHash=${DiagnosticLogger.ownerHash(settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL)}`,
+          `target=${targetLang} len=${text.length} source=${runtime.sourceProfileId} revision=${runtime.sourceRevision} model=${runtime.modelId}`,
         )
         const llmResult: string = await CommentTranslationService.callLlm(
           text,
           targetLang,
-          settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL,
-          settings.apiKey,
-          settings.model.length > 0 ? settings.model : DEFAULT_LLM_MODEL,
+          runtime.baseUrl,
+          runtime.apiKey,
+          runtime.modelId,
         )
         DiagnosticLogger.info(
           'translation',
@@ -1215,8 +1228,30 @@ export class CommentTranslationService {
     return out
   }
 
-  private static cacheKey(text: string, targetLang: string): string {
-    return `${CommentTranslationService.textHash(text)}:${targetLang}`
+  /** Keeps cached output attached to the selected route, source revision and model. */
+  private static cacheScope(targetLang: string): string {
+    if (CommentTranslationSettings.current().useGoogleOnly) {
+      return `${targetLang}|google-v1`
+    }
+    try {
+      const binding: LlmConsumerBinding = LlmSourceProfileRepository.currentBinding(
+        LLM_CONSUMER_COMMENT_TRANSLATION,
+      )
+      const resolution: LlmSourceResolution | null = LlmSourceProfileRepository.resolve(
+        LlmSourceProfileRepository.currentProfiles(),
+        binding,
+      )
+      if (resolution !== null) {
+        return `${targetLang}|${resolution.profile.sourceProfileId}|r${resolution.profile.sourceRevision}|${resolution.modelId}`
+      }
+    } catch (_error) {
+      // Missing or damaged source selection follows the same explicit Google fallback as the request path.
+    }
+    return `${targetLang}|google-fallback-v1`
+  }
+
+  private static cacheKey(text: string, cacheScope: string): string {
+    return `${CommentTranslationService.textHash(text)}:${cacheScope}`
   }
 
   private static textHash(text: string): string {

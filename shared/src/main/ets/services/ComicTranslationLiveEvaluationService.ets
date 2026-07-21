@@ -145,7 +145,7 @@ export class ComicTranslationLiveEvaluationService {
     const report: ComicTranslationLiveEvaluationReport = new ComicTranslationLiveEvaluationReport()
     report.startedAtMs = Date.now()
     try {
-      const analyzer: ComicPageAnalyzer = ComicPageAnalyzerFactory.create(context)
+      const analyzer: ComicPageAnalyzer = await ComicPageAnalyzerFactory.create(context)
       report.providerId = analyzer.providerId()
       report.modelId = analyzer.modelId()
       const manifest: RawLiveEvaluationManifest =

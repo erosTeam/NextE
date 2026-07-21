@@ -3,8 +3,11 @@ import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
+import { LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL, LlmSourceProfile } from '../model/LlmSourceProfile'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
+import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
+import { LlmSourceSecretStore } from './LlmSourceSecretStore'
 
 const CODEX_USAGE_URL: string = 'https://chatgpt.com/backend-api/wham/usage'
 const CODEX_USAGE_CONNECT_TIMEOUT_MS: number = 15000
@@ -100,10 +103,31 @@ export class ComicTranslationCodexUsageService {
     context: common.UIAbilityContext,
     transport: CodexUsageHttpTransport = new DefaultCodexUsageHttpTransport(),
   ): Promise<CodexUsageSnapshot> {
-    let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableTokens(context)
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+    return ComicTranslationCodexUsageService.fetchSource(
+      context,
+      runtime.sourceProfileId,
+      transport,
+    )
+  }
+
+  static async fetchSource(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    transport: CodexUsageHttpTransport = new DefaultCodexUsageHttpTransport(),
+  ): Promise<CodexUsageSnapshot> {
+    ComicTranslationCodexUsageService.requireUsageSource(sourceProfileId)
+    let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableSourceTokens(
+      context,
+      sourceProfileId,
+    )
     let response: AxiosTextResponse = await ComicTranslationCodexUsageService.request(tokens, transport)
     if (response.statusCode === 401) {
-      tokens = await ExperimentalCodexOAuthService.usableTokens(context, true)
+      tokens = await ExperimentalCodexOAuthService.usableSourceTokens(
+        context,
+        sourceProfileId,
+        true,
+      )
       response = await ComicTranslationCodexUsageService.request(tokens, transport)
     }
     if (response.statusCode !== 200) {
@@ -117,12 +141,34 @@ export class ComicTranslationCodexUsageService {
     accountId: string,
   ): Promise<CodexUsageSnapshot | null> {
     try {
+      const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+      return ComicTranslationCodexUsageService.cachedSource(
+        context,
+        runtime.sourceProfileId,
+        accountId,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn('comic-translation', 'codex_usage_cache_read_failed', (error as Error).message)
+      return null
+    }
+  }
+
+  static async cachedSource(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    accountId: string,
+  ): Promise<CodexUsageSnapshot | null> {
+    try {
+      ComicTranslationCodexUsageService.requireUsageSource(sourceProfileId)
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
+      const values: Record<string, string> = LlmSourceSecretStore.decodeCacheMap(
+        store.getSync(StorageKeys.LLM_SOURCE_USAGE_CACHE, '') as string,
+      )
       return ComicTranslationCodexUsageService.parseCached(
-        store.getSync(StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE, '') as string,
+        values[sourceProfileId] === undefined ? '' : values[sourceProfileId],
         accountId,
       )
     } catch (error) {
@@ -137,14 +183,38 @@ export class ComicTranslationCodexUsageService {
     snapshot: CodexUsageSnapshot,
   ): Promise<void> {
     try {
+      const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+      await ComicTranslationCodexUsageService.saveCachedSource(
+        context,
+        runtime.sourceProfileId,
+        accountId,
+        snapshot,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn('comic-translation', 'codex_usage_cache_write_failed', (error as Error).message)
+    }
+  }
+
+  static async saveCachedSource(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    accountId: string,
+    snapshot: CodexUsageSnapshot,
+  ): Promise<void> {
+    try {
+      ComicTranslationCodexUsageService.requireUsageSource(sourceProfileId)
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(
-        StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE,
-        ComicTranslationCodexUsageService.serializeCached(accountId, snapshot),
+      const values: Record<string, string> = LlmSourceSecretStore.decodeCacheMap(
+        store.getSync(StorageKeys.LLM_SOURCE_USAGE_CACHE, '') as string,
       )
+      values[sourceProfileId] = ComicTranslationCodexUsageService.serializeCached(
+        accountId,
+        snapshot,
+      )
+      store.putSync(StorageKeys.LLM_SOURCE_USAGE_CACHE, LlmSourceSecretStore.encodeCacheMap(values))
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('comic-translation', 'codex_usage_cache_write_failed', (error as Error).message)
@@ -153,11 +223,43 @@ export class ComicTranslationCodexUsageService {
 
   static async clearCached(context: common.UIAbilityContext): Promise<void> {
     try {
+      const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+      await ComicTranslationCodexUsageService.clearCachedSource(
+        context,
+        runtime.sourceProfileId,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn('comic-translation', 'codex_usage_cache_clear_failed', (error as Error).message)
+    }
+  }
+
+  static async clearCachedSource(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+  ): Promise<void> {
+    try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.deleteSync(StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE)
+      const values: Record<string, string> = LlmSourceSecretStore.decodeCacheMap(
+        store.getSync(StorageKeys.LLM_SOURCE_USAGE_CACHE, '') as string,
+      )
+      const remaining: Record<string, string> = {}
+      const keys: string[] = Object.keys(values)
+      for (let index: number = 0; index < keys.length; index++) {
+        if (keys[index] !== sourceProfileId) {
+          remaining[keys[index]] = values[keys[index]]
+        }
+      }
+      if (Object.keys(remaining).length === 0) {
+        store.deleteSync(StorageKeys.LLM_SOURCE_USAGE_CACHE)
+      } else {
+        store.putSync(
+          StorageKeys.LLM_SOURCE_USAGE_CACHE,
+          LlmSourceSecretStore.encodeCacheMap(remaining),
+        )
+      }
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('comic-translation', 'codex_usage_cache_clear_failed', (error as Error).message)
@@ -265,6 +367,14 @@ export class ComicTranslationCodexUsageService {
     )
     snapshot.fetchedAtMs = Date.now()
     return snapshot
+  }
+
+  private static requireUsageSource(sourceProfileId: string): void {
+    const profile: LlmSourceProfile = LlmSourceRuntimeResolver.profile(sourceProfileId)
+    if (profile.sourceType !== LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL ||
+      !profile.capabilities.usage) {
+      throw new Error('Selected LLM source does not provide Codex usage')
+    }
   }
 
   private static windowByDuration(

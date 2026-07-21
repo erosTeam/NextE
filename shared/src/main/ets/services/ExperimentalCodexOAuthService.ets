@@ -8,6 +8,8 @@ import {
 } from '../model/ComicTranslationProvider'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { ComicTranslationProviderSettings } from '../settings/ComicTranslationProviderSettings'
+import { CodexOAuthTokenCodec } from './CodexOAuthTokenCodec'
+import { LlmSourceSecretStore } from './LlmSourceSecretStore'
 
 const CODEX_OAUTH_ISSUER: string = 'https://auth.openai.com'
 const CODEX_OAUTH_DEVICE_CODE_URL: string = CODEX_OAUTH_ISSUER + '/api/accounts/deviceauth/usercode'
@@ -173,23 +175,26 @@ export class ExperimentalCodexOAuthService {
     session: CodexOAuthDeviceSession,
     transport: CodexOAuthHttpTransport = new DefaultCodexOAuthHttpTransport(),
   ): Promise<CodexOAuthTokenSet> {
-    ExperimentalCodexOAuthService.requireValidSession(session)
-    while (Date.now() < session.expiresAt) {
-      await ExperimentalCodexOAuthService.delay(session.pollIntervalSeconds * 1000)
-      const result: CodexOAuthPollResult =
-        await ExperimentalCodexOAuthService.pollDeviceCodeOnce(session, transport)
-      if (result.pending) {
-        continue
-      }
-      if (result.exchange === null) {
-        throw new Error('Codex device login exchange is missing')
-      }
-      const tokens: CodexOAuthTokenSet =
-        await ExperimentalCodexOAuthService.exchangeAuthorization(result.exchange, transport)
-      await ComicTranslationProviderSettings.saveCodexTokens(context, tokens)
-      return tokens.copy()
-    }
-    throw new Error('Codex device login timed out')
+    const tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.completeLogin(
+      session,
+      transport,
+    )
+    await ComicTranslationProviderSettings.saveCodexTokens(context, tokens)
+    return tokens.copy()
+  }
+
+  static async completeSourceDeviceLogin(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    session: CodexOAuthDeviceSession,
+    transport: CodexOAuthHttpTransport = new DefaultCodexOAuthHttpTransport(),
+  ): Promise<CodexOAuthTokenSet> {
+    const tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.completeLogin(
+      session,
+      transport,
+    )
+    await LlmSourceSecretStore.saveCodexTokens(context, sourceProfileId, tokens)
+    return tokens.copy()
   }
 
   static async usableTokens(
@@ -211,6 +216,34 @@ export class ExperimentalCodexOAuthService {
     const refreshed: CodexOAuthTokenSet =
       await ExperimentalCodexOAuthService.refresh(stored, transport)
     await ComicTranslationProviderSettings.saveCodexTokens(context, refreshed)
+    return refreshed.copy()
+  }
+
+  static async usableSourceTokens(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    forceRefresh: boolean = false,
+    transport: CodexOAuthHttpTransport = new DefaultCodexOAuthHttpTransport(),
+  ): Promise<CodexOAuthTokenSet> {
+    const stored: CodexOAuthTokenSet | null = await LlmSourceSecretStore.readCodexTokens(
+      context,
+      sourceProfileId,
+    )
+    if (stored === null) {
+      throw new Error('Codex login is required')
+    }
+    const inferredExpiry: number = stored.expiresAt > 0
+      ? stored.expiresAt
+      : ExperimentalCodexOAuthService.jwtExpiry(stored.accessToken)
+    if (!forceRefresh &&
+      (inferredExpiry === 0 || inferredExpiry > Date.now() + CODEX_OAUTH_REFRESH_SKEW_MS)) {
+      return stored.copy()
+    }
+    const refreshed: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.refresh(
+      stored,
+      transport,
+    )
+    await LlmSourceSecretStore.saveCodexTokens(context, sourceProfileId, refreshed)
     return refreshed.copy()
   }
 
@@ -307,7 +340,7 @@ export class ExperimentalCodexOAuthService {
     if (tokens.accountId.length === 0) {
       tokens.accountId = ExperimentalCodexOAuthService.extractAccountId(tokens.idToken)
     }
-    if (!ComicTranslationProviderSettings.isValidCodexTokens(tokens)) {
+    if (!CodexOAuthTokenCodec.isValid(tokens)) {
       throw new Error('Codex OAuth token response is invalid')
     }
     const now: number = Date.now()
@@ -320,7 +353,7 @@ export class ExperimentalCodexOAuthService {
       ? now + expiresIn * 1000
       : Math.min(jwtExpiresAt, now + CODEX_OAUTH_MAX_TOKEN_LIFETIME_SECONDS * 1000)
     tokens.lastRefreshAt = now
-    if (!ComicTranslationProviderSettings.isValidCodexTokens(tokens)) {
+    if (!CodexOAuthTokenCodec.isValid(tokens)) {
       throw new Error('Codex OAuth token response is invalid')
     }
     return tokens
@@ -330,6 +363,26 @@ export class ExperimentalCodexOAuthService {
     if (rawText.length > CODEX_OAUTH_MAX_BODY_CHARS) {
       throw new Error('Codex OAuth response size is invalid')
     }
+  }
+
+  private static async completeLogin(
+    session: CodexOAuthDeviceSession,
+    transport: CodexOAuthHttpTransport,
+  ): Promise<CodexOAuthTokenSet> {
+    ExperimentalCodexOAuthService.requireValidSession(session)
+    while (Date.now() < session.expiresAt) {
+      await ExperimentalCodexOAuthService.delay(session.pollIntervalSeconds * 1000)
+      const result: CodexOAuthPollResult =
+        await ExperimentalCodexOAuthService.pollDeviceCodeOnce(session, transport)
+      if (result.pending) {
+        continue
+      }
+      if (result.exchange === null) {
+        throw new Error('Codex device login exchange is missing')
+      }
+      return ExperimentalCodexOAuthService.exchangeAuthorization(result.exchange, transport)
+    }
+    throw new Error('Codex device login timed out')
   }
 
   private static requireValidSession(session: CodexOAuthDeviceSession): void {

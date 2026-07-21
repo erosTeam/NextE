@@ -532,6 +532,10 @@ export {
 } from './services/LlmSourceProfileContract'
 export { LlmSourceSecretStore } from './services/LlmSourceSecretStore'
 export {
+  LlmSourceRuntimeConfig,
+  LlmSourceRuntimeResolver,
+} from './services/LlmSourceRuntimeResolver'
+export {
   LLM_SOURCE_MIGRATION_VERSION,
   LegacyCommentLlmSettings,
   LegacyMangaLlmSettings,

@@ -3,13 +3,12 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { EhConstants } from '../constants/EhConstants'
+import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
 import {
-  COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH,
-  CodexOAuthTokenSet,
-  ComicTranslationProviderSettingsSnapshot,
-} from '../model/ComicTranslationProvider'
+  LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
+  LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
+} from '../model/LlmSourceProfile'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
-import { ComicTranslationProviderSettings } from '../settings/ComicTranslationProviderSettings'
 import { ComicPageAnalysisParser } from './ComicPageAnalysisParser'
 import {
   ComicPageAnalysisRequest,
@@ -19,6 +18,7 @@ import {
 } from './ComicPageAnalyzer'
 import { ComicResponsesProtocol } from './ComicResponsesProtocol'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
+import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 const COMIC_RESPONSES_PROMPT_VERSION: string = 'comic-page-responses-v3'
 const COMIC_RESPONSES_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
@@ -487,9 +487,10 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     apiKey: string,
     model: string,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
+    providerId: string = 'openai-responses-api',
   ) {
     this.config = new ComicResponsesCallConfig()
-    this.config.providerId = 'openai-responses-api'
+    this.config.providerId = providerId
     this.config.baseUrl = baseUrl
     this.config.accessToken = apiKey
     this.config.model = model
@@ -524,20 +525,28 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
 export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
   private readonly context: common.UIAbilityContext
   private readonly model: string
+  private readonly sourceProfileId: string
+  private readonly sourceRevision: number
   private readonly core: ComicResponsesPageAnalyzerCore
 
   constructor(
     context: common.UIAbilityContext,
     model: string,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
+    sourceProfileId: string = '',
+    sourceRevision: number = 0,
   ) {
     this.context = context
     this.model = model
+    this.sourceProfileId = sourceProfileId
+    this.sourceRevision = sourceRevision
     this.core = new ComicResponsesPageAnalyzerCore(transport)
   }
 
   providerId(): string {
-    return 'codex-oauth-experimental'
+    return this.sourceProfileId.length === 0
+      ? 'codex-oauth-experimental'
+      : 'llm-source:' + this.sourceProfileId + ':r' + this.sourceRevision
   }
 
   modelId(): string {
@@ -557,14 +566,25 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
   }
 
   async analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {
-    let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableTokens(this.context)
+    let tokens: CodexOAuthTokenSet = this.sourceProfileId.length === 0
+      ? await ExperimentalCodexOAuthService.usableTokens(this.context)
+      : await ExperimentalCodexOAuthService.usableSourceTokens(
+        this.context,
+        this.sourceProfileId,
+      )
     try {
       return await this.core.analyze(request, this.callConfig(tokens))
     } catch (error) {
       if (!(error instanceof ComicProviderHttpError) || error.statusCode !== 401) {
         throw error as Error
       }
-      tokens = await ExperimentalCodexOAuthService.usableTokens(this.context, true)
+      tokens = this.sourceProfileId.length === 0
+        ? await ExperimentalCodexOAuthService.usableTokens(this.context, true)
+        : await ExperimentalCodexOAuthService.usableSourceTokens(
+          this.context,
+          this.sourceProfileId,
+          true,
+        )
       return this.core.analyze(request, this.callConfig(tokens))
     }
   }
@@ -583,29 +603,29 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
 }
 
 export class ComicPageAnalyzerFactory {
-  static create(
+  static async create(
     context: common.UIAbilityContext,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
-  ): ComicPageAnalyzer {
-    const settings: ComicTranslationProviderSettingsSnapshot =
-      ComicTranslationProviderSettings.current()
-    if (settings.provider === COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH) {
-      if (settings.codexModel.length === 0) {
-        throw new Error('Codex model must be selected explicitly')
-      }
-      return new ExperimentalCodexComicPageAnalyzer(context, settings.codexModel, transport)
+  ): Promise<ComicPageAnalyzer> {
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+    if (runtime.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
+      return new ExperimentalCodexComicPageAnalyzer(
+        context,
+        runtime.modelId,
+        transport,
+        runtime.sourceProfileId,
+        runtime.sourceRevision,
+      )
     }
-    if (settings.apiKey.length === 0) {
-      throw new Error('OpenAI API key is missing')
+    if (runtime.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
+      return new OpenAiApiComicPageAnalyzer(
+        runtime.baseUrl,
+        runtime.apiKey,
+        runtime.modelId,
+        transport,
+        runtime.providerId(),
+      )
     }
-    if (settings.apiModel.length === 0) {
-      throw new Error('OpenAI API model is missing')
-    }
-    return new OpenAiApiComicPageAnalyzer(
-      settings.apiBaseUrl,
-      settings.apiKey,
-      settings.apiModel,
-      transport,
-    )
+    throw new Error('Selected LLM source type is unsupported')
   }
 }

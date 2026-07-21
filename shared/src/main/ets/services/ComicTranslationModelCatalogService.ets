@@ -1,13 +1,10 @@
 import { common } from '@kit.AbilityKit'
 import { EhConstants } from '../constants/EhConstants'
-import {
-  COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH,
-  CodexOAuthTokenSet,
-  ComicTranslationProviderSettingsSnapshot,
-} from '../model/ComicTranslationProvider'
+import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
+import { LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL } from '../model/LlmSourceProfile'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
-import { ComicTranslationProviderSettings } from '../settings/ComicTranslationProviderSettings'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
+import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 const CODEX_MODELS_URL: string =
   'https://chatgpt.com/backend-api/codex/models?client_version=1.0.0'
@@ -79,12 +76,35 @@ export class ComicTranslationModelCatalogService {
     context: common.UIAbilityContext,
     transport: ComicModelCatalogHttpTransport = new DefaultComicModelCatalogHttpTransport(),
   ): Promise<string[]> {
-    const settings: ComicTranslationProviderSettingsSnapshot =
-      ComicTranslationProviderSettings.current()
-    if (settings.provider === COMIC_TRANSLATION_PROVIDER_CODEX_OAUTH) {
-      return ComicTranslationModelCatalogService.fetchCodex(context, transport)
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+    return ComicTranslationModelCatalogService.fetchRuntime(context, runtime, transport)
+  }
+
+  static async fetchSource(
+    context: common.UIAbilityContext,
+    sourceProfileId: string,
+    transport: ComicModelCatalogHttpTransport = new DefaultComicModelCatalogHttpTransport(),
+  ): Promise<string[]> {
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveCatalogSource(
+      context,
+      sourceProfileId,
+    )
+    return ComicTranslationModelCatalogService.fetchRuntime(context, runtime, transport)
+  }
+
+  private static fetchRuntime(
+    context: common.UIAbilityContext,
+    runtime: LlmSourceRuntimeConfig,
+    transport: ComicModelCatalogHttpTransport,
+  ): Promise<string[]> {
+    if (runtime.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
+      return ComicTranslationModelCatalogService.fetchCodex(
+        context,
+        runtime.sourceProfileId,
+        transport,
+      )
     }
-    return ComicTranslationModelCatalogService.fetchApi(settings, transport)
+    return ComicTranslationModelCatalogService.fetchApi(runtime, transport)
   }
 
   static parseApiModels(rawText: string): string[] {
@@ -151,19 +171,16 @@ export class ComicTranslationModelCatalogService {
   }
 
   private static async fetchApi(
-    settings: ComicTranslationProviderSettingsSnapshot,
+    runtime: LlmSourceRuntimeConfig,
     transport: ComicModelCatalogHttpTransport,
   ): Promise<string[]> {
-    if (settings.apiKey.length === 0) {
-      throw new Error('OpenAI API key is missing')
-    }
     const response: AxiosTextResponse = await transport.requestText(
-      ComicTranslationModelCatalogService.apiModelsUrl(settings.apiBaseUrl),
+      ComicTranslationModelCatalogService.apiModelsUrl(runtime.baseUrl),
       'GET',
       {
         'User-Agent': EhConstants.USER_AGENT,
         'Accept': 'application/json',
-        'Authorization': 'Bearer ' + settings.apiKey,
+        'Authorization': 'Bearer ' + runtime.apiKey,
       },
       '',
       MODEL_CATALOG_CONNECT_TIMEOUT_MS,
@@ -177,15 +194,23 @@ export class ComicTranslationModelCatalogService {
 
   private static async fetchCodex(
     context: common.UIAbilityContext,
+    sourceProfileId: string,
     transport: ComicModelCatalogHttpTransport,
   ): Promise<string[]> {
-    let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableTokens(context)
+    let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableSourceTokens(
+      context,
+      sourceProfileId,
+    )
     let response: AxiosTextResponse = await ComicTranslationModelCatalogService.requestCodex(
       tokens,
       transport,
     )
     if (response.statusCode === 401) {
-      tokens = await ExperimentalCodexOAuthService.usableTokens(context, true)
+      tokens = await ExperimentalCodexOAuthService.usableSourceTokens(
+        context,
+        sourceProfileId,
+        true,
+      )
       response = await ComicTranslationModelCatalogService.requestCodex(tokens, transport)
     }
     if (response.statusCode !== 200) {

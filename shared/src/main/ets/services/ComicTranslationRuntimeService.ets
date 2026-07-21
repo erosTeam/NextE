@@ -3,8 +3,6 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { ComicImagePreparationProfile } from '../model/ComicTranslation'
-import { ComicTranslationProviderSettingsSnapshot } from '../model/ComicTranslationProvider'
-import { ComicTranslationProviderSettings } from '../settings/ComicTranslationProviderSettings'
 import { CacheStat } from './CacheStat'
 import { ComicPageAnalysisRequest, ComicPageAnalyzer } from './ComicPageAnalyzer'
 import { ComicPageAnalyzerFactory } from './ComicResponsesPageAnalyzer'
@@ -48,7 +46,7 @@ export class ComicTranslationRuntimeService {
     ComicTranslationRuntimeService.validateInput(input)
     const metadata: ComicTranslationReaderFileMetadata =
       ComicTranslationRuntimeService.fileMetadata(input.imageFilePath)
-    const analyzer: ComicPageAnalyzer = ComicPageAnalyzerFactory.create(context)
+    const analyzer: ComicPageAnalyzer = await ComicPageAnalyzerFactory.create(context)
     const orchestrator: ComicTranslationOrchestrator =
       ComicTranslationRuntimeService.orchestrator(context, analyzer)
     const request: ComicPageAnalysisRequest = new ComicPageAnalysisRequest()
@@ -95,17 +93,10 @@ export class ComicTranslationRuntimeService {
     context: common.UIAbilityContext,
     analyzer: ComicPageAnalyzer,
   ): ComicTranslationOrchestrator {
-    const settings: ComicTranslationProviderSettingsSnapshot =
-      ComicTranslationProviderSettings.current()
     const runtimeKey: string = ComicTranslationRuntimeService.digest(JSON.stringify([
       analyzer.providerId(),
       analyzer.modelId(),
       analyzer.analysisPromptVersion(),
-      settings.provider,
-      settings.apiBaseUrl,
-      settings.apiKey,
-      settings.apiModel,
-      settings.codexModel,
     ]))
     const existing: ComicTranslationOrchestrator | undefined =
       ComicTranslationRuntimeService.orchestrators.get(runtimeKey)
