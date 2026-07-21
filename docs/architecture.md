@@ -68,6 +68,11 @@ NextE 是原生 HarmonyOS NEXT(ArkTS/ArkUI)的 **E-Hentai / ExHentai 客户端**
 翻译文档和可独立缓存的渲染产物；Reader 不直接依赖模型厂商响应格式，也不从图片预取隐式触发模型
 调用。专业编辑、质检与导出在视觉草稿后进入独立分支，不能反向改变 Reader 的主结果。
 
+评论翻译与漫画翻译共用 provider-neutral 的 LLM 源档案，而不是分别保存 API URL、API Key、Codex 登录
+和模型目录。源档案只拥有连接、认证、目录与能力；各业务分别保存 `sourceProfileId + modelId` 及自己的
+目标语言、提示词和回退策略。不存在全局“当前 LLM”，删除被引用源也不得静默切换到其他凭据。漫画
+制图 sidecar 属于图像处理 backend，不是 LLM 源。
+
 ## 状态管理 V2(硬约束)
 
 唯一允许的状态范式(见 [always-loaded-rules](agent-guides/always-loaded-rules.md))。canonical holder:

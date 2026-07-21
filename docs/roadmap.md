@@ -15,6 +15,9 @@ The old milestone snapshot is archived at
   candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
   [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); current execution is
   [Manga Translation Visual Reader V1](plans/active/manga-translation-reader-visual-v1.md).
+- [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
+  Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
+  and policy bindings separate.
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.
