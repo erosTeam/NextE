@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "projectId": "fixture-visual:zh-CN",
+  "pageIndex": 0,
+  "sourceImageHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "imageWidth": 1024,
+  "imageHeight": 1536,
+  "targetLanguage": "zh-CN",
+  "regionBackendId": "fixture-sidecar",
+  "regionProfileId": "fixture-export-import-v1",
+  "regionRevision": 1,
+  "documentRevision": 1,
+  "adapterTemplateHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "translationSourceProfileId": "fixture-llm-source",
+  "translationSourceRevision": 1,
+  "translationModelId": "fixture-context-model",
+  "translationPromptVersion": "fixture-block-translation-v1",
+  "translationContextFingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "translationRevision": 1,
+  "renderProfileId": "fixture-render-v1",
+  "sourceTreatmentProfileId": "fixture-inpaint-v1",
+  "layoutProfileId": "fixture-cjk-layout-v1",
+  "renderRevision": 1,
+  "artifactHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "blocks": [
+    {
+      "blockId": "b0",
+      "readingOrder": 0,
+      "sourceText": "おはよう",
+      "translatedText": "早上好",
+      "polygon": [[120, 180], [420, 180], [420, 360], [120, 360]]
+    },
+    {
+      "blockId": "b1",
+      "readingOrder": 1,
+      "sourceText": "行こう",
+      "translatedText": "走吧",
+      "polygon": [[560, 720], [850, 720], [850, 900], [560, 900]]
+    }
+  ]
+}

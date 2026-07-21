@@ -51,7 +51,7 @@ render identity、缓存、原图回退和 Reader 发布。当前 API/Codex anal
 - `ComicRenderedPageRepository`：保存可再生成的视觉衍生页及其完整身份，不把文件路径当内容身份。
 
 render identity 至少包含：稳定画廊/页身份、原图 SHA-256、region/backend profile 与 revision、OCR/document
-revision、translation provider/model/prompt/context/glossary revision、source-treatment profile、layout profile、
+revision、translation source profile/revision/model/prompt/context/glossary revision、source-treatment profile、layout profile、
 render backend/profile/revision、目标语言。任一可见输入变化都必须使下游衍生页过期；只改译文不得重跑
 检测/OCR，只改布局不得重新调用翻译模型。
 
@@ -79,10 +79,10 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 ### A. 协议与领域契约
 
 - [ ] 固定 upstream revision/profile，并保存不含漫画隐私的最小 export/import fixture；
-- [ ] 定义 region、adapter template、translation batch、render profile 和 rendered artifact 模型；
-- [ ] 同时定义 `ComicWholePageRenderBackend` 能力与统一产物校验接口，首个提交不要求真实 provider 实现；
-- [ ] 明确各 revision、cache key、stale 传播、失败保留和清理语义；
-- [ ] 用 fake backend 证明无 geometry、缺 block、重复 block、越界区域和错误图片不能进入 render-ready。
+- [x] 定义 region、adapter template、translation batch、render profile 和 rendered artifact 模型；
+- [x] 同时定义 `ComicWholePageRenderBackend` 能力与统一产物校验接口，首个提交不要求真实 provider 实现；
+- [x] 明确各 revision、cache key、stale 传播、失败保留和清理语义；
+- [x] 用 fake backend 证明无 geometry、缺 block、重复 block、越界区域和错误图片不能进入 render-ready。
 
 ### B. Sidecar 适配器
 
@@ -128,4 +128,9 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 ## 第一阶段提交边界
 
 第一个代码提交只做 A：领域模型、身份/失效规则、fake backend 和 fixture 测试。它不改 Reader UI、不增加
-设置项、不调用模型、不上传图片、不操作设备。协议契约通过后再进入 B，避免再次让 UI 领先于真实产物。
+设置项、不调用模型、不上传图片；设备回归也只运行离线 fixture。协议契约通过后再进入 B，避免再次让 UI
+领先于真实产物。
+
+2026-07-21：领域契约已在设备 `237` 完成 184/184 Hypium 回归，其中新增视觉契约 6/6 通过；signed app
+与 `entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过。真实 sidecar upstream revision/profile 与
+export/import fixture 仍未固定，因此 A 尚未整体关闭。

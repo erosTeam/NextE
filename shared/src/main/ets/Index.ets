@@ -81,6 +81,17 @@ export {
   ComicTranslationProviderSettingsSnapshot,
 } from './model/ComicTranslationProvider'
 export {
+  COMIC_VISUAL_TRANSLATION_SCHEMA_VERSION,
+  ComicBackendTemplate,
+  ComicBlockTranslation,
+  ComicRegionAnalysisResult,
+  ComicRenderedPage,
+  ComicRenderedPageIdentity,
+  ComicRenderProfile,
+  ComicTranslationBatch,
+  ComicVisualTranslationRoute,
+} from './model/ComicVisualTranslation'
+export {
   ReaderSourceDescriptor,
   ReaderSourceKind,
   ReaderSourceVariant,
@@ -244,6 +255,18 @@ export {
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
 } from './services/ComicTranslationRuntimeService'
+export {
+  ComicRegionAnalysisRequest,
+  ComicRegionRenderBackend,
+  ComicRegionRenderRequest,
+  ComicTextTranslationRequest,
+  ComicTextTranslationResult,
+  ComicTextTranslator,
+  ComicVisualPageSource,
+  ComicWholePageRenderBackend,
+  ComicWholePageRenderRequest,
+} from './services/ComicVisualTranslationBackend'
+export { ComicVisualTranslationContract } from './services/ComicVisualTranslationContract'
 export {
   CodexOAuthHttpTransport,
   DefaultCodexOAuthHttpTransport,
