@@ -95,10 +95,10 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 ### C. 上下文文本翻译
 
-- [ ] 从现有 Responses/Codex 传输抽出 `ComicTextTranslator`，输出必须按 blockId 完整对齐；
-- [ ] 提供当前页图像、区域原文、最近前页、滚动摘要、术语与风格约束，并保持既有预算/脱敏边界；
-- [ ] 缺块、重复块、未知块、空译文或身份不匹配时拒绝候选；
-- [ ] 缓存 identity 使用模型实际可见的受限上下文，不因未发送内容制造错误 miss。
+- [x] 从现有 Responses/Codex 传输抽出 `ComicTextTranslator`，输出必须按 blockId 完整对齐；
+- [x] 提供当前页图像、区域原文、最近前页、滚动摘要、术语与风格约束，并保持既有预算/脱敏边界；
+- [x] 缺块、重复块、未知块、空译文或身份不匹配时拒绝候选；
+- [x] 缓存 identity 使用模型实际可见的受限上下文，不因未发送内容制造错误 miss。
 
 ### D. 视觉编排与缓存
 
@@ -147,3 +147,13 @@ JSON/TXT 和 PNG 均有独立上限。ZIP central/local header 会在系统 zlib
 均在写入视觉产物前失败。设备 `237` 的 fake transport 完整链路、ZIP 解包、blockId 回填、PNG 解码与原子
 落盘测试 3/3 通过；完整 Hypium 为 208/208。制图服务设置与真实 sidecar 连接检查仍是 B 的剩余项，
 当前代码不会因 Reader 出现或预取而上传图片。
+
+2026-07-21：阶段 B 已补齐同级“制图服务”设置、凭据隔离与只读 capability 检查；检查只请求
+`openapi.json`，不会上传漫画页。阶段 C 随后完成：`ComicTextTranslator` 复用现有 API/Codex Responses
+传输、Codex token 刷新和统一 LLM 源选择，但使用独立的逐块响应协议。请求同时携带经最终 SHA-256/MIME
+复核的当前页图像、全部 sidecar block 原文，以及受限的前页、滚动摘要、术语、翻译记忆和风格上下文；
+context fingerprint 只覆盖协议实际发送的受限内容。模型响应会按原 document 顺序重建 batch，少块、重复
+blockId、未知 blockId、空译文和 project/page/image/language 身份漂移均在 render 前拒绝。signed app 与
+`entry@ohosTest` 构建、V2 门禁和 `git diff --check` 通过；设备 `237` 完整 Hypium 为 214/214，其中新增
+多模态逐块翻译器协议 3/3 通过。阶段 D 的视觉编排与持久衍生页缓存仍未完成，因此当前 Reader 仍不能
+把本阶段单独当作完整漫画翻译结果。

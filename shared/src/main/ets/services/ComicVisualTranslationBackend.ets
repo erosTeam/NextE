@@ -54,6 +54,7 @@ export class ComicTextTranslationRequest {
 
 export class ComicTextTranslationResult {
   batch: ComicTranslationBatch = new ComicTranslationBatch()
+  pageSummary: string = ''
 }
 
 export class ComicWholePageRenderRequest {

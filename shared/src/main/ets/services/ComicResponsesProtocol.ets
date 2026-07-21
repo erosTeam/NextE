@@ -2,6 +2,7 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
 import {
+  ComicPageAnalysisContext,
   ComicPageAnalysisRequest,
   ComicPreviousPageContext,
   ComicTranslationMemoryEntry,
@@ -62,7 +63,10 @@ export class ComicResponsesProtocol {
     lines.push('imageHeight=' + request.sourceHeight)
     lines.push('sourceLanguage=' + JSON.stringify(request.context.sourceLanguage))
     lines.push('targetLanguage=' + JSON.stringify(request.context.targetLanguage))
-    const contextLines: string[] = ComicResponsesProtocol.contextLines(request)
+    const contextLines: string[] = ComicResponsesProtocol.contextLines(
+      request.context,
+      request.pageIndex,
+    )
     for (let index: number = 0; index < contextLines.length; index++) {
       lines.push(contextLines[index])
     }
@@ -75,7 +79,7 @@ export class ComicResponsesProtocol {
 
   static contextFingerprint(request: ComicPageAnalysisRequest): string {
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(
-      JSON.stringify(ComicResponsesProtocol.contextLines(request)),
+      JSON.stringify(ComicResponsesProtocol.contextLines(request.context, request.pageIndex)),
     )
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
@@ -87,25 +91,25 @@ export class ComicResponsesProtocol {
     return parts.join('')
   }
 
-  private static contextLines(request: ComicPageAnalysisRequest): string[] {
+  static contextLines(context: ComicPageAnalysisContext, currentPageIndex: number): string[] {
     const lines: string[] = []
     ComicResponsesProtocol.appendContextLine(
       lines,
       'rollingSummary',
-      request.context.rollingSummary,
+      context.rollingSummary,
       MAX_ROLLING_SUMMARY_LINE_CHARS,
     )
     ComicResponsesProtocol.appendContextLine(
       lines,
       'styleGuide',
-      request.context.styleGuide,
+      context.styleGuide,
       MAX_STYLE_GUIDE_LINE_CHARS,
     )
-    ComicResponsesProtocol.appendGlossary(lines, request.context.glossary)
-    ComicResponsesProtocol.appendTranslationMemory(lines, request.context.translationMemory)
+    ComicResponsesProtocol.appendGlossary(lines, context.glossary)
+    ComicResponsesProtocol.appendTranslationMemory(lines, context.translationMemory)
     ComicResponsesProtocol.appendPreviousPages(
       lines,
-      ComicPreviousPageContextPolicy.normalize(request.context.previousPages, request.pageIndex),
+      ComicPreviousPageContextPolicy.normalize(context.previousPages, currentPageIndex),
     )
     return lines
   }

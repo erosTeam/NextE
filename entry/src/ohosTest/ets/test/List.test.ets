@@ -50,6 +50,7 @@ import readerSuperResolutionBackendTest from './ReaderSuperResolutionBackend.tes
 import readerSuperResolutionModelIntegrationTest from './ReaderSuperResolutionModelIntegration.test'
 import comicTranslationPhase0Test from './ComicTranslationPhase0.test'
 import comicTranslationProvidersTest from './ComicTranslationProviders.test'
+import comicResponsesTextTranslatorTest from './ComicResponsesTextTranslator.test'
 import comicTranslationOrchestratorTest from './ComicTranslationOrchestrator.test'
 import comicTranslationPersistentRepositoryTest from './ComicTranslationPersistentRepository.test'
 import comicVisualTranslationContractTest from './ComicVisualTranslationContract.test'
@@ -113,6 +114,7 @@ export default function testsuite(): void {
   readerSuperResolutionModelIntegrationTest()
   comicTranslationPhase0Test()
   comicTranslationProvidersTest()
+  comicResponsesTextTranslatorTest()
   comicTranslationOrchestratorTest()
   comicTranslationPersistentRepositoryTest()
   comicVisualTranslationContractTest()

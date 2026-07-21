@@ -235,15 +235,28 @@ export {
 export { ComicResponsesProtocol } from './services/ComicResponsesProtocol'
 export { ResponsesTextProtocol } from './services/ResponsesTextProtocol'
 export {
+  CODEX_RESPONSES_BASE_URL,
   ComicPageAnalyzerFactory,
   ComicProviderHttpError,
   ComicProviderStageError,
+  ComicResponsesCallConfig,
   ComicResponsesRequestBuilder,
   ComicResponsesHttpTransport,
+  ComicResponsesProviderCore,
   DefaultComicResponsesHttpTransport,
   ExperimentalCodexComicPageAnalyzer,
   OpenAiApiComicPageAnalyzer,
 } from './services/ComicResponsesPageAnalyzer'
+export { ComicResponsesImagePayload } from './services/ComicResponsesImagePayload'
+export {
+  ComicResponsesTextTranslationProtocol,
+} from './services/ComicResponsesTextTranslationProtocol'
+export {
+  COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION,
+  ComicTextTranslatorFactory,
+  ExperimentalCodexComicTextTranslator,
+  OpenAiApiComicTextTranslator,
+} from './services/ComicResponsesTextTranslator'
 export {
   ComicTranslationRepository,
   ComicTranslationRequestIdentity,

@@ -1,7 +1,4 @@
 import { common } from '@kit.AbilityKit'
-import { util } from '@kit.ArkTS'
-import { cryptoFramework } from '@kit.CryptoArchitectureKit'
-import { fileIo } from '@kit.CoreFileKit'
 import { EhConstants } from '../constants/EhConstants'
 import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
 import {
@@ -17,15 +14,15 @@ import {
   ComicPageAnalyzerCapabilities,
 } from './ComicPageAnalyzer'
 import { ComicResponsesProtocol } from './ComicResponsesProtocol'
+import { ComicResponsesImagePayload } from './ComicResponsesImagePayload'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 const COMIC_RESPONSES_PROMPT_VERSION: string = 'comic-page-responses-v3'
-const COMIC_RESPONSES_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_RESPONSES_MAX_RESPONSE_BYTES: number = 8 * 1024 * 1024
 const COMIC_RESPONSES_CONNECT_TIMEOUT_MS: number = 20000
 const COMIC_RESPONSES_READ_TIMEOUT_MS: number = 120000
-const CODEX_RESPONSES_BASE_URL: string = 'https://chatgpt.com/backend-api/codex'
+export const CODEX_RESPONSES_BASE_URL: string = 'https://chatgpt.com/backend-api/codex'
 const CODEX_RESPONSES_ORIGINATOR: string = 'codex_cli_rs'
 const CODEX_RESPONSES_USER_AGENT: string = 'codex_cli_rs/0.0.0 (NextE experimental)'
 
@@ -197,7 +194,7 @@ export class ComicProviderStageError extends Error {
   }
 }
 
-class ComicResponsesCallConfig {
+export class ComicResponsesCallConfig {
   providerId: string = ''
   baseUrl: string = ''
   model: string = ''
@@ -207,7 +204,7 @@ class ComicResponsesCallConfig {
   codexCompatibility: boolean = false
 }
 
-class ComicResponsesPageAnalyzerCore {
+export class ComicResponsesProviderCore {
   private readonly transport: ComicResponsesHttpTransport
 
   constructor(transport: ComicResponsesHttpTransport) {
@@ -230,38 +227,13 @@ class ComicResponsesPageAnalyzerCore {
     if (config.model.length === 0) {
       throw new Error('Comic translation provider model is missing')
     }
-    const body: string = ComicResponsesRequestBuilder.build(
-      config.model,
-      ComicResponsesProtocol.buildPrompt(request),
-      ComicResponsesPageAnalyzerCore.imageDataUrl(request),
-      config.eventStream,
-      config.codexCompatibility,
+    const prompt: string = ComicResponsesProtocol.buildPrompt(request)
+    const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
+      request.imageFilePath,
+      request.imageHash,
+      request.imagePreparationProfile.mimeType,
     )
-    let response: AxiosTextResponse
-    try {
-      response = await this.transport.requestText(
-        ComicResponsesPageAnalyzerCore.responsesUrl(config.baseUrl),
-        'POST',
-        ComicResponsesPageAnalyzerCore.headers(config),
-        body,
-        COMIC_RESPONSES_CONNECT_TIMEOUT_MS,
-        COMIC_RESPONSES_READ_TIMEOUT_MS,
-      )
-    } catch (error) {
-      throw ComicResponsesPageAnalyzerCore.stageError('transport', error as Error)
-    }
-    if (response.statusCode !== 200) {
-      throw new ComicProviderHttpError(response.statusCode, response.body)
-    }
-    let providerJson: string
-    try {
-      providerJson = ComicResponsesProtocol.extractAssistantJson(
-        response.body,
-        config.eventStream,
-      )
-    } catch (error) {
-      throw ComicResponsesPageAnalyzerCore.stageError('protocol', error as Error)
-    }
+    const providerJson: string = await this.requestJson(prompt, imageDataUrl, config)
     try {
       return ComicPageAnalysisParser.parse(
         request,
@@ -271,7 +243,51 @@ class ComicResponsesPageAnalyzerCore {
         COMIC_RESPONSES_PROMPT_VERSION,
       )
     } catch (error) {
-      throw ComicResponsesPageAnalyzerCore.stageError('output', error as Error)
+      throw ComicResponsesProviderCore.stageError('output', error as Error)
+    }
+  }
+
+  async requestJson(
+    prompt: string,
+    imageDataUrl: string,
+    config: ComicResponsesCallConfig,
+  ): Promise<string> {
+    if (config.accessToken.length === 0) {
+      throw new Error('Comic translation provider credential is missing')
+    }
+    if (config.model.length === 0) {
+      throw new Error('Comic translation provider model is missing')
+    }
+    const requestBody: string = ComicResponsesRequestBuilder.build(
+      config.model,
+      prompt,
+      imageDataUrl,
+      config.eventStream,
+      config.codexCompatibility,
+    )
+    let response: AxiosTextResponse
+    try {
+      response = await this.transport.requestText(
+        ComicResponsesProviderCore.responsesUrl(config.baseUrl),
+        'POST',
+        ComicResponsesProviderCore.headers(config),
+        requestBody,
+        COMIC_RESPONSES_CONNECT_TIMEOUT_MS,
+        COMIC_RESPONSES_READ_TIMEOUT_MS,
+      )
+    } catch (error) {
+      throw ComicResponsesProviderCore.stageError('transport', error as Error)
+    }
+    if (response.statusCode !== 200) {
+      throw new ComicProviderHttpError(response.statusCode, response.body)
+    }
+    try {
+      return ComicResponsesProtocol.extractAssistantJson(
+        response.body,
+        config.eventStream,
+      )
+    } catch (error) {
+      throw ComicResponsesProviderCore.stageError('protocol', error as Error)
     }
   }
 
@@ -284,70 +300,6 @@ class ComicResponsesPageAnalyzerCore {
     capabilities.mask = false
     capabilities.contextAwareTranslation = true
     return capabilities
-  }
-
-  private static imageDataUrl(request: ComicPageAnalysisRequest): string {
-    const mimeType: string = request.imagePreparationProfile.mimeType.trim().toLowerCase()
-    if (mimeType !== 'image/jpeg' && mimeType !== 'image/png' &&
-      mimeType !== 'image/webp' && mimeType !== 'image/gif') {
-      throw new Error('Comic provider image MIME type is unsupported')
-    }
-    let file: fileIo.File | null = null
-    try {
-      const stat: fileIo.Stat = fileIo.statSync(request.imageFilePath)
-      if (stat.size <= 0 || stat.size > COMIC_RESPONSES_MAX_IMAGE_BYTES) {
-        throw new Error('Comic provider image file size is invalid')
-      }
-      file = fileIo.openSync(request.imageFilePath, fileIo.OpenMode.READ_ONLY)
-      const buffer: ArrayBuffer = new ArrayBuffer(stat.size)
-      const read: number = fileIo.readSync(file.fd, buffer, { length: stat.size })
-      if (read !== stat.size) {
-        throw new Error('Comic provider image file read was incomplete')
-      }
-      const bytes: Uint8Array = new Uint8Array(buffer)
-      if (ComicResponsesPageAnalyzerCore.imageHash(bytes) !== request.imageHash) {
-        throw new Error('Comic provider image identity changed before request')
-      }
-      if (ComicResponsesPageAnalyzerCore.detectImageMime(bytes) !== mimeType) {
-        throw new Error('Comic provider image MIME type does not match the file')
-      }
-      const encoded: string = new util.Base64Helper().encodeToStringSync(bytes)
-      return 'data:' + mimeType + ';base64,' + encoded
-    } finally {
-      if (file !== null) {
-        fileIo.closeSync(file)
-      }
-    }
-  }
-
-  private static imageHash(bytes: Uint8Array): string {
-    const md = cryptoFramework.createMd('SHA256')
-    md.updateSync({ data: bytes })
-    const digest: Uint8Array = md.digestSync().data
-    const parts: string[] = []
-    for (let index: number = 0; index < digest.length; index++) {
-      parts.push(digest[index].toString(16).padStart(2, '0'))
-    }
-    return parts.join('')
-  }
-
-  private static detectImageMime(bytes: Uint8Array): string {
-    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-      return 'image/jpeg'
-    }
-    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 &&
-      bytes[2] === 0x4e && bytes[3] === 0x47) {
-      return 'image/png'
-    }
-    if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
-      return 'image/gif'
-    }
-    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 &&
-      bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 &&
-      bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
-      return 'image/webp'
-    }
-    throw new Error('Comic provider image MIME type is unsupported')
   }
 
   private static headers(config: ComicResponsesCallConfig): Record<string, string> {
@@ -395,7 +347,7 @@ class ComicResponsesPageAnalyzerCore {
     return normalized + '/v1/responses'
   }
 
-  private static stageError(stageCode: string, error: Error): ComicProviderStageError {
+  static stageError(stageCode: string, error: Error): ComicProviderStageError {
     const message: string = error.message.toLowerCase()
     if (stageCode === 'transport') {
       if (message.includes('timeout')) {
@@ -480,7 +432,7 @@ class ComicResponsesPageAnalyzerCore {
 
 export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
   private readonly config: ComicResponsesCallConfig
-  private readonly core: ComicResponsesPageAnalyzerCore
+  private readonly core: ComicResponsesProviderCore
 
   constructor(
     baseUrl: string,
@@ -494,7 +446,7 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     this.config.baseUrl = baseUrl
     this.config.accessToken = apiKey
     this.config.model = model
-    this.core = new ComicResponsesPageAnalyzerCore(transport)
+    this.core = new ComicResponsesProviderCore(transport)
   }
 
   providerId(): string {
@@ -514,7 +466,7 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {
-    return ComicResponsesPageAnalyzerCore.capabilities()
+    return ComicResponsesProviderCore.capabilities()
   }
 
   analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {
@@ -527,7 +479,7 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
   private readonly model: string
   private readonly sourceProfileId: string
   private readonly sourceRevision: number
-  private readonly core: ComicResponsesPageAnalyzerCore
+  private readonly core: ComicResponsesProviderCore
 
   constructor(
     context: common.UIAbilityContext,
@@ -540,7 +492,7 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
     this.model = model
     this.sourceProfileId = sourceProfileId
     this.sourceRevision = sourceRevision
-    this.core = new ComicResponsesPageAnalyzerCore(transport)
+    this.core = new ComicResponsesProviderCore(transport)
   }
 
   providerId(): string {
@@ -562,7 +514,7 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
   }
 
   capabilities(): ComicPageAnalyzerCapabilities {
-    return ComicResponsesPageAnalyzerCore.capabilities()
+    return ComicResponsesProviderCore.capabilities()
   }
 
   async analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {

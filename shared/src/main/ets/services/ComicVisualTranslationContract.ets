@@ -10,6 +10,7 @@ import {
 import {
   ComicRegionAnalysisRequest,
   ComicRegionRenderRequest,
+  ComicTextTranslationRequest,
   ComicVisualPageSource,
   ComicWholePageRenderRequest,
 } from './ComicVisualTranslationBackend'
@@ -100,6 +101,24 @@ export class ComicVisualTranslationContract {
         throw new Error('Comic translation batch block is invalid')
       }
       translated.add(blockId)
+    }
+  }
+
+  static validateTextTranslationRequest(request: ComicTextTranslationRequest): void {
+    ComicVisualTranslationContract.validateSource(request.source)
+    ComicVisualTranslationContract.validateDocumentIdentity(request.source, request.document)
+    ComicVisualTranslationContract.validateDocumentBlocks(request.document, true)
+    if (!ComicVisualTranslationContract.positiveInteger(request.document.analysisRevision) ||
+      !ComicVisualTranslationContract.positiveInteger(request.requestedTranslationRevision) ||
+      !ComicVisualTranslationContract.identifier(request.context.sourceLanguage) ||
+      !ComicVisualTranslationContract.identifier(request.context.targetLanguage) ||
+      !ComicVisualTranslationContract.nonNegativeInteger(request.context.glossaryRevision) ||
+      !ComicVisualTranslationContract.nonNegativeInteger(request.context.styleGuideRevision) ||
+      !ComicVisualTranslationContract.nonNegativeInteger(request.context.contextRevision) ||
+      request.context.glossary.length > 256 ||
+      request.context.translationMemory.length > 64 ||
+      request.context.previousPages.length > 64) {
+      throw new Error('Comic text translation request is invalid')
     }
   }
 
