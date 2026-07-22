@@ -80,6 +80,9 @@ const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
 const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
+const LOCAL_OBSTACLE_LAYOUT_MIN_LINES: number = 4
+const LOCAL_OBSTACLE_LAYOUT_SAMPLE_STEP: number = 2
+const LOCAL_OBSTACLE_LAYOUT_EDGE_THRESHOLD: number = 28
 const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
 const LOCAL_HORIZONTAL_STYLE_HINT: string = 'horizontal-ltr'
 
@@ -150,6 +153,15 @@ class LocalTextLayout {
 class LocalVerticalTextLayout {
   fontSize: number = 0
   columns: string[] = []
+}
+
+class LocalHorizontalRenderLayout {
+  rect: LocalRenderRect = new LocalRenderRect()
+  horizontalPadding: number = 0
+  verticalPadding: number = 0
+  contentWidth: number = 0
+  contentHeight: number = 0
+  layout: LocalTextLayout = new LocalTextLayout()
 }
 
 class LocalRenderPlanBlock {
@@ -418,6 +430,18 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageHeight,
         request.translations.targetLanguage,
       )
+      const horizontalOffsets: number[] = []
+      for (let index: number = 0; index < renderPlans.length; index++) {
+        horizontalOffsets.push(await ComicLocalVisualBackend.horizontalVerticalOffset(
+          pixelMap,
+          renderPlans[index].block,
+          renderPlans[index].translatedText,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          horizontalFontCap,
+          request.translations.targetLanguage,
+        ))
+      }
       const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
       for (let index: number = 0; index < renderPlans.length; index++) {
         const block: ComicTextBlock = renderPlans[index].block
@@ -431,6 +455,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           verticalFontCap,
           horizontalFontCap,
           request.translations.targetLanguage,
+          horizontalOffsets[index],
         )
       }
       packer = image.createImagePacker()
@@ -1591,6 +1616,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     verticalFontCap: number,
     horizontalFontCap: number,
     targetLanguage: string,
+    horizontalVerticalOffset: number,
   ): void {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
@@ -1650,52 +1676,261 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       canvas.detachBrush()
       return
     }
-    let blockFontCap: number = block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      horizontalFontCap : LOCAL_MAX_FONT_SIZE
-    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT && textRect.width() > 360) {
-      const referenceWidth: number = 360
-      const referencePadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
-      const referenceLayout: LocalTextLayout = ComicLocalVisualBackend.layout(
+    const horizontal: LocalHorizontalRenderLayout =
+      ComicLocalVisualBackend.horizontalRenderLayout(
+        block,
         translatedText,
-        Math.max(1, referenceWidth - referencePadding * 2),
-        contentHeight,
-        font,
-        blockFontCap,
+        imageWidth,
+        imageHeight,
+        horizontalFontCap,
+        targetLanguage,
       )
-      blockFontCap = Math.min(blockFontCap, referenceLayout.fontSize)
-    }
-    const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
-      translatedText,
-      contentWidth,
-      contentHeight,
-      font,
-      blockFontCap,
-    )
+    const layout: LocalTextLayout = horizontal.layout
     textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
     canvas.attachPen(textPen)
     ComicLocalVisualBackend.drawHorizontalLayout(
       canvas,
       layout,
-      textRect,
-      horizontalPadding,
-      verticalPadding,
-      contentWidth,
-      contentHeight,
+      horizontal.rect,
+      horizontal.horizontalPadding,
+      horizontal.verticalPadding,
+      horizontal.contentWidth,
+      horizontal.contentHeight,
       font,
+      horizontalVerticalOffset,
     )
     canvas.detachPen()
     canvas.attachBrush(textBrush)
     ComicLocalVisualBackend.drawHorizontalLayout(
       canvas,
       layout,
-      textRect,
-      horizontalPadding,
-      verticalPadding,
-      contentWidth,
-      contentHeight,
+      horizontal.rect,
+      horizontal.horizontalPadding,
+      horizontal.verticalPadding,
+      horizontal.contentWidth,
+      horizontal.contentHeight,
       font,
+      horizontalVerticalOffset,
     )
     canvas.detachBrush()
+  }
+
+  private static horizontalRenderLayout(
+    block: ComicTextBlock,
+    translatedText: string,
+    imageWidth: number,
+    imageHeight: number,
+    horizontalFontCap: number,
+    targetLanguage: string,
+  ): LocalHorizontalRenderLayout {
+    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
+      block.styleHint,
+      targetLanguage,
+    )
+    const result: LocalHorizontalRenderLayout = new LocalHorizontalRenderLayout()
+    result.rect = ComicLocalVisualBackend.renderTextRect(
+      raw,
+      imageWidth,
+      imageHeight,
+      block.styleHint,
+      renderStyleHint,
+    )
+    result.horizontalPadding = Math.max(4, Math.min(12, result.rect.width() * 0.08))
+    result.verticalPadding = Math.max(4, Math.min(10, result.rect.height() * 0.08))
+    result.contentWidth = Math.max(1, result.rect.width() - result.horizontalPadding * 2)
+    result.contentHeight = Math.max(1, result.rect.height() - result.verticalPadding * 2)
+    const font: drawing.Font = new drawing.Font()
+    font.enableSubpixel(true)
+    let blockFontCap: number = block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      horizontalFontCap : LOCAL_MAX_FONT_SIZE
+    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT && result.rect.width() > 360) {
+      const referenceWidth: number = 360
+      const referencePadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
+      const referenceLayout: LocalTextLayout = ComicLocalVisualBackend.layout(
+        translatedText,
+        Math.max(1, referenceWidth - referencePadding * 2),
+        result.contentHeight,
+        font,
+        blockFontCap,
+      )
+      blockFontCap = Math.min(blockFontCap, referenceLayout.fontSize)
+    }
+    result.layout = ComicLocalVisualBackend.layout(
+      translatedText,
+      result.contentWidth,
+      result.contentHeight,
+      font,
+      blockFontCap,
+    )
+    return result
+  }
+
+  private static async horizontalVerticalOffset(
+    pixelMap: image.PixelMap,
+    block: ComicTextBlock,
+    translatedText: string,
+    imageWidth: number,
+    imageHeight: number,
+    horizontalFontCap: number,
+    targetLanguage: string,
+  ): Promise<number> {
+    if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      ComicLocalVisualBackend.renderStyleHint(block.styleHint, targetLanguage) !==
+        LOCAL_HORIZONTAL_STYLE_HINT) {
+      return -1
+    }
+    const prepared: LocalHorizontalRenderLayout =
+      ComicLocalVisualBackend.horizontalRenderLayout(
+        block,
+        translatedText,
+        imageWidth,
+        imageHeight,
+        horizontalFontCap,
+        targetLanguage,
+      )
+    const lineHeight: number = prepared.layout.fontSize * 1.18
+    const totalHeight: number = prepared.layout.lines.length * lineHeight
+    const slack: number = Math.max(0, prepared.contentHeight - totalHeight)
+    if (prepared.layout.lines.length < LOCAL_OBSTACLE_LAYOUT_MIN_LINES ||
+      slack < Math.max(18, lineHeight * 1.2)) {
+      return -1
+    }
+    const left: number = Math.max(0, Math.floor(prepared.rect.left))
+    const top: number = Math.max(0, Math.floor(prepared.rect.top))
+    const right: number = Math.min(imageWidth, Math.ceil(prepared.rect.right))
+    const bottom: number = Math.min(imageHeight, Math.ceil(prepared.rect.bottom))
+    const width: number = right - left
+    const height: number = bottom - top
+    if (width <= 2 || height <= 2) {
+      return -1
+    }
+    try {
+      const rowBytes: number = width * 4
+      const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * height)
+      await pixelMap.readPixels({
+        pixels: buffer,
+        offset: 0,
+        stride: rowBytes,
+        region: {
+          x: left,
+          y: top,
+          size: { width: width, height: height },
+        },
+      })
+      const pixels: Uint8Array = new Uint8Array(buffer)
+      const candidates: number[] = [0, slack / 2, slack]
+      const centerScore: number = ComicLocalVisualBackend.horizontalObstacleScore(
+        pixels,
+        width,
+        height,
+        rowBytes,
+        prepared,
+        candidates[1],
+      )
+      let bestOffset: number = candidates[1]
+      let bestScore: number = centerScore
+      for (let index: number = 0; index < candidates.length; index++) {
+        const candidate: number = candidates[index]
+        const score: number = ComicLocalVisualBackend.horizontalObstacleScore(
+          pixels,
+          width,
+          height,
+          rowBytes,
+          prepared,
+          candidate,
+        )
+        if (score + 0.01 < bestScore) {
+          bestScore = score
+          bestOffset = candidate
+        }
+      }
+      const requiredImprovement: number = Math.max(1.5, centerScore * 0.16)
+      if (centerScore - bestScore < requiredImprovement) {
+        return candidates[1]
+      }
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_obstacle_layout_shifted',
+        `block=${block.blockId} lines=${prepared.layout.lines.length} ` +
+          `center=${centerScore.toFixed(2)} selected=${bestScore.toFixed(2)} ` +
+          `offset=${Math.round(bestOffset)}`,
+      )
+      return bestOffset
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'local_obstacle_layout_fallback',
+        `block=${block.blockId} message=${(error as Error).message}`,
+      )
+      return -1
+    }
+  }
+
+  private static horizontalObstacleScore(
+    pixels: Uint8Array,
+    width: number,
+    height: number,
+    rowBytes: number,
+    prepared: LocalHorizontalRenderLayout,
+    verticalOffset: number,
+  ): number {
+    const font: drawing.Font = new drawing.Font()
+    font.enableSubpixel(true)
+    font.setSize(prepared.layout.fontSize)
+    const lineHeight: number = prepared.layout.fontSize * 1.18
+    const outline: number = ComicLocalVisualBackend.outlineWidth(prepared.layout.fontSize)
+    const localLeft: number = prepared.rect.left - Math.floor(prepared.rect.left)
+    const localTop: number = prepared.rect.top - Math.floor(prepared.rect.top)
+    let edgeScore: number = 0
+    let samples: number = 0
+    for (let lineIndex: number = 0;
+      lineIndex < prepared.layout.lines.length; lineIndex++) {
+      const line: string = prepared.layout.lines[lineIndex]
+      const lineWidth: number = font.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8)
+      const lineLeft: number = localLeft + prepared.horizontalPadding +
+        Math.max(0, (prepared.contentWidth - lineWidth) / 2) - outline
+      const lineTop: number = localTop + prepared.verticalPadding + verticalOffset +
+        lineIndex * lineHeight - outline
+      const lineRight: number = lineLeft + lineWidth + outline * 2
+      const lineBottom: number = lineTop + lineHeight + outline * 2
+      const startX: number = Math.max(1, Math.floor(lineLeft))
+      const startY: number = Math.max(1, Math.floor(lineTop))
+      const endX: number = Math.min(width - 2, Math.ceil(lineRight))
+      const endY: number = Math.min(height - 2, Math.ceil(lineBottom))
+      for (let y: number = startY; y <= endY;
+        y += LOCAL_OBSTACLE_LAYOUT_SAMPLE_STEP) {
+        for (let x: number = startX; x <= endX;
+          x += LOCAL_OBSTACLE_LAYOUT_SAMPLE_STEP) {
+          const luminance: number = ComicLocalVisualBackend.pixelLuminance(
+            pixels,
+            y * rowBytes + x * 4,
+          )
+          const rightLuminance: number = ComicLocalVisualBackend.pixelLuminance(
+            pixels,
+            y * rowBytes + (x + 1) * 4,
+          )
+          const bottomLuminance: number = ComicLocalVisualBackend.pixelLuminance(
+            pixels,
+            (y + 1) * rowBytes + x * 4,
+          )
+          const edge: number = Math.max(
+            Math.abs(luminance - rightLuminance),
+            Math.abs(luminance - bottomLuminance),
+          )
+          if (edge >= LOCAL_OBSTACLE_LAYOUT_EDGE_THRESHOLD) {
+            edgeScore = edgeScore + edge
+          }
+          samples = samples + 1
+        }
+      }
+    }
+    return samples > 0 ? edgeScore / samples : 0
+  }
+
+  private static pixelLuminance(pixels: Uint8Array, offset: number): number {
+    return pixels[offset + 2] * 0.299 + pixels[offset + 1] * 0.587 +
+      pixels[offset] * 0.114
   }
 
   private static drawHorizontalLayout(
@@ -1707,13 +1942,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     contentWidth: number,
     contentHeight: number,
     font: drawing.Font,
+    verticalOffset: number,
   ): void {
     font.setSize(layout.fontSize)
     const lineHeight: number = layout.fontSize * 1.18
     const totalHeight: number = layout.lines.length * lineHeight
     const metrics: drawing.FontMetrics = font.getMetrics()
-    let baseline: number = rect.top + verticalPadding +
-      Math.max(0, (contentHeight - totalHeight) / 2) - metrics.ascent
+    const availableOffset: number = Math.max(0, contentHeight - totalHeight)
+    const resolvedOffset: number = verticalOffset < 0 ? availableOffset / 2 :
+      Math.max(0, Math.min(availableOffset, verticalOffset))
+    let baseline: number = rect.top + verticalPadding + resolvedOffset - metrics.ascent
     for (let index: number = 0; index < layout.lines.length; index++) {
       const line: string = layout.lines[index]
       const width: number = font.measureText(line, drawing.TextEncoding.TEXT_ENCODING_UTF8)

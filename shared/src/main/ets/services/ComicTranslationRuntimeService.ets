@@ -57,9 +57,9 @@ import {
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
-const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v36'
+const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v37'
 const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-ctd-aot-inpaint-v24'
-const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v31'
+const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v32'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096

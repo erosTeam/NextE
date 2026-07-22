@@ -12,12 +12,14 @@ import {
   ComicLocalOcrPoint,
   ComicLocalOcrResult,
   ComicLocalRegionDetector,
+  ComicLocalTextMasker,
   ComicLocalTextRecognizer,
   ComicLocalVisualBackend,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
   ComicNativeRegionPoint,
   ComicNativeTextRecognitionResult,
+  ComicNativeTextMaskResult,
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
   ComicRegionRenderRequest,
@@ -350,6 +352,34 @@ class WideParagraphOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class SourceOnlyTextMasker implements ComicLocalTextMasker {
+  profileId(): string {
+    return 'source-only-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(maskBuffer)
+    for (let y: number = 200; y < 206; y++) {
+      for (let x: number = 110; x < 116; x++) {
+        mask[y * width + x] = 1
+      }
+    }
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = maskBuffer
+    result.backend = 'source-only-mask-fixture'
+    result.maskedPixels = 36
+    return result
+  }
+}
+
 class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
   profileId(): string {
     return 'adjacent-column-region-fixture'
@@ -529,6 +559,49 @@ async function writeSolidImage(path: string, width: number, height: number): Pro
   try {
     const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
     new Uint8Array(buffer).fill(255)
+    pixelMap = await image.createPixelMap(buffer, {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    })
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+  }
+}
+
+async function writeObstacleImage(path: string, width: number, height: number): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    pixels.fill(255)
+    for (let y: number = 450; y < 570; y++) {
+      for (let x: number = 180; x < 620; x++) {
+        if ((x + y) % 2 === 0) {
+          const offset: number = (y * width + x) * 4
+          pixels[offset] = 0
+          pixels[offset + 1] = 0
+          pixels[offset + 2] = 0
+        }
+      }
+    }
     pixelMap = await image.createPixelMap(buffer, {
       size: { width: width, height: height },
       srcPixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -1042,6 +1115,57 @@ export default function comicLocalVisualBackendTest(): void {
           )
           expect(bounds.changed > 0).assertEqual(true)
           expect(bounds.right - bounds.left > 360).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('moves a long horizontal paragraph away from dense remaining artwork', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/obstacle-layout-source.png`
+        let renderedPath: string = ''
+        await writeObstacleImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new WideParagraphOcrEngine(),
+            null,
+            null,
+            null,
+            new SourceOnlyTextMasker(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'This consolidated paragraph keeps every translated sentence together while using ' +
+              'the quiet area above the remaining sound effect instead of drawing through it.',
+            '',
+            15,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.top < 220).assertEqual(true)
+          expect(bounds.bottom < 450).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)
