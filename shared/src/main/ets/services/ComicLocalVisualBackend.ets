@@ -444,12 +444,24 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageHeight,
         request.translations.targetLanguage,
       )
+      const textRects: LocalRenderRect[] = []
+      for (let index: number = 0; index < renderPlans.length; index++) {
+        textRects.push(await ComicLocalVisualBackend.resolvedRenderTextRect(
+          pixelMap,
+          renderPlans[index].block,
+          request.source.imageWidth,
+          request.source.imageHeight,
+          fillStyles[index],
+          request.translations.targetLanguage,
+        ))
+      }
       const horizontalOffsets: number[] = []
       for (let index: number = 0; index < renderPlans.length; index++) {
         horizontalOffsets.push(await ComicLocalVisualBackend.horizontalVerticalOffset(
           pixelMap,
           renderPlans[index].block,
           renderPlans[index].translatedText,
+          textRects[index],
           request.source.imageWidth,
           request.source.imageHeight,
           horizontalFontCap,
@@ -463,8 +475,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           canvas,
           block,
           renderPlans[index].translatedText,
-          request.source.imageWidth,
-          request.source.imageHeight,
+          textRects[index],
           fillStyles[index],
           verticalFontCap,
           horizontalFontCap,
@@ -1715,25 +1726,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     canvas: drawing.Canvas,
     block: ComicTextBlock,
     translatedText: string,
-    imageWidth: number,
-    imageHeight: number,
+    textRect: LocalRenderRect,
     fill: LocalFillStyle,
     verticalFontCap: number,
     horizontalFontCap: number,
     targetLanguage: string,
     horizontalVerticalOffset: number,
   ): void {
-    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
       block.styleHint,
       targetLanguage,
-    )
-    const textRect: LocalRenderRect = ComicLocalVisualBackend.renderTextRect(
-      raw,
-      imageWidth,
-      imageHeight,
-      block.styleHint,
-      renderStyleHint,
     )
     const horizontalPadding: number = Math.max(4, Math.min(12, textRect.width() * 0.08))
     const verticalPadding: number = Math.max(4, Math.min(10, textRect.height() * 0.08))
@@ -1785,10 +1787,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ComicLocalVisualBackend.horizontalRenderLayout(
         block,
         translatedText,
-        imageWidth,
-        imageHeight,
+        textRect,
         horizontalFontCap,
-        targetLanguage,
       )
     const layout: LocalTextLayout = horizontal.layout
     textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
@@ -1823,24 +1823,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private static horizontalRenderLayout(
     block: ComicTextBlock,
     translatedText: string,
-    imageWidth: number,
-    imageHeight: number,
+    textRect: LocalRenderRect,
     horizontalFontCap: number,
-    targetLanguage: string,
   ): LocalHorizontalRenderLayout {
-    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
-    const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
-      block.styleHint,
-      targetLanguage,
-    )
     const result: LocalHorizontalRenderLayout = new LocalHorizontalRenderLayout()
-    result.rect = ComicLocalVisualBackend.renderTextRect(
-      raw,
-      imageWidth,
-      imageHeight,
-      block.styleHint,
-      renderStyleHint,
-    )
+    result.rect = textRect
     result.horizontalPadding = Math.max(4, Math.min(12, result.rect.width() * 0.08))
     result.verticalPadding = Math.max(4, Math.min(10, result.rect.height() * 0.08))
     result.contentWidth = Math.max(1, result.rect.width() - result.horizontalPadding * 2)
@@ -1875,6 +1862,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     pixelMap: image.PixelMap,
     block: ComicTextBlock,
     translatedText: string,
+    textRect: LocalRenderRect,
     imageWidth: number,
     imageHeight: number,
     horizontalFontCap: number,
@@ -1889,10 +1877,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ComicLocalVisualBackend.horizontalRenderLayout(
         block,
         translatedText,
-        imageWidth,
-        imageHeight,
+        textRect,
         horizontalFontCap,
-        targetLanguage,
       )
     const lineHeight: number = prepared.layout.fontSize * 1.18
     const totalHeight: number = prepared.layout.lines.length * lineHeight
@@ -2248,6 +2234,262 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       imageHeight,
       safeMargin,
     )
+  }
+
+  private static async resolvedRenderTextRect(
+    pixelMap: image.PixelMap,
+    block: ComicTextBlock,
+    imageWidth: number,
+    imageHeight: number,
+    fill: LocalFillStyle,
+    targetLanguage: string,
+  ): Promise<LocalRenderRect> {
+    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
+      block.styleHint,
+      targetLanguage,
+    )
+    const fallback: LocalRenderRect = ComicLocalVisualBackend.renderTextRect(
+      raw,
+      imageWidth,
+      imageHeight,
+      block.styleHint,
+      renderStyleHint,
+    )
+    if (renderStyleHint !== LOCAL_HORIZONTAL_STYLE_HINT) {
+      return fallback
+    }
+    try {
+      return await ComicLocalVisualBackend.bubbleSafeTextRect(
+        pixelMap,
+        raw,
+        fallback,
+        imageWidth,
+        imageHeight,
+        fill,
+        block.blockId,
+      )
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'local_bubble_safe_rect_fallback',
+        `block=${block.blockId} message=${(error as Error).message}`,
+      )
+      return fallback
+    }
+  }
+
+  private static async bubbleSafeTextRect(
+    pixelMap: image.PixelMap,
+    raw: LocalRenderRect,
+    fallback: LocalRenderRect,
+    imageWidth: number,
+    imageHeight: number,
+    fill: LocalFillStyle,
+    blockId: string,
+  ): Promise<LocalRenderRect> {
+    // The fallback rectangle is intentionally generous for Latin wrapping. Read a bounded
+    // neighbourhood around it so a closed balloon outline can constrain that expansion.
+    const expansionX: number = Math.min(
+      128,
+      Math.max(56, fallback.width() * 0.45),
+    )
+    const expansionY: number = 112
+    const left: number = Math.max(0, Math.floor(fallback.left - expansionX))
+    const top: number = Math.max(0, Math.floor(fallback.top - expansionY))
+    const right: number = Math.min(imageWidth, Math.ceil(fallback.right + expansionX))
+    const bottom: number = Math.min(imageHeight, Math.ceil(fallback.bottom + expansionY))
+    const width: number = right - left
+    const height: number = bottom - top
+    if (width <= 4 || height <= 4) {
+      return fallback
+    }
+    const rowBytes: number = width * 4
+    const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * height)
+    await pixelMap.readPixels({
+      pixels: buffer,
+      offset: 0,
+      stride: rowBytes,
+      region: {
+        x: left,
+        y: top,
+        size: { width: width, height: height },
+      },
+    })
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    const rawLeft: number = Math.max(0, Math.floor(raw.left) - left)
+    const rawTop: number = Math.max(0, Math.floor(raw.top) - top)
+    const rawRight: number = Math.min(width, Math.ceil(raw.right) - left)
+    const rawBottom: number = Math.min(height, Math.ceil(raw.bottom) - top)
+    const centerX: number = Math.max(0, Math.min(width - 1,
+      Math.floor((raw.left + raw.right) / 2) - left))
+    const centerY: number = Math.max(0, Math.min(height - 1,
+      Math.floor((raw.top + raw.bottom) / 2) - top))
+    let seed: number = -1
+    let seedDistance: number = Number.MAX_VALUE
+    for (let y: number = rawTop; y < rawBottom; y++) {
+      for (let x: number = rawLeft; x < rawRight; x++) {
+        const pixelOffset: number = y * rowBytes + x * 4
+        if (!ComicLocalVisualBackend.isBubbleInteriorPixel(pixels, pixelOffset, fill)) {
+          continue
+        }
+        const xDistance: number = x - centerX
+        const yDistance: number = y - centerY
+        const distance: number = xDistance * xDistance + yDistance * yDistance
+        if (distance < seedDistance) {
+          seed = y * width + x
+          seedDistance = distance
+        }
+      }
+    }
+    if (seed < 0) {
+      return fallback
+    }
+    const pixelCount: number = width * height
+    const visited: Uint8Array = new Uint8Array(pixelCount)
+    const queue: Int32Array = new Int32Array(pixelCount)
+    const xCounts: Uint32Array = new Uint32Array(width)
+    const yCounts: Uint32Array = new Uint32Array(height)
+    let readIndex: number = 0
+    let writeIndex: number = 1
+    let area: number = 0
+    let touchesCandidateEdge: boolean = false
+    queue[0] = seed
+    visited[seed] = 1
+    while (readIndex < writeIndex) {
+      const current: number = queue[readIndex]
+      readIndex = readIndex + 1
+      const x: number = current % width
+      const y: number = Math.floor(current / width)
+      area = area + 1
+      xCounts[x] = xCounts[x] + 1
+      yCounts[y] = yCounts[y] + 1
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+        touchesCandidateEdge = true
+      }
+      if (x > 0) {
+        writeIndex = ComicLocalVisualBackend.enqueueBubbleInterior(
+          pixels, visited, queue, current - 1, rowBytes, fill, writeIndex,
+        )
+      }
+      if (x + 1 < width) {
+        writeIndex = ComicLocalVisualBackend.enqueueBubbleInterior(
+          pixels, visited, queue, current + 1, rowBytes, fill, writeIndex,
+        )
+      }
+      if (y > 0) {
+        writeIndex = ComicLocalVisualBackend.enqueueBubbleInterior(
+          pixels, visited, queue, current - width, rowBytes, fill, writeIndex,
+        )
+      }
+      if (y + 1 < height) {
+        writeIndex = ComicLocalVisualBackend.enqueueBubbleInterior(
+          pixels, visited, queue, current + width, rowBytes, fill, writeIndex,
+        )
+      }
+    }
+    const minimumArea: number = Math.max(64, raw.width() * raw.height() * 0.72)
+    if (touchesCandidateEdge || area < minimumArea) {
+      return fallback
+    }
+    // A balloon tail occupies only a small fraction of the connected component. Trim the
+    // sparse outer 1.2% before taking bounds so it cannot pull centred prose into the tail.
+    const trimCount: number = Math.max(1, Math.floor(area * 0.012))
+    let componentLeft: number = 0
+    let accumulated: number = 0
+    while (componentLeft < width - 1 && accumulated + xCounts[componentLeft] <= trimCount) {
+      accumulated = accumulated + xCounts[componentLeft]
+      componentLeft = componentLeft + 1
+    }
+    let componentRight: number = width - 1
+    accumulated = 0
+    while (componentRight > componentLeft &&
+      accumulated + xCounts[componentRight] <= trimCount) {
+      accumulated = accumulated + xCounts[componentRight]
+      componentRight = componentRight - 1
+    }
+    let componentTop: number = 0
+    accumulated = 0
+    while (componentTop < height - 1 && accumulated + yCounts[componentTop] <= trimCount) {
+      accumulated = accumulated + yCounts[componentTop]
+      componentTop = componentTop + 1
+    }
+    let componentBottom: number = height - 1
+    accumulated = 0
+    while (componentBottom > componentTop &&
+      accumulated + yCounts[componentBottom] <= trimCount) {
+      accumulated = accumulated + yCounts[componentBottom]
+      componentBottom = componentBottom - 1
+    }
+    const componentWidth: number = componentRight - componentLeft + 1
+    const componentHeight: number = componentBottom - componentTop + 1
+    if (componentWidth < raw.width() * 0.75 || componentHeight < raw.height() * 0.75) {
+      return fallback
+    }
+    const insetX: number = Math.max(4, Math.min(14, componentWidth * 0.035))
+    const insetY: number = Math.max(4, Math.min(12, componentHeight * 0.045))
+    const safe: LocalRenderRect = new LocalRenderRect()
+    safe.left = left + componentLeft + insetX
+    safe.top = top + componentTop + insetY
+    safe.right = left + componentRight + 1 - insetX
+    safe.bottom = top + componentBottom + 1 - insetY
+    if (safe.width() < 24 || safe.height() < 24) {
+      return fallback
+    }
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_bubble_safe_rect',
+      `block=${blockId} fallback=${Math.round(fallback.left)},${Math.round(fallback.top)},` +
+        `${Math.round(fallback.right)},${Math.round(fallback.bottom)} ` +
+        `safe=${Math.round(safe.left)},${Math.round(safe.top)},` +
+        `${Math.round(safe.right)},${Math.round(safe.bottom)} area=${area}`,
+    )
+    return safe
+  }
+
+  private static enqueueBubbleInterior(
+    pixels: Uint8Array,
+    visited: Uint8Array,
+    queue: Int32Array,
+    pixelIndex: number,
+    rowBytes: number,
+    fill: LocalFillStyle,
+    writeIndex: number,
+  ): number {
+    if (visited[pixelIndex] !== 0) {
+      return writeIndex
+    }
+    visited[pixelIndex] = 1
+    const x: number = pixelIndex % (rowBytes / 4)
+    const y: number = Math.floor(pixelIndex / (rowBytes / 4))
+    if (!ComicLocalVisualBackend.isBubbleInteriorPixel(
+      pixels,
+      y * rowBytes + x * 4,
+      fill,
+    )) {
+      return writeIndex
+    }
+    queue[writeIndex] = pixelIndex
+    return writeIndex + 1
+  }
+
+  private static isBubbleInteriorPixel(
+    pixels: Uint8Array,
+    offset: number,
+    fill: LocalFillStyle,
+  ): boolean {
+    // PixelMap.readPixels exposes BGRA_8888 bytes.
+    const blue: number = pixels[offset]
+    const green: number = pixels[offset + 1]
+    const red: number = pixels[offset + 2]
+    const colorDelta: number = Math.max(
+      Math.abs(red - fill.red),
+      Math.abs(green - fill.green),
+      Math.abs(blue - fill.blue),
+    )
+    const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
+    const fillLuminance: number = fill.red * 0.299 + fill.green * 0.587 + fill.blue * 0.114
+    return colorDelta <= 56 && Math.abs(luminance - fillLuminance) <= 48
   }
 
   private static pageAwareRect(

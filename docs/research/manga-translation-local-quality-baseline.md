@@ -3,8 +3,8 @@
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v24`
-- **current production render profile**: `reader-local-bubble-layout-v38` /
-  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v32`
+- **current production render profile**: `reader-local-bubble-layout-v39` /
+  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v33`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -163,6 +163,22 @@ AOT 区域 `515 × 906 -> 152 × 256` 为 351 ms。signed app、V2 inventory 和
 signed `entry@ohosTest`、V2 inventory 与完整设备 Hypium 270/270 通过。该证据只关闭这一已知跨气泡重叠
 回归；短气泡仍接近轮廓边界，气泡形状感知内边距、复杂背景残留、艺术字/拟声词覆盖和更多真实样本继续属于
 B2/F 未关闭项。
+
+## 真实 Reader 闭合气泡安全区补充（2026-07-23）
+
+v39 render 在清理全部原文后，只对横排目标尝试从原始 OCR 区域进入与已采样底色相近的连通域。候选读取
+范围有界；连通域触碰候选边缘、面积或宽高不足、像素读取失败时立即保留既有 geometry fallback。确认闭合后
+裁掉稀疏的气泡尾部并做小幅内缩；同一解析结果同时用于字号拟合、障碍偏移和最终绘制，避免阶段间重算漂移。
+
+设备 `237` 对同一 `1280 × 1780` P2 复测，五个 block 全部命中闭合安全区。关键短气泡从 fallback
+`602,1039–890,1126` 收敛为 `642,1043–855,1126`，最小气泡为 `465,1144–599,1188`；五份译文均位于
+各自轮廓内且无重叠。CTD 为 648 ms，五个 AOT 为 238/343/347/289/282 ms，最终图片 806,706 bytes，
+artifact `c659d88ca744…`。确定性闭合气泡 fixture 记录 `fallback=542,398,758,482`、
+`safe=471,350,739,560`、面积 68,796；signed app、signed `entry@ohosTest`、V2 inventory 和完整设备
+Hypium 271/271 通过。
+
+该证据关闭当前 P2 的普通闭合气泡贴边回归。开放尾部、复杂纹理或深色气泡仍会保守回退，艺术字/拟声词、
+复杂背景修复、更多真实样本和连续页性能仍属于 B2/F 未关闭项。
 
 ## 漫画 detector 端侧移植试验（2026-07-22）
 

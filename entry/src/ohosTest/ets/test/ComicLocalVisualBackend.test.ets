@@ -316,6 +316,33 @@ class EdgeRenderOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class ClosedBubbleOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'closed-bubble-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = '短い吹き出しの右側に寄った文章です'
+    line.blockIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(570, 410))
+    line.polygon.push(new ComicLocalOcrPoint(730, 410))
+    line.polygon.push(new ComicLocalOcrPoint(730, 470))
+    line.polygon.push(new ComicLocalOcrPoint(570, 470))
+    result.lines.push(line)
+    return Promise.resolve(result)
+  }
+}
+
 class WideParagraphOcrEngine implements ComicLocalOcrEngine {
   engineId(): string {
     return 'wide-paragraph-ocr-fixture'
@@ -746,6 +773,56 @@ async function writeAdjacentBubbleImage(path: string, width: number, height: num
         pixels[offset + 2] = 0
       }
       for (let x: number = 350; x < 370; x++) {
+        const offset: number = (y * width + x) * 4
+        pixels[offset] = 0
+        pixels[offset + 1] = 0
+        pixels[offset + 2] = 0
+      }
+    }
+    pixelMap = await image.createPixelMap(buffer, {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    })
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+  }
+}
+
+async function writeClosedBubbleImage(path: string, width: number, height: number): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    pixels.fill(255)
+    const left: number = 450
+    const top: number = 330
+    const right: number = 760
+    const bottom: number = 580
+    const stroke: number = 8
+    for (let y: number = top; y < bottom; y++) {
+      for (let x: number = left; x < right; x++) {
+        if (x >= left + stroke && x < right - stroke &&
+          y >= top + stroke && y < bottom - stroke) {
+          continue
+        }
         const offset: number = (y * width + x) * 4
         pixels[offset] = 0
         pixels[offset + 1] = 0
@@ -1327,6 +1404,55 @@ export default function comicLocalVisualBackendTest(): void {
           )
           expect(bounds.changed > 0).assertEqual(true)
           expect(bounds.left >= 24).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('keeps a translated paragraph inside a closed speech balloon', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/closed-bubble-render-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The translated line stays comfortably within this compact speech balloon.',
+            '',
+            17,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 470).assertEqual(true)
+          expect(bounds.right <= 740).assertEqual(true)
+          expect(bounds.top >= 350).assertEqual(true)
+          expect(bounds.bottom <= 560).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)
