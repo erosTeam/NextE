@@ -80,6 +80,14 @@ class LocalComicQualityMeasurement {
   artifactBytes: number = 0
 }
 
+class LocalChangedPixelBounds {
+  changed: number = 0
+  left: number = 0
+  top: number = 0
+  right: number = 0
+  bottom: number = 0
+}
+
 class BubbleGroupingOcrEngine implements ComicLocalOcrEngine {
   engineId(): string {
     return 'bubble-grouping-fixture'
@@ -228,6 +236,79 @@ class AdjacentColumnOcrEngine implements ComicLocalOcrEngine {
     line.polygon.push(new ComicLocalOcrPoint(right, bottom))
     line.polygon.push(new ComicLocalOcrPoint(left, bottom))
     return line
+  }
+}
+
+class ContainedRenderOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'contained-render-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line(
+      'これは十分に長い親領域の文章で重複した認識結果を含みます',
+      0,
+      40,
+      180,
+      380,
+      900,
+    ))
+    result.lines.push(this.line('補足の文章です', 1, 80, 260, 120, 420))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    blockIndex: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
+  }
+}
+
+class EdgeRenderOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'edge-render-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = 'ページ端にある十分に長い縦書きの文章です'
+    line.blockIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(4, 180))
+    line.polygon.push(new ComicLocalOcrPoint(44, 180))
+    line.polygon.push(new ComicLocalOcrPoint(44, 900))
+    line.polygon.push(new ComicLocalOcrPoint(4, 900))
+    result.lines.push(line)
+    return Promise.resolve(result)
   }
 }
 
@@ -571,6 +652,22 @@ function renderRequest(
   return request
 }
 
+function setEnglishRenderText(
+  request: ComicRegionRenderRequest,
+  parentText: string,
+  childText: string,
+  revision: number,
+): void {
+  request.translations.targetLanguage = 'en'
+  request.translations.translationRevision = revision
+  request.identity.targetLanguage = 'en'
+  request.identity.translationRevision = revision
+  request.translations.blocks[0].translatedText = parentText
+  if (request.translations.blocks.length > 1) {
+    request.translations.blocks[1].translatedText = childText
+  }
+}
+
 function page01Fixture(): LocalComicFixture {
   const fixture: LocalComicFixture = new LocalComicFixture()
   fixture.pageIndex = 0
@@ -685,6 +782,71 @@ async function changedPixelPercent(sourcePath: string, renderedPath: string): Pr
   }
 }
 
+async function changedPixelBounds(
+  sourcePath: string,
+  renderedPath: string,
+  width: number,
+): Promise<LocalChangedPixelBounds> {
+  let sourceImage: image.ImageSource | undefined = undefined
+  let renderedImage: image.ImageSource | undefined = undefined
+  let sourceMap: image.PixelMap | undefined = undefined
+  let renderedMap: image.PixelMap | undefined = undefined
+  try {
+    sourceImage = image.createImageSource(sourcePath)
+    renderedImage = image.createImageSource(renderedPath)
+    sourceMap = await sourceImage.createPixelMap({
+      editable: false,
+      desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+    })
+    renderedMap = await renderedImage.createPixelMap({
+      editable: false,
+      desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+    })
+    const sourceBuffer: ArrayBuffer = new ArrayBuffer(sourceMap.getPixelBytesNumber())
+    const renderedBuffer: ArrayBuffer = new ArrayBuffer(renderedMap.getPixelBytesNumber())
+    await sourceMap.readPixelsToBuffer(sourceBuffer)
+    await renderedMap.readPixelsToBuffer(renderedBuffer)
+    const sourceBytes: Uint8Array = new Uint8Array(sourceBuffer)
+    const renderedBytes: Uint8Array = new Uint8Array(renderedBuffer)
+    if (sourceBytes.length !== renderedBytes.length || sourceBytes.length % 4 !== 0) {
+      throw new Error('Local comic comparison image dimensions are invalid')
+    }
+    const bounds: LocalChangedPixelBounds = new LocalChangedPixelBounds()
+    bounds.left = width
+    bounds.top = sourceBytes.length / 4 / width
+    for (let offset: number = 0; offset < sourceBytes.length; offset += 4) {
+      const redDelta: number = Math.abs(sourceBytes[offset] - renderedBytes[offset])
+      const greenDelta: number = Math.abs(sourceBytes[offset + 1] - renderedBytes[offset + 1])
+      const blueDelta: number = Math.abs(sourceBytes[offset + 2] - renderedBytes[offset + 2])
+      if (Math.max(redDelta, greenDelta, blueDelta) <= 16) {
+        continue
+      }
+      const pixelIndex: number = offset / 4
+      const x: number = pixelIndex % width
+      const y: number = Math.floor(pixelIndex / width)
+      bounds.changed = bounds.changed + 1
+      bounds.left = Math.min(bounds.left, x)
+      bounds.top = Math.min(bounds.top, y)
+      bounds.right = Math.max(bounds.right, x)
+      bounds.bottom = Math.max(bounds.bottom, y)
+    }
+    return bounds
+  } finally {
+    if (renderedMap !== undefined) {
+      await renderedMap.release()
+    }
+    if (sourceMap !== undefined) {
+      await sourceMap.release()
+    }
+    if (renderedImage !== undefined) {
+      await renderedImage.release()
+    }
+    if (sourceImage !== undefined) {
+      await sourceImage.release()
+    }
+  }
+}
+
 export default function comicLocalVisualBackendTest(): void {
   describe('ComicLocalVisualBackend', () => {
     it('exposes component licenses for the local manga model pack', 0, () => {
@@ -711,6 +873,107 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(4)
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
     })
+
+    it('keeps unique nested OCR translations in their single owning region', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/contained-render-source.png`
+        let duplicatePath: string = ''
+        let uniquePath: string = ''
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ContainedRenderOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          const duplicateRequest: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            duplicateRequest,
+            'Primary translated paragraph uses it every day with complete context',
+            'complete context',
+            11,
+          )
+          const duplicatePage: ComicRenderedPage = await backend.render(duplicateRequest)
+          duplicatePath = duplicatePage.localFilePath
+          const uniqueRequest: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            uniqueRequest,
+            'Primary translated paragraph uses it every day with complete context',
+            'Very',
+            12,
+          )
+          const uniquePage: ComicRenderedPage = await backend.render(uniqueRequest)
+          uniquePath = uniquePage.localFilePath
+          expect(duplicatePage.artifactHash === uniquePage.artifactHash).assertEqual(false)
+        } finally {
+          removeFile(uniquePath)
+          removeFile(duplicatePath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('keeps horizontal translations away from the physical page edge', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/edge-render-source.png`
+        let renderedPath: string = ''
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new EdgeRenderOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'A long translated sentence uses the available paragraph width near the page edge',
+            '',
+            13,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 24).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
 
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
       async (done: Function) => {

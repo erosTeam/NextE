@@ -1731,28 +1731,59 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private static suppressContainedRenderPlans(
     plans: LocalRenderPlanBlock[],
   ): LocalRenderPlanBlock[] {
-    const output: LocalRenderPlanBlock[] = []
-    for (let candidateIndex: number = 0; candidateIndex < plans.length; candidateIndex++) {
-      let shadow: boolean = false
+    const suppressed: boolean[] = new Array<boolean>(plans.length).fill(false)
+    const candidateIndexes: number[] = []
+    for (let index: number = 0; index < plans.length; index++) {
+      candidateIndexes.push(index)
+    }
+    candidateIndexes.sort((left: number, right: number): number =>
+      ComicLocalVisualBackend.renderPlanArea(plans[left]) -
+        ComicLocalVisualBackend.renderPlanArea(plans[right]))
+    for (let orderIndex: number = 0; orderIndex < candidateIndexes.length; orderIndex++) {
+      const candidateIndex: number = candidateIndexes[orderIndex]
+      let ownerIndex: number = -1
+      let ownerArea: number = Number.POSITIVE_INFINITY
       for (let containerIndex: number = 0; containerIndex < plans.length; containerIndex++) {
-        if (candidateIndex === containerIndex ||
-          !ComicLocalVisualBackend.isContainedRenderShadow(
+        if (candidateIndex === containerIndex || suppressed[containerIndex] ||
+          !ComicLocalVisualBackend.isContainedRenderRegion(
             plans[candidateIndex],
             plans[containerIndex],
           )) {
           continue
         }
-        shadow = true
-        break
+        const area: number = ComicLocalVisualBackend.renderPlanArea(plans[containerIndex])
+        if (area < ownerArea) {
+          ownerIndex = containerIndex
+          ownerArea = area
+        }
       }
-      if (!shadow) {
-        output.push(plans[candidateIndex])
+      if (ownerIndex < 0) {
+        continue
+      }
+      if (!ComicLocalVisualBackend.containsTranslatedPhrase(
+        plans[ownerIndex].translatedText,
+        plans[candidateIndex].translatedText,
+      )) {
+        plans[ownerIndex].translatedText = plans[ownerIndex].translatedText + '\n' +
+          plans[candidateIndex].translatedText
+      }
+      suppressed[candidateIndex] = true
+    }
+    const output: LocalRenderPlanBlock[] = []
+    for (let index: number = 0; index < plans.length; index++) {
+      if (!suppressed[index]) {
+        output.push(plans[index])
       }
     }
     return output
   }
 
-  private static isContainedRenderShadow(
+  private static renderPlanArea(plan: LocalRenderPlanBlock): number {
+    const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(plan.block.polygon)
+    return Math.max(1, rect.width() * rect.height())
+  }
+
+  private static isContainedRenderRegion(
     candidate: LocalRenderPlanBlock,
     container: LocalRenderPlanBlock,
   ): boolean {
@@ -1782,6 +1813,27 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         Math.max(candidateRect.top, containerRect.top),
     )
     return overlapWidth * overlapHeight / candidateArea >= 0.9
+  }
+
+  private static containsTranslatedPhrase(container: string, candidate: string): boolean {
+    const normalizedContainer: string = ComicLocalVisualBackend.normalizedPhrase(container)
+    const normalizedCandidate: string = ComicLocalVisualBackend.normalizedPhrase(candidate)
+    if (normalizedCandidate.length <= 0 || normalizedContainer.length < normalizedCandidate.length) {
+      return false
+    }
+    if (/[a-z0-9]/.test(normalizedCandidate)) {
+      return (` ${normalizedContainer} `).includes(` ${normalizedCandidate} `)
+    }
+    return normalizedContainer.replace(/\s+/g, '').includes(
+      normalizedCandidate.replace(/\s+/g, ''),
+    )
+  }
+
+  private static normalizedPhrase(value: string): string {
+    return value.toLowerCase()
+      .replace(/[\s.,!?;:'"()\[\]{}\-–—…，。！？；：、“”‘’（）【】]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ')
   }
 
   private static mergeLatinVerticalRenderPlans(
@@ -1901,8 +1953,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     const rawWidth: number = Math.max(1, raw.width())
     const rawHeight: number = Math.max(1, raw.height())
+    const safeMargin: number = Math.min(16, imageWidth * 0.02, imageHeight * 0.02)
+    const availableWidth: number = Math.max(1, imageWidth - safeMargin * 2)
+    const availableHeight: number = Math.max(1, imageHeight - safeMargin * 2)
     const targetWidth: number = Math.min(
-      imageWidth,
+      availableWidth,
       360,
       Math.max(
         rawWidth + 60,
@@ -1911,15 +1966,57 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ),
     )
     const targetHeight: number = Math.min(
-      imageHeight,
+      availableHeight,
       Math.max(rawHeight, Math.min(180, rawHeight * 1.2)),
     )
-    return ComicLocalVisualBackend.centeredRect(
+    return ComicLocalVisualBackend.pageAwareRect(
       raw,
       targetWidth,
       targetHeight,
       imageWidth,
       imageHeight,
+      safeMargin,
+    )
+  }
+
+  private static pageAwareRect(
+    raw: LocalRenderRect,
+    width: number,
+    height: number,
+    imageWidth: number,
+    imageHeight: number,
+    safeMargin: number,
+  ): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    const pageCenter: number = imageWidth / 2
+    const rawWidth: number = Math.max(1, raw.width())
+    if (raw.right <= pageCenter) {
+      if (width >= rawWidth) {
+        rect.right = raw.right
+        rect.left = rect.right - width
+      } else {
+        rect.left = raw.left
+        rect.right = rect.left + width
+      }
+    } else if (raw.left >= pageCenter) {
+      if (width >= rawWidth) {
+        rect.left = raw.left
+        rect.right = rect.left + width
+      } else {
+        rect.right = raw.right
+        rect.left = rect.right - width
+      }
+    } else {
+      rect.left = (raw.left + raw.right - width) / 2
+      rect.right = rect.left + width
+    }
+    rect.top = (raw.top + raw.bottom - height) / 2
+    rect.bottom = rect.top + height
+    return ComicLocalVisualBackend.clampRect(
+      rect,
+      imageWidth,
+      imageHeight,
+      safeMargin,
     )
   }
 
@@ -1951,6 +2048,42 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       rect.top = Math.max(0, rect.top - (rect.bottom - imageHeight))
       rect.bottom = imageHeight
     }
+    return rect
+  }
+
+  private static clampRect(
+    source: LocalRenderRect,
+    imageWidth: number,
+    imageHeight: number,
+    margin: number,
+  ): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    rect.left = source.left
+    rect.top = source.top
+    rect.right = source.right
+    rect.bottom = source.bottom
+    const minimumX: number = margin
+    const maximumX: number = Math.max(minimumX, imageWidth - margin)
+    const minimumY: number = margin
+    const maximumY: number = Math.max(minimumY, imageHeight - margin)
+    if (rect.left < minimumX) {
+      rect.right = rect.right + (minimumX - rect.left)
+      rect.left = minimumX
+    }
+    if (rect.right > maximumX) {
+      rect.left = rect.left - (rect.right - maximumX)
+      rect.right = maximumX
+    }
+    if (rect.top < minimumY) {
+      rect.bottom = rect.bottom + (minimumY - rect.top)
+      rect.top = minimumY
+    }
+    if (rect.bottom > maximumY) {
+      rect.top = rect.top - (rect.bottom - maximumY)
+      rect.bottom = maximumY
+    }
+    rect.left = Math.max(minimumX, rect.left)
+    rect.top = Math.max(minimumY, rect.top)
     return rect
   }
 
