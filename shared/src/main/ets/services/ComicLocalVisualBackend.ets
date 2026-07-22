@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v20'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 20
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v21'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 21
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -83,6 +83,8 @@ const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
 const LOCAL_OBSTACLE_LAYOUT_MIN_LINES: number = 4
 const LOCAL_OBSTACLE_LAYOUT_SAMPLE_STEP: number = 2
 const LOCAL_OBSTACLE_LAYOUT_EDGE_THRESHOLD: number = 28
+const LOCAL_FOOTER_START_RATIO: number = 0.94
+const LOCAL_FOOTER_SYMBOL_FRAGMENT_MAX_CHARS: number = 12
 const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
 const LOCAL_HORIZONTAL_STYLE_HINT: string = 'horizontal-ltr'
 
@@ -297,10 +299,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         lines,
         detection,
       )
-      const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(
+      const groupedBlocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(
         layoutLines,
         detection,
         request.source.imageWidth,
+        request.source.imageHeight,
+      )
+      const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.filterFooterArtifacts(
+        groupedBlocks,
         request.source.imageHeight,
       )
       const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
@@ -314,6 +320,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         this.profileId(),
         detection !== null,
         supplementalCount,
+        groupedBlocks.length - blocks.length,
       )
       result.adapterTemplate = ComicLocalVisualBackend.template(
         request,
@@ -968,6 +975,45 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return output
   }
 
+  private static filterFooterArtifacts(
+    values: LocalMappedBlock[],
+    imageHeight: number,
+  ): LocalMappedBlock[] {
+    const output: LocalMappedBlock[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      const value: LocalMappedBlock = values[index]
+      if (!ComicLocalVisualBackend.isFooterArtifact(value, imageHeight)) {
+        output.push(value)
+      }
+    }
+    return output
+  }
+
+  private static isFooterArtifact(value: LocalMappedBlock, imageHeight: number): boolean {
+    if (value.styleHint !== LOCAL_HORIZONTAL_STYLE_HINT || imageHeight <= 0) {
+      return false
+    }
+    const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(value.polygon)
+    if (rect.top < imageHeight * LOCAL_FOOTER_START_RATIO) {
+      return false
+    }
+    const normalized: string = value.text.replace(/\s+/g, ' ').trim()
+    if (/(?:https?:\/\/|www\.|(?:twitter|pixiv|patreon|fantia|enty)\s*[,.]?\s*(?:com|jp)|[A-Za-z0-9_-]+\.(?:com|net|org|jp)(?:[\/\s]|$))/i.test(normalized)) {
+      return true
+    }
+    const compact: string = normalized.replace(/\s+/g, '')
+    if (compact.length <= 0 || compact.length > LOCAL_FOOTER_SYMBOL_FRAGMENT_MAX_CHARS) {
+      return false
+    }
+    let naturalCharacters: number = 0
+    for (let index: number = 0; index < compact.length; index++) {
+      if (/[A-Za-z0-9\u3040-\u30ff\u3400-\u9fff]/.test(compact.charAt(index))) {
+        naturalCharacters = naturalCharacters + 1
+      }
+    }
+    return naturalCharacters * 2 < compact.length
+  }
+
   private static regionContains(
     region: ComicNativeDetectedRegion,
     x: number,
@@ -1485,6 +1531,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     profileId: string,
     detectorUsed: boolean,
     supplementalCount: number,
+    footerArtifactCount: number,
   ): ComicPageDocument {
     const document: ComicPageDocument = new ComicPageDocument()
     document.projectId = request.source.projectId
@@ -1536,6 +1583,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       recognizerSignal.message =
         `Manga text recognition recovered ${supplementalCount} system OCR miss(es).`
       document.qualitySignals.push(recognizerSignal)
+    }
+    if (footerArtifactCount > 0) {
+      const footerSignal: ComicQualitySignal = new ComicQualitySignal()
+      footerSignal.code = 'local_non_dialogue_footer_filtered'
+      footerSignal.severity = ComicQualitySeverity.INFO
+      footerSignal.message =
+        `Ignored ${footerArtifactCount} likely non-dialogue footer artifact(s).`
+      document.qualitySignals.push(footerSignal)
     }
     return document
   }

@@ -380,6 +380,47 @@ class SourceOnlyTextMasker implements ComicLocalTextMasker {
   }
 }
 
+class FooterArtifactOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'footer-artifact-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('example.com is part of the dialogue', 80, 180, 500, 230, 0))
+    result.lines.push(this.line('まだ話がある。', 600, 1450, 940, 1505, 1))
+    result.lines.push(this.line('twitter.com/example', 80, 1460, 410, 1500, 2))
+    result.lines.push(this.line('儿/=门…', 450, 1470, 580, 1525, 3))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+    blockIndex: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
+  }
+}
+
 class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
   profileId(): string {
     return 'adjacent-column-region-fixture'
@@ -1173,6 +1214,37 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
+    it('filters only explicit footer credits and symbol fragments', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/footer-filter-source.png`
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new FooterArtifactOcrEngine(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          const sourceTexts: string[] = analysis.document.blocks.map(
+            (block): string => block.sourceText,
+          )
+          expect(sourceTexts.includes('example.com is part of the dialogue')).assertEqual(true)
+          expect(sourceTexts.includes('まだ話がある。')).assertEqual(true)
+          expect(sourceTexts.includes('twitter.com/example')).assertEqual(false)
+          expect(sourceTexts.includes('儿/=门…')).assertEqual(false)
+          expect(analysis.document.qualitySignals.some((signal): boolean =>
+            signal.code === 'local_non_dialogue_footer_filtered')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -1234,7 +1306,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(21)
+          expect(backend.protocolRevision()).assertEqual(22)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -1395,7 +1467,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(22)
+          expect(backend.protocolRevision()).assertEqual(23)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
