@@ -159,7 +159,12 @@ Torii credits 代付；端侧路线继续独立使用共享 LLM 源、Codex OAut
 
 字体属于 Torii 整图渲染参数。官方目录把 NotoSans 标为覆盖 130 种语言，把 WildWords 标为覆盖 60 种语言；
 前者更适合中文等广字符集的稳妥回退，后者更接近漫画手写字形。NextE 默认 NotoSans，同时允许显式选择
-WildWords，并把字体纳入译图缓存身份。
+WildWords，并把字体纳入译图缓存身份。该选项不影响端侧路线；端侧固定使用系统默认字体。
+
+2026-07-23 在设备 `237` 对同一页完成真实 managed-billing A/B：WildWords 与 NotoSans 分别生成不同的
+provider identity、lookup key 和 artifact hash，视觉上也分别呈现漫画手写全大写与常规无衬线混合大小写。
+两次请求分别扣除 1.46 和 1.44 credits。这证明字体参数已真实进入 Torii 请求和缓存身份，不只是设置页标签；
+它不证明任一字体能自动解决窄列断行、拟声词错译或文本归属问题。
 
 #### ImageTranslate.ai、PixLab 与 ImgText
 
