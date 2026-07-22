@@ -4842,7 +4842,7 @@
     },
     {
       "name": "comic_local_detector_installed",
-      "value": "YSGYolo + PP-OCRv5"
+      "value": "YSGYolo + CTD + PP-OCRv5 + AOT"
     },
     {
       "name": "comic_local_detector_downloading",
@@ -4850,7 +4850,7 @@
     },
     {
       "name": "comic_local_detector_notice",
-      "value": "26.0 MB · YSGYolo: AGPL-3.0 · PP-OCRv5: Apache-2.0"
+      "value": "79.0 MB · YSGYolo AGPL-3.0 · CTD/AOT GPL-3.0 · PP-OCRv5 Apache-2.0"
     },
     {
       "name": "comic_local_detector_install_title",
@@ -4858,7 +4858,7 @@
     },
     {
       "name": "comic_local_detector_install_message",
-      "value": "Downloads about 26.0 MB."
+      "value": "Downloads about 79.0 MB."
     },
     {
       "name": "comic_local_detector_install",

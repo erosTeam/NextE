@@ -45,10 +45,18 @@ import {
   ComicLocalTextRecognizer,
   ComicNativeTextRecognitionResult,
 } from './ComicNativeTextRecognizer'
+import {
+  ComicLocalSourceInpainter,
+  ComicNativeInpaintingResult,
+} from './ComicNativeSourceInpainter'
+import {
+  ComicLocalTextMasker,
+  ComicNativeTextMaskResult,
+} from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v14'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 14
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v17'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 17
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -70,6 +78,8 @@ const LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE: number = 0.85
 const LOCAL_SUPPLEMENTAL_OCR_MAX_TEXT_CHARS: number = 96
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
+const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
+const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
 const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
 const LOCAL_HORIZONTAL_STYLE_HINT: string = 'horizontal-ltr'
 
@@ -164,6 +174,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private readonly ocr: ComicLocalOcrEngine
   private readonly detector: ComicLocalRegionDetector | null
   private readonly supplementalRecognizer: ComicLocalTextRecognizer | null
+  private readonly sourceInpainter: ComicLocalSourceInpainter | null
+  private readonly sourceMasker: ComicLocalTextMasker | null
   private readonly resolvedProfileId: string
 
   constructor(
@@ -171,14 +183,20 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     ocr: ComicLocalOcrEngine = new HarmonyComicLocalOcrEngine(),
     detector: ComicLocalRegionDetector | null = null,
     supplementalRecognizer: ComicLocalTextRecognizer | null = null,
+    sourceInpainter: ComicLocalSourceInpainter | null = null,
+    sourceMasker: ComicLocalTextMasker | null = null,
   ) {
     this.context = context
     this.ocr = ocr
     this.detector = detector
     this.supplementalRecognizer = supplementalRecognizer
+    this.sourceInpainter = sourceInpainter
+    this.sourceMasker = sourceMasker
     this.resolvedProfileId = LOCAL_VISUAL_PROFILE_ID +
       (detector === null ? '' : `-${detector.profileId()}`) +
-      (supplementalRecognizer === null ? '' : `-${supplementalRecognizer.profileId()}`)
+      (supplementalRecognizer === null ? '' : `-${supplementalRecognizer.profileId()}`) +
+      (sourceInpainter === null ? '' : `-${sourceInpainter.profileId()}`) +
+      (sourceMasker === null ? '' : `-${sourceMasker.profileId()}`)
   }
 
   backendId(): string {
@@ -192,7 +210,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   protocolRevision(): number {
     return LOCAL_VISUAL_PROTOCOL_REVISION +
       (this.detector === null ? 0 : this.detector.revision()) +
-      (this.supplementalRecognizer === null ? 0 : this.supplementalRecognizer.revision())
+      (this.supplementalRecognizer === null ? 0 : this.supplementalRecognizer.revision()) +
+      (this.sourceInpainter === null ? 0 : this.sourceInpainter.revision()) +
+      (this.sourceMasker === null ? 0 : this.sourceMasker.revision())
   }
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
@@ -256,7 +276,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageWidth,
         request.source.imageHeight,
       )
-      const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(lines)
+      const layoutLines: LocalMappedLine[] = ComicLocalVisualBackend.suppressUnmatchedShortText(
+        lines,
+        detection,
+      )
+      const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(
+        layoutLines,
+        detection,
+        request.source.imageWidth,
+        request.source.imageHeight,
+      )
       const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
       result.backendId = this.backendId()
       result.profileId = this.profileId()
@@ -311,6 +340,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         editable: true,
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
       })
+      let pageTextMask: Uint8Array | null = null
+      if (this.sourceMasker !== null) {
+        const maskResult: ComicNativeTextMaskResult = await this.sourceMasker.mask(pixelMap)
+        if (maskResult.mask.byteLength !== request.source.imageWidth * request.source.imageHeight) {
+          throw new Error('Local comic text mask dimensions do not match the source page')
+        }
+        pageTextMask = new Uint8Array(maskResult.mask)
+      }
       const translations: Map<string, string> = new Map<string, string>()
       for (let index: number = 0; index < request.translations.blocks.length; index++) {
         translations.set(
@@ -352,8 +389,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           treatment,
           fillStyles[index],
           block.styleHint,
+          this.sourceInpainter,
+          pageTextMask,
         )
       }
+      // Fit every region independently, but cap outlier columns at the page median. This keeps
+      // separate regions legible without allowing one narrow OCR column to become much larger
+      // than its neighbours and visually overlap them.
       const verticalFontCap: number = ComicLocalVisualBackend.verticalPageFontCap(
         request.document,
         translations,
@@ -867,6 +909,26 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
   }
 
+  private static suppressUnmatchedShortText(
+    values: LocalMappedLine[],
+    detection: ComicNativeRegionDetectionResult | null,
+  ): LocalMappedLine[] {
+    if (detection === null) {
+      return values
+    }
+    const output: LocalMappedLine[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      const value: LocalMappedLine = values[index]
+      const compact: string = value.text.replace(/\s+/g, '')
+      if (value.detectorRegionIndex < 0 &&
+        compact.length <= LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS) {
+        continue
+      }
+      output.push(value)
+    }
+    return output
+  }
+
   private static regionContains(
     region: ComicNativeDetectedRegion,
     x: number,
@@ -954,7 +1016,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return false
   }
 
-  private static groupLines(values: LocalMappedLine[]): LocalMappedBlock[] {
+  private static groupLines(
+    values: LocalMappedLine[],
+    detection: ComicNativeRegionDetectionResult | null,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): LocalMappedBlock[] {
     const groups: LocalMappedLine[][] = []
     const tileIndexes: number[] = []
     const blockIndexes: number[] = []
@@ -994,6 +1061,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
     const output: LocalMappedBlock[] =
       ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
+    ComicLocalVisualBackend.applyDetectorRegionGeometry(
+      output,
+      detection,
+      sourceWidth,
+      sourceHeight,
+    )
     output.sort((left: LocalMappedBlock, right: LocalMappedBlock): number => {
       const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
       const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
@@ -1004,6 +1077,37 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return rightRect.right - leftRect.right
     })
     return output
+  }
+
+  private static applyDetectorRegionGeometry(
+    blocks: LocalMappedBlock[],
+    detection: ComicNativeRegionDetectionResult | null,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    if (detection === null) {
+      return
+    }
+    for (let index: number = 0; index < blocks.length; index++) {
+      const regionIndex: number = blocks[index].detectorRegionIndex
+      if (regionIndex < 0 || regionIndex >= detection.regions.length) {
+        continue
+      }
+      const region: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+        detection.regions[regionIndex],
+        sourceWidth,
+        sourceHeight,
+      )
+      if (region.width() < 8 || region.height() < 8) {
+        continue
+      }
+      blocks[index].polygon = [
+        new ComicPoint(region.left, region.top),
+        new ComicPoint(region.right, region.top),
+        new ComicPoint(region.right, region.bottom),
+        new ComicPoint(region.left, region.bottom),
+      ]
+    }
   }
 
   private static group(lines: LocalMappedLine[]): LocalMappedBlock {
@@ -1387,7 +1491,17 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     font.enableSubpixel(true)
     const textBrush: drawing.Brush = new drawing.Brush()
     textBrush.setColor(255, fill.textRed, fill.textGreen, fill.textBlue)
+    const textPen: drawing.Pen = new drawing.Pen()
+    const textLuminance: number = fill.textRed * 0.299 + fill.textGreen * 0.587 + fill.textBlue * 0.114
+    if (textLuminance < 128) {
+      textPen.setColor(255, 255, 255, 255)
+    } else {
+      textPen.setColor(255, 24, 24, 24)
+    }
+    textPen.setStrokeWidth(Math.max(1.5, Math.min(3.5, Math.min(rect.width(), rect.height()) * 0.012)))
+    textPen.setAntiAlias(true)
     canvas.attachBrush(textBrush)
+    canvas.attachPen(textPen)
     if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT) {
       ComicLocalVisualBackend.drawVerticalText(
         canvas,
@@ -1400,6 +1514,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         font,
         verticalFontCap,
       )
+      canvas.detachPen()
       canvas.detachBrush()
       return
     }
@@ -1422,6 +1537,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       canvas.drawTextBlob(drawing.TextBlob.makeFromString(line, font), x, baseline)
       baseline += lineHeight
     }
+    canvas.detachPen()
     canvas.detachBrush()
   }
 
@@ -1587,6 +1703,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     treatment: LocalRenderRect,
     background: LocalFillStyle,
     styleHint: string,
+    sourceInpainter: ComicLocalSourceInpainter | null,
+    pageTextMask: Uint8Array | null,
   ): Promise<void> {
     const treatmentLeft: number = Math.max(0, Math.floor(treatment.left))
     const treatmentTop: number = Math.max(0, Math.floor(treatment.top))
@@ -1595,7 +1713,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     if (treatmentRight <= treatmentLeft || treatmentBottom <= treatmentTop) {
       return
     }
-    const border: number = 6
+    // AOT needs enough known artwork around the glyph mask. A six-pixel crop leaves narrow
+    // vertical text regions almost entirely masked and produces unstable colour hallucinations.
+    const border: number = 64
     const outerLeft: number = Math.max(0, treatmentLeft - border)
     const outerTop: number = Math.max(0, treatmentTop - border)
     const outerRight: number = Math.min(imageWidth, treatmentRight + border)
@@ -1619,7 +1739,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     await pixelMap.readPixels(area)
     const pixels: Uint8Array = new Uint8Array(buffer)
-    const mask: Uint8Array = new Uint8Array(width * height)
+    const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(maskBuffer)
     const rawLeft: number = Math.max(treatmentLeft, Math.floor(raw.left))
     const rawTop: number = Math.max(treatmentTop, Math.floor(raw.top))
     const rawRight: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
@@ -1628,33 +1749,43 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         Math.ceil(raw.right + Math.max(8, Math.min(18, raw.width() * 0.25))),
       ) : Math.min(treatmentRight, Math.ceil(raw.right))
     const rawBottom: number = Math.min(treatmentBottom, Math.ceil(raw.bottom))
-    const backgroundLuminance: number = background.red * 0.299 +
-      background.green * 0.587 + background.blue * 0.114
     let masked: number = 0
     for (let globalY: number = rawTop; globalY < rawBottom; globalY++) {
       const y: number = globalY - outerTop
       for (let globalX: number = rawLeft; globalX < rawRight; globalX++) {
         const x: number = globalX - outerLeft
-        const offset: number = y * rowBytes + x * 4
-        const blue: number = pixels[offset]
-        const green: number = pixels[offset + 1]
-        const red: number = pixels[offset + 2]
-        const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
-        const colorDelta: number = Math.max(
-          Math.abs(red - background.red),
-          Math.abs(green - background.green),
-          Math.abs(blue - background.blue),
-        )
-        if (Math.abs(luminance - backgroundLuminance) >= 36 && colorDelta >= 44) {
+        let isTextPixel: boolean = false
+        if (pageTextMask !== null) {
+          isTextPixel = pageTextMask[globalY * imageWidth + globalX] !== 0
+        } else {
+          const offset: number = y * rowBytes + x * 4
+          const blue: number = pixels[offset]
+          const green: number = pixels[offset + 1]
+          const red: number = pixels[offset + 2]
+          const backgroundLuminance: number = background.red * 0.299 +
+            background.green * 0.587 + background.blue * 0.114
+          const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
+          const colorDelta: number = Math.max(
+            Math.abs(red - background.red),
+            Math.abs(green - background.green),
+            Math.abs(blue - background.blue),
+          )
+          isTextPixel = Math.abs(luminance - backgroundLuminance) >= 36 && colorDelta >= 44
+        }
+        if (isTextPixel) {
           mask[y * width + x] = 1
           masked = masked + 1
         }
       }
     }
     if (masked <= 0) {
+      if (pageTextMask !== null) {
+        throw new Error('Local comic text mask did not cover a translated block')
+      }
       return
     }
-    for (let dilation: number = 0; dilation < 2; dilation++) {
+    for (let dilation: number = 0;
+      dilation < LOCAL_TEXT_MASK_DILATION_PASSES; dilation++) {
       const expanded: Uint8Array = new Uint8Array(mask)
       for (let y: number = 1; y < height - 1; y++) {
         const globalY: number = outerTop + y
@@ -1682,6 +1813,32 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         }
       }
       mask.set(expanded)
+    }
+    if (sourceInpainter !== null) {
+      try {
+        const result: ComicNativeInpaintingResult = await sourceInpainter.inpaint(
+          buffer,
+          maskBuffer,
+          width,
+          height,
+          rowBytes,
+        )
+        pixels.set(new Uint8Array(result.pixels))
+        await pixelMap.writePixels(area)
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_source_inpainted',
+          `backend=${result.backend} region=${width}x${height} ` +
+          `load=${result.modelLoadMs}ms inference=${result.inferenceMs}ms`,
+        )
+        return
+      } catch (error) {
+        DiagnosticLogger.warn(
+          'comic-translation',
+          'local_source_inpaint_failed',
+          (error as Error).message,
+        )
+      }
     }
     let remaining: number = 0
     for (let index: number = 0; index < mask.length; index++) {

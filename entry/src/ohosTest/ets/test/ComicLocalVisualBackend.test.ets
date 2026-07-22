@@ -157,6 +157,41 @@ class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
   }
 }
 
+class UnmatchedShortOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'unmatched-short-text-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const dialogue: ComicLocalOcrLine = new ComicLocalOcrLine()
+    dialogue.text = '本日は洗い日です'
+    dialogue.blockIndex = 0
+    dialogue.polygon.push(new ComicLocalOcrPoint(118, 234))
+    dialogue.polygon.push(new ComicLocalOcrPoint(294, 234))
+    dialogue.polygon.push(new ComicLocalOcrPoint(294, 339))
+    dialogue.polygon.push(new ComicLocalOcrPoint(118, 339))
+    result.lines.push(dialogue)
+    const sfx: ComicLocalOcrLine = new ComicLocalOcrLine()
+    sfx.text = 'パッ'
+    sfx.blockIndex = 1
+    sfx.polygon.push(new ComicLocalOcrPoint(760, 800))
+    sfx.polygon.push(new ComicLocalOcrPoint(820, 800))
+    sfx.polygon.push(new ComicLocalOcrPoint(820, 880))
+    sfx.polygon.push(new ComicLocalOcrPoint(760, 880))
+    result.lines.push(sfx)
+    return Promise.resolve(result)
+  }
+}
+
 class EmptyFixtureOcrEngine implements ComicLocalOcrEngine {
   engineId(): string {
     return 'empty-ocr-fixture'
@@ -580,11 +615,13 @@ export default function comicLocalVisualBackendTest(): void {
   describe('ComicLocalVisualBackend', () => {
     it('exposes component licenses for the local manga model pack', 0, () => {
       expect(ComicTranslationModelService.displayName()).assertEqual(
-        'YSGYolo + PP-OCRv5 Mobile',
+        'YSGYolo + CTD + PP-OCRv5 + AOT',
       )
       expect(ComicTranslationModelService.detectorLicense()).assertEqual('AGPL-3.0-only')
       expect(ComicTranslationModelService.textRecognizerLicense()).assertEqual('Apache-2.0')
-      expect(ComicTranslationModelService.downloadBytes()).assertEqual(27283668)
+      expect(ComicTranslationModelService.sourceInpainterLicense()).assertEqual('GPL-3.0-only')
+      expect(ComicTranslationModelService.textMaskLicense()).assertEqual('GPL-3.0-only')
+      expect(ComicTranslationModelService.downloadBytes()).assertEqual(82836670)
     })
 
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
@@ -648,10 +685,54 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(15)
+          expect(backend.protocolRevision()).assertEqual(18)
           expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
+          expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
+          expect(analysis.document.blocks[0].polygon[2].x).assertEqual(320)
+          expect(analysis.document.blocks[0].polygon[2].y).assertEqual(360)
+          expect(analysis.document.blocks[1].polygon[0].x).assertEqual(500)
+          expect(analysis.document.blocks[1].polygon[0].y).assertEqual(1090)
+          expect(analysis.document.blocks[1].polygon[2].x).assertEqual(620)
+          expect(analysis.document.blocks[1].polygon[2].y).assertEqual(1390)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_region_detector_active')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('uses detector geometry and drops unmatched short OCR fragments', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/detector-layout-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new UnmatchedShortOcrEngine(),
+            new BubbleGroupingRegionDetector(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].sourceText).assertEqual('本日は洗い日です')
+          expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
+          expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
+          expect(analysis.document.blocks[0].polygon[2].x).assertEqual(320)
+          expect(analysis.document.blocks[0].polygon[2].y).assertEqual(360)
         } finally {
           removeFile(sourcePath)
         }
@@ -728,7 +809,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(16)
+          expect(backend.protocolRevision()).assertEqual(19)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>

@@ -323,6 +323,20 @@ export {
   ComicNcnnLocalTextRecognizer,
 } from './services/ComicNativeTextRecognizer'
 export {
+  ComicLocalSourceInpainter,
+  ComicNativeInpaintingResult,
+  ComicNativeSourceInpainter,
+  ComicNcnnLocalSourceInpainter,
+} from './services/ComicNativeSourceInpainter'
+export {
+  ComicLocalTextMasker,
+  ComicNativeTextMaskResult,
+  ComicNativeTextMasker,
+  ComicNcnnLocalTextMasker,
+} from './services/ComicNativeTextMasker'
+export {
+  ComicSourceInpaintingModelPaths,
+  ComicTextMaskModelPaths,
   ComicTextRecognitionModelPaths,
   ComicTranslationModelPaths,
   ComicTranslationModelService,
@@ -676,6 +690,8 @@ export {
   TORII_BYOK_OPENROUTER,
   TORII_BYOK_XAI,
   TORII_DEFAULT_MODEL_ID,
+  TORII_FONT_NOTO,
+  TORII_FONT_WILDWORDS,
   TORII_MODEL_CATALOG_REVIEWED_AT,
   ComicVisualProviderSettings,
   ComicVisualProviderSettingsSnapshot,

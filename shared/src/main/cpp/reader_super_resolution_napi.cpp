@@ -132,6 +132,42 @@ struct ComicTextRecognitionTask {
     int64_t inferenceMs = 0;
 };
 
+struct ComicInpaintingTask {
+    napi_async_work work = nullptr;
+    napi_deferred deferred = nullptr;
+    std::vector<uint8_t> input;
+    std::vector<uint8_t> mask;
+    std::vector<uint8_t> output;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int threads = 2;
+    bool inputBgra = false;
+    std::string paramPath;
+    std::string modelPath;
+    std::string error;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
+};
+
+struct ComicTextMaskTask {
+    napi_async_work work = nullptr;
+    napi_deferred deferred = nullptr;
+    std::vector<uint8_t> input;
+    std::vector<uint8_t> mask;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int threads = 2;
+    float threshold = 0.3f;
+    bool inputBgra = false;
+    std::string paramPath;
+    std::string modelPath;
+    std::string error;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
+};
+
 std::once_flag gGpuInitFlag;
 int gGpuInitResult = -1;
 int gGpuCount = 0;
@@ -161,6 +197,12 @@ std::mutex gComicRecognizerMutex;
 std::unique_ptr<ncnn::Net> gCachedComicRecognizerNet;
 std::string gCachedComicRecognizerKey;
 std::vector<std::string> gCachedComicRecognizerDictionary;
+std::mutex gComicInpainterMutex;
+std::unique_ptr<ncnn::Net> gCachedComicInpainterNet;
+std::string gCachedComicInpainterKey;
+std::mutex gComicTextMaskMutex;
+std::unique_ptr<ncnn::Net> gCachedComicTextMaskNet;
+std::string gCachedComicTextMaskKey;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -2336,6 +2378,389 @@ void ExecuteComicTextRecognition(napi_env env, void *data)
     std::vector<uint8_t>().swap(task->input);
 }
 
+constexpr int kComicTextMaskInputSize = 1024;
+
+void ResetCachedComicTextMask()
+{
+    gCachedComicTextMaskNet.reset();
+    gCachedComicTextMaskKey.clear();
+}
+
+bool ValidateComicTextMaskTask(ComicTextMaskTask &task)
+{
+    if (task.width <= 1 || task.height <= 1 || task.width > 2048 || task.height > 2048 ||
+        task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
+        task.paramPath.empty() || task.modelPath.empty() ||
+        task.threshold <= 0.0f || task.threshold >= 1.0f) {
+        task.error = "invalid comic text mask configuration";
+        return false;
+    }
+    const size_t required = static_cast<size_t>(task.stride) * static_cast<size_t>(task.height);
+    if (required == 0 || task.input.size() < required) {
+        task.error = "comic text mask input is truncated";
+        return false;
+    }
+    return true;
+}
+
+ncnn::Net *PrepareComicTextMask(ComicTextMaskTask &task)
+{
+    const std::string key = task.paramPath + "\n" + task.modelPath + "\n" +
+        std::to_string(task.threads);
+    if (gCachedComicTextMaskNet != nullptr && gCachedComicTextMaskKey == key) {
+        return gCachedComicTextMaskNet.get();
+    }
+    ResetCachedComicTextMask();
+    auto net = std::make_unique<ncnn::Net>();
+    net->opt.use_vulkan_compute = false;
+    net->opt.use_fp16_storage = true;
+    net->opt.use_fp16_packed = true;
+    net->opt.use_fp16_arithmetic = true;
+    net->opt.use_packing_layout = true;
+    net->opt.num_threads = task.threads;
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    if (net->load_param(task.paramPath.c_str()) != 0 ||
+        net->load_model(task.modelPath.c_str()) != 0) {
+        task.error = "failed to load comic text mask model";
+        return nullptr;
+    }
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
+    gCachedComicTextMaskKey = key;
+    gCachedComicTextMaskNet = std::move(net);
+    return gCachedComicTextMaskNet.get();
+}
+
+bool RunComicTextMask(ComicTextMaskTask &task)
+{
+    if (!ValidateComicTextMaskTask(task)) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(gComicTextMaskMutex);
+    ncnn::Net *net = PrepareComicTextMask(task);
+    if (net == nullptr) {
+        return false;
+    }
+    // Match comic-text-detector's CPU ONNX preprocessing: preserve aspect ratio, place the
+    // resized RGB image at the top-left of a 1024 square, and zero-pad only right/bottom.
+    const float gain = std::min(
+        static_cast<float>(kComicTextMaskInputSize) / static_cast<float>(task.width),
+        static_cast<float>(kComicTextMaskInputSize) / static_cast<float>(task.height));
+    const int resizedWidth = std::max(1, static_cast<int>(std::round(task.width * gain)));
+    const int resizedHeight = std::max(1, static_cast<int>(std::round(task.height * gain)));
+    const int right = kComicTextMaskInputSize - resizedWidth;
+    const int bottom = kComicTextMaskInputSize - resizedHeight;
+    const int pixelConversion = task.inputBgra ?
+        ncnn::Mat::PIXEL_BGRA2RGB : ncnn::Mat::PIXEL_RGBA2RGB;
+    ncnn::Mat resized = ncnn::Mat::from_pixels_resize(
+        task.input.data(),
+        pixelConversion,
+        task.width,
+        task.height,
+        task.stride,
+        resizedWidth,
+        resizedHeight);
+    if (resized.empty()) {
+        task.error = "failed to resize comic text mask input";
+        return false;
+    }
+    ncnn::Mat input;
+    ncnn::copy_make_border(
+        resized,
+        input,
+        0,
+        bottom,
+        0,
+        right,
+        ncnn::BORDER_CONSTANT,
+        0.0f,
+        net->opt);
+    if (input.empty() || input.w != kComicTextMaskInputSize ||
+        input.h != kComicTextMaskInputSize || input.c != 3) {
+        task.error = "comic text mask preprocessing failed";
+        return false;
+    }
+    const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
+    input.substract_mean_normalize(nullptr, normalize);
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    ncnn::Extractor extractor = net->create_extractor();
+    if (extractor.input("in0", input) != 0) {
+        task.error = "comic text mask model rejected the input tensor";
+        return false;
+    }
+    ncnn::Mat output;
+    if (extractor.extract("out0", output) != 0) {
+        task.error = "comic text mask model failed to infer output";
+        return false;
+    }
+    task.inferenceMs = ElapsedMilliseconds(startedAt);
+    if (output.dims != 3 || output.w != kComicTextMaskInputSize ||
+        output.h != kComicTextMaskInputSize || output.c != 1 || output.elempack != 1) {
+        task.error = "comic text mask model returned an unexpected output shape";
+        ResetCachedComicTextMask();
+        return false;
+    }
+    ncnn::Mat cropped;
+    ncnn::copy_cut_border(output, cropped, 0, bottom, 0, right, net->opt);
+    ncnn::Mat restored;
+    ncnn::resize_bilinear(cropped, restored, task.width, task.height, net->opt);
+    if (restored.empty() || restored.w != task.width || restored.h != task.height ||
+        restored.c != 1 || restored.elempack != 1) {
+        task.error = "comic text mask postprocessing failed";
+        return false;
+    }
+    task.mask.assign(
+        static_cast<size_t>(task.width) * static_cast<size_t>(task.height),
+        0);
+    for (int y = 0; y < task.height; ++y) {
+        const float *row = restored.row(y);
+        for (int x = 0; x < task.width; ++x) {
+            if (row[x] >= task.threshold) {
+                task.mask[static_cast<size_t>(y) * static_cast<size_t>(task.width) +
+                    static_cast<size_t>(x)] = 1;
+            }
+        }
+    }
+    return true;
+}
+
+void ExecuteComicTextMask(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<ComicTextMaskTask *>(data);
+    RunComicTextMask(*task);
+    std::vector<uint8_t>().swap(task->input);
+}
+
+constexpr int kComicInpainterInputAlignment = 8;
+
+void ResetCachedComicInpainter()
+{
+    gCachedComicInpainterNet.reset();
+    gCachedComicInpainterKey.clear();
+}
+
+bool ValidateComicInpainterTask(ComicInpaintingTask &task)
+{
+    if (task.width <= 1 || task.height <= 1 || task.width > 1024 || task.height > 1024 ||
+        task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
+        task.paramPath.empty() || task.modelPath.empty()) {
+        task.error = "invalid comic inpainter configuration";
+        return false;
+    }
+    const size_t requiredPixels =
+        static_cast<size_t>(task.stride) * static_cast<size_t>(task.height);
+    const size_t requiredMask =
+        static_cast<size_t>(task.width) * static_cast<size_t>(task.height);
+    if (requiredPixels == 0 || task.input.size() < requiredPixels ||
+        requiredMask == 0 || task.mask.size() < requiredMask) {
+        task.error = "comic inpainter input is truncated";
+        return false;
+    }
+    return true;
+}
+
+ncnn::Net *PrepareComicInpainter(ComicInpaintingTask &task)
+{
+    const std::string key = task.paramPath + "\n" + task.modelPath + "\n" +
+        std::to_string(task.threads);
+    if (gCachedComicInpainterNet != nullptr && gCachedComicInpainterKey == key) {
+        return gCachedComicInpainterNet.get();
+    }
+    ResetCachedComicInpainter();
+    auto net = std::make_unique<ncnn::Net>();
+    net->opt.use_vulkan_compute = false;
+    net->opt.use_fp16_storage = false;
+    net->opt.use_fp16_packed = false;
+    net->opt.use_fp16_arithmetic = false;
+    net->opt.use_packing_layout = false;
+    net->opt.num_threads = task.threads;
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    if (net->load_param(task.paramPath.c_str()) != 0 ||
+        net->load_model(task.modelPath.c_str()) != 0) {
+        task.error = "failed to load comic inpainter model";
+        return nullptr;
+    }
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
+    gCachedComicInpainterKey = key;
+    gCachedComicInpainterNet = std::move(net);
+    return gCachedComicInpainterNet.get();
+}
+
+bool RunComicInpainting(ComicInpaintingTask &task)
+{
+    if (!ValidateComicInpainterTask(task)) {
+        return false;
+    }
+    size_t maskedPixels = 0;
+    for (size_t index = 0;
+        index < static_cast<size_t>(task.width) * static_cast<size_t>(task.height);
+        ++index) {
+        if (task.mask[index] != 0) {
+            ++maskedPixels;
+        }
+    }
+    task.output = task.input;
+    if (maskedPixels == 0) {
+        return true;
+    }
+
+    std::lock_guard<std::mutex> lock(gComicInpainterMutex);
+    ncnn::Net *net = PrepareComicInpainter(task);
+    if (net == nullptr) {
+        return false;
+    }
+    // The exported ncnn graph is fully convolutional. Preserve the source-region scale and only
+    // reflect-pad to the upstream AOT alignment instead of stretching every narrow text crop to
+    // 256x256; the latter removes surrounding context and can turn grayscale manga strokes into
+    // saturated model artifacts.
+    const int paddedWidth =
+        ((task.width + kComicInpainterInputAlignment - 1) /
+            kComicInpainterInputAlignment) * kComicInpainterInputAlignment;
+    const int paddedHeight =
+        ((task.height + kComicInpainterInputAlignment - 1) /
+            kComicInpainterInputAlignment) * kComicInpainterInputAlignment;
+    const int left = (paddedWidth - task.width) / 2;
+    const int right = paddedWidth - task.width - left;
+    const int top = (paddedHeight - task.height) / 2;
+    const int bottom = paddedHeight - task.height - top;
+
+    // manga-image-translator feeds its AOT checkpoint OpenCV BGR data in [-1, 1].
+    const int pixelConversion = task.inputBgra ?
+        ncnn::Mat::PIXEL_BGRA2BGR : ncnn::Mat::PIXEL_RGBA2BGR;
+    ncnn::Mat sourceImage = ncnn::Mat::from_pixels(
+        task.input.data(),
+        pixelConversion,
+        task.width,
+        task.height,
+        task.stride);
+    ncnn::Mat sourceMask(task.width, task.height, 1);
+    if (sourceImage.empty() || sourceMask.empty()) {
+        task.error = "failed to allocate comic inpainter input";
+        return false;
+    }
+    for (int y = 0; y < task.height; ++y) {
+        float *row = sourceMask.row(y);
+        for (int x = 0; x < task.width; ++x) {
+            row[x] = task.mask[static_cast<size_t>(y) * static_cast<size_t>(task.width) +
+                static_cast<size_t>(x)] == 0 ? 0.0f : 1.0f;
+        }
+    }
+    ncnn::Mat imageInput;
+    ncnn::Mat maskInput;
+    ncnn::copy_make_border(
+        sourceImage,
+        imageInput,
+        top,
+        bottom,
+        left,
+        right,
+        ncnn::BORDER_REFLECT,
+        0.0f,
+        net->opt);
+    ncnn::copy_make_border(
+        sourceMask,
+        maskInput,
+        top,
+        bottom,
+        left,
+        right,
+        ncnn::BORDER_CONSTANT,
+        0.0f,
+        net->opt);
+    if (imageInput.empty() || maskInput.empty() ||
+        imageInput.w != paddedWidth ||
+        imageInput.h != paddedHeight || imageInput.c != 3 ||
+        maskInput.w != paddedWidth ||
+        maskInput.h != paddedHeight || maskInput.c != 1) {
+        task.error = "comic inpainter preprocessing failed: image=" +
+            std::to_string(imageInput.dims) + "d/" +
+            std::to_string(imageInput.w) + "x" + std::to_string(imageInput.h) + "x" +
+            std::to_string(imageInput.c) + ", mask=" +
+            std::to_string(maskInput.dims) + "d/" +
+            std::to_string(maskInput.w) + "x" + std::to_string(maskInput.h) + "x" +
+            std::to_string(maskInput.c);
+        return false;
+    }
+    const float mean[3] = {127.5f, 127.5f, 127.5f};
+    const float normalize[3] = {1.0f / 127.5f, 1.0f / 127.5f, 1.0f / 127.5f};
+    imageInput.substract_mean_normalize(mean, normalize);
+    for (int channel = 0; channel < imageInput.c; ++channel) {
+        ncnn::Mat channelValues = imageInput.channel(channel);
+        for (int y = 0; y < imageInput.h; ++y) {
+            float *imageRow = channelValues.row(y);
+            const float *maskRow = maskInput.row(y);
+            for (int x = 0; x < imageInput.w; ++x) {
+                if (maskRow[x] >= 0.5f) {
+                    imageRow[x] = 0.0f;
+                }
+            }
+        }
+    }
+
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    ncnn::Extractor extractor = net->create_extractor();
+    if (extractor.input("in0", imageInput) != 0 ||
+        extractor.input("in1", maskInput) != 0) {
+        task.error = "comic inpainter rejected the input tensors";
+        return false;
+    }
+    ncnn::Mat modelOutput;
+    if (extractor.extract("out0", modelOutput) != 0) {
+        task.error = "comic inpainter failed to infer output";
+        return false;
+    }
+    task.inferenceMs = ElapsedMilliseconds(startedAt);
+    if (modelOutput.dims != 3 || modelOutput.w != paddedWidth ||
+        modelOutput.h != paddedHeight || modelOutput.c != 3 ||
+        modelOutput.elempack != 1) {
+        task.error = "comic inpainter returned an unexpected output shape";
+        ResetCachedComicInpainter();
+        return false;
+    }
+    ncnn::Mat cropped;
+    ncnn::copy_cut_border(modelOutput, cropped, top, bottom, left, right, net->opt);
+    if (cropped.empty() || cropped.w != task.width || cropped.h != task.height ||
+        cropped.c != 3 || cropped.elempack != 1) {
+        task.error = "comic inpainter postprocessing failed";
+        return false;
+    }
+    for (int y = 0; y < task.height; ++y) {
+        const float *blue = cropped.channel(0).row(y);
+        const float *green = cropped.channel(1).row(y);
+        const float *red = cropped.channel(2).row(y);
+        for (int x = 0; x < task.width; ++x) {
+            const size_t maskIndex =
+                static_cast<size_t>(y) * static_cast<size_t>(task.width) +
+                static_cast<size_t>(x);
+            if (task.mask[maskIndex] == 0) {
+                continue;
+            }
+            const size_t pixelOffset =
+                static_cast<size_t>(y) * static_cast<size_t>(task.stride) +
+                static_cast<size_t>(x) * 4;
+            const uint8_t redByte = static_cast<uint8_t>(std::clamp(
+                std::round((red[x] + 1.0f) * 127.5f), 0.0f, 255.0f));
+            const uint8_t greenByte = static_cast<uint8_t>(std::clamp(
+                std::round((green[x] + 1.0f) * 127.5f), 0.0f, 255.0f));
+            const uint8_t blueByte = static_cast<uint8_t>(std::clamp(
+                std::round((blue[x] + 1.0f) * 127.5f), 0.0f, 255.0f));
+            task.output[pixelOffset] = task.inputBgra ? blueByte : redByte;
+            task.output[pixelOffset + 1] = greenByte;
+            task.output[pixelOffset + 2] = task.inputBgra ? redByte : blueByte;
+        }
+    }
+    return true;
+}
+
+void ExecuteComicInpainting(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<ComicInpaintingTask *>(data);
+    RunComicInpainting(*task);
+    std::vector<uint8_t>().swap(task->input);
+    std::vector<uint8_t>().swap(task->mask);
+}
+
 void ExecuteUpscale(napi_env env, void *data)
 {
     (void)env;
@@ -2569,6 +2994,84 @@ void CompleteComicTextRecognition(napi_env env, napi_status status, void *data)
     delete task;
 }
 
+void CompleteComicTextMask(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<ComicTextMaskTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        napi_value outputBuffer = nullptr;
+        auto *output = new std::vector<uint8_t>(std::move(task->mask));
+        if (napi_create_object(env, &result) == napi_ok &&
+            napi_create_external_arraybuffer(
+                env,
+                output->data(),
+                output->size(),
+                FinalizeOutputBuffer,
+                output,
+                &outputBuffer) == napi_ok) {
+            napi_set_named_property(env, result, "mask", outputBuffer);
+            napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp16-cpu"));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            delete output;
+            task->error = "failed to allocate comic text mask result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native comic text mask inference failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
+    delete task;
+}
+
+void CompleteComicInpainting(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<ComicInpaintingTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        napi_value outputBuffer = nullptr;
+        auto *output = new std::vector<uint8_t>(std::move(task->output));
+        if (napi_create_object(env, &result) == napi_ok &&
+            napi_create_external_arraybuffer(
+                env,
+                output->data(),
+                output->size(),
+                FinalizeOutputBuffer,
+                output,
+                &outputBuffer) == napi_ok) {
+            napi_set_named_property(env, result, "pixels", outputBuffer);
+            napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            delete output;
+            task->error = "failed to allocate comic inpainter result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native comic inpainting failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
+    delete task;
+}
+
 napi_value SetRequestActive(napi_env env, napi_callback_info info)
 {
     size_t argc = 2;
@@ -2769,6 +3272,110 @@ napi_value RecognizeComicText(napi_env env, napi_callback_info info)
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic text recognizer task");
+        return nullptr;
+    }
+    return promise;
+}
+
+napi_value InpaintComicRegion(napi_env env, napi_callback_info info)
+{
+    size_t argc = 9;
+    napi_value argv[9] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
+        napi_throw_type_error(env, nullptr, "inpaintComicRegion expects 9 arguments");
+        return nullptr;
+    }
+    auto *task = new ComicInpaintingTask();
+    if (!GetBytes(env, argv[0], task->input) ||
+        !GetBytes(env, argv[1], task->mask) ||
+        !GetInt(env, argv[2], task->width) ||
+        !GetInt(env, argv[3], task->height) ||
+        !GetInt(env, argv[4], task->stride) ||
+        !GetInt(env, argv[7], task->threads) ||
+        napi_get_value_bool(env, argv[8], &task->inputBgra) != napi_ok) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid comic inpainter argument type");
+        return nullptr;
+    }
+    task->paramPath = GetString(env, argv[5]);
+    task->modelPath = GetString(env, argv[6]);
+    if (task->paramPath.empty() || task->modelPath.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "comic inpainter model paths are required");
+        return nullptr;
+    }
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextEComicInpainter", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecuteComicInpainting,
+            CompleteComicInpainting,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create comic inpainter task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_utility) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue comic inpainter task");
+        return nullptr;
+    }
+    return promise;
+}
+
+napi_value InferComicTextMask(napi_env env, napi_callback_info info)
+{
+    size_t argc = 9;
+    napi_value argv[9] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
+        napi_throw_type_error(env, nullptr, "inferComicTextMask expects 9 arguments");
+        return nullptr;
+    }
+    auto *task = new ComicTextMaskTask();
+    if (!GetBytes(env, argv[0], task->input) ||
+        !GetInt(env, argv[1], task->width) ||
+        !GetInt(env, argv[2], task->height) ||
+        !GetInt(env, argv[3], task->stride) ||
+        !GetFloat(env, argv[6], task->threshold) ||
+        !GetInt(env, argv[7], task->threads) ||
+        napi_get_value_bool(env, argv[8], &task->inputBgra) != napi_ok) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid comic text mask argument type");
+        return nullptr;
+    }
+    task->paramPath = GetString(env, argv[4]);
+    task->modelPath = GetString(env, argv[5]);
+    if (task->paramPath.empty() || task->modelPath.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "comic text mask model paths are required");
+        return nullptr;
+    }
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextEComicTextMask", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecuteComicTextMask,
+            CompleteComicTextMask,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create comic text mask task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_utility) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue comic text mask task");
         return nullptr;
     }
     return promise;
@@ -2975,6 +3582,8 @@ static napi_value Init(napi_env env, napi_value exports)
         {"upscaleMindSporeRgba", nullptr, UpscaleMindSporeRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"detectComicRegions", nullptr, DetectComicRegions, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"recognizeComicText", nullptr, RecognizeComicText, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"inferComicTextMask", nullptr, InferComicTextMask, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"inpaintComicRegion", nullptr, InpaintComicRegion, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCapabilities", nullptr, GetCapabilities, nullptr, nullptr, nullptr, napi_default, nullptr},

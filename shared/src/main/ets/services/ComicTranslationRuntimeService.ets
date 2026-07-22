@@ -21,8 +21,12 @@ import { PersistentComicRenderedPageRepository } from './ComicRenderedPageReposi
 import { ComicLocalVisualBackend } from './ComicLocalVisualBackend'
 import { HarmonyComicLocalOcrEngine } from './ComicHarmonyOcrService'
 import { ComicNcnnLocalRegionDetector } from './ComicNativeRegionDetector'
+import { ComicNcnnLocalSourceInpainter } from './ComicNativeSourceInpainter'
+import { ComicNcnnLocalTextMasker } from './ComicNativeTextMasker'
 import { ComicNcnnLocalTextRecognizer } from './ComicNativeTextRecognizer'
 import {
+  ComicSourceInpaintingModelPaths,
+  ComicTextMaskModelPaths,
   ComicTextRecognitionModelPaths,
   ComicTranslationModelPaths,
   ComicTranslationModelService,
@@ -57,9 +61,9 @@ import {
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
-const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v19'
-const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-glyph-inpaint-v19'
-const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v19'
+const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v25'
+const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-ctd-aot-inpaint-v24'
+const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v20'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096
@@ -289,6 +293,10 @@ export class ComicTranslationRuntimeService {
     }
     const recognizerPaths: ComicTextRecognitionModelPaths | null =
       ComicTranslationModelService.ocrPathsIfReady(context)
+    const inpaintingPaths: ComicSourceInpaintingModelPaths | null =
+      ComicTranslationModelService.inpaintingPathsIfReady(context)
+    const textMaskPaths: ComicTextMaskModelPaths | null =
+      ComicTranslationModelService.textMaskPathsIfReady(context)
     return new ComicLocalVisualBackend(
       context,
       new HarmonyComicLocalOcrEngine(),
@@ -299,6 +307,21 @@ export class ComicTranslationRuntimeService {
           recognizerPaths.paramPath,
           recognizerPaths.modelPath,
           recognizerPaths.dictionaryPath,
+        ),
+      inpaintingPaths === null || textMaskPaths === null
+        ? null
+        : new ComicNcnnLocalSourceInpainter(
+          inpaintingPaths.paramPath,
+          inpaintingPaths.modelPath,
+          4,
+        ),
+      inpaintingPaths === null || textMaskPaths === null
+        ? null
+        : new ComicNcnnLocalTextMasker(
+          textMaskPaths.paramPath,
+          textMaskPaths.modelPath,
+          0.3,
+          4,
         ),
     )
   }
@@ -377,7 +400,7 @@ export class ComicTranslationRuntimeService {
     profile.sourceTreatmentProfileId = COMIC_READER_SOURCE_TREATMENT_PROFILE_ID
     profile.layoutProfileId = COMIC_READER_LAYOUT_PROFILE_ID
     profile.targetMimeType = 'image/png'
-    profile.revision = 7
+    profile.revision = 13
     return profile
   }
 

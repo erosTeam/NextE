@@ -66,6 +66,8 @@ import comicLocalVisualBackendTest from './ComicLocalVisualBackend.test'
 import comicWholePageTranslationOrchestratorTest from './ComicWholePageTranslationOrchestrator.test'
 import toriiWholePageSettingsTest from './ToriiWholePageSettings.test'
 import toriiWholePageRenderBackendTest from './ToriiWholePageRenderBackend.test'
+import comicNativeSourceInpainterTest from './ComicNativeSourceInpainter.test'
+import comicNativeTextMaskerTest from './ComicNativeTextMasker.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -136,4 +138,6 @@ export default function testsuite(): void {
   comicWholePageTranslationOrchestratorTest()
   toriiWholePageSettingsTest()
   toriiWholePageRenderBackendTest()
+  comicNativeSourceInpainterTest()
+  comicNativeTextMaskerTest()
 }
