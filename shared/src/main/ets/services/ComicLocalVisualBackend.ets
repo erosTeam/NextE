@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v17'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 17
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v19'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 19
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -150,6 +150,11 @@ class LocalTextLayout {
 class LocalVerticalTextLayout {
   fontSize: number = 0
   columns: string[] = []
+}
+
+class LocalRenderPlanBlock {
+  block: ComicTextBlock = new ComicTextBlock()
+  translatedText: string = ''
 }
 
 class LocalFillStyle {
@@ -355,9 +360,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.translations.blocks[index].translatedText,
         )
       }
+      const renderPlans: LocalRenderPlanBlock[] = ComicLocalVisualBackend.renderPlans(
+        request.document,
+        translations,
+        request.translations.targetLanguage,
+      )
       const fillStyles: LocalFillStyle[] = []
-      for (let index: number = 0; index < request.document.blocks.length; index++) {
-        const block: ComicTextBlock = request.document.blocks[index]
+      for (let index: number = 0; index < renderPlans.length; index++) {
+        const block: ComicTextBlock = renderPlans[index].block
         const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
         const treatment: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
           raw,
@@ -372,8 +382,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           treatment,
         ))
       }
-      for (let index: number = 0; index < request.document.blocks.length; index++) {
-        const block: ComicTextBlock = request.document.blocks[index]
+      for (let index: number = 0; index < renderPlans.length; index++) {
+        const block: ComicTextBlock = renderPlans[index].block
         const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
         const treatment: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
           raw,
@@ -397,26 +407,30 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       // separate regions legible without allowing one narrow OCR column to become much larger
       // than its neighbours and visually overlap them.
       const verticalFontCap: number = ComicLocalVisualBackend.verticalPageFontCap(
-        request.document,
-        translations,
+        renderPlans,
         request.source.imageWidth,
         request.source.imageHeight,
+        request.translations.targetLanguage,
+      )
+      const horizontalFontCap: number = ComicLocalVisualBackend.horizontalPageFontCap(
+        renderPlans,
+        request.source.imageWidth,
+        request.source.imageHeight,
+        request.translations.targetLanguage,
       )
       const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
-      for (let index: number = 0; index < request.document.blocks.length; index++) {
-        const block: ComicTextBlock = request.document.blocks[index]
-        const translated: string | undefined = translations.get(block.blockId)
-        if (translated === undefined || translated.trim().length <= 0) {
-          throw new Error('Local comic renderer is missing a translated block')
-        }
+      for (let index: number = 0; index < renderPlans.length; index++) {
+        const block: ComicTextBlock = renderPlans[index].block
         ComicLocalVisualBackend.drawBlock(
           canvas,
           block,
-          translated.trim(),
+          renderPlans[index].translatedText,
           request.source.imageWidth,
           request.source.imageHeight,
           fillStyles[index],
           verticalFontCap,
+          horizontalFontCap,
+          request.translations.targetLanguage,
         )
       }
       packer = image.createImagePacker()
@@ -1057,16 +1071,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
       grouped.push(ComicLocalVisualBackend.group(groups[index]))
     }
-    const verticalMerged: LocalMappedBlock[] =
-      ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
-    const output: LocalMappedBlock[] =
-      ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
+    // Detector regions commonly describe individual source columns rather than the whole
+    // paragraph. Apply their geometry first so adjacent columns can be merged into one layout
+    // region instead of independently expanding translated text into each other.
     ComicLocalVisualBackend.applyDetectorRegionGeometry(
-      output,
+      grouped,
       detection,
       sourceWidth,
       sourceHeight,
     )
+    const verticalMerged: LocalMappedBlock[] =
+      ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
+    const output: LocalMappedBlock[] =
+      ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
     output.sort((left: LocalMappedBlock, right: LocalMappedBlock): number => {
       const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
       const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
@@ -1197,10 +1214,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       second.styleHint !== LOCAL_VERTICAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
       return false
     }
-    if (first.detectorRegionIndex !== second.detectorRegionIndex &&
-      (first.detectorRegionIndex >= 0 || second.detectorRegionIndex >= 0)) {
-      return false
-    }
     const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
     const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
     const rightRect: LocalRenderRect = firstRect.left >= secondRect.left ? firstRect : secondRect
@@ -1240,7 +1253,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.text = right.text + left.text
     block.styleHint = LOCAL_VERTICAL_STYLE_HINT
     block.tileIndex = first.tileIndex
-    block.detectorRegionIndex = first.detectorRegionIndex
+    block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
+      first.detectorRegionIndex : -1
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
     const topEdge: number = Math.min(firstRect.top, secondRect.top)
     const rightEdge: number = Math.max(firstRect.right, secondRect.right)
@@ -1290,10 +1304,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       second.styleHint !== LOCAL_HORIZONTAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
       return false
     }
-    if (first.detectorRegionIndex !== second.detectorRegionIndex &&
-      (first.detectorRegionIndex >= 0 || second.detectorRegionIndex >= 0)) {
-      return false
-    }
     const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
     const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
     const upperRect: LocalRenderRect = firstRect.top <= secondRect.top ? firstRect : secondRect
@@ -1327,7 +1337,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.text = upper.text + '\n' + lower.text
     block.styleHint = LOCAL_HORIZONTAL_STYLE_HINT
     block.tileIndex = first.tileIndex
-    block.detectorRegionIndex = first.detectorRegionIndex
+    block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
+      first.detectorRegionIndex : -1
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
     const topEdge: number = Math.min(firstRect.top, secondRect.top)
     const rightEdge: number = Math.max(firstRect.right, secondRect.right)
@@ -1475,46 +1486,64 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     imageHeight: number,
     fill: LocalFillStyle,
     verticalFontCap: number,
+    horizontalFontCap: number,
+    targetLanguage: string,
   ): void {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
-    const rect: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
+    const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
+      block.styleHint,
+      targetLanguage,
+    )
+    const textRect: LocalRenderRect = ComicLocalVisualBackend.renderTextRect(
       raw,
       imageWidth,
       imageHeight,
       block.styleHint,
+      renderStyleHint,
     )
-    const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
-    const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
-    const contentWidth: number = Math.max(1, rect.width() - horizontalPadding * 2)
-    const contentHeight: number = Math.max(1, rect.height() - verticalPadding * 2)
+    const horizontalPadding: number = Math.max(4, Math.min(12, textRect.width() * 0.08))
+    const verticalPadding: number = Math.max(4, Math.min(10, textRect.height() * 0.08))
+    const contentWidth: number = Math.max(1, textRect.width() - horizontalPadding * 2)
+    const contentHeight: number = Math.max(1, textRect.height() - verticalPadding * 2)
     const font: drawing.Font = new drawing.Font()
     font.enableSubpixel(true)
     const textBrush: drawing.Brush = new drawing.Brush()
     textBrush.setColor(255, fill.textRed, fill.textGreen, fill.textBlue)
     const textPen: drawing.Pen = new drawing.Pen()
-    const textLuminance: number = fill.textRed * 0.299 + fill.textGreen * 0.587 + fill.textBlue * 0.114
-    if (textLuminance < 128) {
-      textPen.setColor(255, 255, 255, 255)
-    } else {
-      textPen.setColor(255, 24, 24, 24)
-    }
-    textPen.setStrokeWidth(Math.max(1.5, Math.min(3.5, Math.min(rect.width(), rect.height()) * 0.012)))
+    textPen.setColor(255, 255, 255, 255)
     textPen.setAntiAlias(true)
-    canvas.attachBrush(textBrush)
-    canvas.attachPen(textPen)
-    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT) {
-      ComicLocalVisualBackend.drawVerticalText(
-        canvas,
+    if (renderStyleHint === LOCAL_VERTICAL_STYLE_HINT) {
+      const layout: LocalVerticalTextLayout = ComicLocalVisualBackend.verticalLayout(
         translatedText,
-        rect,
-        horizontalPadding,
-        verticalPadding,
         contentWidth,
         contentHeight,
         font,
         verticalFontCap,
       )
+      textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
+      canvas.attachPen(textPen)
+      ComicLocalVisualBackend.drawVerticalLayout(
+        canvas,
+        layout,
+        textRect,
+        horizontalPadding,
+        verticalPadding,
+        contentWidth,
+        contentHeight,
+        font,
+      )
       canvas.detachPen()
+      canvas.attachBrush(textBrush)
+      ComicLocalVisualBackend.drawVerticalLayout(
+        canvas,
+        layout,
+        textRect,
+        horizontalPadding,
+        verticalPadding,
+        contentWidth,
+        contentHeight,
+        font,
+      )
       canvas.detachBrush()
       return
     }
@@ -1523,7 +1552,46 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       contentWidth,
       contentHeight,
       font,
+      block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+        horizontalFontCap : LOCAL_MAX_FONT_SIZE,
     )
+    textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
+    canvas.attachPen(textPen)
+    ComicLocalVisualBackend.drawHorizontalLayout(
+      canvas,
+      layout,
+      textRect,
+      horizontalPadding,
+      verticalPadding,
+      contentWidth,
+      contentHeight,
+      font,
+    )
+    canvas.detachPen()
+    canvas.attachBrush(textBrush)
+    ComicLocalVisualBackend.drawHorizontalLayout(
+      canvas,
+      layout,
+      textRect,
+      horizontalPadding,
+      verticalPadding,
+      contentWidth,
+      contentHeight,
+      font,
+    )
+    canvas.detachBrush()
+  }
+
+  private static drawHorizontalLayout(
+    canvas: drawing.Canvas,
+    layout: LocalTextLayout,
+    rect: LocalRenderRect,
+    horizontalPadding: number,
+    verticalPadding: number,
+    contentWidth: number,
+    contentHeight: number,
+    font: drawing.Font,
+  ): void {
     font.setSize(layout.fontSize)
     const lineHeight: number = layout.fontSize * 1.18
     const totalHeight: number = layout.lines.length * lineHeight
@@ -1537,34 +1605,40 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       canvas.drawTextBlob(drawing.TextBlob.makeFromString(line, font), x, baseline)
       baseline += lineHeight
     }
-    canvas.detachPen()
-    canvas.detachBrush()
+  }
+
+  static outlineWidth(fontSize: number): number {
+    // The fill pass covers the inner half of the pen stroke, so a 20% pen width leaves
+    // roughly one normal glyph-stroke of white outline visible around the final text.
+    return Math.max(2.0, Math.min(10.0, fontSize * 0.20))
   }
 
   private static verticalPageFontCap(
-    document: ComicPageDocument,
-    translations: Map<string, string>,
+    renderPlans: LocalRenderPlanBlock[],
     imageWidth: number,
     imageHeight: number,
+    targetLanguage: string,
   ): number {
     const fittedSizes: number[] = []
     const font: drawing.Font = new drawing.Font()
     font.enableSubpixel(true)
-    for (let index: number = 0; index < document.blocks.length; index++) {
-      const block: ComicTextBlock = document.blocks[index]
-      if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+    for (let index: number = 0; index < renderPlans.length; index++) {
+      const block: ComicTextBlock = renderPlans[index].block
+      const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
+        block.styleHint,
+        targetLanguage,
+      )
+      if (renderStyleHint !== LOCAL_VERTICAL_STYLE_HINT) {
         continue
       }
-      const translated: string | undefined = translations.get(block.blockId)
-      if (translated === undefined || translated.trim().length <= 0) {
-        continue
-      }
+      const translated: string = renderPlans[index].translatedText
       const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
-      const rect: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
+      const rect: LocalRenderRect = ComicLocalVisualBackend.renderTextRect(
         raw,
         imageWidth,
         imageHeight,
         block.styleHint,
+        renderStyleHint,
       )
       const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
       const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
@@ -1584,6 +1658,300 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     fittedSizes.sort((left: number, right: number): number => left - right)
     return fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
+  }
+
+  private static horizontalPageFontCap(
+    renderPlans: LocalRenderPlanBlock[],
+    imageWidth: number,
+    imageHeight: number,
+    targetLanguage: string,
+  ): number {
+    if (ComicLocalVisualBackend.targetUsesVerticalLayout(targetLanguage)) {
+      return LOCAL_MAX_FONT_SIZE
+    }
+    const fittedSizes: number[] = []
+    const font: drawing.Font = new drawing.Font()
+    font.enableSubpixel(true)
+    for (let index: number = 0; index < renderPlans.length; index++) {
+      const block: ComicTextBlock = renderPlans[index].block
+      if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+        continue
+      }
+      const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+      const rect: LocalRenderRect = ComicLocalVisualBackend.renderTextRect(
+        raw,
+        imageWidth,
+        imageHeight,
+        block.styleHint,
+        LOCAL_HORIZONTAL_STYLE_HINT,
+      )
+      const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
+      const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
+      const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
+        renderPlans[index].translatedText,
+        Math.max(1, rect.width() - horizontalPadding * 2),
+        Math.max(1, rect.height() - verticalPadding * 2),
+        font,
+        LOCAL_MAX_FONT_SIZE,
+      )
+      fittedSizes.push(layout.fontSize)
+    }
+    if (fittedSizes.length <= 1) {
+      return LOCAL_MAX_FONT_SIZE
+    }
+    fittedSizes.sort((left: number, right: number): number => left - right)
+    return fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
+  }
+
+  private static renderPlans(
+    document: ComicPageDocument,
+    translations: Map<string, string>,
+    targetLanguage: string,
+  ): LocalRenderPlanBlock[] {
+    const plans: LocalRenderPlanBlock[] = []
+    for (let index: number = 0; index < document.blocks.length; index++) {
+      const source: ComicTextBlock = document.blocks[index]
+      const translated: string | undefined = translations.get(source.blockId)
+      if (translated === undefined || translated.trim().length <= 0) {
+        throw new Error('Local comic renderer is missing a translated block')
+      }
+      const plan: LocalRenderPlanBlock = new LocalRenderPlanBlock()
+      plan.block = source.copy()
+      plan.translatedText = translated.trim()
+      plans.push(plan)
+    }
+    const visible: LocalRenderPlanBlock[] =
+      ComicLocalVisualBackend.suppressContainedRenderPlans(plans)
+    if (ComicLocalVisualBackend.targetUsesVerticalLayout(targetLanguage)) {
+      return visible
+    }
+    return ComicLocalVisualBackend.mergeLatinVerticalRenderPlans(visible)
+  }
+
+  private static suppressContainedRenderPlans(
+    plans: LocalRenderPlanBlock[],
+  ): LocalRenderPlanBlock[] {
+    const output: LocalRenderPlanBlock[] = []
+    for (let candidateIndex: number = 0; candidateIndex < plans.length; candidateIndex++) {
+      let shadow: boolean = false
+      for (let containerIndex: number = 0; containerIndex < plans.length; containerIndex++) {
+        if (candidateIndex === containerIndex ||
+          !ComicLocalVisualBackend.isContainedRenderShadow(
+            plans[candidateIndex],
+            plans[containerIndex],
+          )) {
+          continue
+        }
+        shadow = true
+        break
+      }
+      if (!shadow) {
+        output.push(plans[candidateIndex])
+      }
+    }
+    return output
+  }
+
+  private static isContainedRenderShadow(
+    candidate: LocalRenderPlanBlock,
+    container: LocalRenderPlanBlock,
+  ): boolean {
+    if (candidate.block.styleHint !== container.block.styleHint) {
+      return false
+    }
+    const candidateRect: LocalRenderRect = ComicLocalVisualBackend.bounds(candidate.block.polygon)
+    const containerRect: LocalRenderRect = ComicLocalVisualBackend.bounds(container.block.polygon)
+    const candidateArea: number = Math.max(1, candidateRect.width() * candidateRect.height())
+    const containerArea: number = Math.max(1, containerRect.width() * containerRect.height())
+    if (containerArea < candidateArea * 4) {
+      return false
+    }
+    const candidateLength: number = candidate.block.sourceText.replace(/\s+/g, '').length
+    const containerLength: number = container.block.sourceText.replace(/\s+/g, '').length
+    if (candidateLength <= 0 || containerLength < candidateLength * 2.5) {
+      return false
+    }
+    const overlapWidth: number = Math.max(
+      0,
+      Math.min(candidateRect.right, containerRect.right) -
+        Math.max(candidateRect.left, containerRect.left),
+    )
+    const overlapHeight: number = Math.max(
+      0,
+      Math.min(candidateRect.bottom, containerRect.bottom) -
+        Math.max(candidateRect.top, containerRect.top),
+    )
+    return overlapWidth * overlapHeight / candidateArea >= 0.9
+  }
+
+  private static mergeLatinVerticalRenderPlans(
+    plans: LocalRenderPlanBlock[],
+  ): LocalRenderPlanBlock[] {
+    const working: LocalRenderPlanBlock[] = plans.slice()
+    let changed: boolean = true
+    while (changed) {
+      changed = false
+      for (let firstIndex: number = 0; firstIndex < working.length; firstIndex++) {
+        for (let secondIndex: number = firstIndex + 1;
+          secondIndex < working.length; secondIndex++) {
+          if (!ComicLocalVisualBackend.shouldMergeLatinVerticalRenderPlans(
+            working[firstIndex],
+            working[secondIndex],
+          )) {
+            continue
+          }
+          working[firstIndex] = ComicLocalVisualBackend.mergeLatinVerticalRenderPlan(
+            working[firstIndex],
+            working[secondIndex],
+          )
+          working.splice(secondIndex, 1)
+          changed = true
+          break
+        }
+        if (changed) {
+          break
+        }
+      }
+    }
+    working.sort((left: LocalRenderPlanBlock, right: LocalRenderPlanBlock): number =>
+      left.block.readingOrder - right.block.readingOrder)
+    return working
+  }
+
+  private static shouldMergeLatinVerticalRenderPlans(
+    first: LocalRenderPlanBlock,
+    second: LocalRenderPlanBlock,
+  ): boolean {
+    if (first.block.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      second.block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+      return false
+    }
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.block.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.block.polygon)
+    const rightRect: LocalRenderRect = firstRect.left >= secondRect.left ? firstRect : secondRect
+    const leftRect: LocalRenderRect = firstRect.left >= secondRect.left ? secondRect : firstRect
+    const horizontalGap: number = rightRect.left - leftRect.right
+    if (horizontalGap < -Math.min(firstRect.width(), secondRect.width()) * 0.25 ||
+      horizontalGap > Math.max(32, Math.min(firstRect.width(), secondRect.width()) * 0.35)) {
+      return false
+    }
+    const overlap: number = Math.min(firstRect.bottom, secondRect.bottom) -
+      Math.max(firstRect.top, secondRect.top)
+    const overlapRatio: number = overlap / Math.max(
+      1,
+      Math.min(firstRect.height(), secondRect.height()),
+    )
+    return overlapRatio >= 0.64
+  }
+
+  private static mergeLatinVerticalRenderPlan(
+    first: LocalRenderPlanBlock,
+    second: LocalRenderPlanBlock,
+  ): LocalRenderPlanBlock {
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.block.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.block.polygon)
+    const right: LocalRenderPlanBlock = firstRect.left >= secondRect.left ? first : second
+    const left: LocalRenderPlanBlock = firstRect.left >= secondRect.left ? second : first
+    const merged: LocalRenderPlanBlock = new LocalRenderPlanBlock()
+    merged.block = right.block.copy()
+    merged.block.blockId = `${right.block.blockId}+${left.block.blockId}`
+    merged.block.readingOrder = Math.min(right.block.readingOrder, left.block.readingOrder)
+    merged.block.sourceText = right.block.sourceText + left.block.sourceText
+    merged.block.normalizedSourceText = right.block.normalizedSourceText +
+      left.block.normalizedSourceText
+    merged.block.polygon = [
+      new ComicPoint(Math.min(firstRect.left, secondRect.left), Math.min(firstRect.top, secondRect.top)),
+      new ComicPoint(Math.max(firstRect.right, secondRect.right), Math.min(firstRect.top, secondRect.top)),
+      new ComicPoint(Math.max(firstRect.right, secondRect.right), Math.max(firstRect.bottom, secondRect.bottom)),
+      new ComicPoint(Math.min(firstRect.left, secondRect.left), Math.max(firstRect.bottom, secondRect.bottom)),
+    ]
+    merged.translatedText = right.translatedText + ' ' + left.translatedText
+    return merged
+  }
+
+  static targetUsesVerticalLayout(targetLanguage: string): boolean {
+    const normalized: string = targetLanguage.trim().toLowerCase()
+    return normalized === 'zh' || normalized.startsWith('zh-') ||
+      normalized === 'ja' || normalized.startsWith('ja-')
+  }
+
+  private static renderStyleHint(sourceStyleHint: string, targetLanguage: string): string {
+    if (sourceStyleHint === LOCAL_VERTICAL_STYLE_HINT &&
+      ComicLocalVisualBackend.targetUsesVerticalLayout(targetLanguage)) {
+      return LOCAL_VERTICAL_STYLE_HINT
+    }
+    return LOCAL_HORIZONTAL_STYLE_HINT
+  }
+
+  private static renderTextRect(
+    raw: LocalRenderRect,
+    imageWidth: number,
+    imageHeight: number,
+    sourceStyleHint: string,
+    renderStyleHint: string,
+  ): LocalRenderRect {
+    if (sourceStyleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      renderStyleHint !== LOCAL_HORIZONTAL_STYLE_HINT) {
+      return ComicLocalVisualBackend.sourceTreatmentRect(
+        raw,
+        imageWidth,
+        imageHeight,
+        renderStyleHint,
+      )
+    }
+    const rawWidth: number = Math.max(1, raw.width())
+    const rawHeight: number = Math.max(1, raw.height())
+    const targetWidth: number = Math.min(
+      imageWidth,
+      360,
+      Math.max(
+        rawWidth + 60,
+        rawWidth * 2.2,
+        Math.min(320, rawHeight * 0.65),
+      ),
+    )
+    const targetHeight: number = Math.min(
+      imageHeight,
+      Math.max(rawHeight, Math.min(180, rawHeight * 1.2)),
+    )
+    return ComicLocalVisualBackend.centeredRect(
+      raw,
+      targetWidth,
+      targetHeight,
+      imageWidth,
+      imageHeight,
+    )
+  }
+
+  private static centeredRect(
+    raw: LocalRenderRect,
+    width: number,
+    height: number,
+    imageWidth: number,
+    imageHeight: number,
+  ): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    rect.left = (raw.left + raw.right - width) / 2
+    rect.top = (raw.top + raw.bottom - height) / 2
+    rect.right = rect.left + width
+    rect.bottom = rect.top + height
+    if (rect.left < 0) {
+      rect.right = rect.right - rect.left
+      rect.left = 0
+    }
+    if (rect.right > imageWidth) {
+      rect.left = Math.max(0, rect.left - (rect.right - imageWidth))
+      rect.right = imageWidth
+    }
+    if (rect.top < 0) {
+      rect.bottom = rect.bottom - rect.top
+      rect.top = 0
+    }
+    if (rect.bottom > imageHeight) {
+      rect.top = Math.max(0, rect.top - (rect.bottom - imageHeight))
+      rect.bottom = imageHeight
+    }
+    return rect
   }
 
   private static sourceTreatmentRect(
@@ -1687,11 +2055,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     style.red = samples[backgroundIndex].red
     style.green = samples[backgroundIndex].green
     style.blue = samples[backgroundIndex].blue
-    if (samples[backgroundIndex].luminance < 128) {
-      style.textRed = 245
-      style.textGreen = 245
-      style.textBlue = 245
-    }
     return style
   }
 
@@ -1908,24 +2271,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     await pixelMap.writePixels(area)
   }
 
-  private static drawVerticalText(
+  private static drawVerticalLayout(
     canvas: drawing.Canvas,
-    text: string,
+    layout: LocalVerticalTextLayout,
     rect: LocalRenderRect,
     horizontalPadding: number,
     verticalPadding: number,
     contentWidth: number,
     contentHeight: number,
     font: drawing.Font,
-    maxFontSize: number,
   ): void {
-    const layout: LocalVerticalTextLayout = ComicLocalVisualBackend.verticalLayout(
-      text,
-      contentWidth,
-      contentHeight,
-      font,
-      maxFontSize,
-    )
     font.setSize(layout.fontSize)
     const columnWidth: number = layout.fontSize * 1.16
     const cellHeight: number = layout.fontSize * 1.12
@@ -2046,10 +2401,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     width: number,
     height: number,
     font: drawing.Font,
+    maxFontSize: number,
   ): LocalTextLayout {
     const initialSize: number = Math.max(
       LOCAL_MIN_FONT_SIZE,
-      Math.min(LOCAL_MAX_FONT_SIZE, Math.floor(height * 0.62)),
+      Math.min(LOCAL_MAX_FONT_SIZE, maxFontSize, Math.floor(height * 0.62)),
     )
     const compact: string = text.replace(/\s+/g, ' ').trim()
     if (!text.includes('\n') && compact.length <= 8) {
@@ -2081,6 +2437,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   private static wrap(text: string, width: number, font: drawing.Font): string[] {
+    const normalized: string = text.replace(/[\r\n]+/g, '\n').trim()
+    if (normalized.includes(' ') && /[A-Za-z0-9]/.test(normalized)) {
+      return ComicLocalVisualBackend.wrapWords(normalized, width, font)
+    }
     const lines: string[] = []
     let current: string = ''
     for (let index: number = 0; index < text.length; index++) {
@@ -2106,6 +2466,47 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     if (lines.length === 0) {
       lines.push(text)
+    }
+    return lines
+  }
+
+  private static wrapWords(text: string, width: number, font: drawing.Font): string[] {
+    const lines: string[] = []
+    const paragraphs: string[] = text.split('\n')
+    for (let paragraphIndex: number = 0;
+      paragraphIndex < paragraphs.length; paragraphIndex++) {
+      const words: string[] = paragraphs[paragraphIndex].trim().split(/\s+/)
+      let current: string = ''
+      for (let wordIndex: number = 0; wordIndex < words.length; wordIndex++) {
+        const word: string = words[wordIndex]
+        if (word.length <= 0) {
+          continue
+        }
+        const candidate: string = current.length > 0 ? `${current} ${word}` : word
+        if (font.measureText(candidate, drawing.TextEncoding.TEXT_ENCODING_UTF8) <= width) {
+          current = candidate
+          continue
+        }
+        if (current.length > 0) {
+          lines.push(current)
+          current = ''
+        }
+        let piece: string = ''
+        for (let charIndex: number = 0; charIndex < word.length; charIndex++) {
+          const nextPiece: string = piece + word.charAt(charIndex)
+          if (piece.length > 0 &&
+            font.measureText(nextPiece, drawing.TextEncoding.TEXT_ENCODING_UTF8) > width) {
+            lines.push(piece)
+            piece = word.charAt(charIndex)
+          } else {
+            piece = nextPiece
+          }
+        }
+        current = piece
+      }
+      if (current.length > 0) {
+        lines.push(current)
+      }
     }
     return lines
   }

@@ -2,8 +2,9 @@
 
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
-- **current production analyzer**: `core-vision-ocr-bubble-group-v14`
-- **current production render profile**: `reader-local-bubble-layout-v19` / `local-glyph-inpaint-v19`
+- **current production analyzer**: `core-vision-ocr-bubble-group-v19`
+- **current production render profile**: `reader-local-bubble-layout-v31` /
+  `local-ctd-aot-inpaint-v24` / `local-bubble-typography-v26`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -73,6 +74,24 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 本次还固定了衍生页落盘契约：端侧后端只能发布 repository 管理的
 `comic-translated-pages/<identity>-<artifact>.png`，路径与内容 hash 不匹配会在 Reader 发布前失败。该规则
 防止“本地已经生成图片”被误当成可缓存、可恢复的 Reader 产物。
+
+## 真实英文 Reader 补充（2026-07-23）
+
+设备 `237` 对实际日文画廊第 1 页改用英文目标做了连续 v27–v31 复核。v27 直接沿用源纵排方向，导致英文
+逐字竖排；v28 改成横排后仍把同一段落的 OCR 大块和内部小块重复绘制；v29 又错误合并左右两个独立段落。
+v30/v31 最终采用以下边界：源 geometry 只负责清理，目标语种决定排版；被大段落包含的重复小块在渲染时
+抑制；相邻源纵列只在有限水平间距内合并。页面文档仍保留 12 个翻译块，不为排版修复重新调用 LLM。
+
+v31 把白色描边 pen 从最多 1.6 px 改为字号的 20%（限制 2–10 px）。由于深色填充会覆盖描边内侧，复杂
+灰阶背景上最终留下的可见白边约等于一层正常字笔画；同一确定性规则同时用于横排和纵排。设备直接产物
+为 1,171,810 bytes，artifact 前缀 `a1ceffbc38d3`。从 source identity 解析到 `reader_page_ready` 约 13.0 秒；
+其中 detector 返回 32 个区域，补充 OCR 尝试 3 个、接受 0 个，text mask 约 0.94 秒，六个 AOT inpaint
+区域合计约 7.26 秒。
+
+视觉结论仍是 **未达到生产可用**：左右长段落虽已分开且不再逐字竖排，但仍覆盖人物和原有拟声词；左下
+段落贴近页边，页脚 OCR 也有残留。v30 完成时还触发过 `THREAD_BLOCK_6S`，当时进程 RSS 约 1.95 GiB，主线程
+停在结果完成后的系统 Toast 路径；Reader 现取消这条冗余成功 Toast，只保留结果图片和错误反馈。v31 在
+ready 后继续响应控件点击并保持进程存活，但单次未复现不能替代连续页峰值内存与 appfreeze 回归门。
 
 ## 漫画 detector 端侧移植试验（2026-07-22）
 

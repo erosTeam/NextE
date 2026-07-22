@@ -192,6 +192,80 @@ class UnmatchedShortOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class AdjacentColumnOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'adjacent-column-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('右の列です', 0, 300, 220, 340, 420))
+    result.lines.push(this.line('左の列です', 1, 245, 225, 285, 415))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    blockIndex: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
+  }
+}
+
+class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
+  profileId(): string {
+    return 'adjacent-column-region-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
+    const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+    result.backend = 'fixture'
+    result.regions.push(this.region(292, 200, 350, 440))
+    result.regions.push(this.region(232, 205, 290, 435))
+    return Promise.resolve(result)
+  }
+
+  private region(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicNativeDetectedRegion {
+    const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+    region.score = 0.95
+    region.classId = 0
+    region.label = 'text'
+    region.points.push(new ComicNativeRegionPoint(left, top))
+    region.points.push(new ComicNativeRegionPoint(right, top))
+    region.points.push(new ComicNativeRegionPoint(right, bottom))
+    region.points.push(new ComicNativeRegionPoint(left, bottom))
+    return region
+  }
+}
+
 class EmptyFixtureOcrEngine implements ComicLocalOcrEngine {
   engineId(): string {
     return 'empty-ocr-fixture'
@@ -624,6 +698,20 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicTranslationModelService.downloadBytes()).assertEqual(82836670)
     })
 
+    it('keeps CJK targets vertical but renders Latin targets horizontally', 0, () => {
+      expect(ComicLocalVisualBackend.targetUsesVerticalLayout('zh-CN')).assertEqual(true)
+      expect(ComicLocalVisualBackend.targetUsesVerticalLayout('zh-TW')).assertEqual(true)
+      expect(ComicLocalVisualBackend.targetUsesVerticalLayout('ja')).assertEqual(true)
+      expect(ComicLocalVisualBackend.targetUsesVerticalLayout('en')).assertEqual(false)
+      expect(ComicLocalVisualBackend.targetUsesVerticalLayout('de-DE')).assertEqual(false)
+    })
+
+    it('keeps the visible comic outline near one normal glyph stroke', 0, () => {
+      expect(ComicLocalVisualBackend.outlineWidth(8)).assertEqual(2)
+      expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(4)
+      expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
+    })
+
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -685,7 +773,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(18)
+          expect(backend.protocolRevision()).assertEqual(20)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -733,6 +821,43 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
           expect(analysis.document.blocks[0].polygon[2].x).assertEqual(320)
           expect(analysis.document.blocks[0].polygon[2].y).assertEqual(360)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('merges adjacent detector columns into one vertical paragraph', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/adjacent-column-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new AdjacentColumnOcrEngine(),
+            new AdjacentColumnRegionDetector(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].sourceText).assertEqual('右の列です左の列です')
+          expect(analysis.document.blocks[0].styleHint).assertEqual('vertical-rl')
+          expect(analysis.document.blocks[0].polygon[0].x).assertEqual(232)
+          expect(analysis.document.blocks[0].polygon[0].y).assertEqual(200)
+          expect(analysis.document.blocks[0].polygon[2].x).assertEqual(350)
+          expect(analysis.document.blocks[0].polygon[2].y).assertEqual(440)
         } finally {
           removeFile(sourcePath)
         }
@@ -809,7 +934,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(19)
+          expect(backend.protocolRevision()).assertEqual(21)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>

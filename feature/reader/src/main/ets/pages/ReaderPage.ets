@@ -1621,11 +1621,7 @@ export struct ReaderPage {
         this.comicTranslationCacheHit = result.cacheHit
         this.comicTranslationErrorCode = ''
         this.comicTranslationRunning = false
-        if (resultPageIsVisible) {
-          this.getUIContext().getPromptAction().showToast({
-            message: $r('app.string.reader_comic_translation_result_visible'),
-          })
-        } else {
+        if (!resultPageIsVisible) {
           this.comicTranslationPageIndex = -1
         }
         DiagnosticLogger.info(
