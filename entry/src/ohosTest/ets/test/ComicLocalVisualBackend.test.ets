@@ -45,6 +45,10 @@ const FIXTURE_PAGE_02_HASH: string =
   '72ee2ef048ec6035f0ade14f7a07c9f50302f377907076fa677b95977c0c246c'
 const CONTEXT_HASH: string =
   'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+const TALL_FIXTURE_HASH: string =
+  'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+const TALL_FIXTURE_WIDTH: number = 720
+const TALL_FIXTURE_HEIGHT: number = 4608
 class LocalComicFixture {
   pageIndex: number = 0
   rawFile: string = ''
@@ -196,6 +200,57 @@ class MissedTextRegionDetector implements ComicLocalRegionDetector {
   }
 }
 
+class TiledFixtureRegionDetector implements ComicLocalRegionDetector {
+  callCount: number = 0
+  observedWidths: number[] = []
+  observedHeights: number[] = []
+
+  profileId(): string {
+    return 'tiled-region-detector-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async detect(pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const callIndex: number = this.callCount
+    this.callCount = this.callCount + 1
+    this.observedWidths.push(Math.floor(info.size.width))
+    this.observedHeights.push(Math.floor(info.size.height))
+    const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+    result.backend = 'fixture'
+    if (callIndex === 0) {
+      result.regions.push(this.region(100, 1800, 300, 1900, 0.95))
+    } else if (callIndex === 1) {
+      result.regions.push(this.region(100, 8, 300, 108, 0.90))
+      result.regions.push(this.region(350, 300, 600, 450, 0.94))
+    } else {
+      result.regions.push(this.region(50, 100, 250, 250, 0.93))
+    }
+    return result
+  }
+
+  private region(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+    score: number,
+  ): ComicNativeDetectedRegion {
+    const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+    region.score = score
+    region.classId = 0
+    region.label = 'balloon'
+    region.points.push(new ComicNativeRegionPoint(left, top))
+    region.points.push(new ComicNativeRegionPoint(right, top))
+    region.points.push(new ComicNativeRegionPoint(right, bottom))
+    region.points.push(new ComicNativeRegionPoint(left, bottom))
+    return region
+  }
+}
+
 class FixtureTextRecognizer implements ComicLocalTextRecognizer {
   profileId(): string {
     return 'text-recognizer-fixture'
@@ -235,6 +290,38 @@ function writeFile(path: string, bytes: Uint8Array): void {
   } finally {
     if (file !== null) {
       fileIo.closeSync(file)
+    }
+  }
+}
+
+async function writeSolidImage(path: string, width: number, height: number): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+    new Uint8Array(buffer).fill(255)
+    pixelMap = await image.createPixelMap(buffer, {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    })
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
     }
   }
 }
@@ -289,6 +376,21 @@ function source(path: string, fixture: LocalComicFixture): ComicVisualPageSource
   value.imageHash = fixture.imageHash
   value.imageWidth = 1024
   value.imageHeight = 1536
+  return value
+}
+
+function sourceWithDimensions(
+  path: string,
+  width: number,
+  height: number,
+): ComicVisualPageSource {
+  const value: ComicVisualPageSource = new ComicVisualPageSource()
+  value.projectId = 'local-comic-tall-fixture'
+  value.pageIndex = 2
+  value.imageFilePath = path
+  value.imageHash = TALL_FIXTURE_HASH
+  value.imageWidth = width
+  value.imageHeight = height
   return value
 }
 
@@ -548,6 +650,50 @@ export default function comicLocalVisualBackendTest(): void {
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
           expect(backend.protocolRevision()).assertEqual(15)
           expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.qualitySignals.some((signal) =>
+            signal.code === 'local_manga_region_detector_active')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('tiles a long page and deduplicates detector regions in source coordinates', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/tall-detector-source.png`
+        await writeSolidImage(sourcePath, TALL_FIXTURE_WIDTH, TALL_FIXTURE_HEIGHT)
+        try {
+          const detector: TiledFixtureRegionDetector = new TiledFixtureRegionDetector()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new EmptyFixtureOcrEngine(),
+            detector,
+            new FixtureTextRecognizer(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = sourceWithDimensions(
+            sourcePath,
+            TALL_FIXTURE_WIDTH,
+            TALL_FIXTURE_HEIGHT,
+          )
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(detector.callCount).assertEqual(3)
+          expect(detector.observedWidths.join(',')).assertEqual('720,720,720')
+          expect(detector.observedHeights.join(',')).assertEqual('2048,2048,1024')
+          expect(analysis.document.blocks.length).assertEqual(3)
+          let maximumY: number = 0
+          for (let blockIndex: number = 0;
+            blockIndex < analysis.document.blocks.length; blockIndex++) {
+            const polygon = analysis.document.blocks[blockIndex].polygon
+            for (let pointIndex: number = 0; pointIndex < polygon.length; pointIndex++) {
+              maximumY = Math.max(maximumY, polygon[pointIndex].y)
+            }
+          }
+          expect(maximumY >= 3834).assertEqual(true)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_region_detector_active')).assertEqual(true)
         } finally {

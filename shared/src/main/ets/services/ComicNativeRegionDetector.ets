@@ -150,11 +150,11 @@ export class ComicNcnnLocalRegionDetector implements ComicLocalRegionDetector {
   }
 
   profileId(): string {
-    return 'ysgyolo-1.2-os1-ncnn-fp32-v1'
+    return 'ysgyolo-1.2-os1-ncnn-fp32-tiled-v2'
   }
 
   revision(): number {
-    return 1
+    return 2
   }
 
   async detect(pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {

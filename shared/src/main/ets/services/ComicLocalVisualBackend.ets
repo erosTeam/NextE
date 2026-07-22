@@ -39,6 +39,7 @@ import {
   ComicLocalRegionDetector,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
+  ComicNativeRegionPoint,
 } from './ComicNativeRegionDetector'
 import {
   ComicLocalTextRecognizer,
@@ -52,12 +53,17 @@ const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
 const LOCAL_OCR_TILE_OVERLAP: number = 128
+const LOCAL_DETECTOR_TILE_EDGE: number = 2048
+const LOCAL_DETECTOR_TILE_OVERLAP: number = 256
+const LOCAL_DETECTOR_MAX_TILES: number = 64
+const LOCAL_DETECTOR_MAX_REGIONS: number = 512
+const LOCAL_DETECTOR_DUPLICATE_IOU: number = 0.3
+const LOCAL_DETECTOR_DUPLICATE_CENTER_DISTANCE: number = 10
 const LOCAL_MAX_BLOCKS: number = 512
 const LOCAL_MAX_SOURCE_TEXT_CHARS: number = 8192
 const LOCAL_HASH_CHUNK_BYTES: number = 256 * 1024
 const LOCAL_MAX_RENDERED_BYTES: number = 80 * 1024 * 1024
 const LOCAL_MAX_RENDER_PIXELS: number = 16 * 1024 * 1024
-const LOCAL_DETECTOR_MAX_PIXELS: number = 16 * 1024 * 1024
 const LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS: number = 16
 const LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS: number = 2 * 1024 * 1024
 const LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE: number = 0.85
@@ -424,23 +430,62 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     width: number,
     height: number,
   ): Promise<ComicNativeRegionDetectionResult | null> {
-    if (this.detector === null || width * height > LOCAL_DETECTOR_MAX_PIXELS) {
+    if (this.detector === null) {
       return null
     }
-    let pixelMap: image.PixelMap | undefined = undefined
+    const tiles: LocalOcrTile[] = ComicLocalVisualBackend.detectorTiles(width, height)
+    if (tiles.length > LOCAL_DETECTOR_MAX_TILES) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'local_region_detector_fallback',
+        `profile=${this.detector.profileId()} tiles=${tiles.length} limit=${LOCAL_DETECTOR_MAX_TILES}`,
+      )
+      return null
+    }
     try {
-      pixelMap = await source.createPixelMap({
-        editable: false,
-        desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
-      })
-      const result: ComicNativeRegionDetectionResult = await this.detector.detect(pixelMap)
+      const combined: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+      for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
+        const tile: LocalOcrTile = tiles[tileIndex]
+        let pixelMap: image.PixelMap | undefined = undefined
+        try {
+          pixelMap = await source.createPixelMap({
+            editable: false,
+            desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+            desiredRegion: {
+              x: tile.x,
+              y: tile.y,
+              size: { width: tile.width, height: tile.height },
+            },
+            cropAndScaleStrategy: image.CropAndScaleStrategy.CROP_FIRST,
+          })
+          const detected: ComicNativeRegionDetectionResult = await this.detector.detect(pixelMap)
+          if (combined.backend.length <= 0) {
+            combined.backend = detected.backend
+          }
+          combined.modelLoadMs = combined.modelLoadMs + detected.modelLoadMs
+          combined.inferenceMs = combined.inferenceMs + detected.inferenceMs
+          ComicLocalVisualBackend.appendDetectedRegions(
+            combined.regions,
+            detected.regions,
+            tile,
+            width,
+            height,
+          )
+        } finally {
+          if (pixelMap !== undefined) {
+            await pixelMap.release()
+          }
+        }
+      }
+      combined.regions = ComicLocalVisualBackend.deduplicateDetectedRegions(combined.regions)
       DiagnosticLogger.info(
         'comic-translation',
         'local_region_detector_success',
-        `profile=${this.detector.profileId()} regions=${result.regions.length} ` +
-          `loadMs=${result.modelLoadMs} inferenceMs=${result.inferenceMs}`,
+        `profile=${this.detector.profileId()} tiles=${tiles.length} ` +
+          `regions=${combined.regions.length} loadMs=${combined.modelLoadMs} ` +
+          `inferenceMs=${combined.inferenceMs}`,
       )
-      return result
+      return combined
     } catch (error) {
       DiagnosticLogger.warn(
         'comic-translation',
@@ -448,10 +493,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         `profile=${this.detector.profileId()} message=${(error as Error).message}`,
       )
       return null
-    } finally {
-      if (pixelMap !== undefined) {
-        await pixelMap.release()
-      }
     }
   }
 
@@ -556,15 +597,38 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   private static tiles(width: number, height: number): LocalOcrTile[] {
+    return ComicLocalVisualBackend.overlappingTiles(
+      width,
+      height,
+      LOCAL_OCR_TILE_EDGE,
+      LOCAL_OCR_TILE_OVERLAP,
+    )
+  }
+
+  private static detectorTiles(width: number, height: number): LocalOcrTile[] {
+    return ComicLocalVisualBackend.overlappingTiles(
+      width,
+      height,
+      LOCAL_DETECTOR_TILE_EDGE,
+      LOCAL_DETECTOR_TILE_OVERLAP,
+    )
+  }
+
+  private static overlappingTiles(
+    width: number,
+    height: number,
+    edge: number,
+    overlap: number,
+  ): LocalOcrTile[] {
     const values: LocalOcrTile[] = []
-    const step: number = LOCAL_OCR_TILE_EDGE - LOCAL_OCR_TILE_OVERLAP
+    const step: number = edge - overlap
     for (let y: number = 0; y < height; y += step) {
-      const tileHeight: number = Math.min(LOCAL_OCR_TILE_EDGE, height - y)
+      const tileHeight: number = Math.min(edge, height - y)
       for (let x: number = 0; x < width; x += step) {
         const tile: LocalOcrTile = new LocalOcrTile()
         tile.x = x
         tile.y = y
-        tile.width = Math.min(LOCAL_OCR_TILE_EDGE, width - x)
+        tile.width = Math.min(edge, width - x)
         tile.height = tileHeight
         values.push(tile)
         if (x + tile.width >= width) {
@@ -576,6 +640,111 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     return values
+  }
+
+  private static appendDetectedRegions(
+    output: ComicNativeDetectedRegion[],
+    regions: ComicNativeDetectedRegion[],
+    tile: LocalOcrTile,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    for (let regionIndex: number = 0; regionIndex < regions.length; regionIndex++) {
+      const source: ComicNativeDetectedRegion = regions[regionIndex]
+      const mapped: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+      mapped.score = source.score
+      mapped.classId = source.classId
+      mapped.label = source.label
+      for (let pointIndex: number = 0; pointIndex < source.points.length; pointIndex++) {
+        mapped.points.push(new ComicNativeRegionPoint(
+          Math.max(0, Math.min(sourceWidth, source.points[pointIndex].x + tile.x)),
+          Math.max(0, Math.min(sourceHeight, source.points[pointIndex].y + tile.y)),
+        ))
+      }
+      output.push(mapped)
+    }
+  }
+
+  private static deduplicateDetectedRegions(
+    regions: ComicNativeDetectedRegion[],
+  ): ComicNativeDetectedRegion[] {
+    const sorted: ComicNativeDetectedRegion[] = regions.slice().sort(
+      (left: ComicNativeDetectedRegion, right: ComicNativeDetectedRegion): number =>
+        right.score - left.score,
+    )
+    const accepted: ComicNativeDetectedRegion[] = []
+    for (let candidateIndex: number = 0; candidateIndex < sorted.length; candidateIndex++) {
+      const candidate: ComicNativeDetectedRegion = sorted[candidateIndex]
+      let duplicate: boolean = false
+      for (let acceptedIndex: number = 0; acceptedIndex < accepted.length; acceptedIndex++) {
+        const existing: ComicNativeDetectedRegion = accepted[acceptedIndex]
+        if ((candidate.classId === existing.classId &&
+          ComicLocalVisualBackend.detectedRegionCenterDistance(candidate, existing) <
+            LOCAL_DETECTOR_DUPLICATE_CENTER_DISTANCE) ||
+          ComicLocalVisualBackend.detectedRegionAxisIou(candidate, existing) >
+            LOCAL_DETECTOR_DUPLICATE_IOU) {
+          duplicate = true
+          break
+        }
+      }
+      if (!duplicate) {
+        accepted.push(candidate)
+        if (accepted.length >= LOCAL_DETECTOR_MAX_REGIONS) {
+          break
+        }
+      }
+    }
+    return accepted
+  }
+
+  private static detectedRegionCenterDistance(
+    left: ComicNativeDetectedRegion,
+    right: ComicNativeDetectedRegion,
+  ): number {
+    const leftBounds: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+      left,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    )
+    const rightBounds: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+      right,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    )
+    return Math.hypot(
+      (leftBounds.left + leftBounds.right - rightBounds.left - rightBounds.right) / 2,
+      (leftBounds.top + leftBounds.bottom - rightBounds.top - rightBounds.bottom) / 2,
+    )
+  }
+
+  private static detectedRegionAxisIou(
+    left: ComicNativeDetectedRegion,
+    right: ComicNativeDetectedRegion,
+  ): number {
+    const leftBounds: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+      left,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    )
+    const rightBounds: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+      right,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    )
+    const intersectionWidth: number = Math.max(
+      0,
+      Math.min(leftBounds.right, rightBounds.right) -
+        Math.max(leftBounds.left, rightBounds.left),
+    )
+    const intersectionHeight: number = Math.max(
+      0,
+      Math.min(leftBounds.bottom, rightBounds.bottom) -
+        Math.max(leftBounds.top, rightBounds.top),
+    )
+    const intersection: number = intersectionWidth * intersectionHeight
+    const union: number = leftBounds.width() * leftBounds.height() +
+      rightBounds.width() * rightBounds.height() - intersection
+    return union > 0 ? intersection / union : 0
   }
 
   private static appendMappedLines(
