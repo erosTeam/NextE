@@ -106,6 +106,33 @@ OBB 归并系统 OCR 行，不把整块 OBB 当作遮盖或排版矩形，因此
 “未安装”切换为 `YSGYolo`。同一最终代码边界的完整设备 Hypium 为 254/254。该结果证明按需模型包可达、
 校验与 production 选择生效，不表示 OCR transcript、背景修复或最终排版质量已经达标。
 
+## PP-OCRv5 补充识别移植试验（2026-07-22）
+
+第二个端侧组件采用官方 `PaddlePaddle/PP-OCRv5_mobile_rec`，固定 source commit
+`682f20538d8c086cb2128e5cfac775e6c4904e85`，按 Apache-2.0 单独记录。官方 Paddle inference 文件经
+`paddle2onnx 2.1.0` 与 `pnnx 20260526` 转为 CPU FP32 ncnn；Runtime 不包含 Paddle Python 依赖。
+
+| 产物 | 大小 | SHA-256 |
+|---|---:|---|
+| ncnn param | 19,637 bytes | `7be8d21064ec730db52c03b144b57f6022ecdd1703e1fe410ca209c2bf0e4d47` |
+| ncnn bin | 16,442,228 bytes | `1d73b6e2ee6cbd02cabfac6ef9b6a48e62ae76ae02200ea23ac57b121e29697c` |
+| 字典 | 74,012 bytes | `d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b` |
+
+桌面 ncnn 对 12 个手工隔离、覆盖三种方向的合法文本行，最佳方向严格转录为 7/12，平均最佳相似度
+0.797222，平均推理 16.251 ms；与 Paddle 输出的转录一致性为 33/36。设备 `237` 的直接 NAPI 测试识别
+`月影駅東口`、`午後七時雨`、`七月二十日`，模型加载 53 ms，推理分别 162/46/47 ms。纵向样本虽转录正确，
+置信度只有 0.736，因此 production 的 0.85 安全阈值会拒绝它：当前策略优先防止错误文字进入翻译和制图，
+不把“模型能猜中”误写成可接受结果。
+
+production 仍以 Core Vision 为主，只对 YSGYolo 已检测、且没有任何系统 OCR 行归属的区域调用 PP-OCRv5；
+它不会改写已有 transcript。首批拟声词样本仍未闭环：一处只得到 0.608，另一处未被 detector 覆盖，所以
+本次不能声称拟声词或艺术字问题已经解决。`model-pack-v1.1.4` Release run `29898205012` 成功，tag 解引用到
+`312bbe09df402b9615b2ffbc150115d2e5a7284a`；从 Release 重新下载的三份资产大小和 hash 与上表完全一致。
+最终 signed app 已在设备 `237` 通过设置页安装该 Release，状态由“未安装”切换为
+`YSGYolo + PP-OCRv5`；该状态只在五份 detector/recognizer 资产逐文件通过大小与 SHA-256 后发布。最终
+`ComicLocalVisualBackend` 目标用例为 5/5，设备完整 Hypium 为 255/255。ohosTest 与正式应用数据目录隔离，
+因此不把测试模块读取正式安装目录作为验收方式；正式模型位由生产下载校验与同设备直接 NAPI 测试共同覆盖。
+
 ## 当前缺口与后续门槛
 
 下一阶段不能继续靠扩大启发式来掩盖根因，必须以漫画专用 detector/OCR 和内容感知修复补齐能力：
@@ -116,6 +143,6 @@ OBB 归并系统 OCR 行，不把整块 OBB 当作遮盖或排版矩形，因此
 3. 扩大真实 Reader 样本并分别统计 LLM、端侧视觉和缓存命中的 P50/P95；缓存命中继续禁止重新 OCR 或
    调用 LLM；
 4. 在普通页、长图和连续多页场景记录 P50/P95、峰值 PSS、失败回退与热稳定性；
-5. 在已发布 detector 与 Core Vision OCR 行归属基础上补齐长图分块、扩展样本和持续性能门；资源缺失或
-   推理失败继续无损回退当前系统 OCR；
+5. 在已发布 detector、补充 recognizer 与 Core Vision OCR 行归属基础上补齐长图分块、扩展样本和持续
+   性能门；资源缺失、低置信度或推理失败继续无损回退当前系统 OCR；
 6. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。

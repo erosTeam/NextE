@@ -4834,7 +4834,7 @@
     },
     {
       "name": "comic_local_detector_model",
-      "value": "ローカル領域モデル"
+      "value": "端末内漫画モデル"
     },
     {
       "name": "comic_local_detector_not_installed",
@@ -4842,7 +4842,7 @@
     },
     {
       "name": "comic_local_detector_installed",
-      "value": "YSGYolo"
+      "value": "YSGYolo + PP-OCRv5"
     },
     {
       "name": "comic_local_detector_downloading",
@@ -4850,15 +4850,15 @@
     },
     {
       "name": "comic_local_detector_notice",
-      "value": "任意の 10.2 MB ダウンロード · YSGYolo モデル資産は AGPL-3.0"
+      "value": "26.0 MB · YSGYolo: AGPL-3.0 · PP-OCRv5: Apache-2.0"
     },
     {
       "name": "comic_local_detector_install_title",
-      "value": "YSGYolo をダウンロードしますか？"
+      "value": "端末内漫画モデルをダウンロードしますか？"
     },
     {
       "name": "comic_local_detector_install_message",
-      "value": "約 10.2 MB をダウンロードします。別ライセンスの AGPL-3.0 モデルで OCR 行を漫画領域ごとにまとめます。OCR と画像生成は端末内で実行されます。"
+      "value": "約 26.0 MB をダウンロードします。"
     },
     {
       "name": "comic_local_detector_install",
@@ -4866,19 +4866,19 @@
     },
     {
       "name": "comic_local_detector_install_success",
-      "value": "YSGYolo をインストールしました"
+      "value": "端末内漫画モデルをインストールしました"
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "YSGYolo のダウンロードに失敗しました"
+      "value": "端末内漫画モデルのダウンロードに失敗しました"
     },
     {
       "name": "comic_local_detector_remove_title",
-      "value": "YSGYolo を削除しますか？"
+      "value": "端末内漫画モデルを削除しますか？"
     },
     {
       "name": "comic_local_detector_remove_message",
-      "value": "端末内漫画翻訳はシステム OCR のグループ化に戻ります。"
+      "value": "端末内漫画翻訳はシステム OCR に戻ります。"
     },
     {
       "name": "comic_local_detector_remove",
@@ -4886,7 +4886,7 @@
     },
     {
       "name": "comic_local_detector_removed",
-      "value": "YSGYolo を削除しました"
+      "value": "端末内漫画モデルを削除しました"
     },
     {
       "name": "comic_torii_model",

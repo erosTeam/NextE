@@ -4834,7 +4834,7 @@
     },
     {
       "name": "comic_local_detector_model",
-      "value": "Local region model"
+      "value": "On-device manga model"
     },
     {
       "name": "comic_local_detector_not_installed",
@@ -4842,7 +4842,7 @@
     },
     {
       "name": "comic_local_detector_installed",
-      "value": "YSGYolo"
+      "value": "YSGYolo + PP-OCRv5"
     },
     {
       "name": "comic_local_detector_downloading",
@@ -4850,15 +4850,15 @@
     },
     {
       "name": "comic_local_detector_notice",
-      "value": "Optional 10.2 MB download · YSGYolo model assets use AGPL-3.0"
+      "value": "26.0 MB · YSGYolo: AGPL-3.0 · PP-OCRv5: Apache-2.0"
     },
     {
       "name": "comic_local_detector_install_title",
-      "value": "Download YSGYolo?"
+      "value": "Download on-device manga model?"
     },
     {
       "name": "comic_local_detector_install_message",
-      "value": "Downloads about 10.2 MB. The separately licensed AGPL-3.0 model groups OCR lines by manga region; OCR and rendering still run on this device."
+      "value": "Downloads about 26.0 MB."
     },
     {
       "name": "comic_local_detector_install",
@@ -4866,19 +4866,19 @@
     },
     {
       "name": "comic_local_detector_install_success",
-      "value": "YSGYolo installed"
+      "value": "On-device manga model installed"
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "YSGYolo download failed"
+      "value": "On-device manga model download failed"
     },
     {
       "name": "comic_local_detector_remove_title",
-      "value": "Remove YSGYolo?"
+      "value": "Remove on-device manga model?"
     },
     {
       "name": "comic_local_detector_remove_message",
-      "value": "On-device manga translation will fall back to system OCR grouping."
+      "value": "On-device manga translation will fall back to system OCR."
     },
     {
       "name": "comic_local_detector_remove",
@@ -4886,7 +4886,7 @@
     },
     {
       "name": "comic_local_detector_removed",
-      "value": "YSGYolo removed"
+      "value": "On-device manga model removed"
     },
     {
       "name": "comic_torii_model",

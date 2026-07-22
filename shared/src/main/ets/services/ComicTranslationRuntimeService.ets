@@ -19,7 +19,9 @@ import { PersistentComicRenderedPageRepository } from './ComicRenderedPageReposi
 import { ComicLocalVisualBackend } from './ComicLocalVisualBackend'
 import { HarmonyComicLocalOcrEngine } from './ComicHarmonyOcrService'
 import { ComicNcnnLocalRegionDetector } from './ComicNativeRegionDetector'
+import { ComicNcnnLocalTextRecognizer } from './ComicNativeTextRecognizer'
 import {
+  ComicTextRecognitionModelPaths,
   ComicTranslationModelPaths,
   ComicTranslationModelService,
 } from './ComicTranslationModelService'
@@ -257,15 +259,24 @@ export class ComicTranslationRuntimeService {
   }
 
   private static localBackendFor(context: common.UIAbilityContext): ComicRegionRenderBackend {
-    const paths: ComicTranslationModelPaths | null =
+    const detectorPaths: ComicTranslationModelPaths | null =
       ComicTranslationModelService.pathsIfReady(context)
-    if (paths === null) {
+    if (detectorPaths === null) {
       return new ComicLocalVisualBackend(context)
     }
+    const recognizerPaths: ComicTextRecognitionModelPaths | null =
+      ComicTranslationModelService.ocrPathsIfReady(context)
     return new ComicLocalVisualBackend(
       context,
       new HarmonyComicLocalOcrEngine(),
-      new ComicNcnnLocalRegionDetector(paths.paramPath, paths.modelPath),
+      new ComicNcnnLocalRegionDetector(detectorPaths.paramPath, detectorPaths.modelPath),
+      recognizerPaths === null
+        ? null
+        : new ComicNcnnLocalTextRecognizer(
+          recognizerPaths.paramPath,
+          recognizerPaths.modelPath,
+          recognizerPaths.dictionaryPath,
+        ),
     )
   }
 

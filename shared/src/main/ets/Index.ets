@@ -317,6 +317,13 @@ export {
   ComicNativeRegionPoint,
 } from './services/ComicNativeRegionDetector'
 export {
+  ComicLocalTextRecognizer,
+  ComicNativeTextRecognitionResult,
+  ComicNativeTextRecognizer,
+  ComicNcnnLocalTextRecognizer,
+} from './services/ComicNativeTextRecognizer'
+export {
+  ComicTextRecognitionModelPaths,
   ComicTranslationModelPaths,
   ComicTranslationModelService,
 } from './services/ComicTranslationModelService'

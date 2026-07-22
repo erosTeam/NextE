@@ -40,6 +40,10 @@ import {
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
 } from './ComicNativeRegionDetector'
+import {
+  ComicLocalTextRecognizer,
+  ComicNativeTextRecognitionResult,
+} from './ComicNativeTextRecognizer'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
 const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v14'
@@ -54,6 +58,10 @@ const LOCAL_HASH_CHUNK_BYTES: number = 256 * 1024
 const LOCAL_MAX_RENDERED_BYTES: number = 80 * 1024 * 1024
 const LOCAL_MAX_RENDER_PIXELS: number = 16 * 1024 * 1024
 const LOCAL_DETECTOR_MAX_PIXELS: number = 16 * 1024 * 1024
+const LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS: number = 16
+const LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS: number = 2 * 1024 * 1024
+const LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE: number = 0.85
+const LOCAL_SUPPLEMENTAL_OCR_MAX_TEXT_CHARS: number = 96
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
@@ -144,24 +152,27 @@ class LocalColorSample {
   luminance: number = 0
 }
 
-/** First endpoint-free visual backend: system OCR geometry plus deterministic local source treatment and text drawing. */
+/** Endpoint-free visual backend with system OCR and optional manga-specific local models. */
 export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private readonly context: common.UIAbilityContext
   private readonly ocr: ComicLocalOcrEngine
   private readonly detector: ComicLocalRegionDetector | null
+  private readonly supplementalRecognizer: ComicLocalTextRecognizer | null
   private readonly resolvedProfileId: string
 
   constructor(
     context: common.UIAbilityContext,
     ocr: ComicLocalOcrEngine = new HarmonyComicLocalOcrEngine(),
     detector: ComicLocalRegionDetector | null = null,
+    supplementalRecognizer: ComicLocalTextRecognizer | null = null,
   ) {
     this.context = context
     this.ocr = ocr
     this.detector = detector
-    this.resolvedProfileId = detector === null
-      ? LOCAL_VISUAL_PROFILE_ID
-      : `${LOCAL_VISUAL_PROFILE_ID}-${detector.profileId()}`
+    this.supplementalRecognizer = supplementalRecognizer
+    this.resolvedProfileId = LOCAL_VISUAL_PROFILE_ID +
+      (detector === null ? '' : `-${detector.profileId()}`) +
+      (supplementalRecognizer === null ? '' : `-${supplementalRecognizer.profileId()}`)
   }
 
   backendId(): string {
@@ -173,9 +184,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   protocolRevision(): number {
-    return this.detector === null
-      ? LOCAL_VISUAL_PROTOCOL_REVISION
-      : LOCAL_VISUAL_PROTOCOL_REVISION + this.detector.revision()
+    return LOCAL_VISUAL_PROTOCOL_REVISION +
+      (this.detector === null ? 0 : this.detector.revision()) +
+      (this.supplementalRecognizer === null ? 0 : this.supplementalRecognizer.revision())
   }
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
@@ -232,6 +243,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         ComicLocalVisualBackend.deduplicate(mapped),
       )
       ComicLocalVisualBackend.assignDetectorRegions(lines, detection)
+      const supplementalCount: number = await this.supplementMissedRegions(
+        source,
+        lines,
+        detection,
+        request.source.imageWidth,
+        request.source.imageHeight,
+      )
       const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(lines)
       const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
       result.backendId = this.backendId()
@@ -243,6 +261,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         tiles.length,
         this.profileId(),
         detection !== null,
+        supplementalCount,
       )
       result.adapterTemplate = ComicLocalVisualBackend.template(
         request,
@@ -436,6 +455,106 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
   }
 
+  private async supplementMissedRegions(
+    source: image.ImageSource,
+    lines: LocalMappedLine[],
+    detection: ComicNativeRegionDetectionResult | null,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): Promise<number> {
+    if (this.supplementalRecognizer === null || detection === null) {
+      return 0
+    }
+    const covered: Set<number> = new Set<number>()
+    for (let lineIndex: number = 0; lineIndex < lines.length; lineIndex++) {
+      if (lines[lineIndex].detectorRegionIndex >= 0) {
+        covered.add(lines[lineIndex].detectorRegionIndex)
+      }
+    }
+    let attempted: number = 0
+    let accepted: number = 0
+    let inferenceMs: number = 0
+    let modelLoadMs: number = 0
+    for (let regionIndex: number = 0;
+      regionIndex < detection.regions.length &&
+      attempted < LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS; regionIndex++) {
+      if (covered.has(regionIndex)) {
+        continue
+      }
+      const region: ComicNativeDetectedRegion = detection.regions[regionIndex]
+      const rect: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+        region,
+        sourceWidth,
+        sourceHeight,
+      )
+      if (rect.width() < 8 || rect.height() < 8 ||
+        rect.width() * rect.height() > LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS) {
+        continue
+      }
+      attempted = attempted + 1
+      let pixelMap: image.PixelMap | undefined = undefined
+      try {
+        pixelMap = await source.createPixelMap({
+          editable: false,
+          desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+          desiredRegion: {
+            x: Math.floor(rect.left),
+            y: Math.floor(rect.top),
+            size: {
+              width: Math.ceil(rect.width()),
+              height: Math.ceil(rect.height()),
+            },
+          },
+          cropAndScaleStrategy: image.CropAndScaleStrategy.CROP_FIRST,
+        })
+        const recognized: ComicNativeTextRecognitionResult =
+          await this.supplementalRecognizer.recognize(
+            pixelMap,
+            rect.height() > rect.width() * 1.2,
+          )
+        modelLoadMs = modelLoadMs + recognized.modelLoadMs
+        inferenceMs = inferenceMs + recognized.inferenceMs
+        const text: string = recognized.text.trim()
+        if (recognized.score < LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE ||
+          text.length < 2 || text.length > LOCAL_SUPPLEMENTAL_OCR_MAX_TEXT_CHARS ||
+          /[\u0000-\u001f]/.test(text)) {
+          continue
+        }
+        const line: LocalMappedLine = new LocalMappedLine()
+        line.text = text
+        line.tileIndex = LOCAL_MAX_BLOCKS + regionIndex
+        line.blockIndex = regionIndex
+        line.lineIndex = 0
+        line.detectorRegionIndex = regionIndex
+        for (let pointIndex: number = 0; pointIndex < region.points.length; pointIndex++) {
+          line.polygon.push(new ComicPoint(
+            Math.max(0, Math.min(sourceWidth, region.points[pointIndex].x)),
+            Math.max(0, Math.min(sourceHeight, region.points[pointIndex].y)),
+          ))
+        }
+        lines.push(line)
+        accepted = accepted + 1
+      } catch (error) {
+        DiagnosticLogger.warn(
+          'comic-translation',
+          'local_text_recognizer_region_skipped',
+          `profile=${this.supplementalRecognizer.profileId()} message=${(error as Error).message}`,
+        )
+      } finally {
+        if (pixelMap !== undefined) {
+          await pixelMap.release()
+        }
+      }
+    }
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_recognizer_complete',
+      `profile=${this.supplementalRecognizer.profileId()} attempted=${attempted} ` +
+        `accepted=${accepted} loadMs=${modelLoadMs} inferenceMs=${inferenceMs}`,
+    )
+    return accepted
+  }
+
   private static tiles(width: number, height: number): LocalOcrTile[] {
     const values: LocalOcrTile[] = []
     const step: number = LOCAL_OCR_TILE_EDGE - LOCAL_OCR_TILE_OVERLAP
@@ -610,6 +729,29 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         region.points[next].x * region.points[index].y
     }
     return Math.max(1, Math.abs(doubled) / 2)
+  }
+
+  private static detectedRegionBounds(
+    region: ComicNativeDetectedRegion,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    rect.left = sourceWidth
+    rect.top = sourceHeight
+    rect.right = 0
+    rect.bottom = 0
+    for (let index: number = 0; index < region.points.length; index++) {
+      rect.left = Math.min(rect.left, region.points[index].x)
+      rect.top = Math.min(rect.top, region.points[index].y)
+      rect.right = Math.max(rect.right, region.points[index].x)
+      rect.bottom = Math.max(rect.bottom, region.points[index].y)
+    }
+    rect.left = Math.max(0, Math.floor(rect.left))
+    rect.top = Math.max(0, Math.floor(rect.top))
+    rect.right = Math.min(sourceWidth, Math.ceil(rect.right))
+    rect.bottom = Math.min(sourceHeight, Math.ceil(rect.bottom))
+    return rect
   }
 
   private static isFurigana(
@@ -930,6 +1072,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     tileCount: number,
     profileId: string,
     detectorUsed: boolean,
+    supplementalCount: number,
   ): ComicPageDocument {
     const document: ComicPageDocument = new ComicPageDocument()
     document.projectId = request.source.projectId
@@ -973,6 +1116,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       detectorSignal.severity = ComicQualitySeverity.INFO
       detectorSignal.message = 'Manga region detection grouped OCR lines before translation.'
       document.qualitySignals.push(detectorSignal)
+    }
+    if (supplementalCount > 0) {
+      const recognizerSignal: ComicQualitySignal = new ComicQualitySignal()
+      recognizerSignal.code = 'local_manga_text_recognizer_supplemented'
+      recognizerSignal.severity = ComicQualitySeverity.INFO
+      recognizerSignal.message =
+        `Manga text recognition recovered ${supplementalCount} system OCR miss(es).`
+      document.qualitySignals.push(recognizerSignal)
     }
     return document
   }

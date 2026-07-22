@@ -12,10 +12,12 @@ import {
   ComicLocalOcrPoint,
   ComicLocalOcrResult,
   ComicLocalRegionDetector,
+  ComicLocalTextRecognizer,
   ComicLocalVisualBackend,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
   ComicNativeRegionPoint,
+  ComicNativeTextRecognitionResult,
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
   ComicRegionRenderRequest,
@@ -43,7 +45,6 @@ const FIXTURE_PAGE_02_HASH: string =
   '72ee2ef048ec6035f0ade14f7a07c9f50302f377907076fa677b95977c0c246c'
 const CONTEXT_HASH: string =
   'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
-
 class LocalComicFixture {
   pageIndex: number = 0
   rawFile: string = ''
@@ -149,6 +150,70 @@ class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
     region.points.push(new ComicNativeRegionPoint(right, bottom))
     region.points.push(new ComicNativeRegionPoint(left, bottom))
     return region
+  }
+}
+
+class EmptyFixtureOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'empty-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    return Promise.resolve(new ComicLocalOcrResult())
+  }
+}
+
+class MissedTextRegionDetector implements ComicLocalRegionDetector {
+  profileId(): string {
+    return 'missed-text-region-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
+    const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+    result.backend = 'fixture'
+    const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+    region.score = 0.95
+    region.classId = 0
+    region.label = 'balloon'
+    region.points.push(new ComicNativeRegionPoint(595, 188))
+    region.points.push(new ComicNativeRegionPoint(875, 188))
+    region.points.push(new ComicNativeRegionPoint(875, 278))
+    region.points.push(new ComicNativeRegionPoint(595, 278))
+    result.regions.push(region)
+    return Promise.resolve(result)
+  }
+}
+
+class FixtureTextRecognizer implements ComicLocalTextRecognizer {
+  profileId(): string {
+    return 'text-recognizer-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  recognize(
+    _pixelMap: image.PixelMap,
+    _rotateCounterClockwise: boolean,
+  ): Promise<ComicNativeTextRecognitionResult> {
+    const result: ComicNativeTextRecognitionResult = new ComicNativeTextRecognitionResult()
+    result.backend = 'fixture'
+    result.text = '月影駅東口'
+    result.score = 0.94
+    return Promise.resolve(result)
   }
 }
 
@@ -411,10 +476,13 @@ async function changedPixelPercent(sourcePath: string, renderedPath: string): Pr
 
 export default function comicLocalVisualBackendTest(): void {
   describe('ComicLocalVisualBackend', () => {
-    it('exposes the separately licensed detector asset metadata', 0, () => {
-      expect(ComicTranslationModelService.displayName()).assertEqual('YSGYolo 1.2 OS1.0')
-      expect(ComicTranslationModelService.license()).assertEqual('AGPL-3.0-only')
-      expect(ComicTranslationModelService.downloadBytes()).assertEqual(10747791)
+    it('exposes component licenses for the local manga model pack', 0, () => {
+      expect(ComicTranslationModelService.displayName()).assertEqual(
+        'YSGYolo + PP-OCRv5 Mobile',
+      )
+      expect(ComicTranslationModelService.detectorLicense()).assertEqual('AGPL-3.0-only')
+      expect(ComicTranslationModelService.textRecognizerLicense()).assertEqual('Apache-2.0')
+      expect(ComicTranslationModelService.downloadBytes()).assertEqual(27283668)
     })
 
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
@@ -482,6 +550,43 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_region_detector_active')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('supplements only a detector region missed by system OCR', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/recognizer-supplement-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new EmptyFixtureOcrEngine(),
+            new MissedTextRegionDetector(),
+            new FixtureTextRecognizer(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
+          expect(backend.protocolRevision()).assertEqual(16)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
+          expect(analysis.document.qualitySignals.some((signal) =>
+            signal.code === 'local_manga_text_recognizer_supplemented')).assertEqual(true)
         } finally {
           removeFile(sourcePath)
         }

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -112,6 +113,25 @@ struct ComicRegionDetectionTask {
     int64_t inferenceMs = 0;
 };
 
+struct ComicTextRecognitionTask {
+    napi_async_work work = nullptr;
+    napi_deferred deferred = nullptr;
+    std::vector<uint8_t> input;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int threads = 2;
+    bool rotateCounterClockwise = false;
+    std::string paramPath;
+    std::string modelPath;
+    std::string dictionaryPath;
+    std::string text;
+    std::string error;
+    float score = 0.0f;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
+};
+
 std::once_flag gGpuInitFlag;
 int gGpuInitResult = -1;
 int gGpuCount = 0;
@@ -137,6 +157,10 @@ std::unordered_set<std::string> gRejectedMindSporeModelDevices;
 std::mutex gComicDetectorMutex;
 std::unique_ptr<ncnn::Net> gCachedComicDetectorNet;
 std::string gCachedComicDetectorKey;
+std::mutex gComicRecognizerMutex;
+std::unique_ptr<ncnn::Net> gCachedComicRecognizerNet;
+std::string gCachedComicRecognizerKey;
+std::vector<std::string> gCachedComicRecognizerDictionary;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -2100,6 +2124,218 @@ void ExecuteComicRegionDetection(napi_env env, void *data)
     std::vector<uint8_t>().swap(task->input);
 }
 
+constexpr int kComicRecognizerInputHeight = 48;
+constexpr int kComicRecognizerInputWidth = 320;
+constexpr int kComicRecognizerTimeSteps = 40;
+constexpr int kComicRecognizerCharacters = 18385;
+
+void ResetCachedComicRecognizer()
+{
+    gCachedComicRecognizerNet.reset();
+    gCachedComicRecognizerKey.clear();
+    gCachedComicRecognizerDictionary.clear();
+}
+
+bool ValidateComicRecognizerTask(ComicTextRecognitionTask &task)
+{
+    if (task.width <= 0 || task.height <= 0 || task.width > 4096 || task.height > 4096 ||
+        task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
+        task.paramPath.empty() || task.modelPath.empty() || task.dictionaryPath.empty()) {
+        task.error = "invalid comic text recognizer configuration";
+        return false;
+    }
+    const size_t required = static_cast<size_t>(task.stride) * static_cast<size_t>(task.height);
+    if (required == 0 || task.input.size() < required) {
+        task.error = "comic text recognizer RGBA input is truncated";
+        return false;
+    }
+    return true;
+}
+
+bool LoadComicRecognizerDictionary(const std::string &path, std::vector<std::string> &output)
+{
+    std::ifstream stream(path);
+    if (!stream.is_open()) {
+        return false;
+    }
+    output.clear();
+    output.reserve(kComicRecognizerCharacters);
+    output.push_back("");
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        output.push_back(line);
+    }
+    output.push_back(" ");
+    return output.size() == kComicRecognizerCharacters;
+}
+
+ncnn::Net *PrepareComicRecognizer(ComicTextRecognitionTask &task)
+{
+    const std::string key = task.paramPath + "\n" + task.modelPath + "\n" +
+        task.dictionaryPath + "\n" + std::to_string(task.threads);
+    if (gCachedComicRecognizerNet != nullptr && gCachedComicRecognizerKey == key &&
+        gCachedComicRecognizerDictionary.size() == kComicRecognizerCharacters) {
+        return gCachedComicRecognizerNet.get();
+    }
+    ResetCachedComicRecognizer();
+    std::vector<std::string> dictionary;
+    if (!LoadComicRecognizerDictionary(task.dictionaryPath, dictionary)) {
+        task.error = "failed to load comic text recognizer dictionary";
+        return nullptr;
+    }
+    auto net = std::make_unique<ncnn::Net>();
+    net->opt.use_vulkan_compute = false;
+    net->opt.use_fp16_storage = false;
+    net->opt.use_fp16_packed = false;
+    net->opt.use_fp16_arithmetic = false;
+    net->opt.use_packing_layout = false;
+    net->opt.num_threads = task.threads;
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    if (net->load_param(task.paramPath.c_str()) != 0 ||
+        net->load_model(task.modelPath.c_str()) != 0) {
+        task.error = "failed to load comic text recognizer model";
+        return nullptr;
+    }
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
+    gCachedComicRecognizerKey = key;
+    gCachedComicRecognizerDictionary = std::move(dictionary);
+    gCachedComicRecognizerNet = std::move(net);
+    return gCachedComicRecognizerNet.get();
+}
+
+void RotateComicRecognizerInputCounterClockwise(
+    const ComicTextRecognitionTask &task,
+    std::vector<uint8_t> &output)
+{
+    output.resize(static_cast<size_t>(task.width) * static_cast<size_t>(task.height) * 4);
+    const int outputWidth = task.height;
+    for (int y = 0; y < task.height; ++y) {
+        for (int x = 0; x < task.width; ++x) {
+            const size_t source = static_cast<size_t>(y) * static_cast<size_t>(task.stride) +
+                static_cast<size_t>(x) * 4;
+            const int outputX = y;
+            const int outputY = task.width - 1 - x;
+            const size_t destination =
+                (static_cast<size_t>(outputY) * static_cast<size_t>(outputWidth) +
+                    static_cast<size_t>(outputX)) * 4;
+            std::memcpy(output.data() + destination, task.input.data() + source, 4);
+        }
+    }
+}
+
+bool RunComicTextRecognition(ComicTextRecognitionTask &task)
+{
+    if (!ValidateComicRecognizerTask(task)) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(gComicRecognizerMutex);
+    ncnn::Net *net = PrepareComicRecognizer(task);
+    if (net == nullptr) {
+        return false;
+    }
+    std::vector<uint8_t> rotated;
+    const uint8_t *source = task.input.data();
+    int sourceWidth = task.width;
+    int sourceHeight = task.height;
+    int sourceStride = task.stride;
+    if (task.rotateCounterClockwise) {
+        RotateComicRecognizerInputCounterClockwise(task, rotated);
+        source = rotated.data();
+        sourceWidth = task.height;
+        sourceHeight = task.width;
+        sourceStride = sourceWidth * 4;
+    }
+    const int resizedWidth = std::clamp(
+        static_cast<int>(std::ceil(
+            static_cast<float>(kComicRecognizerInputHeight) *
+            static_cast<float>(sourceWidth) / static_cast<float>(sourceHeight))),
+        1,
+        kComicRecognizerInputWidth);
+    ncnn::Mat resized = ncnn::Mat::from_pixels_resize(
+        source,
+        ncnn::Mat::PIXEL_RGBA2BGR,
+        sourceWidth,
+        sourceHeight,
+        sourceStride,
+        resizedWidth,
+        kComicRecognizerInputHeight);
+    if (resized.empty()) {
+        task.error = "failed to resize comic text recognizer input";
+        return false;
+    }
+    const float mean[3] = {127.5f, 127.5f, 127.5f};
+    const float normalize[3] = {1.0f / 127.5f, 1.0f / 127.5f, 1.0f / 127.5f};
+    resized.substract_mean_normalize(mean, normalize);
+    ncnn::Mat input;
+    ncnn::copy_make_border(
+        resized,
+        input,
+        0,
+        0,
+        0,
+        kComicRecognizerInputWidth - resizedWidth,
+        ncnn::BORDER_CONSTANT,
+        0.0f,
+        net->opt);
+    if (input.empty() || input.w != kComicRecognizerInputWidth ||
+        input.h != kComicRecognizerInputHeight || input.c != 3) {
+        task.error = "comic text recognizer preprocessing failed";
+        return false;
+    }
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    ncnn::Extractor extractor = net->create_extractor();
+    if (extractor.input("in0", input) != 0) {
+        task.error = "comic text recognizer rejected the input tensor";
+        return false;
+    }
+    ncnn::Mat output;
+    if (extractor.extract("out0", output) != 0) {
+        task.error = "comic text recognizer failed to infer output";
+        return false;
+    }
+    task.inferenceMs = ElapsedMilliseconds(startedAt);
+    if (output.dims != 2 || output.w != kComicRecognizerCharacters ||
+        output.h != kComicRecognizerTimeSteps || output.elempack != 1) {
+        task.error = "comic text recognizer returned an unexpected output shape";
+        ResetCachedComicRecognizer();
+        return false;
+    }
+    int previous = -1;
+    float confidence = 0.0f;
+    int selected = 0;
+    task.text.clear();
+    for (int step = 0; step < output.h; ++step) {
+        const float *values = output.row(step);
+        int best = 0;
+        float bestScore = values[0];
+        for (int character = 1; character < output.w; ++character) {
+            if (values[character] > bestScore) {
+                best = character;
+                bestScore = values[character];
+            }
+        }
+        if (best != previous && best != 0) {
+            task.text += gCachedComicRecognizerDictionary[best];
+            confidence += bestScore;
+            ++selected;
+        }
+        previous = best;
+    }
+    task.score = selected > 0 ? confidence / static_cast<float>(selected) : 0.0f;
+    return true;
+}
+
+void ExecuteComicTextRecognition(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<ComicTextRecognitionTask *>(data);
+    RunComicTextRecognition(*task);
+    std::vector<uint8_t>().swap(task->input);
+}
+
 void ExecuteUpscale(napi_env env, void *data)
 {
     (void)env;
@@ -2303,6 +2539,36 @@ void CompleteComicRegionDetection(napi_env env, napi_status status, void *data)
     delete task;
 }
 
+void CompleteComicTextRecognition(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<ComicTextRecognitionTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        if (napi_create_object(env, &result) == napi_ok) {
+            napi_set_named_property(env, result, "text", StringValue(env, task->text));
+            napi_set_named_property(env, result, "score", DoubleValue(env, task->score));
+            napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            task->error = "failed to allocate comic text recognizer result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native comic text recognition failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
+    delete task;
+}
+
 napi_value SetRequestActive(napi_env env, napi_callback_info info)
 {
     size_t argc = 2;
@@ -2451,6 +2717,58 @@ napi_value DetectComicRegions(napi_env env, napi_callback_info info)
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic region detector task");
+        return nullptr;
+    }
+    return promise;
+}
+
+napi_value RecognizeComicText(napi_env env, napi_callback_info info)
+{
+    size_t argc = 9;
+    napi_value argv[9] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
+        napi_throw_type_error(env, nullptr, "recognizeComicText expects 9 arguments");
+        return nullptr;
+    }
+    auto *task = new ComicTextRecognitionTask();
+    if (!GetBytes(env, argv[0], task->input) ||
+        !GetInt(env, argv[1], task->width) ||
+        !GetInt(env, argv[2], task->height) ||
+        !GetInt(env, argv[3], task->stride) ||
+        napi_get_value_bool(env, argv[7], &task->rotateCounterClockwise) != napi_ok ||
+        !GetInt(env, argv[8], task->threads)) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid comic text recognizer argument type");
+        return nullptr;
+    }
+    task->paramPath = GetString(env, argv[4]);
+    task->modelPath = GetString(env, argv[5]);
+    task->dictionaryPath = GetString(env, argv[6]);
+    if (task->paramPath.empty() || task->modelPath.empty() || task->dictionaryPath.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "comic text recognizer model paths are required");
+        return nullptr;
+    }
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextEComicTextRecognizer", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecuteComicTextRecognition,
+            CompleteComicTextRecognition,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create comic text recognizer task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue comic text recognizer task");
         return nullptr;
     }
     return promise;
@@ -2656,6 +2974,7 @@ static napi_value Init(napi_env env, napi_value exports)
         {"prepareMindSporeModel", nullptr, PrepareMindSporeModelNapi, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"upscaleMindSporeRgba", nullptr, UpscaleMindSporeRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"detectComicRegions", nullptr, DetectComicRegions, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"recognizeComicText", nullptr, RecognizeComicText, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCapabilities", nullptr, GetCapabilities, nullptr, nullptr, nullptr, napi_default, nullptr},
