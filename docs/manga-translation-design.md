@@ -288,18 +288,24 @@ contextAwareTranslation
 sidecar 不是内部文档格式，也不与翻译 provider 共用认证；未主动开启实验后端时，服务地址、状态和凭据
 不得影响 Reader 漫画翻译可用性。
 
-正式默认路线由 `ComicLocalVisualBackend` 实现同一个 region/render 契约。当前首个端侧基线使用 HarmonyOS
-Core Vision 系统文字识别，按 `2048px` 分片并把文字行坐标映射回原图；随后在本地 PixelMap 上做确定性的
-方向判断、纵列合并、字形 mask、局部邻域恢复、横排/纵排译文布局、页级字号约束与 PNG 编码。当前 v13
-两页原创基线严格命中 9/11，成功检测的普通文本方向为 9/9，单页端侧视觉耗时为 867–1677 ms；完整测量
-边界见
+正式默认路线由 `ComicLocalVisualBackend` 实现同一个 region/render 契约。当前生产 analyzer/render 为
+v14/v19：使用 HarmonyOS Core Vision 系统文字识别，按 `2048px` 分片并把文字行坐标映射回原图；随后在
+本地 PixelMap 上做确定性的方向判断、相邻纵列/横行气泡分组、字形 mask、局部邻域恢复、横排/纵排译文
+布局、气泡级字号约束与 PNG 编码。v13 两页原创测量基线严格命中 9/11，成功检测的普通文本方向为 9/9，
+单页端侧视觉耗时为 867–1677 ms；v19 真实 Reader 补充证明同气泡字号和重叠已有改善，但仍有 `え?` 漏检
+和注音残留。完整测量边界见
 [漫画翻译端侧质量基线](research/manga-translation-local-quality-baseline.md)。它已经去掉服务地址和第二套
 账号，但系统通用 OCR 仍会漏掉融入画面的拟声词，局部修复也不是生成式内容感知 inpaint，因此只能称为
 可运行、待复核基线，不能称为最终制图质量。
 
-后续高质量档仍需在 HarmonyOS NDK + ncnn/Vulkan 等端侧运行时中接入独立的 detector/OCR/inpaint 模型。
-上游 Python、FastAPI、Docker、GPL 实现和权重不能原样打包进 HAP；每个模型都必须单独完成格式转换、
-许可证、资源大小、内存、长图分块和设备性能验收。模型包可以按需下载，但推理与制图仍在端侧执行。
+高质量档已完成第一块原生能力证明：YSGYolo 1.2 OS1.0 detector 已转为 ncnn，在现有 HarmonyOS NDK
+运行时通过异步 NAPI 输出原图 OBB、score 和 region class；设备 `237` 的 1024 × 1536 页热推理为 160 ms。
+该 detector 只提供区域几何/类别，不提供 OCR 文本、文字 mask 或背景修复；模型包尚未发布，也尚未连接
+production `ComicLocalVisualBackend`。因此当前生产身份仍是 v14 系统 OCR，不能把原生 spike 当成已切换。
+
+后续高质量档仍需依次完成 detector model-pack、OCR 行到 OBB 的归属、漫画 OCR 和可选 inpaint。上游
+Python、FastAPI、Docker、GPL 实现不能原样打包进 HAP；每个独立模型都必须完成来源与许可证、格式转换、
+hash、资源大小、内存、长图分块和设备性能验收。模型包可以按需下载，但推理与制图仍在端侧执行。
 “不需要服务端地址”已经成立；“断网后所有设备都可用”仍需通过离线资源状态与飞行模式验收，不能由一次
 联网设备运行推断。
 

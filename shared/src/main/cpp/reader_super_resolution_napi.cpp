@@ -89,6 +89,29 @@ struct UpscaleTask {
     int tileCount = 0;
 };
 
+struct ComicRegionDetection {
+    float points[8] = {0.0f};
+    float score = 0.0f;
+    int classId = 0;
+};
+
+struct ComicRegionDetectionTask {
+    napi_async_work work = nullptr;
+    napi_deferred deferred = nullptr;
+    std::vector<uint8_t> input;
+    std::vector<ComicRegionDetection> regions;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int threads = 2;
+    float confidenceThreshold = 0.5f;
+    std::string paramPath;
+    std::string modelPath;
+    std::string error;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
+};
+
 std::once_flag gGpuInitFlag;
 int gGpuInitResult = -1;
 int gGpuCount = 0;
@@ -111,6 +134,9 @@ std::string gCachedMindSporeModelPath;
 std::string gCachedMindSporeDeviceName;
 int gCachedMindSporeModelKind = -1;
 std::unordered_set<std::string> gRejectedMindSporeModelDevices;
+std::mutex gComicDetectorMutex;
+std::unique_ptr<ncnn::Net> gCachedComicDetectorNet;
+std::string gCachedComicDetectorKey;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -245,6 +271,16 @@ bool GetInt(napi_env env, napi_value value, int &result)
 bool GetInt64(napi_env env, napi_value value, int64_t &result)
 {
     return napi_get_value_int64(env, value, &result) == napi_ok;
+}
+
+bool GetFloat(napi_env env, napi_value value, float &result)
+{
+    double number = 0.0;
+    if (napi_get_value_double(env, value, &number) != napi_ok || !std::isfinite(number)) {
+        return false;
+    }
+    result = static_cast<float>(number);
+    return true;
 }
 
 void SetRequestActiveState(uint64_t requestId, bool active)
@@ -1798,6 +1834,272 @@ bool RunMindSporePrepare(UpscaleTask &task)
     return PrepareMindSporeModel(task) != nullptr;
 }
 
+constexpr int kComicDetectorInputSize = 640;
+constexpr int kComicDetectorClassCount = 5;
+constexpr size_t kComicDetectorMaxRegions = 512;
+
+void ResetCachedComicDetector()
+{
+    gCachedComicDetectorNet.reset();
+    gCachedComicDetectorKey.clear();
+}
+
+bool ValidateComicDetectorTask(ComicRegionDetectionTask &task)
+{
+    if (task.width <= 0 || task.height <= 0 || task.width > 32768 || task.height > 32768 ||
+        task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
+        task.paramPath.empty() || task.modelPath.empty() ||
+        task.confidenceThreshold <= 0.0f || task.confidenceThreshold >= 1.0f) {
+        task.error = "invalid comic region detector configuration";
+        return false;
+    }
+    const size_t required = static_cast<size_t>(task.stride) * static_cast<size_t>(task.height);
+    if (required == 0 || task.input.size() < required) {
+        task.error = "comic region detector RGBA input is truncated";
+        return false;
+    }
+    return true;
+}
+
+ncnn::Net *PrepareComicDetector(ComicRegionDetectionTask &task)
+{
+    const std::string key = task.paramPath + "\n" + task.modelPath + "\n" +
+        std::to_string(task.threads);
+    if (gCachedComicDetectorNet != nullptr && gCachedComicDetectorKey == key) {
+        return gCachedComicDetectorNet.get();
+    }
+    ResetCachedComicDetector();
+    auto net = std::make_unique<ncnn::Net>();
+    net->opt.use_vulkan_compute = false;
+    // This converted OBB model is numerically unstable with ncnn's default fp16 storage on ARM.
+    // Keep the first distributable profile on the parity-tested fp32 path.
+    net->opt.use_fp16_storage = false;
+    net->opt.use_fp16_packed = false;
+    net->opt.use_fp16_arithmetic = false;
+    net->opt.use_packing_layout = false;
+    net->opt.num_threads = task.threads;
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    if (net->load_param(task.paramPath.c_str()) != 0 ||
+        net->load_model(task.modelPath.c_str()) != 0) {
+        task.error = "failed to load comic region detector model";
+        return nullptr;
+    }
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
+    gCachedComicDetectorKey = key;
+    gCachedComicDetectorNet = std::move(net);
+    return gCachedComicDetectorNet.get();
+}
+
+float ComicRegionAxisIou(const ComicRegionDetection &left, const ComicRegionDetection &right)
+{
+    float leftMinX = left.points[0];
+    float leftMaxX = left.points[0];
+    float leftMinY = left.points[1];
+    float leftMaxY = left.points[1];
+    float rightMinX = right.points[0];
+    float rightMaxX = right.points[0];
+    float rightMinY = right.points[1];
+    float rightMaxY = right.points[1];
+    for (int point = 1; point < 4; ++point) {
+        leftMinX = std::min(leftMinX, left.points[point * 2]);
+        leftMaxX = std::max(leftMaxX, left.points[point * 2]);
+        leftMinY = std::min(leftMinY, left.points[point * 2 + 1]);
+        leftMaxY = std::max(leftMaxY, left.points[point * 2 + 1]);
+        rightMinX = std::min(rightMinX, right.points[point * 2]);
+        rightMaxX = std::max(rightMaxX, right.points[point * 2]);
+        rightMinY = std::min(rightMinY, right.points[point * 2 + 1]);
+        rightMaxY = std::max(rightMaxY, right.points[point * 2 + 1]);
+    }
+    const float intersectionWidth = std::max(
+        0.0f,
+        std::min(leftMaxX, rightMaxX) - std::max(leftMinX, rightMinX));
+    const float intersectionHeight = std::max(
+        0.0f,
+        std::min(leftMaxY, rightMaxY) - std::max(leftMinY, rightMinY));
+    const float intersection = intersectionWidth * intersectionHeight;
+    const float leftArea = std::max(0.0f, leftMaxX - leftMinX) *
+        std::max(0.0f, leftMaxY - leftMinY);
+    const float rightArea = std::max(0.0f, rightMaxX - rightMinX) *
+        std::max(0.0f, rightMaxY - rightMinY);
+    const float unionArea = leftArea + rightArea - intersection;
+    return unionArea > 0.0f ? intersection / unionArea : 0.0f;
+}
+
+void DeduplicateComicRegions(std::vector<ComicRegionDetection> &regions)
+{
+    std::sort(
+        regions.begin(),
+        regions.end(),
+        [](const ComicRegionDetection &left, const ComicRegionDetection &right) {
+            return left.score > right.score;
+        });
+    std::vector<ComicRegionDetection> accepted;
+    accepted.reserve(std::min(regions.size(), kComicDetectorMaxRegions));
+    for (const ComicRegionDetection &candidate : regions) {
+        float candidateCenterX = 0.0f;
+        float candidateCenterY = 0.0f;
+        for (int point = 0; point < 4; ++point) {
+            candidateCenterX += candidate.points[point * 2] * 0.25f;
+            candidateCenterY += candidate.points[point * 2 + 1] * 0.25f;
+        }
+        bool duplicate = false;
+        for (const ComicRegionDetection &existing : accepted) {
+            float existingCenterX = 0.0f;
+            float existingCenterY = 0.0f;
+            for (int point = 0; point < 4; ++point) {
+                existingCenterX += existing.points[point * 2] * 0.25f;
+                existingCenterY += existing.points[point * 2 + 1] * 0.25f;
+            }
+            const float distance = std::hypot(
+                candidateCenterX - existingCenterX,
+                candidateCenterY - existingCenterY);
+            if ((candidate.classId == existing.classId && distance < 10.0f) ||
+                ComicRegionAxisIou(candidate, existing) > 0.3f) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            accepted.push_back(candidate);
+            if (accepted.size() >= kComicDetectorMaxRegions) {
+                break;
+            }
+        }
+    }
+    regions.swap(accepted);
+}
+
+bool RunComicRegionDetection(ComicRegionDetectionTask &task)
+{
+    if (!ValidateComicDetectorTask(task)) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(gComicDetectorMutex);
+    ncnn::Net *net = PrepareComicDetector(task);
+    if (net == nullptr) {
+        return false;
+    }
+    const float gain = std::min(
+        static_cast<float>(kComicDetectorInputSize) / static_cast<float>(task.height),
+        static_cast<float>(kComicDetectorInputSize) / static_cast<float>(task.width));
+    const int resizedWidth = std::max(1, static_cast<int>(std::round(task.width * gain)));
+    const int resizedHeight = std::max(1, static_cast<int>(std::round(task.height * gain)));
+    const int left = (kComicDetectorInputSize - resizedWidth) / 2;
+    const int right = kComicDetectorInputSize - resizedWidth - left;
+    const int top = (kComicDetectorInputSize - resizedHeight) / 2;
+    const int bottom = kComicDetectorInputSize - resizedHeight - top;
+    ncnn::Mat resized = ncnn::Mat::from_pixels_resize(
+        task.input.data(),
+        ncnn::Mat::PIXEL_RGBA2RGB,
+        task.width,
+        task.height,
+        task.stride,
+        resizedWidth,
+        resizedHeight);
+    if (resized.empty()) {
+        task.error = "failed to resize comic detector input";
+        return false;
+    }
+    ncnn::Mat input;
+    ncnn::copy_make_border(
+        resized,
+        input,
+        top,
+        bottom,
+        left,
+        right,
+        ncnn::BORDER_CONSTANT,
+        114.0f,
+        net->opt);
+    if (input.empty() || input.w != kComicDetectorInputSize ||
+        input.h != kComicDetectorInputSize || input.c != 3) {
+        task.error = "comic detector letterbox preprocessing failed";
+        return false;
+    }
+    const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
+    input.substract_mean_normalize(nullptr, normalize);
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    ncnn::Extractor extractor = net->create_extractor();
+    if (extractor.input("in0", input) != 0) {
+        task.error = "comic detector rejected the input tensor";
+        return false;
+    }
+    ncnn::Mat output;
+    if (extractor.extract("out0", output) != 0) {
+        task.error = "comic detector failed to infer output";
+        return false;
+    }
+    task.inferenceMs = ElapsedMilliseconds(startedAt);
+    if (output.dims != 2 || output.w != 8400 || output.h != 11 || output.elempack != 1) {
+        task.error = "comic detector returned an unexpected output shape";
+        ResetCachedComicDetector();
+        return false;
+    }
+    const float inverseGain = 1.0f / gain;
+    const float *centerXs = output.row(0);
+    const float *centerYs = output.row(1);
+    const float *widths = output.row(2);
+    const float *heights = output.row(3);
+    const float *angles = output.row(10);
+    task.regions.clear();
+    for (int candidate = 0; candidate < output.w; ++candidate) {
+        int classId = 0;
+        float score = output.row(4)[candidate];
+        for (int classIndex = 1; classIndex < kComicDetectorClassCount; ++classIndex) {
+            const float classScore = output.row(4 + classIndex)[candidate];
+            if (classScore > score) {
+                score = classScore;
+                classId = classIndex;
+            }
+        }
+        if (score <= task.confidenceThreshold) {
+            continue;
+        }
+        const float centerX = std::clamp(
+            (centerXs[candidate] - static_cast<float>(left)) * inverseGain,
+            0.0f,
+            static_cast<float>(task.width));
+        const float centerY = std::clamp(
+            (centerYs[candidate] - static_cast<float>(top)) * inverseGain,
+            0.0f,
+            static_cast<float>(task.height));
+        const float width = widths[candidate] * inverseGain;
+        const float height = heights[candidate] * inverseGain;
+        const float cosine = std::cos(angles[candidate]);
+        const float sine = std::sin(angles[candidate]);
+        const float vector1X = width * 0.5f * cosine;
+        const float vector1Y = width * 0.5f * sine;
+        const float vector2X = -height * 0.5f * sine;
+        const float vector2Y = height * 0.5f * cosine;
+        ComicRegionDetection region;
+        region.classId = classId;
+        region.score = score;
+        const float corners[8] = {
+            centerX + vector1X + vector2X, centerY + vector1Y + vector2Y,
+            centerX + vector1X - vector2X, centerY + vector1Y - vector2Y,
+            centerX - vector1X - vector2X, centerY - vector1Y - vector2Y,
+            centerX - vector1X + vector2X, centerY - vector1Y + vector2Y,
+        };
+        for (int coordinate = 0; coordinate < 8; coordinate += 2) {
+            region.points[coordinate] = std::clamp(
+                corners[coordinate], 0.0f, static_cast<float>(task.width));
+            region.points[coordinate + 1] = std::clamp(
+                corners[coordinate + 1], 0.0f, static_cast<float>(task.height));
+        }
+        task.regions.push_back(region);
+    }
+    DeduplicateComicRegions(task.regions);
+    return true;
+}
+
+void ExecuteComicRegionDetection(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<ComicRegionDetectionTask *>(data);
+    RunComicRegionDetection(*task);
+    std::vector<uint8_t>().swap(task->input);
+}
+
 void ExecuteUpscale(napi_env env, void *data)
 {
     (void)env;
@@ -1846,6 +2148,32 @@ napi_value Int64Value(napi_env env, int64_t value)
     napi_value result = nullptr;
     napi_create_int64(env, value, &result);
     return result;
+}
+
+napi_value IntValue(napi_env env, int value)
+{
+    napi_value result = nullptr;
+    napi_create_int32(env, value, &result);
+    return result;
+}
+
+napi_value DoubleValue(napi_env env, double value)
+{
+    napi_value result = nullptr;
+    napi_create_double(env, value, &result);
+    return result;
+}
+
+const char *ComicRegionClassLabel(int classId)
+{
+    constexpr const char *labels[kComicDetectorClassCount] = {
+        "balloon",
+        "qipao",
+        "shuqing",
+        "changfangtiao",
+        "hengxie",
+    };
+    return classId >= 0 && classId < kComicDetectorClassCount ? labels[classId] : "unknown";
 }
 
 void FinalizeOutputBuffer(napi_env env, void *data, void *hint)
@@ -1910,6 +2238,60 @@ void CompletePrepare(napi_env env, napi_status status, void *data)
     if (status != napi_ok || !task->error.empty()) {
         const std::string message = task->error.empty()
             ? "native super-resolution preparation failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
+    delete task;
+}
+
+void CompleteComicRegionDetection(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<ComicRegionDetectionTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        napi_value regions = nullptr;
+        if (napi_create_object(env, &result) == napi_ok &&
+            napi_create_array_with_length(env, task->regions.size(), &regions) == napi_ok) {
+            for (size_t index = 0; index < task->regions.size(); ++index) {
+                const ComicRegionDetection &region = task->regions[index];
+                napi_value item = nullptr;
+                napi_value points = nullptr;
+                napi_create_object(env, &item);
+                napi_create_array_with_length(env, 8, &points);
+                for (uint32_t coordinate = 0; coordinate < 8; ++coordinate) {
+                    napi_set_element(
+                        env,
+                        points,
+                        coordinate,
+                        DoubleValue(env, region.points[coordinate]));
+                }
+                napi_set_named_property(env, item, "points", points);
+                napi_set_named_property(env, item, "score", DoubleValue(env, region.score));
+                napi_set_named_property(env, item, "classId", IntValue(env, region.classId));
+                napi_set_named_property(
+                    env,
+                    item,
+                    "label",
+                    StringValue(env, ComicRegionClassLabel(region.classId)));
+                napi_set_element(env, regions, index, item);
+            }
+            napi_set_named_property(env, result, "regions", regions);
+            napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            task->error = "failed to allocate comic detector result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native comic region detection failed"
             : task->error;
         napi_value text = nullptr;
         napi_value error = nullptr;
@@ -2018,6 +2400,57 @@ napi_value UpscaleRgba(napi_env env, napi_callback_info info)
         napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
         delete task;
         napi_throw_error(env, nullptr, "failed to queue native super-resolution task");
+        return nullptr;
+    }
+    return promise;
+}
+
+napi_value DetectComicRegions(napi_env env, napi_callback_info info)
+{
+    size_t argc = 8;
+    napi_value argv[8] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 8) {
+        napi_throw_type_error(env, nullptr, "detectComicRegions expects 8 arguments");
+        return nullptr;
+    }
+    auto *task = new ComicRegionDetectionTask();
+    if (!GetBytes(env, argv[0], task->input) ||
+        !GetInt(env, argv[1], task->width) ||
+        !GetInt(env, argv[2], task->height) ||
+        !GetInt(env, argv[3], task->stride) ||
+        !GetFloat(env, argv[6], task->confidenceThreshold) ||
+        !GetInt(env, argv[7], task->threads)) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid comic region detector argument type");
+        return nullptr;
+    }
+    task->paramPath = GetString(env, argv[4]);
+    task->modelPath = GetString(env, argv[5]);
+    if (task->paramPath.empty() || task->modelPath.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "comic detector model paths are required");
+        return nullptr;
+    }
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextEComicRegionDetector", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecuteComicRegionDetection,
+            CompleteComicRegionDetection,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create comic region detector task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue comic region detector task");
         return nullptr;
     }
     return promise;
@@ -2222,6 +2655,7 @@ static napi_value Init(napi_env env, napi_value exports)
         {"upscaleRgba", nullptr, UpscaleRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"prepareMindSporeModel", nullptr, PrepareMindSporeModelNapi, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"upscaleMindSporeRgba", nullptr, UpscaleMindSporeRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"detectComicRegions", nullptr, DetectComicRegions, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setRequestActive", nullptr, SetRequestActive, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setInteractionPaused", nullptr, SetInteractionPaused, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCapabilities", nullptr, GetCapabilities, nullptr, nullptr, nullptr, napi_default, nullptr},

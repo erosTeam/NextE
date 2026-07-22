@@ -36,8 +36,8 @@ import {
 } from './ComicHarmonyOcrService'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-directional-render-v13'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 13
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v14'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 14
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -538,7 +538,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
       grouped.push(ComicLocalVisualBackend.group(groups[index]))
     }
-    const output: LocalMappedBlock[] = ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
+    const verticalMerged: LocalMappedBlock[] =
+      ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
+    const output: LocalMappedBlock[] =
+      ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
     output.sort((left: LocalMappedBlock, right: LocalMappedBlock): number => {
       const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
       const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
@@ -643,7 +646,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const leftRect: LocalRenderRect = firstRect.left >= secondRect.left ? secondRect : firstRect
     const horizontalGap: number = rightRect.left - leftRect.right
     const maximumGap: number = Math.max(firstRect.width(), secondRect.width()) * 0.55
-    if (horizontalGap < -Math.min(firstRect.width(), secondRect.width()) * 0.15 ||
+    if (horizontalGap < -Math.min(firstRect.width(), secondRect.width()) * 0.28 ||
       horizontalGap > maximumGap) {
       return false
     }
@@ -655,8 +658,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     )
     const firstCenterY: number = (firstRect.top + firstRect.bottom) / 2
     const secondCenterY: number = (secondRect.top + secondRect.bottom) / 2
-    return overlapRatio >= 0.62 && Math.abs(firstCenterY - secondCenterY) <=
+    const topAligned: boolean = Math.abs(firstRect.top - secondRect.top) <= Math.max(
+      12,
+      Math.min(firstRect.height(), secondRect.height()) * 0.2,
+    )
+    const centerAligned: boolean = Math.abs(firstCenterY - secondCenterY) <=
       Math.max(firstRect.height(), secondRect.height()) * 0.32
+    return overlapRatio >= 0.62 && (topAligned || centerAligned)
   }
 
   private static mergeVerticalBlocks(
@@ -670,6 +678,88 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const block: LocalMappedBlock = new LocalMappedBlock()
     block.text = right.text + left.text
     block.styleHint = LOCAL_VERTICAL_STYLE_HINT
+    block.tileIndex = first.tileIndex
+    const leftEdge: number = Math.min(firstRect.left, secondRect.left)
+    const topEdge: number = Math.min(firstRect.top, secondRect.top)
+    const rightEdge: number = Math.max(firstRect.right, secondRect.right)
+    const bottomEdge: number = Math.max(firstRect.bottom, secondRect.bottom)
+    block.polygon.push(new ComicPoint(leftEdge, topEdge))
+    block.polygon.push(new ComicPoint(rightEdge, topEdge))
+    block.polygon.push(new ComicPoint(rightEdge, bottomEdge))
+    block.polygon.push(new ComicPoint(leftEdge, bottomEdge))
+    return block
+  }
+
+  private static mergeAdjacentHorizontalBlocks(values: LocalMappedBlock[]): LocalMappedBlock[] {
+    const working: LocalMappedBlock[] = values.slice()
+    let changed: boolean = true
+    while (changed) {
+      changed = false
+      for (let firstIndex: number = 0; firstIndex < working.length; firstIndex++) {
+        for (let secondIndex: number = firstIndex + 1;
+          secondIndex < working.length; secondIndex++) {
+          if (!ComicLocalVisualBackend.shouldMergeHorizontalBlocks(
+            working[firstIndex],
+            working[secondIndex],
+          )) {
+            continue
+          }
+          working[firstIndex] = ComicLocalVisualBackend.mergeHorizontalBlocks(
+            working[firstIndex],
+            working[secondIndex],
+          )
+          working.splice(secondIndex, 1)
+          changed = true
+          break
+        }
+        if (changed) {
+          break
+        }
+      }
+    }
+    return working
+  }
+
+  private static shouldMergeHorizontalBlocks(
+    first: LocalMappedBlock,
+    second: LocalMappedBlock,
+  ): boolean {
+    if (first.styleHint !== LOCAL_HORIZONTAL_STYLE_HINT ||
+      second.styleHint !== LOCAL_HORIZONTAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
+      return false
+    }
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
+    const upperRect: LocalRenderRect = firstRect.top <= secondRect.top ? firstRect : secondRect
+    const lowerRect: LocalRenderRect = firstRect.top <= secondRect.top ? secondRect : firstRect
+    const verticalGap: number = lowerRect.top - upperRect.bottom
+    if (verticalGap < -Math.min(firstRect.height(), secondRect.height()) * 0.28 ||
+      verticalGap > Math.max(firstRect.height(), secondRect.height()) * 0.55) {
+      return false
+    }
+    const overlap: number = Math.min(firstRect.right, secondRect.right) -
+      Math.max(firstRect.left, secondRect.left)
+    const overlapRatio: number = overlap / Math.max(
+      1,
+      Math.min(firstRect.width(), secondRect.width()),
+    )
+    const firstCenterX: number = (firstRect.left + firstRect.right) / 2
+    const secondCenterX: number = (secondRect.left + secondRect.right) / 2
+    return overlapRatio >= 0.62 && Math.abs(firstCenterX - secondCenterX) <=
+      Math.max(firstRect.width(), secondRect.width()) * 0.36
+  }
+
+  private static mergeHorizontalBlocks(
+    first: LocalMappedBlock,
+    second: LocalMappedBlock,
+  ): LocalMappedBlock {
+    const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
+    const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
+    const upper: LocalMappedBlock = firstRect.top <= secondRect.top ? first : second
+    const lower: LocalMappedBlock = firstRect.top <= secondRect.top ? second : first
+    const block: LocalMappedBlock = new LocalMappedBlock()
+    block.text = upper.text + '\n' + lower.text
+    block.styleHint = LOCAL_HORIZONTAL_STYLE_HINT
     block.tileIndex = first.tileIndex
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
     const topEdge: number = Math.min(firstRect.top, secondRect.top)
@@ -904,18 +994,34 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   ): LocalRenderRect {
     const rawWidth: number = Math.max(1, raw.width())
     const rawHeight: number = Math.max(1, raw.height())
+    const verticalTargetWidth: number = Math.min(
+      140,
+      Math.max(rawWidth + 40, rawWidth * 2),
+    )
+    const verticalExtraWidth: number = Math.max(0, verticalTargetWidth - rawWidth)
+    const horizontalTargetWidth: number = Math.min(
+      360,
+      Math.max(rawWidth + 40, rawWidth * 1.35),
+    )
+    const horizontalExtraWidth: number = Math.max(0, horizontalTargetWidth - rawWidth)
+    const horizontalTargetHeight: number = Math.min(
+      180,
+      Math.max(rawHeight + 24, rawHeight * 1.35),
+    )
+    const horizontalExtraHeight: number = Math.max(0, horizontalTargetHeight - rawHeight)
     const leftPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      Math.max(5, Math.min(14, rawWidth * 0.22)) :
-      Math.max(2, Math.min(8, rawWidth * 0.08))
+      verticalExtraWidth * 0.58 : horizontalExtraWidth / 2
     const rightPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      Math.max(12, Math.min(28, rawWidth * 0.68)) :
-      Math.max(2, Math.min(8, rawWidth * 0.08))
-    const yPadding: number = Math.max(2, Math.min(8, rawHeight * 0.05))
+      verticalExtraWidth - leftPadding : horizontalExtraWidth / 2
+    const topPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      Math.max(2, Math.min(8, rawHeight * 0.05)) : horizontalExtraHeight / 2
+    const bottomPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      Math.max(2, Math.min(8, rawHeight * 0.05)) : horizontalExtraHeight / 2
     const rect: LocalRenderRect = new LocalRenderRect()
     rect.left = Math.max(0, raw.left - leftPadding)
-    rect.top = Math.max(0, raw.top - yPadding)
+    rect.top = Math.max(0, raw.top - topPadding)
     rect.right = Math.min(imageWidth, raw.right + rightPadding)
-    rect.bottom = Math.min(imageHeight, raw.bottom + yPadding)
+    rect.bottom = Math.min(imageHeight, raw.bottom + bottomPadding)
     return rect
   }
 
@@ -1033,7 +1139,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const rawLeft: number = Math.max(treatmentLeft, Math.floor(raw.left))
     const rawTop: number = Math.max(treatmentTop, Math.floor(raw.top))
     const rawRight: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      treatmentRight : Math.min(treatmentRight, Math.ceil(raw.right))
+      Math.min(
+        treatmentRight,
+        Math.ceil(raw.right + Math.max(8, Math.min(18, raw.width() * 0.25))),
+      ) : Math.min(treatmentRight, Math.ceil(raw.right))
     const rawBottom: number = Math.min(treatmentBottom, Math.ceil(raw.bottom))
     const backgroundLuminance: number = background.red * 0.299 +
       background.green * 0.587 + background.blue * 0.114

@@ -309,6 +309,14 @@ export {
 } from './services/ComicHarmonyOcrService'
 export { ComicLocalVisualBackend } from './services/ComicLocalVisualBackend'
 export {
+  ComicLocalRegionDetector,
+  ComicNcnnLocalRegionDetector,
+  ComicNativeDetectedRegion,
+  ComicNativeRegionDetectionResult,
+  ComicNativeRegionDetector,
+  ComicNativeRegionPoint,
+} from './services/ComicNativeRegionDetector'
+export {
   ComicRenderedPageRepository,
   ComicRenderedPageRepositoryContract,
   InMemoryComicRenderedPageRepository,

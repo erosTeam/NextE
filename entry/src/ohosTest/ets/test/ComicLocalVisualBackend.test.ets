@@ -7,6 +7,10 @@ import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   ComicBlockTranslation,
+  ComicLocalOcrEngine,
+  ComicLocalOcrLine,
+  ComicLocalOcrPoint,
+  ComicLocalOcrResult,
   ComicLocalVisualBackend,
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
@@ -64,6 +68,48 @@ class LocalComicQualityMeasurement {
   blockGeometry: string = ''
   artifactPath: string = ''
   artifactBytes: number = 0
+}
+
+class BubbleGroupingOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'bubble-grouping-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('はい。', 0, 560, 1126, 594, 1196))
+    result.lines.push(this.line('洗うから後ろ向いて。', 1, 529, 1127, 564, 1368))
+    result.lines.push(this.line('本日は、', 2, 118, 234, 239, 292))
+    result.lines.push(this.line('洗い日です', 3, 129, 283, 294, 339))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    blockIndex: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.lineIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
+  }
 }
 
 function writeFile(path: string, bytes: Uint8Array): void {
@@ -173,11 +219,11 @@ function renderRequest(
   request.translations = translations
 
   const profile: ComicRenderProfile = new ComicRenderProfile()
-  profile.profileId = 'reader-local-directional-render-v18'
-  profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v18'
-  profile.layoutProfileId = 'local-page-typography-v13'
+  profile.profileId = 'reader-local-bubble-layout-v19'
+  profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v19'
+  profile.layoutProfileId = 'local-bubble-typography-v19'
   profile.targetMimeType = 'image/png'
-  profile.revision = 6
+  profile.revision = 7
   request.renderProfile = profile
 
   const identity: ComicRenderedPageIdentity = new ComicRenderedPageIdentity()
@@ -325,6 +371,41 @@ async function changedPixelPercent(sourcePath: string, renderedPath: string): Pr
 
 export default function comicLocalVisualBackendTest(): void {
   describe('ComicLocalVisualBackend', () => {
+    it('groups split OCR lines into one vertical or horizontal bubble block', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/bubble-grouping-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const fixture: LocalComicFixture = page01Fixture()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, fixture)
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.blocks[0].sourceText).assertEqual('本日は、\n洗い日です')
+          expect(analysis.document.blocks[0].styleHint).assertEqual('horizontal-ltr')
+          expect(analysis.document.blocks[1].sourceText).assertEqual('はい。洗うから後ろ向いて。')
+          expect(analysis.document.blocks[1].styleHint).assertEqual('vertical-rl')
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('measures endpoint-free OCR accuracy, direction, coverage, and latency', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()

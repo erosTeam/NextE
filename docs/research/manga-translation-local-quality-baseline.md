@@ -1,8 +1,9 @@
 # 漫画翻译端侧质量基线
 
 - **status**: active baseline; not a production-quality claim
-- **profile**: `core-vision-ocr-directional-render-v13`
-- **production render profile**: `reader-local-directional-render-v18` / `local-glyph-inpaint-v18`
+- **measured fixture profile**: `core-vision-ocr-directional-render-v13`
+- **current production analyzer**: `core-vision-ocr-bubble-group-v14`
+- **current production render profile**: `reader-local-bubble-layout-v19` / `local-glyph-inpaint-v19`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -56,14 +57,47 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 端侧渲染到 Reader ready 约 16.6 秒。复用已有翻译文档只重做第 1 页端侧渲染约 1.8 秒；进程重启后同页
 持久衍生页命中从 source identity 解析到 ready 为 8 ms，日志为 `cache=1`，没有再次运行 OCR 或 LLM。
 
-生产渲染 profile 升至 v18，但 analyzer 仍是上面的 v13。纵排原文处理范围向原 OCR 区域右侧扩展，实图中
-第 2 页中央叙述框的日文残留已清除；误置于纵排译文开头的句末标点会移回末尾。真实 Reader 已验证原图/
-译图切换、翻页返回、双击缩放和拖动平移，译文和页面作为同一张衍生 PNG 工作。当前明确未解决的是第 2 页
-小气泡 `え?` 的 OCR 漏检；这与原创 fixture 漏拟声词指向同一根因，即系统 OCR 的漫画文本召回不足。
+生产 analyzer/render 现升至 v14/v19。v14 会把同一气泡中被系统 OCR 拆开的相邻纵列、横行重新合并，v19
+按合并后的气泡空间统一拟合字号，不再逐行各算一套大小。实际日文页中，第 1 页 `な、なんで` 与后续正文、
+横排叙述均已形成单一布局块；第 2 页 `はい。` 与 `洗うから後ろ向いて。` 已按同一气泡、同一字号排版，未再
+出现同气泡字号跳变和译文相压。纵排原文处理仍只扫描原文字形附近，不会把扩大的排版区域整块抹白。
+
+![Reader 第 1 页 v19](assets/manga-translation-local-reader/page-01-v19.jpg)
+
+![Reader 第 2 页 v19](assets/manga-translation-local-reader/page-02-v19.jpg)
+
+真实 Reader 已验证原图/译图切换、翻页返回、双击缩放和拖动平移，译文和页面作为同一张衍生 PNG 工作。
+当前明确未解决的是第 2 页小气泡 `え?` 的 OCR 漏检，以及一处 `なぜか` 注音残留；两者都不能再靠扩大
+圆角遮盖解决，分别需要漫画专用 region detector/OCR 与更可靠的文字 mask。
 
 本次还固定了衍生页落盘契约：端侧后端只能发布 repository 管理的
 `comic-translated-pages/<identity>-<artifact>.png`，路径与内容 hash 不匹配会在 Reader 发布前失败。该规则
 防止“本地已经生成图片”被误当成可缓存、可恢复的 Reader 产物。
+
+## 漫画 detector 端侧移植试验（2026-07-22）
+
+已从 Docker 对照链路单独提取 YSGYolo 1.2 OS1.0 detector，并转换成现有 HarmonyOS ncnn 运行时可加载的
+`param/bin`。这里只移植独立模型和前后处理契约，没有把上游 Python、FastAPI 或 GPL 应用代码打入 HAP。
+模型仓库标记为 [MIT](https://huggingface.co/YSGforMTL/YSGYoloDetector?not-for-all-audiences=true)，但正式模型包
+仍需补齐来源链、转换工具链和许可证复核后才能发布。
+
+| 产物 | 大小 | SHA-256 |
+|---|---:|---|
+| `ysgyolo_1.2_OS1.0.onnx` | 10,838,944 bytes | `6f3202925f01fdf045f8c31a3bf62e6c44944f56ce09107eb436bc5a5b185ebe` |
+| ncnn param | 26 KiB | `f3617c7834bf3f7ae67521db908a53709140aeb1c11a02f8c64b7c091b569987` |
+| ncnn bin | 10 MiB | `7658e654db1a2e8a77c387607def85d5d297b26f110cc2b334dd52ae17a4fe00` |
+
+转换后输入/输出为 `in0 -> out0`，输出形状为 `[11, 8400]`。ncnn 默认 FP16 storage 会把本模型的最大绝对
+误差放大到约 15.204；关闭 FP16 storage/packed/arithmetic 与 packing layout 后，相对 ONNX Runtime 的最大
+绝对误差为 0.001312、平均绝对误差为 0.00001466，`atol=1e-3` 一致性成立，因此首个设备 profile 固定为
+CPU FP32，不能擅自切回默认 FP16。
+
+临时把转换产物放入显式测试 HAP 后，设备 `237` 在合法 1024 × 1536 原图上返回 5 个去重区域：模型加载
+39 ms、首次推理 207 ms、热推理 160 ms；带该临时用例的完整 Hypium 为 253/253。验证后模型二进制已从
+工作树移除，当前提交只保留原生 NAPI、类型化 ArkTS 边界和证据。它尚未连接 production
+`ComicLocalVisualBackend`，也没有已发布的下载模型包；当前 Reader 仍使用 v14 Core Vision analyzer。
+移除临时模型资源后重新完成 signed app、signed `entry@ohosTest` 构建，并在 `237` 跑完最终 252/252；因此
+提交状态不会依赖测试 HAP 中的模型文件。
 
 ## 当前缺口与后续门槛
 
@@ -75,4 +109,6 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 3. 扩大真实 Reader 样本并分别统计 LLM、端侧视觉和缓存命中的 P50/P95；缓存命中继续禁止重新 OCR 或
    调用 LLM；
 4. 在普通页、长图和连续多页场景记录 P50/P95、峰值 PSS、失败回退与热稳定性；
-5. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。
+5. 发布 hash/version/license 完整的 detector 模型包，把 Core Vision OCR 行归属到 detector OBB 后再接入
+   production profile；资源缺失或推理失败必须无损回退当前系统 OCR；
+6. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。
