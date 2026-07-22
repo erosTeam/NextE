@@ -45,8 +45,8 @@ import {
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
-const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-directional-render-v13'
-const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-glyph-inpaint-v13'
+const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-directional-render-v18'
+const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-glyph-inpaint-v18'
 const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-page-typography-v13'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
@@ -335,7 +335,7 @@ export class ComicTranslationRuntimeService {
     profile.sourceTreatmentProfileId = COMIC_READER_SOURCE_TREATMENT_PROFILE_ID
     profile.layoutProfileId = COMIC_READER_LAYOUT_PROFILE_ID
     profile.targetMimeType = 'image/png'
-    profile.revision = 1
+    profile.revision = 6
     return profile
   }
 

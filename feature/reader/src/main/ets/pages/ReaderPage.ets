@@ -1389,16 +1389,31 @@ export struct ReaderPage {
   private setComicTranslationHiddenForPage(page: number, hidden: boolean): void {
     const pages: number[] = this.comicTranslationHiddenPages.slice()
     const index: number = pages.indexOf(page)
+    let changed: boolean = false
     if (hidden && index < 0) {
       pages.push(page)
+      changed = true
     } else if (!hidden && index >= 0) {
       pages.splice(index, 1)
+      changed = true
+    }
+    if (!changed) {
+      return
     }
     this.comicTranslationHiddenPages = pages
+    this.notifyComicTranslationSpreadChanged(page)
+  }
+
+  private notifyComicTranslationSpreadChanged(page: number): void {
+    if (page <= 0 || !this.doublePageEnabled()) {
+      return
+    }
+    this.spreadDataSource.notifyDataChanged(this.spreadIndexForImage(page - 1))
   }
 
   private rememberComicTranslationPage(page: ComicRenderedPage): void {
     const displayPage: number = page.identity.pageIndex + 1
+    const wasHidden: boolean = this.comicTranslationHiddenForPage(displayPage)
     const pages: number[] = this.comicTranslationPages.slice()
     const paths: string[] = this.comicTranslationPaths.slice()
     const hashes: string[] = this.comicTranslationArtifactHashes.slice()
@@ -1415,6 +1430,9 @@ export struct ReaderPage {
     this.comicTranslationPaths = paths
     this.comicTranslationArtifactHashes = hashes
     this.setComicTranslationHiddenForPage(displayPage, false)
+    if (!wasHidden) {
+      this.notifyComicTranslationSpreadChanged(displayPage)
+    }
   }
 
   private comicTranslationLocalFileUri(path: string): string {

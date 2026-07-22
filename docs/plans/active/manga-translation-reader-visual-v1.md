@@ -168,10 +168,10 @@ sidecar 凭据与 API Key/Codex token 分开保存、分开脱敏、分开备份
 
 - [x] fake backend、fixture、parser、identity、cache、failure 和 security tests 通过；
 - [x] signed app、`entry@ohosTest`、持久化/secret/backup/i18n/V2 门禁通过；
-- [ ] 在用户指定设备上用合法样页完成一次端侧视觉后端 + 已选 provider 真实链路；
-- [ ] 提供同页原图与视觉译制页截图，证明原文不与译文竞争；
-- [ ] 证明缩放/平移/切页正常，返回同页命中衍生页缓存且不调用视觉后端/provider；
-- [ ] 关闭 sidecar 后默认路径仍可完整工作，普通用户流程不要求地址和账号；
+- [x] 在用户指定设备上用合法样页完成一次端侧视觉后端 + 已选 provider 真实链路；
+- [x] 提供同页原图与视觉译制页截图，证明原文不与译文竞争；
+- [x] 证明缩放/平移/切页正常，返回同页命中衍生页缓存且不调用视觉后端/provider；
+- [x] 关闭 sidecar 后默认路径仍可完整工作，普通用户流程不要求地址和账号；
 - [x] 失败时原图保持可读，不出现文字列表替代品。
 
 只有 B2 与 F 全部满足才允许称为“漫画翻译端侧视觉 Reader V1 完成”。外部 sidecar 的 A–F 历史验收
@@ -415,3 +415,24 @@ PNG/JPEG/WebP，并在设备上把 JPEG/WebP 有界归一化为同尺寸 PNG 后
 `entry@ohosTest`、设备完整 Hypium 250/250、i18n、持久化、secret/backup、AppStorageV2、V2 inventory
 与 `git diff --check` 全部通过。D2 的首个真实 provider 验收关闭；端侧 B2/F 与长图质量门仍保持开放，
 不能因此宣称整个端侧视觉 Reader V1 完成。
+
+2026-07-22：默认端侧路线已在用户指定设备 `237` 的真实 Reader 与实际日文画廊完成生产链路验收。
+设置只选择共享 Codex 源 `gpt-5.6-luna`，没有配置或启动 sidecar；第 1 页由系统 OCR 提取 10 个区域，
+第 2 页提取 7 个区域，随后均经过逐块上下文翻译、本地字形处理、纵横排版、PNG 编码和 Reader 发布。
+第 2 页首次完整运行约 16.6 秒，其中包含远端 LLM；已存在翻译文档时，第 1 页只重做端侧渲染约 1.8 秒。
+同页原图与译图、切到第 2 页再返回、双击缩放和拖动平移均在 Reader 内实机检查，译文随衍生图片缩放，
+不是独立浮层。单双页模式下的原图/译图切换也已检查；Reader 现在会在衍生路径或可见状态变化时通知对应
+spread 数据源，避免状态已切换但双页仍保留旧图片。
+
+首次真实端侧出图暴露本地后端把 PNG 写入临时自定义目录，因不符合 repository artifact 契约而被正确拒绝。
+本地后端现与整图路线统一写入受控 `comic-translated-pages/<identity>-<artifact>.png`，落盘前计算内容 hash，
+非法 artifact 路径独立归类为 `render_artifact_invalid`。最终 v18 增大纵排右侧原文处理范围，清除了第 2 页
+中央叙述框残留；纵排译文只把误置于开头的句末标点移回末尾，避免第 1 页气泡顶部孤立 `？！`。进程重启
+后再次显式翻译第 1 页，从 source identity 解析到 `reader_page_ready` 为 8 ms，日志为 `cache=1`，期间没有
+OCR、视觉后端或 provider 调用。
+
+F 至此关闭，但 B2 和整体 V1 仍未关闭：第 2 页小气泡 `え?` 仍因系统 OCR 漏检保留原文，漫画专用
+detector/OCR、内容感知修复、扩展质量集与长图资源/质量门仍是正式完成条件。当前结果证明默认端侧工作流
+已经真实衔接到 Reader，并不等于端侧制图对通用漫画已经可用。最终 signed app 与 signed
+`entry@ohosTest` 构建通过；设备完整 Hypium 为 251/251，持久化、secret/backup、AppStorageV2、V2 inventory
+与 `git diff --check` 全部通过。

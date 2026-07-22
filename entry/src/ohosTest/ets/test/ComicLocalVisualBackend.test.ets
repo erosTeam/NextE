@@ -173,11 +173,11 @@ function renderRequest(
   request.translations = translations
 
   const profile: ComicRenderProfile = new ComicRenderProfile()
-  profile.profileId = 'reader-local-directional-render-v13'
-  profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v13'
+  profile.profileId = 'reader-local-directional-render-v18'
+  profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v18'
   profile.layoutProfileId = 'local-page-typography-v13'
   profile.targetMimeType = 'image/png'
-  profile.revision = 1
+  profile.revision = 6
   request.renderProfile = profile
 
   const identity: ComicRenderedPageIdentity = new ComicRenderedPageIdentity()
@@ -428,6 +428,11 @@ export default function comicLocalVisualBackendTest(): void {
               expect(page.width).assertEqual(1024)
               expect(page.height).assertEqual(1536)
               expect(fileIo.accessSync(page.localFilePath)).assertEqual(true)
+              expect(page.localFilePath.includes('/comic-translated-pages/')).assertEqual(true)
+              const artifactName: string = page.localFilePath.substring(
+                page.localFilePath.lastIndexOf('/') + 1,
+              )
+              expect(/^[a-f0-9]{64}-[a-f0-9]{64}\.png$/.test(artifactName)).assertEqual(true)
               const changedPercent: number = await changedPixelPercent(
                 sourcePath,
                 page.localFilePath,

@@ -50,6 +50,9 @@ export class ComicTranslationErrorClassifier {
     if (message.includes('payload size') || message.includes('file size')) {
       return 'output_payload_size_invalid'
     }
+    if (message.includes('rendered page artifact')) {
+      return 'render_artifact_invalid'
+    }
     if (message.includes('stream failed')) {
       return 'provider_stream_failed'
     }

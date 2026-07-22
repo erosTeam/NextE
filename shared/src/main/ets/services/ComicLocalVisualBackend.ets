@@ -39,7 +39,7 @@ const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
 const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-directional-render-v13'
 const LOCAL_VISUAL_PROTOCOL_REVISION: number = 13
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
-const LOCAL_RENDER_CACHE_DIR: string = 'comic-local-rendered-pages'
+const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
 const LOCAL_OCR_TILE_OVERLAP: number = 128
 const LOCAL_MAX_BLOCKS: number = 512
@@ -243,8 +243,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const identityHash: string = ComicLocalVisualBackend.sha256Text(request.identity.cacheKey())
     const dir: string = `${this.context.cacheDir}/${LOCAL_RENDER_CACHE_DIR}`
     ComicLocalVisualBackend.ensureDir(dir)
-    const path: string = `${dir}/${identityHash}.png`
-    const partial: string = `${path}.part-${util.generateRandomUUID(true)}`
+    const partial: string = `${dir}/${identityHash}.part-${util.generateRandomUUID(true)}`
     try {
       source = image.createImageSource(request.source.imageFilePath)
       pixelMap = await source.createPixelMap({
@@ -329,12 +328,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       if (!stat.isFile() || stat.size <= 0 || stat.size > LOCAL_MAX_RENDERED_BYTES) {
         throw new Error('Local comic rendered page size is invalid')
       }
+      const artifactHash: string = ComicLocalVisualBackend.sha256File(partial)
+      const path: string = `${dir}/${identityHash}-${artifactHash}.png`
       ComicLocalVisualBackend.removeFile(path)
       fileIo.renameSync(partial, path)
       const now: number = Date.now()
       const page: ComicRenderedPage = new ComicRenderedPage()
       page.identity = request.identity.copy()
-      page.artifactHash = ComicLocalVisualBackend.sha256File(path)
+      page.artifactHash = artifactHash
       page.mimeType = 'image/png'
       page.width = request.source.imageWidth
       page.height = request.source.imageHeight
@@ -904,10 +905,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const rawWidth: number = Math.max(1, raw.width())
     const rawHeight: number = Math.max(1, raw.height())
     const leftPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      Math.max(4, Math.min(12, rawWidth * 0.18)) :
+      Math.max(5, Math.min(14, rawWidth * 0.22)) :
       Math.max(2, Math.min(8, rawWidth * 0.08))
     const rightPadding: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      Math.max(10, Math.min(18, rawWidth * 0.42)) :
+      Math.max(12, Math.min(28, rawWidth * 0.68)) :
       Math.max(2, Math.min(8, rawWidth * 0.08))
     const yPadding: number = Math.max(2, Math.min(8, rawHeight * 0.05))
     const rect: LocalRenderRect = new LocalRenderRect()
@@ -1205,7 +1206,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     font: drawing.Font,
     maxFontSize: number,
   ): LocalVerticalTextLayout {
-    const normalized: string = text.replace(/\s+/g, '')
+    const normalized: string = ComicLocalVisualBackend.normalizeVerticalText(text)
     const initialSize: number = Math.max(
       LOCAL_MIN_FONT_SIZE,
       Math.min(LOCAL_MAX_FONT_SIZE, maxFontSize, Math.floor(Math.min(width, height))),
@@ -1239,6 +1240,20 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     return false
+  }
+
+  private static normalizeVerticalText(text: string): string {
+    const compact: string = text.replace(/\s+/g, '')
+    const trailingPunctuation: string = '。！？.!?'
+    let prefixLength: number = 0
+    while (prefixLength < compact.length &&
+      trailingPunctuation.includes(compact.charAt(prefixLength))) {
+      prefixLength = prefixLength + 1
+    }
+    if (prefixLength <= 0 || prefixLength >= compact.length) {
+      return compact
+    }
+    return compact.slice(prefixLength) + compact.slice(0, prefixLength)
   }
 
   private static verticalGlyph(value: string): string {

@@ -247,6 +247,13 @@ export default function mangaTranslatorUiSidecarProtocolTest(): void {
         expect(code).assertEqual('output_geometry_invalid')
       })
 
+    it('classifies rendered artifact contract failures separately from provider errors', 0, () => {
+      const code: string = ComicTranslationErrorClassifier.classify(new Error(
+        'Comic rendered page artifact path is invalid',
+      ))
+      expect(code).assertEqual('render_artifact_invalid')
+    })
+
     it('rejects the known v2 field drift and mismatched page identity locally', 0,
       async (done: Function) => {
         const raw: RawSidecarFixture = await loadFixture()

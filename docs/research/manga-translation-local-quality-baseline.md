@@ -2,6 +2,7 @@
 
 - **status**: active baseline; not a production-quality claim
 - **profile**: `core-vision-ocr-directional-render-v13`
+- **production render profile**: `reader-local-directional-render-v18` / `local-glyph-inpaint-v18`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -48,6 +49,22 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 不能被解释为漫画翻译的独立峰值或增量。渲染器持有一张可编辑 RGBA PixelMap，并对单个有界文字区域读取
 像素以建立 mask；没有额外保留整页 RGBA 副本。长图真实峰值、热降频和连续多页资源回收仍需单独测量。
 
+## 真实 Reader 补充（2026-07-22）
+
+设备 `237` 上用实际日文画廊补做了默认端侧路线，不配置 sidecar，只选择共享 Codex 源
+`gpt-5.6-luna`。第 1 页系统 OCR 输出 10 个区域，第 2 页输出 7 个区域；第 2 页首次 OCR、远端逐块翻译、
+端侧渲染到 Reader ready 约 16.6 秒。复用已有翻译文档只重做第 1 页端侧渲染约 1.8 秒；进程重启后同页
+持久衍生页命中从 source identity 解析到 ready 为 8 ms，日志为 `cache=1`，没有再次运行 OCR 或 LLM。
+
+生产渲染 profile 升至 v18，但 analyzer 仍是上面的 v13。纵排原文处理范围向原 OCR 区域右侧扩展，实图中
+第 2 页中央叙述框的日文残留已清除；误置于纵排译文开头的句末标点会移回末尾。真实 Reader 已验证原图/
+译图切换、翻页返回、双击缩放和拖动平移，译文和页面作为同一张衍生 PNG 工作。当前明确未解决的是第 2 页
+小气泡 `え?` 的 OCR 漏检；这与原创 fixture 漏拟声词指向同一根因，即系统 OCR 的漫画文本召回不足。
+
+本次还固定了衍生页落盘契约：端侧后端只能发布 repository 管理的
+`comic-translated-pages/<identity>-<artifact>.png`，路径与内容 hash 不匹配会在 Reader 发布前失败。该规则
+防止“本地已经生成图片”被误当成可缓存、可恢复的 Reader 产物。
+
 ## 当前缺口与后续门槛
 
 下一阶段不能继续靠扩大启发式来掩盖根因，必须以漫画专用 detector/OCR 和内容感知修复补齐能力：
@@ -55,6 +72,7 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 1. 扩展到至少包含横排、纵排、多列气泡、彩色页、低清扫描、倾斜字、描边字和复杂拟声词的合法评测集；
 2. 单独报告 region recall、OCR transcript、方向/阅读顺序、残留原文、遮盖越界和排版 overflow，不能只报
    一个总准确率；
-3. 在真实 Reader 链路测量 LLM 翻译、端侧视觉和缓存命中三段耗时，缓存命中不得重新 OCR 或调用 LLM；
+3. 扩大真实 Reader 样本并分别统计 LLM、端侧视觉和缓存命中的 P50/P95；缓存命中继续禁止重新 OCR 或
+   调用 LLM；
 4. 在普通页、长图和连续多页场景记录 P50/P95、峰值 PSS、失败回退与热稳定性；
 5. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。
