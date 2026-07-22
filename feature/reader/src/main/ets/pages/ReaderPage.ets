@@ -156,6 +156,10 @@ function readerImageInterpolation(quality: string): ImageInterpolation {
   return ImageInterpolation.Medium
 }
 
+function readerBypassesSuperResolution(fileCacheKey: string): boolean {
+  return fileCacheKey.startsWith('comic-translated:')
+}
+
 function readerDelay(ms: number): Promise<void> {
   return new Promise<void>((resolve: () => void) => {
     setTimeout(() => {
@@ -5870,6 +5874,11 @@ struct ReaderSpreadImageLayer {
     const model: string = this.readMode.superResolutionModel
     const backend: string = this.readMode.superResolutionBackend
     const maxHeight: number = this.readMode.superResolutionMaxHeight
+    if (readerBypassesSuperResolution(fileCacheKey)) {
+      this.releaseSuperResolutionOwner()
+      this.onImageEnhancementState(this.image.page, model, false, 'disabled')
+      return
+    }
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const ownerKey: string = `spread:${fileCacheKey}:${imageKey}`
     if (this.superResolutionOwnerKey !== ownerKey) {
@@ -6416,6 +6425,11 @@ struct ReaderImagePage {
     const model: string = this.readMode.superResolutionModel
     const backend: string = this.readMode.superResolutionBackend
     const maxHeight: number = this.readMode.superResolutionMaxHeight
+    if (readerBypassesSuperResolution(fileCacheKey)) {
+      this.releaseSuperResolutionOwner()
+      this.onImageEnhancementState(this.image.page, model, false, 'disabled')
+      return
+    }
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const ownerKey: string = `page:${fileCacheKey}:${imageKey}`
     if (this.superResolutionOwnerKey !== ownerKey) {
@@ -7192,6 +7206,11 @@ struct ReaderVerticalImage {
     const model: string = this.readMode.superResolutionModel
     const backend: string = this.readMode.superResolutionBackend
     const maxHeight: number = this.readMode.superResolutionMaxHeight
+    if (readerBypassesSuperResolution(fileCacheKey)) {
+      this.releaseSuperResolutionOwner()
+      this.onImageEnhancementState(this.image.page, model, false, 'disabled')
+      return
+    }
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const ownerKey: string = `vertical:${fileCacheKey}:${imageKey}`
     if (this.superResolutionOwnerKey !== ownerKey) {

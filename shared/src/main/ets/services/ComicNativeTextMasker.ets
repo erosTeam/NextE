@@ -170,11 +170,11 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
   }
 
   profileId(): string {
-    return 'ctd-seg-1024-ncnn-fp16-tiled-v1'
+    return 'ctd-seg-1024-ncnn-fp16-tiled-v2'
   }
 
   revision(): number {
-    return 1
+    return 2
   }
 
   async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {

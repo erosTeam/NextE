@@ -5,6 +5,8 @@ interface NativeComicInpaintingResult {
   backend: string
   modelLoadMs: number
   inferenceMs: number
+  inferenceWidth: number
+  inferenceHeight: number
 }
 
 interface NativeComicInpainterModule {
@@ -26,6 +28,8 @@ export class ComicNativeInpaintingResult {
   backend: string = ''
   modelLoadMs: number = 0
   inferenceMs: number = 0
+  inferenceWidth: number = 0
+  inferenceHeight: number = 0
 }
 
 export interface ComicLocalSourceInpainter {
@@ -76,7 +80,9 @@ export class ComicNativeSourceInpainter {
       inputBgra,
     )
     if (native.pixels.byteLength !== stride * height || native.backend.length <= 0 ||
-      native.modelLoadMs < 0 || native.inferenceMs < 0) {
+      native.modelLoadMs < 0 || native.inferenceMs < 0 ||
+      native.inferenceWidth < 0 || native.inferenceWidth > 256 ||
+      native.inferenceHeight < 0 || native.inferenceHeight > 256) {
       throw new Error('invalid native comic inpainter result')
     }
     const result: ComicNativeInpaintingResult = new ComicNativeInpaintingResult()
@@ -84,6 +90,8 @@ export class ComicNativeSourceInpainter {
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
     result.inferenceMs = native.inferenceMs
+    result.inferenceWidth = native.inferenceWidth
+    result.inferenceHeight = native.inferenceHeight
     return result
   }
 
@@ -147,11 +155,11 @@ export class ComicNcnnLocalSourceInpainter implements ComicLocalSourceInpainter 
   }
 
   profileId(): string {
-    return 'aot-manga-256-ncnn-fp32-v1'
+    return 'aot-manga-256-ncnn-fp32-v4'
   }
 
   revision(): number {
-    return 1
+    return 4
   }
 
   async inpaint(

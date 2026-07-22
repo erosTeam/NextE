@@ -4,7 +4,7 @@
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v21`
 - **current production render profile**: `reader-local-bubble-layout-v37` /
-  `local-ctd-aot-inpaint-v24` / `local-bubble-typography-v32`
+  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v32`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -124,6 +124,27 @@ v21 analyzer 在分组后增加窄边界页脚过滤，只处理页面底部 6% 
 还触发过 `THREAD_BLOCK_6S`，当时进程 RSS 约 1.95 GiB，主线程
 停在结果完成后的系统 Toast 路径；Reader 现取消这条冗余成功 Toast，只保留结果图片和错误反馈。v31 在
 ready 后继续响应控件点击并保持进程存活，但单次未复现不能替代连续页峰值内存与 appfreeze 回归门。
+
+## 真实 Reader 资源补充（2026-07-23）
+
+设备 `237` 对同一实际日文画廊第 1 页完成了端侧 CTD/AOT 的资源拆分。早期 v21 直接按文字区域原尺寸运行
+AOT，三个区域 `427 × 644`、`563 × 446`、`262 × 673` 分别约为 2164/1883/1305 ms，单页 ready 后进程
+PSS 仍约 1.84 GiB，不能进入连续阅读。v25 按上游 AOT 256 输入语义保持长宽比缩小、8 像素对齐，再把
+模型结果放回原区域；同三区域实际输入为 `176 × 256`、`256 × 208`、`104 × 256`，合计推理约 1.19 秒，
+但完成后 PSS 仍约 990 MiB，证明缩小 AOT 不能单独关闭资源门。
+
+v28 将 detector、固定 `1024 × 1024` CTD text mask 与 AOT Extractor 的临时 blob/workspace 放入单次推理
+拥有的 mmap pool，阶段结束统一解除映射，避免 ncnn 临时块长期留在 jemalloc。Reader 同时不再对已经生成
+的 `comic-translated:` 衍生页执行第二次 2× 超分；原图超分设置和普通图片路径保持不变。冷启动 PSS 为
+306,135 kB，第 1 页翻译前 Reader 样点约 506,830 kB，端侧视觉峰值 917,833 kB，完成后约 776,144 kB；
+第 2 页进入时约 815,509 kB，翻译峰值 992,035 kB，最终回落到 716,860 kB（native heap 406,912 kB）。
+第二页没有在第一页基础上继续累加，日志也没有在两个 `reader_page_ready` 之后出现译图
+`reader-super-resolution.process_start`。
+
+同一 v28 日志中，第 1 页 CTD 为 1018 ms，三个 AOT 为 411/468/271 ms；第 2 页 CTD 为 992 ms，唯一
+AOT 区域 `515 × 906 -> 152 × 256` 为 351 ms。signed app、V2 inventory 和目标设备 Hypium 267/267
+通过。资源泄漏/重复超分边界因此获得两页证据，但 B2/F 仍不能关闭：第 2 页聊天式多个独立气泡仍被合并成
+一个长段并发生跨气泡重叠，下一阶段必须修正 region 分组与布局，不能把资源通过等同于制图可用。
 
 ## 漫画 detector 端侧移植试验（2026-07-22）
 

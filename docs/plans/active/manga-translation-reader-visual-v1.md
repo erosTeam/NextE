@@ -582,3 +582,17 @@ v37/v32，analyzer 保持 v20；目标回归为 14/14，signed app、signed `ent
 覆盖。目标回归为 15/15，signed app、signed `entry@ohosTest` 和 V2 inventory 通过。该阶段关闭当前真实
 样本的页脚署名误译，不关闭 B2/V1：其他位置的艺术字/拟声词、人物与气泡语义分割、二维候选区域和连续页
 资源门仍需继续完成。
+
+2026-07-23 端侧 v28 资源边界：真实页追踪确认 v21 的主要风险不是 PixelMap/file handle 未关闭，而是大区域
+AOT、固定 1024 CTD text mask 的 ncnn scratch 留存，以及译图 ready 后又进入 Reader 2× 超分。AOT 现按
+上游 256 输入语义保持比例缩放并恢复到源区域；detector、CTD 和 AOT Extractor 使用每次推理独立的 mmap
+pool，结束后统一解除映射；`comic-translated:` 衍生页跳过二次超分，普通原图超分行为不变。
+
+设备 `237` 同一画廊第 1 页从 v21 ready 后约 1.84 GiB、v25 仅缩小 AOT 后约 990 MiB，降到 v28 峰值
+917,833 kB、完成后约 776,144 kB。连续第 2 页从翻译前约 815,509 kB 经 992,035 kB 峰值回落到
+716,860 kB，未逐页累加；两页日志均无译图 `reader-super-resolution.process_start`。第 1 页三个 AOT 合计
+约 1.15 秒，第 2 页一个 AOT 为 351 ms。signed app、V2 inventory 与设备 Hypium 267/267 通过。
+
+这一阶段只关闭当前普通页样本的明显 scratch 留存、AOT 原尺寸推理和译图重复超分，不关闭 B2/F。第 2 页
+真实截图仍显示多个聊天气泡被合成一个长译文块并跨气泡重叠；下一工作项明确转为多气泡 region 分组与布局，
+之后再扩展长图、低内存失败回退和连续多页 P50/P95，不能把资源结果表述为端侧制图完成。

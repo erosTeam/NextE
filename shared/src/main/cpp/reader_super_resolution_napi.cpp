@@ -16,6 +16,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <sys/mman.h>
+
 #if defined(__aarch64__)
 #include <arm_neon.h>
 #endif
@@ -38,6 +40,88 @@ namespace {
 
 constexpr const char *kModuleName = "nexte_super_resolution";
 constexpr int kScale = 2;
+
+struct MmapAllocation {
+    void *base = nullptr;
+    void *aligned = nullptr;
+    size_t length = 0;
+    size_t capacity = 0;
+    bool inUse = false;
+};
+
+class MmapNcnnAllocator final : public ncnn::Allocator {
+public:
+    ~MmapNcnnAllocator() override
+    {
+        for (const MmapAllocation &allocation : allocations_) {
+            munmap(allocation.base, allocation.length);
+        }
+    }
+
+    void *fastMalloc(size_t size) override
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        size_t bestIndex = allocations_.size();
+        size_t bestCapacity = SIZE_MAX;
+        for (size_t index = 0; index < allocations_.size(); ++index) {
+            const MmapAllocation &allocation = allocations_[index];
+            if (!allocation.inUse && allocation.capacity >= size &&
+                allocation.capacity < bestCapacity) {
+                bestIndex = index;
+                bestCapacity = allocation.capacity;
+            }
+        }
+        if (bestIndex < allocations_.size()) {
+            allocations_[bestIndex].inUse = true;
+            return allocations_[bestIndex].aligned;
+        }
+
+        constexpr size_t kExtraBytes = NCNN_MALLOC_ALIGN - 1 + NCNN_MALLOC_OVERREAD;
+        if (size > SIZE_MAX - kExtraBytes) {
+            return nullptr;
+        }
+        const size_t length = size + kExtraBytes;
+        void *base = mmap(
+            nullptr,
+            length,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS,
+            -1,
+            0);
+        if (base == MAP_FAILED) {
+            return nullptr;
+        }
+        auto *aligned = ncnn::alignPtr(static_cast<unsigned char *>(base), NCNN_MALLOC_ALIGN);
+        const size_t offset = static_cast<size_t>(
+            aligned - static_cast<unsigned char *>(base));
+        allocations_.push_back(MmapAllocation{
+            base,
+            aligned,
+            length,
+            length - offset - NCNN_MALLOC_OVERREAD,
+            true,
+        });
+        return aligned;
+    }
+
+    void fastFree(void *ptr) override
+    {
+        if (ptr == nullptr) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (MmapAllocation &allocation : allocations_) {
+            if (allocation.aligned == ptr) {
+                allocation.inUse = false;
+                return;
+            }
+        }
+    }
+
+private:
+    std::mutex mutex_;
+    std::vector<MmapAllocation> allocations_;
+};
 
 enum class ModelKind : int {
     Waifu2x = 0,
@@ -148,6 +232,8 @@ struct ComicInpaintingTask {
     std::string error;
     int64_t modelLoadMs = 0;
     int64_t inferenceMs = 0;
+    int inferenceWidth = 0;
+    int inferenceHeight = 0;
 };
 
 struct ComicTextMaskTask {
@@ -2085,7 +2171,12 @@ bool RunComicRegionDetection(ComicRegionDetectionTask &task)
     const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
     input.substract_mean_normalize(nullptr, normalize);
     const SteadyClock::time_point startedAt = SteadyClock::now();
+    MmapNcnnAllocator blobAllocator;
+    MmapNcnnAllocator workspaceAllocator;
     ncnn::Extractor extractor = net->create_extractor();
+    extractor.set_light_mode(true);
+    extractor.set_blob_allocator(&blobAllocator);
+    extractor.set_workspace_allocator(&workspaceAllocator);
     if (extractor.input("in0", input) != 0) {
         task.error = "comic detector rejected the input tensor";
         return false;
@@ -2482,7 +2573,12 @@ bool RunComicTextMask(ComicTextMaskTask &task)
     const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
     input.substract_mean_normalize(nullptr, normalize);
     const SteadyClock::time_point startedAt = SteadyClock::now();
+    MmapNcnnAllocator blobAllocator;
+    MmapNcnnAllocator workspaceAllocator;
     ncnn::Extractor extractor = net->create_extractor();
+    extractor.set_light_mode(true);
+    extractor.set_blob_allocator(&blobAllocator);
+    extractor.set_workspace_allocator(&workspaceAllocator);
     if (extractor.input("in0", input) != 0) {
         task.error = "comic text mask model rejected the input tensor";
         return false;
@@ -2532,6 +2628,7 @@ void ExecuteComicTextMask(napi_env env, void *data)
 }
 
 constexpr int kComicInpainterInputAlignment = 8;
+constexpr int kComicInpainterMaxInferenceEdge = 256;
 
 void ResetCachedComicInpainter()
 {
@@ -2609,20 +2706,27 @@ bool RunComicInpainting(ComicInpaintingTask &task)
     if (net == nullptr) {
         return false;
     }
-    // The exported ncnn graph is fully convolutional. Preserve the source-region scale and only
-    // reflect-pad to the upstream AOT alignment instead of stretching every narrow text crop to
-    // 256x256; the latter removes surrounding context and can turn grayscale manga strokes into
-    // saturated model artifacts.
+    int inferenceWidth = task.width;
+    int inferenceHeight = task.height;
+    const int sourceMaxEdge = std::max(task.width, task.height);
+    if (sourceMaxEdge > kComicInpainterMaxInferenceEdge) {
+        const float scale = static_cast<float>(kComicInpainterMaxInferenceEdge) /
+            static_cast<float>(sourceMaxEdge);
+        inferenceWidth = std::max(2, static_cast<int>(std::round(task.width * scale)));
+        inferenceHeight = std::max(2, static_cast<int>(std::round(task.height * scale)));
+    }
     const int paddedWidth =
-        ((task.width + kComicInpainterInputAlignment - 1) /
+        ((inferenceWidth + kComicInpainterInputAlignment - 1) /
             kComicInpainterInputAlignment) * kComicInpainterInputAlignment;
     const int paddedHeight =
-        ((task.height + kComicInpainterInputAlignment - 1) /
+        ((inferenceHeight + kComicInpainterInputAlignment - 1) /
             kComicInpainterInputAlignment) * kComicInpainterInputAlignment;
-    const int left = (paddedWidth - task.width) / 2;
-    const int right = paddedWidth - task.width - left;
-    const int top = (paddedHeight - task.height) / 2;
-    const int bottom = paddedHeight - task.height - top;
+    const int left = (paddedWidth - inferenceWidth) / 2;
+    const int right = paddedWidth - inferenceWidth - left;
+    const int top = (paddedHeight - inferenceHeight) / 2;
+    const int bottom = paddedHeight - inferenceHeight - top;
+    task.inferenceWidth = paddedWidth;
+    task.inferenceHeight = paddedHeight;
 
     // manga-image-translator feeds its AOT checkpoint OpenCV BGR data in [-1, 1].
     const int pixelConversion = task.inputBgra ?
@@ -2645,10 +2749,36 @@ bool RunComicInpainting(ComicInpaintingTask &task)
                 static_cast<size_t>(x)] == 0 ? 0.0f : 1.0f;
         }
     }
+    ncnn::Mat resizedImage;
+    ncnn::Mat resizedMask;
+    if (inferenceWidth != task.width || inferenceHeight != task.height) {
+        ncnn::resize_bilinear(
+            sourceImage,
+            resizedImage,
+            inferenceWidth,
+            inferenceHeight,
+            net->opt);
+        ncnn::resize_nearest(
+            sourceMask,
+            resizedMask,
+            inferenceWidth,
+            inferenceHeight,
+            net->opt);
+    } else {
+        resizedImage = sourceImage;
+        resizedMask = sourceMask;
+    }
+    if (resizedImage.empty() || resizedMask.empty() ||
+        resizedImage.w != inferenceWidth || resizedImage.h != inferenceHeight ||
+        resizedImage.c != 3 || resizedMask.w != inferenceWidth ||
+        resizedMask.h != inferenceHeight || resizedMask.c != 1) {
+        task.error = "failed to resize comic inpainter input";
+        return false;
+    }
     ncnn::Mat imageInput;
     ncnn::Mat maskInput;
     ncnn::copy_make_border(
-        sourceImage,
+        resizedImage,
         imageInput,
         top,
         bottom,
@@ -2658,7 +2788,7 @@ bool RunComicInpainting(ComicInpaintingTask &task)
         0.0f,
         net->opt);
     ncnn::copy_make_border(
-        sourceMask,
+        resizedMask,
         maskInput,
         top,
         bottom,
@@ -2698,7 +2828,12 @@ bool RunComicInpainting(ComicInpaintingTask &task)
     }
 
     const SteadyClock::time_point startedAt = SteadyClock::now();
+    MmapNcnnAllocator blobAllocator;
+    MmapNcnnAllocator workspaceAllocator;
     ncnn::Extractor extractor = net->create_extractor();
+    extractor.set_light_mode(true);
+    extractor.set_blob_allocator(&blobAllocator);
+    extractor.set_workspace_allocator(&workspaceAllocator);
     if (extractor.input("in0", imageInput) != 0 ||
         extractor.input("in1", maskInput) != 0) {
         task.error = "comic inpainter rejected the input tensors";
@@ -2719,15 +2854,26 @@ bool RunComicInpainting(ComicInpaintingTask &task)
     }
     ncnn::Mat cropped;
     ncnn::copy_cut_border(modelOutput, cropped, top, bottom, left, right, net->opt);
-    if (cropped.empty() || cropped.w != task.width || cropped.h != task.height ||
+    if (cropped.empty() || cropped.w != inferenceWidth || cropped.h != inferenceHeight ||
         cropped.c != 3 || cropped.elempack != 1) {
         task.error = "comic inpainter postprocessing failed";
         return false;
     }
+    ncnn::Mat restored;
+    if (inferenceWidth != task.width || inferenceHeight != task.height) {
+        ncnn::resize_bilinear(cropped, restored, task.width, task.height, net->opt);
+    } else {
+        restored = cropped;
+    }
+    if (restored.empty() || restored.w != task.width || restored.h != task.height ||
+        restored.c != 3 || restored.elempack != 1) {
+        task.error = "comic inpainter output resize failed";
+        return false;
+    }
     for (int y = 0; y < task.height; ++y) {
-        const float *blue = cropped.channel(0).row(y);
-        const float *green = cropped.channel(1).row(y);
-        const float *red = cropped.channel(2).row(y);
+        const float *blue = restored.channel(0).row(y);
+        const float *green = restored.channel(1).row(y);
+        const float *red = restored.channel(2).row(y);
         for (int x = 0; x < task.width; ++x) {
             const size_t maskIndex =
                 static_cast<size_t>(y) * static_cast<size_t>(task.width) +
@@ -3052,6 +3198,8 @@ void CompleteComicInpainting(napi_env env, napi_status status, void *data)
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(env, result, "inferenceWidth", IntValue(env, task->inferenceWidth));
+            napi_set_named_property(env, result, "inferenceHeight", IntValue(env, task->inferenceHeight));
             napi_resolve_deferred(env, task->deferred, result);
         } else {
             delete output;

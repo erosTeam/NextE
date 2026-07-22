@@ -162,6 +162,8 @@ export default function comicNativeSourceInpainterTest(): void {
       expect(saturatedMaskedPixels * 20 < maskedPixels).assertEqual(true)
       expect(excessiveChromaMaskedPixels * 20 < maskedPixels).assertEqual(true)
       expect(result.backend).assertEqual('ncnn-fp32-cpu')
+      expect(result.inferenceWidth).assertEqual(192)
+      expect(result.inferenceHeight).assertEqual(128)
 
       const warmStartedAt: number = Date.now()
       const warmResult: ComicNativeInpaintingResult =
@@ -181,6 +183,23 @@ export default function comicNativeSourceInpainterTest(): void {
       )
       expect(warmResult.modelLoadMs).assertEqual(0)
       expect(warmResult.backend).assertEqual('ncnn-fp32-cpu')
+
+      const largeWidth: number = 427
+      const largeHeight: number = 644
+      const largeResult: ComicNativeInpaintingResult =
+        await ComicNativeSourceInpainter.inpaintBgra(
+          fixture(largeWidth, largeHeight),
+          fixtureMask(largeWidth, largeHeight),
+          largeWidth,
+          largeHeight,
+          largeWidth * 4,
+          paramPath,
+          modelPath,
+          4,
+        )
+      expect(largeResult.inferenceWidth).assertEqual(176)
+      expect(largeResult.inferenceHeight).assertEqual(256)
+      expect(largeResult.pixels.byteLength).assertEqual(largeWidth * largeHeight * 4)
     })
   })
 }

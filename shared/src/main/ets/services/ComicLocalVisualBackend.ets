@@ -2742,6 +2742,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           'comic-translation',
           'local_source_inpainted',
           `backend=${result.backend} region=${width}x${height} ` +
+          `inference=${result.inferenceWidth}x${result.inferenceHeight} ` +
           `load=${result.modelLoadMs}ms inference=${result.inferenceMs}ms`,
         )
         return
