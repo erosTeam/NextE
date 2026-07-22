@@ -3,8 +3,8 @@
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v24`
-- **current production render profile**: `reader-local-bubble-layout-v40` /
-  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v34`
+- **current production render profile**: `reader-local-bubble-layout-v42` /
+  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v36`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -196,6 +196,29 @@ fallback 内保留 8 px 安全距离。
 这是轻量阅读模式对极窄竖框的确定性折衷：整段文字在页面上会侧转 90°，不是专业本地化中的气泡重绘或
 自然英文朝向。该证据只关闭当前窄竖拉丁框的拆词、越界与相邻块重叠回归；开放尾部、曲线轮廓、复杂纹理、
 艺术字/拟声词、内容感知修复和更多真实样本仍属于 B2/F 未关闭项。
+
+## 真实 Reader 同气泡多列布局补充（2026-07-23）
+
+同一画廊 P4 的 analyzer 保留了 24 个合法 document block，但其中多组纵列实际位于同一个闭合不规则气泡。
+旧 v40 按 block 分别拟合和绘制，中央大粉气泡、顶部灰气泡、右侧窄气泡与底部粉气泡因此出现字号不一致、
+文字相压或空间浪费。不能为了排版把这些 block 静默改写成新的语义文档：它们已经拥有稳定 blockId、译文和
+缓存身份，且普通邻接不足以证明属于同一气泡。
+
+v42 先保持一 block 一 plan，并按各自源 geometry 完成原文清理；随后只读取 v39 已确认的
+`shapeConstrained` 闭合安全区。一个安全区必须包含组内每个源 block 的中心，才允许按原 document 顺序
+拼接已有译文并在该安全区统一拟合、绘制一次；若只能传递连通、没有单一安全区覆盖全组，则全部退回独立
+布局。该步骤不修改 document、translation batch、blockId 或源清理范围。中文/日文连接不插入拉丁空格，
+拉丁目标保留词间空格。
+
+设备 `237` 的真实 P4 重绘记录为 `documentBlocks=24 plans=24`、`groups=17 merged=7`、`cache=0`；PNG
+为 691,220 bytes，artifact 前缀 `1204916145c8`。七组日志均给出组成 blockId 和唯一安全矩形；实图中上述
+四类问题气泡均改为单次布局，独立相邻气泡没有被合并。确定性 fixture 另验证两个独立 OCR 列仍保留两个
+analysis block，但渲染日志为 `plans=2 groups=1 merged=1`，改动画素不越出闭合气泡。目标设备回归为
+21/21，完整 Hypium 为 273/273。
+
+该证据只关闭“同一已确认闭合气泡中的多个合法 block 被重复排版”这一回归。边界识别失败时仍会保持旧的
+独立布局；开放尾部、曲线/纹理气泡、艺术字/拟声词、内容感知修复和更广样本的 overflow 仍属于 B2/F
+未关闭项。
 
 ## 漫画 detector 端侧移植试验（2026-07-22）
 

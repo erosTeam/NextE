@@ -186,6 +186,13 @@ class LocalFillStyle {
   textBlue: number = 24
 }
 
+class LocalBubbleRenderGroup {
+  plan: LocalRenderPlanBlock = new LocalRenderPlanBlock()
+  textRect: LocalRenderRect = new LocalRenderRect()
+  fill: LocalFillStyle = new LocalFillStyle()
+  memberIndexes: number[] = []
+}
+
 class LocalColorSample {
   red: number = 0
   green: number = 0
@@ -459,13 +466,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.translations.targetLanguage,
         ))
       }
+      const renderGroups: LocalBubbleRenderGroup[] = ComicLocalVisualBackend.bubbleRenderGroups(
+        renderPlans,
+        textRects,
+        fillStyles,
+        request.translations.targetLanguage,
+      )
       const horizontalOffsets: number[] = []
-      for (let index: number = 0; index < renderPlans.length; index++) {
+      for (let index: number = 0; index < renderGroups.length; index++) {
         horizontalOffsets.push(await ComicLocalVisualBackend.horizontalVerticalOffset(
           pixelMap,
-          renderPlans[index].block,
-          renderPlans[index].translatedText,
-          textRects[index],
+          renderGroups[index].plan.block,
+          renderGroups[index].plan.translatedText,
+          renderGroups[index].textRect,
           request.source.imageWidth,
           request.source.imageHeight,
           horizontalFontCap,
@@ -473,14 +486,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         ))
       }
       const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
-      for (let index: number = 0; index < renderPlans.length; index++) {
-        const block: ComicTextBlock = renderPlans[index].block
+      for (let index: number = 0; index < renderGroups.length; index++) {
+        const block: ComicTextBlock = renderGroups[index].plan.block
         ComicLocalVisualBackend.drawBlock(
           canvas,
           block,
-          renderPlans[index].translatedText,
-          textRects[index],
-          fillStyles[index],
+          renderGroups[index].plan.translatedText,
+          renderGroups[index].textRect,
+          renderGroups[index].fill,
           verticalFontCap,
           horizontalFontCap,
           request.translations.targetLanguage,
@@ -2257,10 +2270,231 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       plan.translatedText = translated.trim()
       plans.push(plan)
     }
-    // Analysis owns semantic grouping. Recombining translated blocks here can join separate
-    // balloons merely because their source columns are adjacent, producing one oversized
-    // treatment and layout region after translation.
+    // Analysis owns semantic grouping. Render-only grouping is applied later only when the
+    // pixel-derived closed-balloon boundary independently confirms that several plans share
+    // one visual container; adjacency alone never changes this document boundary.
     return plans
+  }
+
+  private static bubbleRenderGroups(
+    renderPlans: LocalRenderPlanBlock[],
+    textRects: LocalRenderRect[],
+    fillStyles: LocalFillStyle[],
+    targetLanguage: string,
+  ): LocalBubbleRenderGroup[] {
+    const parent: number[] = []
+    for (let index: number = 0; index < renderPlans.length; index++) {
+      parent.push(index)
+    }
+    for (let firstIndex: number = 0; firstIndex < renderPlans.length; firstIndex++) {
+      for (let secondIndex: number = firstIndex + 1;
+        secondIndex < renderPlans.length; secondIndex++) {
+        if (!ComicLocalVisualBackend.shareConfirmedBubble(
+          renderPlans[firstIndex].block,
+          textRects[firstIndex],
+          renderPlans[secondIndex].block,
+          textRects[secondIndex],
+        )) {
+          continue
+        }
+        const firstRoot: number = ComicLocalVisualBackend.renderGroupRoot(parent, firstIndex)
+        const secondRoot: number = ComicLocalVisualBackend.renderGroupRoot(parent, secondIndex)
+        if (firstRoot !== secondRoot) {
+          parent[secondRoot] = firstRoot
+        }
+      }
+    }
+    const membersByRoot: Map<number, number[]> = new Map<number, number[]>()
+    for (let index: number = 0; index < renderPlans.length; index++) {
+      const root: number = ComicLocalVisualBackend.renderGroupRoot(parent, index)
+      const members: number[] | undefined = membersByRoot.get(root)
+      if (members === undefined) {
+        membersByRoot.set(root, [index])
+      } else {
+        members.push(index)
+      }
+    }
+    const groups: LocalBubbleRenderGroup[] = []
+    membersByRoot.forEach((members: number[]): void => {
+      const representative: number = ComicLocalVisualBackend.confirmedBubbleRepresentative(
+        members,
+        renderPlans,
+        textRects,
+      )
+      if (members.length <= 1 || representative < 0) {
+        for (let index: number = 0; index < members.length; index++) {
+          groups.push(ComicLocalVisualBackend.singleBubbleRenderGroup(
+            members[index],
+            renderPlans,
+            textRects,
+            fillStyles,
+          ))
+        }
+        return
+      }
+      groups.push(ComicLocalVisualBackend.mergedBubbleRenderGroup(
+        members,
+        representative,
+        renderPlans,
+        textRects,
+        fillStyles,
+        targetLanguage,
+      ))
+    })
+    groups.sort((left: LocalBubbleRenderGroup, right: LocalBubbleRenderGroup): number =>
+      left.memberIndexes[0] - right.memberIndexes[0])
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_bubble_render_groups',
+      `plans=${renderPlans.length} groups=${groups.length} ` +
+        `merged=${renderPlans.length - groups.length}`,
+    )
+    return groups
+  }
+
+  private static renderGroupRoot(parent: number[], index: number): number {
+    let root: number = index
+    while (parent[root] !== root) {
+      root = parent[root]
+    }
+    let current: number = index
+    while (parent[current] !== current) {
+      const next: number = parent[current]
+      parent[current] = root
+      current = next
+    }
+    return root
+  }
+
+  private static shareConfirmedBubble(
+    firstBlock: ComicTextBlock,
+    firstRect: LocalRenderRect,
+    secondBlock: ComicTextBlock,
+    secondRect: LocalRenderRect,
+  ): boolean {
+    if (firstBlock.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      secondBlock.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+      return false
+    }
+    return (firstRect.shapeConstrained &&
+      ComicLocalVisualBackend.rectContainsBlockCenter(firstRect, secondBlock)) ||
+      (secondRect.shapeConstrained &&
+      ComicLocalVisualBackend.rectContainsBlockCenter(secondRect, firstBlock))
+  }
+
+  private static rectContainsBlockCenter(rect: LocalRenderRect, block: ComicTextBlock): boolean {
+    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    const centerX: number = (raw.left + raw.right) / 2
+    const centerY: number = (raw.top + raw.bottom) / 2
+    const tolerance: number = 2
+    return centerX >= rect.left - tolerance && centerX <= rect.right + tolerance &&
+      centerY >= rect.top - tolerance && centerY <= rect.bottom + tolerance
+  }
+
+  private static confirmedBubbleRepresentative(
+    members: number[],
+    renderPlans: LocalRenderPlanBlock[],
+    textRects: LocalRenderRect[],
+  ): number {
+    let selected: number = -1
+    let selectedArea: number = 0
+    for (let memberIndex: number = 0; memberIndex < members.length; memberIndex++) {
+      const candidateIndex: number = members[memberIndex]
+      const candidate: LocalRenderRect = textRects[candidateIndex]
+      if (!candidate.shapeConstrained) {
+        continue
+      }
+      let containsAll: boolean = true
+      for (let blockIndex: number = 0; blockIndex < members.length; blockIndex++) {
+        if (!ComicLocalVisualBackend.rectContainsBlockCenter(
+          candidate,
+          renderPlans[members[blockIndex]].block,
+        )) {
+          containsAll = false
+          break
+        }
+      }
+      const area: number = candidate.width() * candidate.height()
+      if (containsAll && area > selectedArea) {
+        selected = candidateIndex
+        selectedArea = area
+      }
+    }
+    return selected
+  }
+
+  private static singleBubbleRenderGroup(
+    index: number,
+    renderPlans: LocalRenderPlanBlock[],
+    textRects: LocalRenderRect[],
+    fillStyles: LocalFillStyle[],
+  ): LocalBubbleRenderGroup {
+    const group: LocalBubbleRenderGroup = new LocalBubbleRenderGroup()
+    group.plan = renderPlans[index]
+    group.textRect = textRects[index]
+    group.fill = fillStyles[index]
+    group.memberIndexes.push(index)
+    return group
+  }
+
+  private static mergedBubbleRenderGroup(
+    members: number[],
+    representative: number,
+    renderPlans: LocalRenderPlanBlock[],
+    textRects: LocalRenderRect[],
+    fillStyles: LocalFillStyle[],
+    targetLanguage: string,
+  ): LocalBubbleRenderGroup {
+    const group: LocalBubbleRenderGroup = new LocalBubbleRenderGroup()
+    const plan: LocalRenderPlanBlock = new LocalRenderPlanBlock()
+    plan.block = renderPlans[members[0]].block.copy()
+    const texts: string[] = []
+    let left: number = Number.POSITIVE_INFINITY
+    let top: number = Number.POSITIVE_INFINITY
+    let right: number = Number.NEGATIVE_INFINITY
+    let bottom: number = Number.NEGATIVE_INFINITY
+    const ids: string[] = []
+    for (let index: number = 0; index < members.length; index++) {
+      const member: LocalRenderPlanBlock = renderPlans[members[index]]
+      const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(member.block.polygon)
+      left = Math.min(left, raw.left)
+      top = Math.min(top, raw.top)
+      right = Math.max(right, raw.right)
+      bottom = Math.max(bottom, raw.bottom)
+      texts.push(member.translatedText.trim())
+      ids.push(member.block.blockId)
+      group.memberIndexes.push(members[index])
+    }
+    plan.block.polygon = [
+      new ComicPoint(left, top),
+      new ComicPoint(right, top),
+      new ComicPoint(right, bottom),
+      new ComicPoint(left, bottom),
+    ]
+    plan.translatedText = texts.join(
+      ComicLocalVisualBackend.targetUsesVerticalLayout(targetLanguage) ? '' : ' ',
+    )
+    group.plan = plan
+    group.textRect = ComicLocalVisualBackend.copyRenderRect(textRects[representative])
+    group.fill = fillStyles[representative]
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_bubble_render_group_merged',
+      `blocks=${ids.join(',')} rect=${Math.round(group.textRect.left)},` +
+        `${Math.round(group.textRect.top)},${Math.round(group.textRect.right)},` +
+        `${Math.round(group.textRect.bottom)}`,
+    )
+    return group
+  }
+
+  private static copyRenderRect(source: LocalRenderRect): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    rect.left = source.left
+    rect.top = source.top
+    rect.right = source.right
+    rect.bottom = source.bottom
+    rect.shapeConstrained = source.shapeConstrained
+    return rect
   }
 
   static targetUsesVerticalLayout(targetLanguage: string): boolean {

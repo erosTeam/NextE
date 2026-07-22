@@ -37,6 +37,7 @@ import {
   ComicVisualPageSource,
   ComicVisualTranslationContract,
   ComicVisualTranslationRoute,
+  DiagnosticLogger,
   HarmonyComicLocalOcrEngine,
 } from 'shared'
 
@@ -367,6 +368,45 @@ class NarrowVerticalBubbleOcrEngine implements ComicLocalOcrEngine {
     line.polygon.push(new ComicLocalOcrPoint(470, 700))
     result.lines.push(line)
     return Promise.resolve(result)
+  }
+}
+
+class SharedBubbleColumnsOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'shared-bubble-columns-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('右の縦書き列です', 0, 520, 370, 540, 660))
+    result.lines.push(this.line('左の縦書き列です', 1, 470, 390, 490, 680))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    blockIndex: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
   }
 }
 
@@ -1530,6 +1570,66 @@ export default function comicLocalVisualBackendTest(): void {
           expect(bounds.top >= 335).assertEqual(true)
           expect(bounds.bottom <= 725).assertEqual(true)
           expect(bounds.bottom - bounds.top > (bounds.right - bounds.left) * 3).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('lays out separate OCR columns once inside one confirmed balloon', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/shared-bubble-columns-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new SharedBubbleColumnsOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.blocks[0].styleHint).assertEqual('vertical-rl')
+          expect(analysis.document.blocks[1].styleHint).assertEqual('vertical-rl')
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The first translated sentence belongs in this balloon.',
+            'The second sentence must share the same layout.',
+            19,
+          )
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(diagnostics.includes(
+            'comic-translation.local_bubble_render_group_merged ' +
+              'blocks=p0-local-1,p0-local-2',
+          )).assertEqual(true)
+          expect(diagnostics.includes(
+            'comic-translation.local_bubble_render_groups plans=2 groups=1 merged=1',
+          )).assertEqual(true)
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 430).assertEqual(true)
+          expect(bounds.right <= 590).assertEqual(true)
+          expect(bounds.top >= 320).assertEqual(true)
+          expect(bounds.bottom <= 740).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)

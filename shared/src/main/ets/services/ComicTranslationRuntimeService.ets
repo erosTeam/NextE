@@ -57,9 +57,9 @@ import {
 
 const COMIC_READER_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
-const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v40'
+const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v42'
 const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-ctd-aot-inpaint-v28'
-const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v34'
+const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v36'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096
@@ -375,7 +375,7 @@ export class ComicTranslationRuntimeService {
     profile.sourceTreatmentProfileId = COMIC_READER_SOURCE_TREATMENT_PROFILE_ID
     profile.layoutProfileId = COMIC_READER_LAYOUT_PROFILE_ID
     profile.targetMimeType = 'image/png'
-    profile.revision = 26
+    profile.revision = 28
     return profile
   }
 

@@ -71,6 +71,14 @@ export class DiagnosticLogger {
     }
   }
 
+  static exportBufferedText(): string {
+    try {
+      return DiagnosticsStore.exportText()
+    } catch (_error) {
+      return ''
+    }
+  }
+
   static clear(): void {
     try {
       DiagnosticsStore.clear()
