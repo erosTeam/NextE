@@ -139,6 +139,7 @@ class LocalRenderRect {
   top: number = 0
   right: number = 0
   bottom: number = 0
+  shapeConstrained: boolean = false
 
   width(): number {
     return this.right - this.left
@@ -166,6 +167,9 @@ class LocalHorizontalRenderLayout {
   contentWidth: number = 0
   contentHeight: number = 0
   layout: LocalTextLayout = new LocalTextLayout()
+  rotationDegrees: number = 0
+  rotationCenterX: number = 0
+  rotationCenterY: number = 0
 }
 
 class LocalRenderPlanBlock {
@@ -1793,27 +1797,17 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const layout: LocalTextLayout = horizontal.layout
     textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
     canvas.attachPen(textPen)
-    ComicLocalVisualBackend.drawHorizontalLayout(
+    ComicLocalVisualBackend.drawPreparedHorizontalLayout(
       canvas,
-      layout,
-      horizontal.rect,
-      horizontal.horizontalPadding,
-      horizontal.verticalPadding,
-      horizontal.contentWidth,
-      horizontal.contentHeight,
+      horizontal,
       font,
       horizontalVerticalOffset,
     )
     canvas.detachPen()
     canvas.attachBrush(textBrush)
-    ComicLocalVisualBackend.drawHorizontalLayout(
+    ComicLocalVisualBackend.drawPreparedHorizontalLayout(
       canvas,
-      layout,
-      horizontal.rect,
-      horizontal.horizontalPadding,
-      horizontal.verticalPadding,
-      horizontal.contentWidth,
-      horizontal.contentHeight,
+      horizontal,
       font,
       horizontalVerticalOffset,
     )
@@ -1827,7 +1821,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     horizontalFontCap: number,
   ): LocalHorizontalRenderLayout {
     const result: LocalHorizontalRenderLayout = new LocalHorizontalRenderLayout()
-    result.rect = textRect
+    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    const physicalRect: LocalRenderRect = textRect.shapeConstrained ? textRect :
+      ComicLocalVisualBackend.compactFallbackTextRect(raw, textRect)
+    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT &&
+      physicalRect.height() >= 120 && physicalRect.height() >= physicalRect.width() * 1.8) {
+      result.rotationDegrees = 90
+      result.rotationCenterX = (physicalRect.left + physicalRect.right) / 2
+      result.rotationCenterY = (physicalRect.top + physicalRect.bottom) / 2
+      result.rect.left = result.rotationCenterX - physicalRect.height() / 2
+      result.rect.top = result.rotationCenterY - physicalRect.width() / 2
+      result.rect.right = result.rotationCenterX + physicalRect.height() / 2
+      result.rect.bottom = result.rotationCenterY + physicalRect.width() / 2
+    } else {
+      result.rect = textRect
+    }
     result.horizontalPadding = Math.max(4, Math.min(12, result.rect.width() * 0.08))
     result.verticalPadding = Math.max(4, Math.min(10, result.rect.height() * 0.08))
     result.contentWidth = Math.max(1, result.rect.width() - result.horizontalPadding * 2)
@@ -1858,6 +1866,42 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return result
   }
 
+  private static compactFallbackTextRect(
+    raw: LocalRenderRect,
+    fallback: LocalRenderRect,
+  ): LocalRenderRect {
+    const rect: LocalRenderRect = new LocalRenderRect()
+    rect.left = raw.left
+    rect.top = raw.top
+    rect.right = raw.right
+    rect.bottom = raw.bottom
+    // Keep an unconfirmed narrow balloon at the original OCR scale, but retain the page-safe
+    // positioning already resolved by the fallback rectangle. This prevents both the old broad
+    // overflow and a rotated word touching the physical page edge.
+    const inset: number = 8
+    const minimumX: number = fallback.left + inset
+    const maximumX: number = fallback.right - inset
+    const minimumY: number = fallback.top + inset
+    const maximumY: number = fallback.bottom - inset
+    if (rect.left < minimumX) {
+      rect.right = rect.right + (minimumX - rect.left)
+      rect.left = minimumX
+    }
+    if (rect.right > maximumX) {
+      rect.left = rect.left - (rect.right - maximumX)
+      rect.right = maximumX
+    }
+    if (rect.top < minimumY) {
+      rect.bottom = rect.bottom + (minimumY - rect.top)
+      rect.top = minimumY
+    }
+    if (rect.bottom > maximumY) {
+      rect.top = rect.top - (rect.bottom - maximumY)
+      rect.bottom = maximumY
+    }
+    return rect
+  }
+
   private static async horizontalVerticalOffset(
     pixelMap: image.PixelMap,
     block: ComicTextBlock,
@@ -1880,6 +1924,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         textRect,
         horizontalFontCap,
       )
+    if (prepared.rotationDegrees !== 0) {
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_horizontal_layout_rotated',
+        `block=${block.blockId} physical=${Math.round(prepared.rect.height())}x` +
+          `${Math.round(prepared.rect.width())} font=${prepared.layout.fontSize} ` +
+          `lines=${prepared.layout.lines.length}`,
+      )
+      return -1
+    }
     const lineHeight: number = prepared.layout.fontSize * 1.18
     const totalHeight: number = prepared.layout.lines.length * lineHeight
     const slack: number = Math.max(0, prepared.contentHeight - totalHeight)
@@ -2052,6 +2106,49 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
   }
 
+  private static drawPreparedHorizontalLayout(
+    canvas: drawing.Canvas,
+    prepared: LocalHorizontalRenderLayout,
+    font: drawing.Font,
+    verticalOffset: number,
+  ): void {
+    if (prepared.rotationDegrees === 0) {
+      ComicLocalVisualBackend.drawHorizontalLayout(
+        canvas,
+        prepared.layout,
+        prepared.rect,
+        prepared.horizontalPadding,
+        prepared.verticalPadding,
+        prepared.contentWidth,
+        prepared.contentHeight,
+        font,
+        verticalOffset,
+      )
+      return
+    }
+    canvas.save()
+    try {
+      canvas.rotate(
+        prepared.rotationDegrees,
+        prepared.rotationCenterX,
+        prepared.rotationCenterY,
+      )
+      ComicLocalVisualBackend.drawHorizontalLayout(
+        canvas,
+        prepared.layout,
+        prepared.rect,
+        prepared.horizontalPadding,
+        prepared.verticalPadding,
+        prepared.contentWidth,
+        prepared.contentHeight,
+        font,
+        verticalOffset,
+      )
+    } finally {
+      canvas.restore()
+    }
+  }
+
   static outlineWidth(fontSize: number): number {
     // The fill pass covers the inner half of the pen stroke, so a 20% pen width leaves
     // roughly one normal glyph-stroke of white outline visible around the final text.
@@ -2115,8 +2212,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return LOCAL_MAX_FONT_SIZE
     }
     const fittedSizes: number[] = []
-    const font: drawing.Font = new drawing.Font()
-    font.enableSubpixel(true)
     for (let index: number = 0; index < renderPlans.length; index++) {
       const block: ComicTextBlock = renderPlans[index].block
       if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
@@ -2130,20 +2225,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         block.styleHint,
         LOCAL_HORIZONTAL_STYLE_HINT,
       )
-      // Wider source paragraphs may use their full geometry for wrapping, but they must not
-      // raise the page-wide font cap. Measure the cap against the historical 360 px reference
-      // width so added space reduces line count instead of enlarging every paragraph.
-      const referenceWidth: number = Math.min(360, rect.width())
-      const horizontalPadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
-      const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
-      const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
-        renderPlans[index].translatedText,
-        Math.max(1, referenceWidth - horizontalPadding * 2),
-        Math.max(1, rect.height() - verticalPadding * 2),
-        font,
-        LOCAL_MAX_FONT_SIZE,
-      )
-      fittedSizes.push(layout.fontSize)
+      const prepared: LocalHorizontalRenderLayout =
+        ComicLocalVisualBackend.horizontalRenderLayout(
+          block,
+          renderPlans[index].translatedText,
+          rect,
+          LOCAL_MAX_FONT_SIZE,
+        )
+      fittedSizes.push(prepared.layout.fontSize)
     }
     if (fittedSizes.length <= 1) {
       return LOCAL_MAX_FONT_SIZE
@@ -2436,6 +2525,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     if (safe.width() < 24 || safe.height() < 24) {
       return fallback
     }
+    safe.shapeConstrained = true
     DiagnosticLogger.info(
       'comic-translation',
       'local_bubble_safe_rect',

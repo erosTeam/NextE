@@ -3,8 +3,8 @@
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v24`
-- **current production render profile**: `reader-local-bubble-layout-v39` /
-  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v33`
+- **current production render profile**: `reader-local-bubble-layout-v40` /
+  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v34`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -179,6 +179,23 @@ Hypium 271/271 通过。
 
 该证据关闭当前 P2 的普通闭合气泡贴边回归。开放尾部、复杂纹理或深色气泡仍会保守回退，艺术字/拟声词、
 复杂背景修复、更多真实样本和连续页性能仍属于 B2/F 未关闭项。
+
+## 真实 Reader 窄竖框拉丁排版补充（2026-07-23）
+
+同一画廊 P3 是 1280 × 905 的黑底页，包含三个窄高八边形色块。v39 把英文按普通横排塞进窄宽度：右侧
+`Whenever` 被拆成多个单字母，灰色块也出现词内断行，粉色块还跨出原色块。v40 只对“源 `vertical-rl`、
+目标横排、物理矩形高度至少 120 px 且高宽比至少 1.8”的块交换逻辑宽高完成横排，再将整段顺时针旋转
+90° 放回原长轴。单词与标点不会拆成逐字符纵排；未确认安全区的块保持原 OCR 矩形大小，并在既有页边
+fallback 内保留 8 px 安全距离。
+
+设备 `237` 的 v40 实际 PNG 为 136,656 bytes，artifact `62b1460cce966300…`；旧 v39 对照为
+151,147 bytes、artifact `4ac43aa038300414…`。三段英文均位于各自色块内，没有词内断行、跨块重叠或物理
+页边接触。新增 fixture 使用单词 `uncharacteristically`，要求改动画素长轴至少是短轴三倍，并继续通过既有
+页边用例；signed app、signed `entry@ohosTest` 和设备完整 Hypium 272/272 通过。
+
+这是轻量阅读模式对极窄竖框的确定性折衷：整段文字在页面上会侧转 90°，不是专业本地化中的气泡重绘或
+自然英文朝向。该证据只关闭当前窄竖拉丁框的拆词、越界与相邻块重叠回归；开放尾部、曲线轮廓、复杂纹理、
+艺术字/拟声词、内容感知修复和更多真实样本仍属于 B2/F 未关闭项。
 
 ## 漫画 detector 端侧移植试验（2026-07-22）
 

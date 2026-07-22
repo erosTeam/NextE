@@ -343,6 +343,33 @@ class ClosedBubbleOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class NarrowVerticalBubbleOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'narrow-vertical-bubble-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = '縦長の吹き出しです'
+    line.blockIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(470, 360))
+    line.polygon.push(new ComicLocalOcrPoint(550, 360))
+    line.polygon.push(new ComicLocalOcrPoint(550, 700))
+    line.polygon.push(new ComicLocalOcrPoint(470, 700))
+    result.lines.push(line)
+    return Promise.resolve(result)
+  }
+}
+
 class WideParagraphOcrEngine implements ComicLocalOcrEngine {
   engineId(): string {
     return 'wide-paragraph-ocr-fixture'
@@ -804,7 +831,15 @@ async function writeAdjacentBubbleImage(path: string, width: number, height: num
   }
 }
 
-async function writeClosedBubbleImage(path: string, width: number, height: number): Promise<void> {
+async function writeClosedBubbleImage(
+  path: string,
+  width: number,
+  height: number,
+  left: number = 450,
+  top: number = 330,
+  right: number = 760,
+  bottom: number = 580,
+): Promise<void> {
   let pixelMap: image.PixelMap | undefined = undefined
   let packer: image.ImagePacker | undefined = undefined
   let outputFile: fileIo.File | null = null
@@ -812,10 +847,6 @@ async function writeClosedBubbleImage(path: string, width: number, height: numbe
     const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
     const pixels: Uint8Array = new Uint8Array(buffer)
     pixels.fill(255)
-    const left: number = 450
-    const top: number = 330
-    const right: number = 760
-    const bottom: number = 580
     const stroke: number = 8
     for (let y: number = top; y < bottom; y++) {
       for (let x: number = left; x < right; x++) {
@@ -1453,6 +1484,52 @@ export default function comicLocalVisualBackendTest(): void {
           expect(bounds.right <= 740).assertEqual(true)
           expect(bounds.top >= 350).assertEqual(true)
           expect(bounds.bottom <= 560).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('rotates an intact Latin word through a narrow vertical balloon', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/narrow-vertical-render-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new NarrowVerticalBubbleOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].styleHint).assertEqual('vertical-rl')
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(request, 'uncharacteristically', '', 18)
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 445).assertEqual(true)
+          expect(bounds.right <= 575).assertEqual(true)
+          expect(bounds.top >= 335).assertEqual(true)
+          expect(bounds.bottom <= 725).assertEqual(true)
+          expect(bounds.bottom - bounds.top > (bounds.right - bounds.left) * 3).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)
