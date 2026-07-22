@@ -11,7 +11,11 @@ import {
   ComicLocalOcrLine,
   ComicLocalOcrPoint,
   ComicLocalOcrResult,
+  ComicLocalRegionDetector,
   ComicLocalVisualBackend,
+  ComicNativeDetectedRegion,
+  ComicNativeRegionDetectionResult,
+  ComicNativeRegionPoint,
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
   ComicRegionRenderRequest,
@@ -23,6 +27,7 @@ import {
   ComicTranslationEvaluator,
   ComicTranslationReferenceBlock,
   ComicTranslationReferencePage,
+  ComicTranslationModelService,
   ComicVisualPageSource,
   ComicVisualTranslationContract,
   ComicVisualTranslationRoute,
@@ -109,6 +114,41 @@ class BubbleGroupingOcrEngine implements ComicLocalOcrEngine {
     line.polygon.push(new ComicLocalOcrPoint(right, bottom))
     line.polygon.push(new ComicLocalOcrPoint(left, bottom))
     return line
+  }
+}
+
+class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
+  profileId(): string {
+    return 'fixture-region-detector'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
+    const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+    result.backend = 'fixture'
+    result.regions.push(this.region(96, 210, 320, 360))
+    result.regions.push(this.region(500, 1090, 620, 1390))
+    return Promise.resolve(result)
+  }
+
+  private region(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicNativeDetectedRegion {
+    const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+    region.score = 0.9
+    region.classId = 0
+    region.label = 'balloon'
+    region.points.push(new ComicNativeRegionPoint(left, top))
+    region.points.push(new ComicNativeRegionPoint(right, top))
+    region.points.push(new ComicNativeRegionPoint(right, bottom))
+    region.points.push(new ComicNativeRegionPoint(left, bottom))
+    return region
   }
 }
 
@@ -371,6 +411,12 @@ async function changedPixelPercent(sourcePath: string, renderedPath: string): Pr
 
 export default function comicLocalVisualBackendTest(): void {
   describe('ComicLocalVisualBackend', () => {
+    it('exposes the separately licensed detector asset metadata', 0, () => {
+      expect(ComicTranslationModelService.displayName()).assertEqual('YSGYolo 1.2 OS1.0')
+      expect(ComicTranslationModelService.license()).assertEqual('AGPL-3.0-only')
+      expect(ComicTranslationModelService.downloadBytes()).assertEqual(10747791)
+    })
+
     it('groups split OCR lines into one vertical or horizontal bubble block', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -400,6 +446,42 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks[0].styleHint).assertEqual('horizontal-ltr')
           expect(analysis.document.blocks[1].sourceText).assertEqual('はい。洗うから後ろ向いて。')
           expect(analysis.document.blocks[1].styleHint).assertEqual('vertical-rl')
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('uses an optional manga detector without changing the OCR fallback contract', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/detector-grouping-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const fixture: LocalComicFixture = page01Fixture()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            new BubbleGroupingRegionDetector(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, fixture)
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
+          expect(backend.protocolRevision()).assertEqual(15)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.qualitySignals.some((signal) =>
+            signal.code === 'local_manga_region_detector_active')).assertEqual(true)
         } finally {
           removeFile(sourcePath)
         }

@@ -4833,6 +4833,62 @@
       "value": "只有你主动翻译当前页时，漫画图片和上下文才会上传到 Torii。Torii 直接返回完整译图，不会接入端侧分阶段管线。"
     },
     {
+      "name": "comic_local_detector_model",
+      "value": "本地区域模型"
+    },
+    {
+      "name": "comic_local_detector_not_installed",
+      "value": "未安装"
+    },
+    {
+      "name": "comic_local_detector_installed",
+      "value": "YSGYolo"
+    },
+    {
+      "name": "comic_local_detector_downloading",
+      "value": "下载中"
+    },
+    {
+      "name": "comic_local_detector_notice",
+      "value": "可选下载 10.2 MB · YSGYolo 模型资产采用 AGPL-3.0"
+    },
+    {
+      "name": "comic_local_detector_install_title",
+      "value": "下载 YSGYolo？"
+    },
+    {
+      "name": "comic_local_detector_install_message",
+      "value": "约下载 10.2 MB。该模型单独采用 AGPL-3.0，用于按漫画区域归并 OCR 文本；OCR 和制图仍在端侧运行。"
+    },
+    {
+      "name": "comic_local_detector_install",
+      "value": "下载"
+    },
+    {
+      "name": "comic_local_detector_install_success",
+      "value": "YSGYolo 已安装"
+    },
+    {
+      "name": "comic_local_detector_install_failed",
+      "value": "YSGYolo 下载失败"
+    },
+    {
+      "name": "comic_local_detector_remove_title",
+      "value": "移除 YSGYolo？"
+    },
+    {
+      "name": "comic_local_detector_remove_message",
+      "value": "端侧漫画翻译将回退到系统 OCR 的分组结果。"
+    },
+    {
+      "name": "comic_local_detector_remove",
+      "value": "移除"
+    },
+    {
+      "name": "comic_local_detector_removed",
+      "value": "YSGYolo 已移除"
+    },
+    {
       "name": "comic_torii_model",
       "value": "翻译模型"
     },

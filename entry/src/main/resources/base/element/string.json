@@ -4833,6 +4833,62 @@
       "value": "The current manga page and context will be uploaded to Torii only when you explicitly translate it. Torii returns a finished translated image; it does not join the on-device processing pipeline."
     },
     {
+      "name": "comic_local_detector_model",
+      "value": "Local region model"
+    },
+    {
+      "name": "comic_local_detector_not_installed",
+      "value": "Not installed"
+    },
+    {
+      "name": "comic_local_detector_installed",
+      "value": "YSGYolo"
+    },
+    {
+      "name": "comic_local_detector_downloading",
+      "value": "Downloading"
+    },
+    {
+      "name": "comic_local_detector_notice",
+      "value": "Optional 10.2 MB download · YSGYolo model assets use AGPL-3.0"
+    },
+    {
+      "name": "comic_local_detector_install_title",
+      "value": "Download YSGYolo?"
+    },
+    {
+      "name": "comic_local_detector_install_message",
+      "value": "Downloads about 10.2 MB. The separately licensed AGPL-3.0 model groups OCR lines by manga region; OCR and rendering still run on this device."
+    },
+    {
+      "name": "comic_local_detector_install",
+      "value": "Download"
+    },
+    {
+      "name": "comic_local_detector_install_success",
+      "value": "YSGYolo installed"
+    },
+    {
+      "name": "comic_local_detector_install_failed",
+      "value": "YSGYolo download failed"
+    },
+    {
+      "name": "comic_local_detector_remove_title",
+      "value": "Remove YSGYolo?"
+    },
+    {
+      "name": "comic_local_detector_remove_message",
+      "value": "On-device manga translation will fall back to system OCR grouping."
+    },
+    {
+      "name": "comic_local_detector_remove",
+      "value": "Remove"
+    },
+    {
+      "name": "comic_local_detector_removed",
+      "value": "YSGYolo removed"
+    },
+    {
       "name": "comic_torii_model",
       "value": "Translation model"
     },

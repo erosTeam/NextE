@@ -78,8 +78,10 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 
 已从 Docker 对照链路单独提取 YSGYolo 1.2 OS1.0 detector，并转换成现有 HarmonyOS ncnn 运行时可加载的
 `param/bin`。这里只移植独立模型和前后处理契约，没有把上游 Python、FastAPI 或 GPL 应用代码打入 HAP。
-模型仓库标记为 [MIT](https://huggingface.co/YSGforMTL/YSGYoloDetector?not-for-all-audiences=true)，但正式模型包
-仍需补齐来源链、转换工具链和许可证复核后才能发布。
+模型卡标记为 [MIT](https://huggingface.co/YSGforMTL/YSGYoloDetector?not-for-all-audiences=true)，但 checkpoint
+内嵌的 Ultralytics 元数据标记为 `AGPL-3.0`。当前分发按更保守的 `AGPL-3.0-only` 处理：NextE 接入代码仍按
+项目 MIT 许可，模型资产在独立 model-pack 中按自身许可、来源、hash 和对应源码分别标注，不能把模型资产
+重新标成 MIT。
 
 | 产物 | 大小 | SHA-256 |
 |---|---:|---|
@@ -93,11 +95,16 @@ PSS 是测试进程阶段样点：两页渲染后分别约为 136 MiB 与 167 Mi
 CPU FP32，不能擅自切回默认 FP16。
 
 临时把转换产物放入显式测试 HAP 后，设备 `237` 在合法 1024 × 1536 原图上返回 5 个去重区域：模型加载
-39 ms、首次推理 207 ms、热推理 160 ms；带该临时用例的完整 Hypium 为 253/253。验证后模型二进制已从
-工作树移除，当前提交只保留原生 NAPI、类型化 ArkTS 边界和证据。它尚未连接 production
-`ComicLocalVisualBackend`，也没有已发布的下载模型包；当前 Reader 仍使用 v14 Core Vision analyzer。
-移除临时模型资源后重新完成 signed app、signed `entry@ohosTest` 构建，并在 `237` 跑完最终 252/252；因此
-提交状态不会依赖测试 HAP 中的模型文件。
+39 ms、首次推理 207 ms、热推理 160 ms；带该临时用例的完整 Hypium 为 253/253。随后模型以
+`model-pack-v1.1.2` 独立发布，HAP 不内置二进制；设置页可选下载 10,747,791 bytes，安装时逐文件校验大小
+与 SHA-256，缺包或推理失败时无损回退 v14 Core Vision。production `ComicLocalVisualBackend` 只用 detector
+OBB 归并系统 OCR 行，不把整块 OBB 当作遮盖或排版矩形，因此不会重新引入粗暴圆角块。
+
+最终分发与安装也在设备 `237` 实测：NextE-Models Actions run `29893521705` 成功创建
+`model-pack-v1.1.2` Release；tag 对应提交为 `9f57c3995aa83518f43db48a64cdd560b4fc83c4`。最终 signed app 的
+真实下载从 `download_start` 到 `download_success` 约 5.4 秒，校验并原子安装 10,747,791 bytes 后，设置页由
+“未安装”切换为 `YSGYolo`。同一最终代码边界的完整设备 Hypium 为 254/254。该结果证明按需模型包可达、
+校验与 production 选择生效，不表示 OCR transcript、背景修复或最终排版质量已经达标。
 
 ## 当前缺口与后续门槛
 
@@ -109,6 +116,6 @@ CPU FP32，不能擅自切回默认 FP16。
 3. 扩大真实 Reader 样本并分别统计 LLM、端侧视觉和缓存命中的 P50/P95；缓存命中继续禁止重新 OCR 或
    调用 LLM；
 4. 在普通页、长图和连续多页场景记录 P50/P95、峰值 PSS、失败回退与热稳定性；
-5. 发布 hash/version/license 完整的 detector 模型包，把 Core Vision OCR 行归属到 detector OBB 后再接入
-   production profile；资源缺失或推理失败必须无损回退当前系统 OCR；
+5. 在已发布 detector 与 Core Vision OCR 行归属基础上补齐长图分块、扩展样本和持续性能门；资源缺失或
+   推理失败继续无损回退当前系统 OCR；
 6. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。

@@ -34,6 +34,12 @@ import {
   ComicLocalOcrResult,
   HarmonyComicLocalOcrEngine,
 } from './ComicHarmonyOcrService'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import {
+  ComicLocalRegionDetector,
+  ComicNativeDetectedRegion,
+  ComicNativeRegionDetectionResult,
+} from './ComicNativeRegionDetector'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
 const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v14'
@@ -47,6 +53,7 @@ const LOCAL_MAX_SOURCE_TEXT_CHARS: number = 8192
 const LOCAL_HASH_CHUNK_BYTES: number = 256 * 1024
 const LOCAL_MAX_RENDERED_BYTES: number = 80 * 1024 * 1024
 const LOCAL_MAX_RENDER_PIXELS: number = 16 * 1024 * 1024
+const LOCAL_DETECTOR_MAX_PIXELS: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_VERTICAL_STYLE_HINT: string = 'vertical-rl'
@@ -65,6 +72,7 @@ class LocalMappedLine {
   tileIndex: number = 0
   blockIndex: number = 0
   lineIndex: number = 0
+  detectorRegionIndex: number = -1
 }
 
 class LocalMappedBlock {
@@ -72,6 +80,7 @@ class LocalMappedBlock {
   polygon: ComicPoint[] = []
   styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
   tileIndex: number = 0
+  detectorRegionIndex: number = -1
 }
 
 class LocalTemplatePoint {
@@ -139,13 +148,20 @@ class LocalColorSample {
 export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private readonly context: common.UIAbilityContext
   private readonly ocr: ComicLocalOcrEngine
+  private readonly detector: ComicLocalRegionDetector | null
+  private readonly resolvedProfileId: string
 
   constructor(
     context: common.UIAbilityContext,
     ocr: ComicLocalOcrEngine = new HarmonyComicLocalOcrEngine(),
+    detector: ComicLocalRegionDetector | null = null,
   ) {
     this.context = context
     this.ocr = ocr
+    this.detector = detector
+    this.resolvedProfileId = detector === null
+      ? LOCAL_VISUAL_PROFILE_ID
+      : `${LOCAL_VISUAL_PROFILE_ID}-${detector.profileId()}`
   }
 
   backendId(): string {
@@ -153,11 +169,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   profileId(): string {
-    return LOCAL_VISUAL_PROFILE_ID
+    return this.resolvedProfileId
   }
 
   protocolRevision(): number {
-    return LOCAL_VISUAL_PROTOCOL_REVISION
+    return this.detector === null
+      ? LOCAL_VISUAL_PROTOCOL_REVISION
+      : LOCAL_VISUAL_PROTOCOL_REVISION + this.detector.revision()
   }
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
@@ -170,6 +188,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         Math.floor(info.size.height) !== request.source.imageHeight) {
         throw new Error('Local comic OCR source dimensions do not match the request')
       }
+      const detection: ComicNativeRegionDetectionResult | null =
+        await this.detectRegions(
+          source,
+          request.source.imageWidth,
+          request.source.imageHeight,
+        )
       const tiles: LocalOcrTile[] = ComicLocalVisualBackend.tiles(
         request.source.imageWidth,
         request.source.imageHeight,
@@ -207,13 +231,25 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       const lines: LocalMappedLine[] = ComicLocalVisualBackend.suppressFurigana(
         ComicLocalVisualBackend.deduplicate(mapped),
       )
+      ComicLocalVisualBackend.assignDetectorRegions(lines, detection)
       const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(lines)
       const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
       result.backendId = this.backendId()
       result.profileId = this.profileId()
       result.regionRevision = request.requestedRegionRevision
-      result.document = ComicLocalVisualBackend.document(request, blocks, tiles.length)
-      result.adapterTemplate = ComicLocalVisualBackend.template(request, result.document)
+      result.document = ComicLocalVisualBackend.document(
+        request,
+        blocks,
+        tiles.length,
+        this.profileId(),
+        detection !== null,
+      )
+      result.adapterTemplate = ComicLocalVisualBackend.template(
+        request,
+        result.document,
+        this.profileId(),
+        this.protocolRevision(),
+      )
       ComicVisualTranslationContract.validateRegionAnalysisResult(
         request,
         result.backendId,
@@ -232,7 +268,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
 
   async render(request: ComicRegionRenderRequest): Promise<ComicRenderedPage> {
     ComicVisualTranslationContract.validateStagedRenderRequest(request)
-    ComicLocalVisualBackend.validateTemplate(request)
+    this.validateTemplate(request)
     if (request.source.imageWidth * request.source.imageHeight > LOCAL_MAX_RENDER_PIXELS) {
       throw new Error('Local comic rendered page exceeds the on-device pixel boundary')
     }
@@ -364,6 +400,42 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
   }
 
+  private async detectRegions(
+    source: image.ImageSource,
+    width: number,
+    height: number,
+  ): Promise<ComicNativeRegionDetectionResult | null> {
+    if (this.detector === null || width * height > LOCAL_DETECTOR_MAX_PIXELS) {
+      return null
+    }
+    let pixelMap: image.PixelMap | undefined = undefined
+    try {
+      pixelMap = await source.createPixelMap({
+        editable: false,
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+      })
+      const result: ComicNativeRegionDetectionResult = await this.detector.detect(pixelMap)
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_region_detector_success',
+        `profile=${this.detector.profileId()} regions=${result.regions.length} ` +
+          `loadMs=${result.modelLoadMs} inferenceMs=${result.inferenceMs}`,
+      )
+      return result
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'local_region_detector_fallback',
+        `profile=${this.detector.profileId()} message=${(error as Error).message}`,
+      )
+      return null
+    } finally {
+      if (pixelMap !== undefined) {
+        await pixelMap.release()
+      }
+    }
+  }
+
   private static tiles(width: number, height: number): LocalOcrTile[] {
     const values: LocalOcrTile[] = []
     const step: number = LOCAL_OCR_TILE_EDGE - LOCAL_OCR_TILE_OVERLAP
@@ -478,6 +550,68 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return output
   }
 
+  private static assignDetectorRegions(
+    values: LocalMappedLine[],
+    detection: ComicNativeRegionDetectionResult | null,
+  ): void {
+    if (detection === null) {
+      return
+    }
+    for (let lineIndex: number = 0; lineIndex < values.length; lineIndex++) {
+      const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(values[lineIndex].polygon)
+      const centerX: number = (rect.left + rect.right) / 2
+      const centerY: number = (rect.top + rect.bottom) / 2
+      let selected: number = -1
+      let selectedArea: number = Number.POSITIVE_INFINITY
+      for (let regionIndex: number = 0;
+        regionIndex < detection.regions.length; regionIndex++) {
+        const region: ComicNativeDetectedRegion = detection.regions[regionIndex]
+        if (!ComicLocalVisualBackend.regionContains(region, centerX, centerY)) {
+          continue
+        }
+        const area: number = ComicLocalVisualBackend.regionArea(region)
+        if (area < selectedArea) {
+          selected = regionIndex
+          selectedArea = area
+        }
+      }
+      values[lineIndex].detectorRegionIndex = selected
+    }
+  }
+
+  private static regionContains(
+    region: ComicNativeDetectedRegion,
+    x: number,
+    y: number,
+  ): boolean {
+    if (region.points.length < 3) {
+      return false
+    }
+    let inside: boolean = false
+    for (let current: number = 0, previous: number = region.points.length - 1;
+      current < region.points.length; previous = current++) {
+      const currentPoint = region.points[current]
+      const previousPoint = region.points[previous]
+      const crosses: boolean = (currentPoint.y > y) !== (previousPoint.y > y) &&
+        x < (previousPoint.x - currentPoint.x) * (y - currentPoint.y) /
+          (previousPoint.y - currentPoint.y) + currentPoint.x
+      if (crosses) {
+        inside = !inside
+      }
+    }
+    return inside
+  }
+
+  private static regionArea(region: ComicNativeDetectedRegion): number {
+    let doubled: number = 0
+    for (let index: number = 0; index < region.points.length; index++) {
+      const next: number = (index + 1) % region.points.length
+      doubled += region.points[index].x * region.points[next].y -
+        region.points[next].x * region.points[index].y
+    }
+    return Math.max(1, Math.abs(doubled) / 2)
+  }
+
   private static isFurigana(
     candidate: LocalMappedLine,
     values: LocalMappedLine[],
@@ -513,12 +647,18 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const groups: LocalMappedLine[][] = []
     const tileIndexes: number[] = []
     const blockIndexes: number[] = []
+    const detectorRegionIndexes: number[] = []
     for (let index: number = 0; index < values.length; index++) {
       const value: LocalMappedLine = values[index]
       let groupIndex: number = -1
       for (let candidateIndex: number = 0; candidateIndex < groups.length; candidateIndex++) {
-        if (tileIndexes[candidateIndex] === value.tileIndex &&
-          blockIndexes[candidateIndex] === value.blockIndex) {
+        const sameDetectorRegion: boolean = value.detectorRegionIndex >= 0 &&
+          detectorRegionIndexes[candidateIndex] === value.detectorRegionIndex
+        const sameOcrBlock: boolean = value.detectorRegionIndex < 0 &&
+          detectorRegionIndexes[candidateIndex] < 0 &&
+          tileIndexes[candidateIndex] === value.tileIndex &&
+          blockIndexes[candidateIndex] === value.blockIndex
+        if (sameDetectorRegion || sameOcrBlock) {
           groupIndex = candidateIndex
           break
         }
@@ -527,6 +667,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         groups.push([])
         tileIndexes.push(value.tileIndex)
         blockIndexes.push(value.blockIndex)
+        detectorRegionIndexes.push(value.detectorRegionIndex)
         groupIndex = groups.length - 1
       }
       groups[groupIndex].push(value)
@@ -582,6 +723,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const block: LocalMappedBlock = new LocalMappedBlock()
     block.styleHint = vertical ? LOCAL_VERTICAL_STYLE_HINT : LOCAL_HORIZONTAL_STYLE_HINT
     block.tileIndex = lines[0].tileIndex
+    block.detectorRegionIndex = lines[0].detectorRegionIndex
     const textParts: string[] = []
     let left: number = Number.POSITIVE_INFINITY
     let top: number = Number.POSITIVE_INFINITY
@@ -640,6 +782,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       second.styleHint !== LOCAL_VERTICAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
       return false
     }
+    if (first.detectorRegionIndex !== second.detectorRegionIndex &&
+      (first.detectorRegionIndex >= 0 || second.detectorRegionIndex >= 0)) {
+      return false
+    }
     const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
     const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
     const rightRect: LocalRenderRect = firstRect.left >= secondRect.left ? firstRect : secondRect
@@ -679,6 +825,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.text = right.text + left.text
     block.styleHint = LOCAL_VERTICAL_STYLE_HINT
     block.tileIndex = first.tileIndex
+    block.detectorRegionIndex = first.detectorRegionIndex
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
     const topEdge: number = Math.min(firstRect.top, secondRect.top)
     const rightEdge: number = Math.max(firstRect.right, secondRect.right)
@@ -728,6 +875,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       second.styleHint !== LOCAL_HORIZONTAL_STYLE_HINT || first.tileIndex !== second.tileIndex) {
       return false
     }
+    if (first.detectorRegionIndex !== second.detectorRegionIndex &&
+      (first.detectorRegionIndex >= 0 || second.detectorRegionIndex >= 0)) {
+      return false
+    }
     const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
     const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
     const upperRect: LocalRenderRect = firstRect.top <= secondRect.top ? firstRect : secondRect
@@ -761,6 +912,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.text = upper.text + '\n' + lower.text
     block.styleHint = LOCAL_HORIZONTAL_STYLE_HINT
     block.tileIndex = first.tileIndex
+    block.detectorRegionIndex = first.detectorRegionIndex
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
     const topEdge: number = Math.min(firstRect.top, secondRect.top)
     const rightEdge: number = Math.max(firstRect.right, secondRect.right)
@@ -776,6 +928,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     request: ComicRegionAnalysisRequest,
     lines: LocalMappedBlock[],
     tileCount: number,
+    profileId: string,
+    detectorUsed: boolean,
   ): ComicPageDocument {
     const document: ComicPageDocument = new ComicPageDocument()
     document.projectId = request.source.projectId
@@ -783,7 +937,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     document.imageHash = request.source.imageHash
     document.imageWidth = request.source.imageWidth
     document.imageHeight = request.source.imageHeight
-    document.imagePreparationProfile.profileId = LOCAL_VISUAL_PROFILE_ID
+    document.imagePreparationProfile.profileId = profileId
     document.imagePreparationProfile.mimeType = 'image/rgba8888'
     document.imagePreparationProfile.preparedWidth = request.source.imageWidth
     document.imagePreparationProfile.preparedHeight = request.source.imageHeight
@@ -813,15 +967,25 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     signal.severity = ComicQualitySeverity.WARNING
     signal.message = 'System OCR can miss stylized text; local output requires visual review.'
     document.qualitySignals.push(signal)
+    if (detectorUsed) {
+      const detectorSignal: ComicQualitySignal = new ComicQualitySignal()
+      detectorSignal.code = 'local_manga_region_detector_active'
+      detectorSignal.severity = ComicQualitySeverity.INFO
+      detectorSignal.message = 'Manga region detection grouped OCR lines before translation.'
+      document.qualitySignals.push(detectorSignal)
+    }
     return document
   }
 
   private static template(
     request: ComicRegionAnalysisRequest,
     document: ComicPageDocument,
+    profileId: string,
+    protocolRevision: number,
   ): ComicBackendTemplate {
     const envelope: LocalTemplateEnvelope = new LocalTemplateEnvelope()
     envelope.sourceImageHash = request.source.imageHash
+    envelope.profileId = profileId
     envelope.width = request.source.imageWidth
     envelope.height = request.source.imageHeight
     for (let index: number = 0; index < document.blocks.length; index++) {
@@ -839,18 +1003,18 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const payload: Uint8Array = new util.TextEncoder().encodeInto(JSON.stringify(envelope))
     const template: ComicBackendTemplate = new ComicBackendTemplate()
     template.backendId = LOCAL_VISUAL_BACKEND_ID
-    template.profileId = LOCAL_VISUAL_PROFILE_ID
-    template.protocolRevision = LOCAL_VISUAL_PROTOCOL_REVISION
+    template.profileId = profileId
+    template.protocolRevision = protocolRevision
     template.contentHash = ComicLocalVisualBackend.sha256(payload)
     template.mimeType = LOCAL_TEMPLATE_MIME
     template.payload = payload
     return template
   }
 
-  private static validateTemplate(request: ComicRegionRenderRequest): void {
+  private validateTemplate(request: ComicRegionRenderRequest): void {
     if (request.adapterTemplate.backendId !== LOCAL_VISUAL_BACKEND_ID ||
-      request.adapterTemplate.profileId !== LOCAL_VISUAL_PROFILE_ID ||
-      request.adapterTemplate.protocolRevision !== LOCAL_VISUAL_PROTOCOL_REVISION ||
+      request.adapterTemplate.profileId !== this.profileId() ||
+      request.adapterTemplate.protocolRevision !== this.protocolRevision() ||
       request.adapterTemplate.mimeType !== LOCAL_TEMPLATE_MIME ||
       request.adapterTemplate.contentHash !==
         ComicLocalVisualBackend.sha256(request.adapterTemplate.payload)) {
@@ -865,7 +1029,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       throw new Error('Local comic render template is invalid JSON')
     }
     if (envelope.schemaVersion !== 1 || envelope.backendId !== LOCAL_VISUAL_BACKEND_ID ||
-      envelope.profileId !== LOCAL_VISUAL_PROFILE_ID ||
+      envelope.profileId !== this.profileId() ||
       envelope.sourceImageHash !== request.source.imageHash ||
       envelope.width !== request.source.imageWidth ||
       envelope.height !== request.source.imageHeight ||

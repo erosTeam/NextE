@@ -4833,6 +4833,62 @@
       "value": "現在のページを明示的に翻訳した場合のみ、漫画画像とコンテキストを Torii に送信します。Torii は完成画像を返し、端末内の段階処理には参加しません。"
     },
     {
+      "name": "comic_local_detector_model",
+      "value": "ローカル領域モデル"
+    },
+    {
+      "name": "comic_local_detector_not_installed",
+      "value": "未インストール"
+    },
+    {
+      "name": "comic_local_detector_installed",
+      "value": "YSGYolo"
+    },
+    {
+      "name": "comic_local_detector_downloading",
+      "value": "ダウンロード中"
+    },
+    {
+      "name": "comic_local_detector_notice",
+      "value": "任意の 10.2 MB ダウンロード · YSGYolo モデル資産は AGPL-3.0"
+    },
+    {
+      "name": "comic_local_detector_install_title",
+      "value": "YSGYolo をダウンロードしますか？"
+    },
+    {
+      "name": "comic_local_detector_install_message",
+      "value": "約 10.2 MB をダウンロードします。別ライセンスの AGPL-3.0 モデルで OCR 行を漫画領域ごとにまとめます。OCR と画像生成は端末内で実行されます。"
+    },
+    {
+      "name": "comic_local_detector_install",
+      "value": "ダウンロード"
+    },
+    {
+      "name": "comic_local_detector_install_success",
+      "value": "YSGYolo をインストールしました"
+    },
+    {
+      "name": "comic_local_detector_install_failed",
+      "value": "YSGYolo のダウンロードに失敗しました"
+    },
+    {
+      "name": "comic_local_detector_remove_title",
+      "value": "YSGYolo を削除しますか？"
+    },
+    {
+      "name": "comic_local_detector_remove_message",
+      "value": "端末内漫画翻訳はシステム OCR のグループ化に戻ります。"
+    },
+    {
+      "name": "comic_local_detector_remove",
+      "value": "削除"
+    },
+    {
+      "name": "comic_local_detector_removed",
+      "value": "YSGYolo を削除しました"
+    },
+    {
       "name": "comic_torii_model",
       "value": "翻訳モデル"
     },

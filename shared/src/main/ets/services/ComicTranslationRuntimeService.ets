@@ -17,6 +17,12 @@ import {
 } from './ComicWholePageTranslationOrchestrator'
 import { PersistentComicRenderedPageRepository } from './ComicRenderedPageRepository'
 import { ComicLocalVisualBackend } from './ComicLocalVisualBackend'
+import { HarmonyComicLocalOcrEngine } from './ComicHarmonyOcrService'
+import { ComicNcnnLocalRegionDetector } from './ComicNativeRegionDetector'
+import {
+  ComicTranslationModelPaths,
+  ComicTranslationModelService,
+} from './ComicTranslationModelService'
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
 import { ComicTranslationRepository } from './ComicTranslationRepository'
 import { PersistentComicTranslationRepository } from './ComicTranslationPersistentRepository'
@@ -74,7 +80,6 @@ export class ComicTranslationReaderPageInput {
 export class ComicTranslationRuntimeService {
   private static documentRepository: ComicTranslationRepository | null = null
   private static renderedRepository: PersistentComicRenderedPageRepository | null = null
-  private static localBackend: ComicRegionRenderBackend | null = null
   private static orchestrators: Map<string, ComicVisualTranslationOrchestrator> = new Map()
   private static wholePageOrchestrators: Map<string, ComicWholePageTranslationOrchestrator> =
     new Map<string, ComicWholePageTranslationOrchestrator>()
@@ -252,13 +257,16 @@ export class ComicTranslationRuntimeService {
   }
 
   private static localBackendFor(context: common.UIAbilityContext): ComicRegionRenderBackend {
-    const existing: ComicRegionRenderBackend | null = ComicTranslationRuntimeService.localBackend
-    if (existing !== null) {
-      return existing
+    const paths: ComicTranslationModelPaths | null =
+      ComicTranslationModelService.pathsIfReady(context)
+    if (paths === null) {
+      return new ComicLocalVisualBackend(context)
     }
-    const created: ComicRegionRenderBackend = new ComicLocalVisualBackend(context)
-    ComicTranslationRuntimeService.localBackend = created
-    return created
+    return new ComicLocalVisualBackend(
+      context,
+      new HarmonyComicLocalOcrEngine(),
+      new ComicNcnnLocalRegionDetector(paths.paramPath, paths.modelPath),
+    )
   }
 
   private static wholePageOrchestrator(

@@ -317,6 +317,10 @@ export {
   ComicNativeRegionPoint,
 } from './services/ComicNativeRegionDetector'
 export {
+  ComicTranslationModelPaths,
+  ComicTranslationModelService,
+} from './services/ComicTranslationModelService'
+export {
   ComicRenderedPageRepository,
   ComicRenderedPageRepositoryContract,
   InMemoryComicRenderedPageRepository,

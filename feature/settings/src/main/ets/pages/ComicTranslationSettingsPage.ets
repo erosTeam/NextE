@@ -9,6 +9,7 @@ import {
   ComicVisualProviderSettingsSnapshot,
   ComicTranslationLiveEvaluationReport,
   ComicTranslationLiveEvaluationService,
+  ComicTranslationModelService,
   ComicTranslationModelCatalogService,
   ConciseListRow,
   DiagnosticLogger,
@@ -69,6 +70,8 @@ export struct ComicTranslationSettingsPage {
   @Local private toriiLiveEvaluationRunning: boolean = false;
   @Local private toriiLiveEvaluationReport: ToriiWholePageLiveEvaluationReport | null = null;
   @Local private visualSettingsLoaded: boolean = false;
+  @Local private localDetectorInstalled: boolean = false;
+  @Local private localDetectorBusy: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -76,6 +79,7 @@ export struct ComicTranslationSettingsPage {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.restoreBinding()
     this.loadVisualSettings()
+    this.refreshLocalDetector()
   }
 
   aboutToDisappear(): void {
@@ -145,6 +149,89 @@ export struct ComicTranslationSettingsPage {
         this.toast($r('app.string.comic_torii_save_failed', (error as Error).message))
       }
       return false
+    }
+  }
+
+  private refreshLocalDetector(): void {
+    ComicTranslationModelService.isInstalled(this.ctx())
+      .then((installed: boolean) => {
+        this.localDetectorInstalled = installed
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn(
+          'comic-translation',
+          'local_detector_state_failed',
+          error.message,
+        )
+      })
+  }
+
+  private localDetectorStateText(): ResourceStr {
+    if (this.localDetectorBusy) {
+      return $r('app.string.comic_local_detector_downloading')
+    }
+    return this.localDetectorInstalled
+      ? $r('app.string.comic_local_detector_installed')
+      : $r('app.string.comic_local_detector_not_installed')
+  }
+
+  private manageLocalDetector(): void {
+    if (this.localDetectorBusy) {
+      return
+    }
+    if (this.localDetectorInstalled) {
+      this.getUIContext().showAlertDialog({
+        title: $r('app.string.comic_local_detector_remove_title'),
+        message: $r('app.string.comic_local_detector_remove_message'),
+        primaryButton: {
+          value: $r('app.string.common_cancel'),
+          action: () => {},
+        },
+        secondaryButton: {
+          value: $r('app.string.comic_local_detector_remove'),
+          action: () => {
+            ComicTranslationModelService.remove(this.ctx())
+            this.localDetectorInstalled = false
+            this.toast($r('app.string.comic_local_detector_removed'))
+          },
+        },
+      })
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.comic_local_detector_install_title'),
+      message: $r('app.string.comic_local_detector_install_message'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.comic_local_detector_install'),
+        action: () => {
+          this.installLocalDetector()
+        },
+      },
+    })
+  }
+
+  private async installLocalDetector(): Promise<void> {
+    if (this.localDetectorBusy) {
+      return
+    }
+    this.localDetectorBusy = true
+    try {
+      await ComicTranslationModelService.install(this.ctx())
+      this.localDetectorInstalled = true
+      this.toast($r('app.string.comic_local_detector_install_success'))
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'local_detector_install_failed',
+        (error as Error).message,
+      )
+      this.toast($r('app.string.comic_local_detector_install_failed'))
+    } finally {
+      this.localDetectorBusy = false
     }
   }
 
@@ -809,6 +896,30 @@ export struct ComicTranslationSettingsPage {
           }
         }
         if (this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL) {
+          ListItem() {
+            GroupedListSection() {
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.comic_local_detector_model'),
+                  leadingIcon: $r('sys.symbol.character_viewfinder'),
+                  trailingText: this.localDetectorStateText(),
+                  showChevron: false,
+                  action: () => {
+                    this.manageLocalDetector()
+                  },
+                })
+                Text($r('app.string.comic_local_detector_notice'))
+                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .width('100%')
+                  .padding({
+                    left: ThemeConstants.SPACE_MD,
+                    right: ThemeConstants.SPACE_MD,
+                    bottom: ThemeConstants.SPACE_SM,
+                  })
+              }
+            }
+          }
           ListItem() {
             GroupedListSection() {
               Column() {
