@@ -1557,8 +1557,13 @@ export default function comicLocalVisualBackendTest(): void {
             analysis,
           )
           setEnglishRenderText(request, 'uncharacteristically', '', 18)
+          DiagnosticLogger.clear()
           const page: ComicRenderedPage = await backend.render(request)
           renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(diagnostics.includes(
+            'comic-translation.local_horizontal_layout_rotated block=p0-local-1',
+          )).assertEqual(true)
           const bounds: LocalChangedPixelBounds = await changedPixelBounds(
             sourcePath,
             renderedPath,
@@ -1570,6 +1575,55 @@ export default function comicLocalVisualBackendTest(): void {
           expect(bounds.top >= 335).assertEqual(true)
           expect(bounds.bottom <= 725).assertEqual(true)
           expect(bounds.bottom - bounds.top > (bounds.right - bounds.left) * 3).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('prefers readable upright Latin layout inside a narrow vertical balloon', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/narrow-upright-render-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new NarrowVerticalBubbleOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(request, 'Please wait here', '', 20)
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(diagnostics.includes(
+            'comic-translation.local_horizontal_layout_upright_preferred block=p0-local-1',
+          )).assertEqual(true)
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 445).assertEqual(true)
+          expect(bounds.right <= 575).assertEqual(true)
+          expect(bounds.top >= 335).assertEqual(true)
+          expect(bounds.bottom <= 725).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)

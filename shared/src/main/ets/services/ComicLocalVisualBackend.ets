@@ -78,6 +78,8 @@ const LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE: number = 0.85
 const LOCAL_SUPPLEMENTAL_OCR_MAX_TEXT_CHARS: number = 96
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
+const LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE: number = 10
+const LOCAL_NARROW_UPRIGHT_MIN_ROTATED_RATIO: number = 0.75
 const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
 const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
 const LOCAL_OBSTACLE_LAYOUT_MIN_LINES: number = 4
@@ -170,6 +172,7 @@ class LocalHorizontalRenderLayout {
   rotationDegrees: number = 0
   rotationCenterX: number = 0
   rotationCenterY: number = 0
+  narrowUprightPreferred: boolean = false
 }
 
 class LocalRenderPlanBlock {
@@ -1837,8 +1840,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     const physicalRect: LocalRenderRect = textRect.shapeConstrained ? textRect :
       ComicLocalVisualBackend.compactFallbackTextRect(raw, textRect)
-    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT &&
-      physicalRect.height() >= 120 && physicalRect.height() >= physicalRect.width() * 1.8) {
+    const narrowVertical: boolean = block.styleHint === LOCAL_VERTICAL_STYLE_HINT &&
+      physicalRect.height() >= 120 && physicalRect.height() >= physicalRect.width() * 1.8
+    if (narrowVertical) {
       result.rotationDegrees = 90
       result.rotationCenterX = (physicalRect.left + physicalRect.right) / 2
       result.rotationCenterY = (physicalRect.top + physicalRect.bottom) / 2
@@ -1876,7 +1880,81 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       font,
       blockFontCap,
     )
+    if (narrowVertical) {
+      const upright: LocalHorizontalRenderLayout = new LocalHorizontalRenderLayout()
+      upright.rect = physicalRect
+      upright.horizontalPadding = Math.max(4, Math.min(12, upright.rect.width() * 0.08))
+      upright.verticalPadding = Math.max(4, Math.min(10, upright.rect.height() * 0.08))
+      upright.contentWidth = Math.max(1, upright.rect.width() - upright.horizontalPadding * 2)
+      upright.contentHeight = Math.max(1, upright.rect.height() - upright.verticalPadding * 2)
+      const uprightLayout: LocalTextLayout | null =
+        ComicLocalVisualBackend.uprightLatinLayout(
+          translatedText,
+          upright.contentWidth,
+          upright.contentHeight,
+          font,
+          blockFontCap,
+        )
+      if (uprightLayout !== null && uprightLayout.fontSize >=
+        result.layout.fontSize * LOCAL_NARROW_UPRIGHT_MIN_ROTATED_RATIO) {
+        upright.layout = uprightLayout
+        upright.narrowUprightPreferred = true
+        return upright
+      }
+    }
     return result
+  }
+
+  private static uprightLatinLayout(
+    text: string,
+    width: number,
+    height: number,
+    font: drawing.Font,
+    maxFontSize: number,
+  ): LocalTextLayout | null {
+    const initialSize: number = Math.min(
+      LOCAL_MAX_FONT_SIZE,
+      maxFontSize,
+      Math.floor(height * 0.62),
+    )
+    if (initialSize < LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE) {
+      return null
+    }
+    for (let size: number = initialSize;
+      size >= LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE; size--) {
+      if (!ComicLocalVisualBackend.latinWordsFit(text, width, size, font)) {
+        continue
+      }
+      font.setSize(size)
+      const lines: string[] = ComicLocalVisualBackend.wrap(text, width, font)
+      if (lines.length * size * 1.18 <= height) {
+        const result: LocalTextLayout = new LocalTextLayout()
+        result.fontSize = size
+        result.lines = lines
+        return result
+      }
+    }
+    return null
+  }
+
+  private static latinWordsFit(
+    text: string,
+    width: number,
+    fontSize: number,
+    font: drawing.Font,
+  ): boolean {
+    font.setSize(fontSize)
+    const words: string[] = text.replace(/[\r\n]+/g, ' ').trim().split(/\s+/)
+    for (let index: number = 0; index < words.length; index++) {
+      const word: string = words[index]
+      if (!/[A-Za-z0-9]/.test(word)) {
+        continue
+      }
+      if (font.measureText(word, drawing.TextEncoding.TEXT_ENCODING_UTF8) > width) {
+        return false
+      }
+    }
+    return true
   }
 
   private static compactFallbackTextRect(
@@ -1937,6 +2015,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         textRect,
         horizontalFontCap,
       )
+    if (prepared.narrowUprightPreferred) {
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_horizontal_layout_upright_preferred',
+        `block=${block.blockId} physical=${Math.round(prepared.rect.width())}x` +
+          `${Math.round(prepared.rect.height())} font=${prepared.layout.fontSize} ` +
+          `lines=${prepared.layout.lines.length}`,
+      )
+    }
     if (prepared.rotationDegrees !== 0) {
       DiagnosticLogger.info(
         'comic-translation',
