@@ -81,6 +81,9 @@ export class ComicTranslationErrorClassifier {
     }
     if (message.includes('response') || message.includes('schema') ||
       message.includes('document') || message.includes('json')) {
+      if (message.includes('response_format')) {
+        return 'provider_model_incompatible'
+      }
       return 'structured_output_invalid'
     }
     return 'provider_request_failed'

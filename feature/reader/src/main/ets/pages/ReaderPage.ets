@@ -59,6 +59,8 @@ import {
   ComicTranslationReaderPageInput,
   ComicTranslationRuntimeService,
   ComicVisualTranslationRunResult,
+  ComicVisualProviderSettings,
+  CommentTranslationService,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -284,6 +286,8 @@ export struct ReaderPage {
   @Local comicTranslationPages: number[] = [];
   @Local comicTranslationPaths: string[] = [];
   @Local comicTranslationArtifactHashes: string[] = [];
+  @Local comicTranslationTargetLanguages: string[] = [];
+  @Local comicTranslationSettingsRevisions: number[] = [];
   @Local comicTranslationHiddenPages: number[] = [];
   @Local sourceReloadPage: number = 0;
   @Local sourceReloadRequestId: number = 0;
@@ -857,6 +861,8 @@ export struct ReaderPage {
     this.comicTranslationPages = []
     this.comicTranslationPaths = []
     this.comicTranslationArtifactHashes = []
+    this.comicTranslationTargetLanguages = []
+    this.comicTranslationSettingsRevisions = []
     this.comicTranslationHiddenPages = []
     this.loadedPages = []
     this.loadedPageSignal++
@@ -1377,6 +1383,15 @@ export struct ReaderPage {
     return index >= 0 ? this.comicTranslationArtifactHashes[index] : ''
   }
 
+  private comicTranslationResultMatchesCurrentSettings(page: number): boolean {
+    const index: number = this.comicTranslationRecordIndex(page)
+    return index >= 0 &&
+      this.comicTranslationTargetLanguages[index] ===
+        CommentTranslationService.targetLanguage() &&
+      this.comicTranslationSettingsRevisions[index] ===
+        ComicVisualProviderSettings.runtimeRevision()
+  }
+
   private comicTranslationHiddenForPage(page: number): boolean {
     return this.comicTranslationHiddenPages.includes(page)
   }
@@ -1411,24 +1426,35 @@ export struct ReaderPage {
     this.spreadDataSource.notifyDataChanged(this.spreadIndexForImage(page - 1))
   }
 
-  private rememberComicTranslationPage(page: ComicRenderedPage): void {
+  private rememberComicTranslationPage(
+    page: ComicRenderedPage,
+    settingsRevision: number,
+  ): void {
     const displayPage: number = page.identity.pageIndex + 1
     const wasHidden: boolean = this.comicTranslationHiddenForPage(displayPage)
     const pages: number[] = this.comicTranslationPages.slice()
     const paths: string[] = this.comicTranslationPaths.slice()
     const hashes: string[] = this.comicTranslationArtifactHashes.slice()
+    const targetLanguages: string[] = this.comicTranslationTargetLanguages.slice()
+    const settingsRevisions: number[] = this.comicTranslationSettingsRevisions.slice()
     const index: number = pages.indexOf(displayPage)
     if (index >= 0) {
       paths[index] = page.localFilePath
       hashes[index] = page.artifactHash
+      targetLanguages[index] = page.identity.targetLanguage
+      settingsRevisions[index] = settingsRevision
     } else {
       pages.push(displayPage)
       paths.push(page.localFilePath)
       hashes.push(page.artifactHash)
+      targetLanguages.push(page.identity.targetLanguage)
+      settingsRevisions.push(settingsRevision)
     }
     this.comicTranslationPages = pages
     this.comicTranslationPaths = paths
     this.comicTranslationArtifactHashes = hashes
+    this.comicTranslationTargetLanguages = targetLanguages
+    this.comicTranslationSettingsRevisions = settingsRevisions
     this.setComicTranslationHiddenForPage(displayPage, false)
     if (!wasHidden) {
       this.notifyComicTranslationSpreadChanged(displayPage)
@@ -1501,8 +1527,8 @@ export struct ReaderPage {
       this.imageMetricWidthForPage(page) > 0 && this.imageMetricHeightForPage(page) > 0
   }
 
-  private comicTranslationProjectId(isEx: boolean): string {
-    return `nexte-gallery:${isEx ? 'ex' : 'eh'}:${this.params.gid}:zh-CN`
+  private comicTranslationProjectId(isEx: boolean, targetLanguage: string): string {
+    return `nexte-gallery:${isEx ? 'ex' : 'eh'}:${this.params.gid}:${targetLanguage}`
   }
 
   private openCurrentPageComicTranslationAction(): void {
@@ -1511,7 +1537,8 @@ export struct ReaderPage {
       return
     }
     const page: number = this.vm.imageAt(this.vm.currentIndex).page
-    if (this.comicTranslationPathForPage(page).length > 0) {
+    if (this.comicTranslationPathForPage(page).length > 0 &&
+      this.comicTranslationResultMatchesCurrentSettings(page)) {
       this.setComicTranslationHiddenForPage(
         page,
         this.comicTranslationVisibleForPage(page),
@@ -1520,6 +1547,7 @@ export struct ReaderPage {
       this.comicTranslationPageIndex = -1
       return
     }
+    this.setComicTranslationHiddenForPage(page, true)
     this.startCurrentPageComicTranslation()
   }
 
@@ -1528,7 +1556,8 @@ export struct ReaderPage {
       return AppStrings.get('reader_comic_translation_action')
     }
     const page: number = this.vm.imageAt(this.vm.currentIndex).page
-    if (this.comicTranslationPathForPage(page).length <= 0) {
+    if (this.comicTranslationPathForPage(page).length <= 0 ||
+      !this.comicTranslationResultMatchesCurrentSettings(page)) {
       return AppStrings.get('reader_comic_translation_action')
     }
     return AppStrings.get(this.comicTranslationVisibleForPage(page)
@@ -1558,15 +1587,17 @@ export struct ReaderPage {
     const token: string = this.params.token
     const isEx: boolean = connectSiteMode().isEx
     const uiEpoch: number = ++this.comicTranslationUiEpoch
+    const targetLanguage: string = CommentTranslationService.targetLanguage()
+    const settingsRevision: number = ComicVisualProviderSettings.runtimeRevision()
     const input: ComicTranslationReaderPageInput = new ComicTranslationReaderPageInput()
-    input.projectId = this.comicTranslationProjectId(isEx)
+    input.projectId = this.comicTranslationProjectId(isEx, targetLanguage)
     input.pageIndex = pageIndex
     input.imageFilePath = filePath
     input.imageWidth = width
     input.imageHeight = height
     const sourceLanguage: string = this.params.sourceLanguage.trim()
     input.sourceLanguage = sourceLanguage.length > 0 ? sourceLanguage : 'auto'
-    input.targetLanguage = 'zh-CN'
+    input.targetLanguage = targetLanguage
 
     this.comicTranslationPageIndex = pageIndex
     this.comicTranslationCacheHit = false
@@ -1586,7 +1617,7 @@ export struct ReaderPage {
           return
         }
         const resultPageIsVisible: boolean = this.vm.currentIndex === pageIndex
-        this.rememberComicTranslationPage(result.renderedPage)
+        this.rememberComicTranslationPage(result.renderedPage, settingsRevision)
         this.comicTranslationCacheHit = result.cacheHit
         this.comicTranslationErrorCode = ''
         this.comicTranslationRunning = false

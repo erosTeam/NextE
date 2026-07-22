@@ -11,9 +11,8 @@ import {
   ComicVisualPageSource,
   ComicVisualTranslationRoute,
   ComicWholePageRenderRequest,
-  TORII_BILLING_BYOK,
-  TORII_BILLING_MANAGED,
   TORII_DEFAULT_MODEL_ID,
+  TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
   TORII_WHOLE_PAGE_ENDPOINT,
   TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID,
@@ -89,19 +88,6 @@ function managedConfig(): ToriiWholePageConfig {
   const config: ToriiWholePageConfig = new ToriiWholePageConfig()
   config.toriiApiKey = 'fixture-torii-secret'
   config.modelId = TORII_DEFAULT_MODEL_ID
-  config.billingMode = TORII_BILLING_MANAGED
-  return config
-}
-
-function byokConfig(): ToriiWholePageConfig {
-  const config: ToriiWholePageConfig = managedConfig()
-  config.billingMode = TORII_BILLING_BYOK
-  config.modelId = 'fixture-custom-model'
-  config.fontId = TORII_FONT_WILDWORDS
-  config.byokSourceProfileId = 'fixture-openai-compatible'
-  config.byokSourceRevision = 3
-  config.byokBaseUrl = 'https://llm.fixture.example/v1'
-  config.byokApiKey = 'fixture-provider-secret'
   return config
 }
 
@@ -120,11 +106,12 @@ function renderRequest(
   backend: ToriiWholePageRenderBackend,
   imageSource: ComicVisualPageSource,
   rollingContext: string,
+  targetLanguage: string = 'zh-CN',
 ): ComicWholePageRenderRequest {
   const request: ComicWholePageRenderRequest = new ComicWholePageRenderRequest()
   request.source = imageSource
   request.context.sourceLanguage = 'ja'
-  request.context.targetLanguage = 'zh-CN'
+  request.context.targetLanguage = targetLanguage
   request.context.rollingSummary = rollingContext
   request.context.styleGuide = '人名优保持一致。'
   request.context.glossaryRevision = 1
@@ -277,6 +264,8 @@ export default function toriiWholePageRenderBackendTest(): void {
           expect(firstBodyText.includes(TORII_DEFAULT_MODEL_ID)).assertEqual(true)
           expect(firstBodyText.includes('name="font"')).assertEqual(true)
           expect(firstBodyText.includes('\r\n\r\nnoto\r\n')).assertEqual(true)
+          expect(firstBodyText.includes('name="target_lang"')).assertEqual(true)
+          expect(firstBodyText.includes('\r\n\r\nzh-cn\r\n')).assertEqual(true)
           expect(firstBodyText.includes('\r\n\r\nNone\r\n')).assertEqual(true)
           expect(firstBodyText.includes('Glossary: 優 => 小优.')).assertEqual(true)
           expect(secondBodyText.includes(nextContext)).assertEqual(true)
@@ -294,7 +283,7 @@ export default function toriiWholePageRenderBackendTest(): void {
         done()
       })
 
-    it('reuses an OpenAI-compatible source endpoint, model, and optional key in BYOK mode', 0,
+    it('uses target language and font as managed render identity without provider credentials', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const ability = await delegator.getCurrentTopAbility()
@@ -302,35 +291,46 @@ export default function toriiWholePageRenderBackendTest(): void {
         const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
         const imageBytes: Uint8Array =
           await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
-        const sourcePath: string = `${appContext.cacheDir}/torii-byok-source.png`
+        const sourcePath: string = `${appContext.cacheDir}/torii-managed-font-source.png`
         writeFile(sourcePath, imageBytes)
         const contextStore: ToriiWholePageContextStore =
           new ToriiWholePageContextStore(appContext)
         const transport: FakeToriiTransport = new FakeToriiTransport()
-        transport.responses.push(successfulResponse(imageBytes, 'BYOK fixture context'))
+        transport.responses.push(successfulResponse(imageBytes, 'Managed fixture context'))
+        const wildWordsConfig: ToriiWholePageConfig = managedConfig()
+        wildWordsConfig.fontId = TORII_FONT_WILDWORDS
         const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
           appContext,
-          byokConfig(),
+          wildWordsConfig,
           contextStore,
           transport,
         )
+        const notoConfig: ToriiWholePageConfig = managedConfig()
+        const notoBackend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          notoConfig,
+          contextStore,
+          transport,
+        )
+        expect(notoBackend.sourceProfileId() === backend.sourceProfileId()).assertEqual(false)
         let renderedPath: string = ''
         try {
           const page: ComicRenderedPage = await backend.render(renderRequest(
             backend,
             source(sourcePath, imageBytes, 0),
             '',
+            'en-US',
           ))
           renderedPath = page.localFilePath
           expect(transport.requests.length).assertEqual(1)
           const requestBodyText: string = multipartText(transport.requests[0].body)
           expect(requestBodyText.includes('name="translator"')).assertEqual(true)
-          expect(requestBodyText.includes('fixture-custom-model')).assertEqual(true)
-          expect(requestBodyText.includes('name="x-byok-local-url"')).assertEqual(true)
-          expect(requestBodyText.includes('https://llm.fixture.example/v1')).assertEqual(true)
-          expect(requestBodyText.includes('name="x-byok-local"')).assertEqual(true)
-          expect(requestBodyText.includes('fixture-provider-secret')).assertEqual(true)
+          expect(requestBodyText.includes(TORII_DEFAULT_MODEL_ID)).assertEqual(true)
+          expect(requestBodyText.includes('x-byok-')).assertEqual(false)
           expect(requestBodyText.includes('\r\n\r\nwildwords\r\n')).assertEqual(true)
+          expect(requestBodyText.includes('\r\n\r\nen-us\r\n')).assertEqual(true)
+          expect(requestBodyText.includes('Translate every visible comic text into en-US.'))
+            .assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)
@@ -467,7 +467,48 @@ export default function toriiWholePageRenderBackendTest(): void {
         }
         expect(message).assertEqual(
           'Torii whole-page request did not confirm success (false): ' +
+            'upstream_request_failed: ' +
             'fixture provider rejected request',
+        )
+        done()
+      })
+
+    it('classifies a plain-text upstream failure without exposing its body', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const appContext: common.UIAbilityContext = ability.context as common.UIAbilityContext
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const imageBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const sourcePath: string = `${appContext.cacheDir}/torii-plain-failure-source.png`
+        writeFile(sourcePath, imageBytes)
+        const contextStore: ToriiWholePageContextStore =
+          new ToriiWholePageContextStore(appContext)
+        const transport: FakeToriiTransport = new FakeToriiTransport()
+        transport.responses.push(transportResponse(400, 'Provider returned 403 Forbidden at a private URL'))
+        const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          managedConfig(),
+          contextStore,
+          transport,
+        )
+        let message: string = ''
+        try {
+          await backend.render(renderRequest(
+            backend,
+            source(sourcePath, imageBytes, 0),
+            '',
+          ))
+        } catch (error) {
+          message = (error as Error).message
+        } finally {
+          removeFile(sourcePath)
+          await contextStore.clear()
+        }
+        expect(message).assertEqual(
+          'Torii whole-page request failed with HTTP 400: upstream_forbidden: ' +
+            'Provider returned 403 Forbidden at a private URL',
         )
         done()
       })
@@ -512,6 +553,7 @@ export default function toriiWholePageRenderBackendTest(): void {
         }
         expect(message).assertEqual(
           'Torii whole-page request did not confirm success (missing): ' +
+            'upstream_request_failed: ' +
             'fixture response omitted success',
         )
         done()

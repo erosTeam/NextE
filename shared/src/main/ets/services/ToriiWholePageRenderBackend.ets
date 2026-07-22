@@ -8,8 +8,6 @@ import { ComicRenderedPage } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { AxiosBinaryResponse, AxiosHttpClient } from '../network/AxiosHttpClient'
 import {
-  TORII_BILLING_BYOK,
-  TORII_BILLING_MANAGED,
   TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
   ToriiTranslatorModelCatalog,
@@ -28,7 +26,7 @@ import {
 export const TORII_WHOLE_PAGE_ENDPOINT: string =
   'https://api.toriitranslate.com/api/v2/upload'
 export const TORII_WHOLE_PAGE_SOURCE_REVISION: number = 2
-export const TORII_WHOLE_PAGE_PROMPT_VERSION: string = 'torii-whole-page-v2'
+export const TORII_WHOLE_PAGE_PROMPT_VERSION: string = 'torii-whole-page-v3'
 export const TORII_WHOLE_PAGE_RENDER_PROFILE_ID: string = 'torii-whole-page-v2'
 export const TORII_WHOLE_PAGE_SOURCE_TREATMENT_PROFILE_ID: string =
   'torii-cloud-inpaint-v1'
@@ -71,66 +69,25 @@ class ToriiDecodedImage {
 export class ToriiWholePageConfig {
   toriiApiKey: string = ''
   modelId: string = ''
-  billingMode: string = TORII_BILLING_MANAGED
   fontId: string = TORII_FONT_NOTO
-  byokSourceProfileId: string = ''
-  byokSourceRevision: number = 0
-  byokBaseUrl: string = ''
-  byokApiKey: string = ''
 
   assertValid(): void {
-    ToriiWholePageConfig.validateKey(this.toriiApiKey, true)
-    if ((this.billingMode !== TORII_BILLING_MANAGED &&
-      this.billingMode !== TORII_BILLING_BYOK) ||
+    ToriiWholePageConfig.validateKey(this.toriiApiKey)
+    if (ToriiTranslatorModelCatalog.find(this.modelId) === null ||
       (this.fontId !== TORII_FONT_NOTO && this.fontId !== TORII_FONT_WILDWORDS)) {
       throw new Error('Torii whole-page configuration is invalid')
     }
-    if (this.billingMode === TORII_BILLING_MANAGED) {
-      if (ToriiTranslatorModelCatalog.find(this.modelId) === null) {
-        throw new Error('Torii whole-page configuration is invalid')
-      }
-      return
-    }
-    if (!ToriiWholePageConfig.identifier(this.modelId, 160) ||
-      !ToriiWholePageConfig.identifier(this.byokSourceProfileId, 160) ||
-      !ToriiWholePageConfig.positiveInteger(this.byokSourceRevision) ||
-      !ToriiWholePageConfig.httpUrl(this.byokBaseUrl)) {
-      throw new Error('Torii whole-page BYOK source is invalid')
-    }
-    ToriiWholePageConfig.validateKey(this.byokApiKey, false)
   }
 
   sourceProfileId(): string {
     this.assertValid()
-    const billing: string = this.billingMode === TORII_BILLING_BYOK
-      ? `byok-source-${this.byokSourceProfileId}-r${this.byokSourceRevision}`
-      : 'managed'
-    const secretIdentity: string = this.billingMode === TORII_BILLING_BYOK
-      ? `${this.toriiApiKey}\n${this.byokBaseUrl}\n${this.byokApiKey}`
-      : this.toriiApiKey
-    return `torii-whole-page:${billing}:${ToriiWholePageConfig.sha256Text(
-      `${secretIdentity}\n${this.fontId}`,
+    return `torii-whole-page:managed:${ToriiWholePageConfig.sha256Text(
+      `${this.toriiApiKey}\n${this.fontId}`,
     ).substring(0, 16)}`
   }
 
-  private static identifier(value: string, maxChars: number): boolean {
-    return value.length > 0 && value.length <= maxChars && value === value.trim() &&
-      !/[\u0000-\u001f\u007f]/.test(value)
-  }
-
-  private static positiveInteger(value: number): boolean {
-    return Number.isFinite(value) && value > 0 && Math.floor(value) === value &&
-      value <= Number.MAX_SAFE_INTEGER
-  }
-
-  private static httpUrl(value: string): boolean {
-    return value.length > 0 && value.length <= 2048 && value === value.trim() &&
-      !/[\u0000-\u001f\u007f]/.test(value) &&
-      (value.startsWith('https://') || value.startsWith('http://'))
-  }
-
-  private static validateKey(value: string, required: boolean): void {
-    if ((required && value.length === 0) || value.length > 8192 || value !== value.trim() ||
+  private static validateKey(value: string): void {
+    if (value.length === 0 || value.length > 8192 || value !== value.trim() ||
       /[\r\n\t]/.test(value) || value.includes('\u0000')) {
       throw new Error('Torii API credential is invalid')
     }
@@ -279,6 +236,12 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       'Accept': 'application/json',
     }
     transportRequest.body = body
+    DiagnosticLogger.info(
+      'comic-translation',
+      'torii_whole_page_request',
+      `target=${ToriiWholePageRenderBackend.targetLanguage(request.context.targetLanguage)} ` +
+        `model=${this.modelId()} font=${this.config.fontId} bodyBytes=${body.length}`,
+    )
     const response: ToriiWholePageTransportResponse =
       await this.transport.post(transportRequest)
     const responseText: string = ToriiWholePageRenderBackend.responseText(response)
@@ -302,15 +265,20 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
         `bodyBytes=${response.body.length}`,
     )
     if (response.statusCode < 200 || response.statusCode > 299) {
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'torii_whole_page_failure',
+        this.safeErrorDetail(responseText),
+      )
       throw new Error(
         `Torii whole-page request failed with HTTP ${response.statusCode}${
-          ToriiWholePageRenderBackend.errorSuffix(responseText)}`,
+          this.errorSuffix(responseText)}`,
       )
     }
     if (successHeader.toLowerCase() !== 'true') {
       throw new Error(
         `Torii whole-page request did not confirm success (${successHeader || 'missing'})${
-          ToriiWholePageRenderBackend.errorSuffix(responseText)}`,
+          this.errorSuffix(responseText)}`,
       )
     }
     const dataUrl: string | null = ToriiWholePageRenderBackend.jsonStringField(
@@ -395,18 +363,6 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       'context',
       ToriiWholePageRenderBackend.providerContext(request),
     ))
-    if (this.config.billingMode === TORII_BILLING_BYOK) {
-      parts.push(ToriiWholePageRenderBackend.textPart(
-        'x-byok-local-url',
-        this.config.byokBaseUrl,
-      ))
-      if (this.config.byokApiKey.length > 0) {
-        parts.push(ToriiWholePageRenderBackend.textPart(
-          'x-byok-local',
-          this.config.byokApiKey,
-        ))
-      }
-    }
     return parts
   }
 
@@ -577,16 +533,60 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       .decodeToString(response.body)
   }
 
-  private static errorSuffix(body: string): string {
+  private errorSuffix(body: string): string {
     const detail: string | null = ToriiWholePageRenderBackend.jsonStringField(body, 'error') ??
       ToriiWholePageRenderBackend.jsonStringField(body, 'message') ??
       ToriiWholePageRenderBackend.jsonStringField(body, 'detail')
-    if (detail === null || detail.trim().length === 0) {
-      return ''
+    const code: string = ToriiWholePageRenderBackend.safeProviderFailureCode(body)
+    const bounded: string = this.safeErrorDetail(
+      detail === null || detail.trim().length === 0 ? body : detail,
+    )
+    return bounded.length > 0 ? `: ${code}: ${bounded}` : `: ${code}`
+  }
+
+  private safeErrorDetail(value: string): string {
+    let sanitized: string = value
+    const secrets: string[] = [
+      this.config.toriiApiKey,
+    ]
+    for (let index: number = 0; index < secrets.length; index++) {
+      if (secrets[index].length > 0) {
+        sanitized = sanitized.split(secrets[index]).join('<redacted>')
+      }
     }
-    const bounded: string = detail.replace(/[\r\n\t]+/g, ' ').trim()
-      .substring(0, MAX_TORII_ERROR_DETAIL_CHARS)
-    return bounded.length > 0 ? `: ${bounded}` : ''
+    sanitized = sanitized.replace(/https?:\/\/[^\s"'<>]+/gi, '<url>')
+      .replace(/[A-Za-z0-9_+=\-]{24,}/g, '<token>')
+      .replace(/[\r\n\t]+/g, ' ')
+      .trim()
+    return sanitized.substring(0, MAX_TORII_ERROR_DETAIL_CHARS)
+  }
+
+  private static safeProviderFailureCode(body: string): string {
+    const normalized: string = body.toLowerCase()
+    if (normalized.includes('401') || normalized.includes('unauthorized') ||
+      normalized.includes('authentication') || normalized.includes('api key')) {
+      return 'upstream_authentication_failed'
+    }
+    if (normalized.includes('403') || normalized.includes('forbidden')) {
+      return 'upstream_forbidden'
+    }
+    if (normalized.includes('404') || normalized.includes('not found')) {
+      return 'upstream_not_found'
+    }
+    if (normalized.includes('429') || normalized.includes('rate limit')) {
+      return 'upstream_rate_limited'
+    }
+    if (normalized.includes('model')) {
+      return 'upstream_model_rejected'
+    }
+    if (normalized.includes('timeout')) {
+      return 'upstream_timeout'
+    }
+    if (normalized.includes('connect') || normalized.includes('dns') ||
+      normalized.includes('ssl') || normalized.includes('certificate')) {
+      return 'upstream_connection_failed'
+    }
+    return 'upstream_request_failed'
   }
 
   private static responseShape(

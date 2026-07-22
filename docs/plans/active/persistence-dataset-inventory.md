@@ -124,10 +124,12 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Manga translation model selected within its shared source |
 | StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE | setting | plaintext | excluded | Explicit on-device or Torii whole-page visual route; defaults to on-device |
 | StorageKeys.COMIC_TRANSLATION_TORII_MODEL | setting | plaintext | excluded | Model ID selected from the versioned official Torii catalog snapshot |
-| StorageKeys.COMIC_TRANSLATION_TORII_BILLING_MODE | setting | plaintext | excluded | Torii-managed credits or explicit BYOK billing mode |
-| StorageKeys.COMIC_TRANSLATION_TORII_BYOK_PROVIDER | setting | plaintext | excluded | Provider name used only when Torii BYOK is selected |
+| StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
+| StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_PROVIDER | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
+| StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_SOURCE_PROFILE | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
+| StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_MODEL | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
 | StorageKeys.COMIC_TRANSLATION_TORII_CREDITS_CACHE | volatile-cache | excluded | excluded | API-key-scoped Torii balance snapshot; shown from cache and refreshed in background |
-| StorageKeys.COMIC_TRANSLATION_TORII_CREDENTIAL | secret | encrypted-only | excluded | Torii account API key and optional provider BYOK key; disclosed to Torii only on the selected cloud route |
+| StorageKeys.COMIC_TRANSLATION_TORII_CREDENTIAL | secret | encrypted-only | excluded | Torii account API key; disclosed to Torii only on the selected cloud route |
 | StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_URL | setting | plaintext | excluded | User-configured manga rendering sidecar endpoint; public endpoints require HTTPS |
 | StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_CREDENTIAL | secret | encrypted-only | excluded | Optional Authorization value for the manga rendering sidecar |
 | StorageKeys.LLM_SOURCE_PROFILES | setting | plaintext | excluded | Provider-neutral reusable source metadata; contains no API key or OAuth token |

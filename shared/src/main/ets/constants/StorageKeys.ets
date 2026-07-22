@@ -113,13 +113,14 @@ export class StorageKeys {
   static readonly COMIC_TRANSLATION_LLM_MODEL: string = 'comicTranslation.llmModel'
   static readonly COMIC_TRANSLATION_VISUAL_ROUTE: string = 'comicTranslation.visualRoute'
   static readonly COMIC_TRANSLATION_TORII_MODEL: string = 'comicTranslation.torii.model'
-  static readonly COMIC_TRANSLATION_TORII_BILLING_MODE: string =
+  // Retired Torii BYOK tombstones. Read only to delete; do not restore as product settings.
+  static readonly COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE: string =
     'comicTranslation.torii.billingMode'
-  static readonly COMIC_TRANSLATION_TORII_BYOK_PROVIDER: string =
+  static readonly COMIC_TRANSLATION_TORII_LEGACY_BYOK_PROVIDER: string =
     'comicTranslation.torii.byokProvider'
-  static readonly COMIC_TRANSLATION_TORII_BYOK_SOURCE_PROFILE: string =
+  static readonly COMIC_TRANSLATION_TORII_LEGACY_BYOK_SOURCE_PROFILE: string =
     'comicTranslation.torii.byokSourceProfile'
-  static readonly COMIC_TRANSLATION_TORII_BYOK_MODEL: string =
+  static readonly COMIC_TRANSLATION_TORII_LEGACY_BYOK_MODEL: string =
     'comicTranslation.torii.byokModel'
   static readonly COMIC_TRANSLATION_TORII_FONT: string = 'comicTranslation.torii.font'
   // Device-local stale-while-revalidate balance snapshot. Never sync or copy through backup.

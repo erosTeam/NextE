@@ -4901,30 +4901,6 @@
       "value": "Official Torii catalog snapshot reviewed %s"
     },
     {
-      "name": "comic_torii_billing",
-      "value": "Model billing"
-    },
-    {
-      "name": "comic_torii_billing_managed",
-      "value": "Torii credits"
-    },
-    {
-      "name": "comic_torii_billing_byok",
-      "value": "Use LLM source"
-    },
-    {
-      "name": "comic_torii_billing_managed_hint",
-      "value": "Torii pays the model provider and deducts credits"
-    },
-    {
-      "name": "comic_torii_billing_byok_hint",
-      "value": "1 Torii credit per image plus your provider bill"
-    },
-    {
-      "name": "comic_torii_byok_provider",
-      "value": "BYOK provider"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API key"
     },
@@ -4937,24 +4913,8 @@
       "value": "Available credits"
     },
     {
-      "name": "comic_torii_byok_api_key",
-      "value": "BYOK API key"
-    },
-    {
-      "name": "comic_torii_byok_api_key_hint",
-      "value": "Sent to Torii for this BYOK request"
-    },
-    {
-      "name": "comic_torii_upload_notice",
-      "value": "Cloud route only: Torii receives the page, context, and optional provider key. The on-device route never reads these credentials."
-    },
-    {
       "name": "comic_torii_notice_managed",
       "value": "The selected model uses Torii credits. Images and context are sent only for cloud whole-page translation."
-    },
-    {
-      "name": "comic_torii_notice_byok",
-      "value": "1 Torii credit per page plus LLM charges. Torii receives the selected source endpoint, model, and API key; the endpoint must be publicly reachable."
     },
     {
       "name": "comic_torii_save_failed",

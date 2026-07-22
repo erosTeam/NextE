@@ -4901,30 +4901,6 @@
       "value": "Torii 官方目录快照，复核于 %s"
     },
     {
-      "name": "comic_torii_billing",
-      "value": "模型计费"
-    },
-    {
-      "name": "comic_torii_billing_managed",
-      "value": "Torii credits 代付"
-    },
-    {
-      "name": "comic_torii_billing_byok",
-      "value": "使用 LLM 源"
-    },
-    {
-      "name": "comic_torii_billing_managed_hint",
-      "value": "Torii 代付模型供应商并扣除 credits"
-    },
-    {
-      "name": "comic_torii_billing_byok_hint",
-      "value": "每图 1 Torii credit，另由供应商计费"
-    },
-    {
-      "name": "comic_torii_byok_provider",
-      "value": "BYOK 供应商"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API Key"
     },
@@ -4937,24 +4913,8 @@
       "value": "可用 Credits"
     },
     {
-      "name": "comic_torii_byok_api_key",
-      "value": "BYOK API Key"
-    },
-    {
-      "name": "comic_torii_byok_api_key_hint",
-      "value": "BYOK 请求时会发送给 Torii"
-    },
-    {
-      "name": "comic_torii_upload_notice",
-      "value": "仅限云端路线：Torii 会收到图片、上下文和可选供应商 Key；端侧路线不会读取这些凭据。"
-    },
-    {
       "name": "comic_torii_notice_managed",
       "value": "所选模型使用 Torii credits；图片和上下文仅在云端整图翻译时发送。"
-    },
-    {
-      "name": "comic_torii_notice_byok",
-      "value": "每页 1 Torii credit，LLM 另行计费。Torii 会收到所选源的地址、模型和 API Key；该地址必须可从公网访问。"
     },
     {
       "name": "comic_torii_save_failed",

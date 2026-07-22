@@ -15,14 +15,11 @@ import {
   DiagnosticLogger,
   GroupedListSection,
   LLM_CONSUMER_MANGA_TRANSLATION,
-  LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
   LlmConsumerBinding,
   LlmSourceProfile,
   LlmSourceProfileRepository,
   LlmSourceProfilesState,
   SecondaryListScaffold,
-  TORII_BILLING_BYOK,
-  TORII_BILLING_MANAGED,
   TORII_DEFAULT_MODEL_ID,
   TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
@@ -54,17 +51,9 @@ export struct ComicTranslationSettingsPage {
   @Local private liveEvaluationReport: ComicTranslationLiveEvaluationReport | null = null;
   @Local private visualRouteMenuShown: boolean = false;
   @Local private toriiModelMenuShown: boolean = false;
-  @Local private toriiBillingMenuShown: boolean = false;
-  @Local private toriiByokSourceMenuShown: boolean = false;
-  @Local private toriiByokModelMenuShown: boolean = false;
   @Local private toriiFontMenuShown: boolean = false;
   @Local private visualRoute: string = COMIC_VISUAL_ROUTE_LOCAL;
   @Local private toriiModelId: string = TORII_DEFAULT_MODEL_ID;
-  @Local private toriiBillingMode: string = TORII_BILLING_MANAGED;
-  @Local private toriiByokSourceId: string = '';
-  @Local private toriiByokModelId: string = '';
-  @Local private toriiByokModelOptions: string[] = [];
-  @Local private toriiByokModelsFetching: boolean = false;
   @Local private toriiFontId: string = TORII_FONT_NOTO;
   @Local private toriiApiKeyDraft: string = '';
   @Local private toriiCredits: ToriiCreditsSnapshot | null = null;
@@ -103,9 +92,6 @@ export struct ComicTranslationSettingsPage {
         await ToriiWholePageSecretStore.read(this.ctx())
       this.visualRoute = snapshot.route
       this.toriiModelId = snapshot.toriiModelId
-      this.toriiBillingMode = snapshot.toriiBillingMode
-      this.toriiByokSourceId = snapshot.toriiByokSourceProfileId
-      this.toriiByokModelId = snapshot.toriiByokModelId
       this.toriiFontId = snapshot.toriiFontId
       this.toriiApiKeyDraft = credential.toriiApiKey
       this.toriiCredits = await ToriiCreditsService.cached(
@@ -131,9 +117,6 @@ export struct ComicTranslationSettingsPage {
       new ComicVisualProviderSettingsSnapshot()
     snapshot.route = this.visualRoute
     snapshot.toriiModelId = this.toriiModelId
-    snapshot.toriiBillingMode = this.toriiBillingMode
-    snapshot.toriiByokSourceProfileId = this.toriiByokSourceId
-    snapshot.toriiByokModelId = this.toriiByokModelId
     snapshot.toriiFontId = this.toriiFontId
     const credential: ToriiWholePageCredential = new ToriiWholePageCredential()
     credential.toriiApiKey = this.toriiApiKeyDraft.trim()
@@ -291,129 +274,6 @@ export struct ComicTranslationSettingsPage {
     this.persistVisualSettings(true)
   }
 
-  private selectToriiBilling(mode: string): void {
-    this.toriiBillingMode = mode
-    this.toriiBillingMenuShown = false
-    this.persistVisualSettings(true)
-  }
-
-  private toriiByokSources(): LlmSourceProfile[] {
-    const output: LlmSourceProfile[] = []
-    for (let index: number = 0; index < this.llmSources.profiles.length; index++) {
-      const profile: LlmSourceProfile = this.llmSources.profiles[index]
-      if (profile.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
-        output.push(profile)
-      }
-    }
-    return output
-  }
-
-  private toriiByokSourceText(): ResourceStr {
-    const profile: LlmSourceProfile | null = this.llmSources.findById(this.toriiByokSourceId)
-    return profile === null
-      ? $r('app.string.llm_binding_not_configured')
-      : profile.displayName
-  }
-
-  private toriiByokModelText(): ResourceStr {
-    if (this.toriiByokModelsFetching) {
-      return $r('app.string.comment_translation_fetch_models_loading')
-    }
-    return this.toriiByokModelId.length > 0
-      ? this.toriiByokModelId
-      : $r('app.string.llm_binding_not_configured')
-  }
-
-  private openToriiByokSourceSelector(): void {
-    if (this.toriiByokSources().length === 0) {
-      this.stack.pushPathByName('LlmSourceManager', null)
-      return
-    }
-    this.toriiByokSourceMenuShown = true
-  }
-
-  private selectToriiByokSource(sourceProfileId: string): void {
-    this.toriiByokSourceMenuShown = false
-    if (sourceProfileId === this.toriiByokSourceId) {
-      return
-    }
-    this.toriiByokSourceId = sourceProfileId
-    this.toriiByokModelId = this.knownModelForSource(sourceProfileId)
-    this.toriiByokModelOptions = []
-    this.persistVisualSettings(true)
-    this.fetchToriiByokModels()
-  }
-
-  private knownModelForSource(sourceProfileId: string): string {
-    if (this.llmSources.mangaBinding.sourceProfileId === sourceProfileId &&
-      this.llmSources.mangaBinding.modelId.length > 0) {
-      return this.llmSources.mangaBinding.modelId
-    }
-    if (this.llmSources.commentBinding.sourceProfileId === sourceProfileId &&
-      this.llmSources.commentBinding.modelId.length > 0) {
-      return this.llmSources.commentBinding.modelId
-    }
-    return ''
-  }
-
-  private fetchToriiByokModels(): void {
-    if (this.toriiByokModelsFetching || this.toriiByokSourceId.length === 0) {
-      return
-    }
-    const sourceProfileId: string = this.toriiByokSourceId
-    const profile: LlmSourceProfile | null = this.llmSources.findById(sourceProfileId)
-    if (profile === null) {
-      return
-    }
-    const known: string[] = []
-    this.appendKnownToriiModel(known, this.knownModelForSource(sourceProfileId))
-    this.appendKnownToriiModel(known, this.toriiByokModelId)
-    if (!profile.capabilities.modelCatalog) {
-      this.toriiByokModelOptions = known
-      this.toriiByokModelMenuShown = known.length > 0
-      if (known.length === 0) {
-        this.toast($r('app.string.comment_translation_models_empty'))
-      }
-      return
-    }
-    this.toriiByokModelsFetching = true
-    ComicTranslationModelCatalogService.fetchSource(this.ctx(), sourceProfileId)
-      .then((models: string[]) => {
-        if (this.toriiByokSourceId !== sourceProfileId) {
-          return
-        }
-        for (let index: number = 0; index < models.length; index++) {
-          this.appendKnownToriiModel(known, models[index])
-        }
-        this.toriiByokModelOptions = known
-        if (known.length === 0) {
-          this.toast($r('app.string.comment_translation_models_empty'))
-          return
-        }
-        this.toriiByokModelMenuShown = true
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('comic-translation', 'torii_byok_model_catalog_failed', error.message)
-        this.toast($r('app.string.comment_translation_models_failed', error.message))
-      })
-      .finally(() => {
-        this.toriiByokModelsFetching = false
-      })
-  }
-
-  private appendKnownToriiModel(models: string[], modelId: string): void {
-    const normalized: string = modelId.trim()
-    if (normalized.length > 0 && models.indexOf(normalized) < 0) {
-      models.push(normalized)
-    }
-  }
-
-  private selectToriiByokModel(modelId: string): void {
-    this.toriiByokModelId = modelId
-    this.toriiByokModelMenuShown = false
-    this.persistVisualSettings(true)
-  }
-
   private toriiFontText(): string {
     return this.toriiFontId === TORII_FONT_WILDWORDS ? 'WildWords' : 'NotoSans'
   }
@@ -422,18 +282,6 @@ export struct ComicTranslationSettingsPage {
     this.toriiFontId = fontId
     this.toriiFontMenuShown = false
     this.persistVisualSettings(true)
-  }
-
-  private toriiBillingText(): ResourceStr {
-    return this.toriiBillingMode === TORII_BILLING_BYOK
-      ? $r('app.string.comic_torii_billing_byok')
-      : $r('app.string.comic_torii_billing_managed')
-  }
-
-  private toriiNotice(): ResourceStr {
-    return this.toriiBillingMode === TORII_BILLING_BYOK
-      ? $r('app.string.comic_torii_notice_byok')
-      : $r('app.string.comic_torii_notice_managed')
   }
 
   private refreshToriiCredits(): void {
@@ -525,9 +373,7 @@ export struct ComicTranslationSettingsPage {
   }
 
   private toriiReady(): boolean {
-    return this.toriiApiKeyDraft.trim().length > 0 &&
-      (this.toriiBillingMode === TORII_BILLING_MANAGED ||
-        (this.toriiByokSourceId.length > 0 && this.toriiByokModelId.length > 0))
+    return this.toriiApiKeyDraft.trim().length > 0
   }
 
   private async runToriiLiveEvaluation(): Promise<void> {
@@ -821,68 +667,6 @@ export struct ComicTranslationSettingsPage {
   }
 
   @Builder
-  private ToriiBillingMenu() {
-    Menu() {
-      MenuItem({
-        content: $r('app.string.comic_torii_billing_managed'),
-        symbolEndIcon: this.toriiBillingMode === TORII_BILLING_MANAGED
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.selectToriiBilling(TORII_BILLING_MANAGED)
-      })
-      MenuItem({
-        content: $r('app.string.comic_torii_billing_byok'),
-        symbolEndIcon: this.toriiBillingMode === TORII_BILLING_BYOK
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.selectToriiBilling(TORII_BILLING_BYOK)
-      })
-    }
-  }
-
-  @Builder
-  private ToriiByokSourceMenu() {
-    Menu() {
-      ForEach(
-        this.toriiByokSources(),
-        (profile: LlmSourceProfile) => {
-          MenuItem({
-            content: profile.displayName,
-            symbolEndIcon: this.toriiByokSourceId === profile.sourceProfileId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            this.selectToriiByokSource(profile.sourceProfileId)
-          })
-        },
-        (profile: LlmSourceProfile) => profile.sourceProfileId,
-      )
-    }
-  }
-
-  @Builder
-  private ToriiByokModelMenu() {
-    Menu() {
-      ForEach(
-        this.toriiByokModelOptions,
-        (modelId: string) => {
-          MenuItem({
-            content: modelId,
-            symbolEndIcon: this.toriiByokModelId === modelId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            this.selectToriiByokModel(modelId)
-          })
-        },
-        (modelId: string) => modelId,
-      )
-    }
-  }
-
-  @Builder
   private ToriiFontMenu() {
     Menu() {
       MenuItem({
@@ -1086,80 +870,21 @@ export struct ComicTranslationSettingsPage {
             GroupedListSection() {
               Column() {
                 ConciseListRow({
-                  title: $r('app.string.comic_torii_billing'),
-                  leadingIcon: $r('sys.symbol.creditcard'),
-                  trailingText: this.toriiBillingText(),
+                  title: $r('app.string.comic_torii_model'),
+                  leadingIcon: $r('sys.symbol.translate'),
+                  trailingText: this.toriiModelText(),
                   trailingDropdown: true,
                   action: () => {
-                    this.toriiBillingMenuShown = true
+                    this.toriiModelMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.toriiBillingMenuShown, this.ToriiBillingMenu, {
+              .bindMenu(this.toriiModelMenuShown, this.ToriiModelMenu, {
                 placement: Placement.BottomRight,
                 onDisappear: () => {
-                  this.toriiBillingMenuShown = false
+                  this.toriiModelMenuShown = false
                 },
               })
-              this.rowDivider()
-              if (this.toriiBillingMode === TORII_BILLING_MANAGED) {
-                Column() {
-                  ConciseListRow({
-                    title: $r('app.string.comic_torii_model'),
-                    leadingIcon: $r('sys.symbol.translate'),
-                    trailingText: this.toriiModelText(),
-                    trailingDropdown: true,
-                    action: () => {
-                      this.toriiModelMenuShown = true
-                    },
-                  })
-                }
-                .bindMenu(this.toriiModelMenuShown, this.ToriiModelMenu, {
-                  placement: Placement.BottomRight,
-                  onDisappear: () => {
-                    this.toriiModelMenuShown = false
-                  },
-                })
-              } else {
-                Column() {
-                  ConciseListRow({
-                    title: $r('app.string.llm_binding_source'),
-                    leadingIcon: $r('sys.symbol.cloud'),
-                    trailingText: this.toriiByokSourceText(),
-                    trailingDropdown: this.toriiByokSources().length > 0,
-                    showChevron: this.toriiByokSources().length === 0,
-                    action: () => {
-                      this.openToriiByokSourceSelector()
-                    },
-                  })
-                }
-                .bindMenu(this.toriiByokSourceMenuShown, this.ToriiByokSourceMenu, {
-                  placement: Placement.BottomRight,
-                  onDisappear: () => {
-                    this.toriiByokSourceMenuShown = false
-                  },
-                })
-                this.rowDivider()
-                Column() {
-                  ConciseListRow({
-                    title: $r('app.string.llm_binding_model'),
-                    leadingIcon: $r('sys.symbol.arrow_down_circle'),
-                    trailingText: this.toriiByokModelText(),
-                    trailingDropdown: true,
-                    isEnabled: this.toriiByokSourceId.length > 0 &&
-                      !this.toriiByokModelsFetching,
-                    action: () => {
-                      this.fetchToriiByokModels()
-                    },
-                  })
-                }
-                .bindMenu(this.toriiByokModelMenuShown, this.ToriiByokModelMenu, {
-                  placement: Placement.BottomRight,
-                  onDisappear: () => {
-                    this.toriiByokModelMenuShown = false
-                  },
-                })
-              }
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -1208,7 +933,7 @@ export struct ComicTranslationSettingsPage {
             }
           }
           ListItem() {
-            Text(this.toriiNotice())
+            Text($r('app.string.comic_torii_notice_managed'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor($r('sys.color.font_tertiary'))
               .width('100%')

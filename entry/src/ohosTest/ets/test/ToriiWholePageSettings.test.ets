@@ -1,15 +1,8 @@
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
-  COMIC_VISUAL_ROUTE_TORII,
-  ComicVisualProviderSettingsSnapshot,
-  TORII_BILLING_BYOK,
-  TORII_BILLING_MANAGED,
-  TORII_BYOK_GOOGLE,
-  TORII_BYOK_OPENROUTER,
   TORII_CREDITS_ENDPOINT,
   TORII_DEFAULT_MODEL_ID,
-  TORII_FONT_WILDWORDS,
   ToriiCreditsHttpTransport,
   ToriiCreditsService,
   ToriiCreditsSnapshot,
@@ -50,50 +43,10 @@ export default function toriiWholePageSettingsTest(): void {
       expect(models.length).assertEqual(8)
       expect(models[0].modelId).assertEqual(TORII_DEFAULT_MODEL_ID)
       expect(ToriiTranslatorModelCatalog.find('manually-entered-model')).assertEqual(null)
-      expect(ToriiTranslatorModelCatalog.compatible(
-        'gpt-5.4',
-        TORII_BILLING_MANAGED,
-        TORII_BYOK_GOOGLE,
-      )).assertEqual(true)
+      expect(ToriiTranslatorModelCatalog.find('gpt-5.4') !== null).assertEqual(true)
     })
 
-    it('keeps the Torii catalog separate from reusable OpenAI-compatible BYOK bindings', 0, () => {
-      expect(ToriiTranslatorModelCatalog.compatible(
-        'gemini-3.1-flash-lite',
-        TORII_BILLING_BYOK,
-        TORII_BYOK_GOOGLE,
-      )).assertEqual(true)
-      expect(ToriiTranslatorModelCatalog.compatible(
-        'gpt-5.4',
-        TORII_BILLING_BYOK,
-        TORII_BYOK_GOOGLE,
-      )).assertEqual(false)
-      expect(ToriiTranslatorModelCatalog.compatible(
-        'gpt-5.4',
-        TORII_BILLING_BYOK,
-        TORII_BYOK_OPENROUTER,
-      )).assertEqual(true)
-
-      const byok: ComicVisualProviderSettingsSnapshot =
-        new ComicVisualProviderSettingsSnapshot()
-      byok.route = COMIC_VISUAL_ROUTE_TORII
-      byok.toriiBillingMode = TORII_BILLING_BYOK
-      byok.toriiByokSourceProfileId = 'fixture-openai-compatible'
-      byok.toriiByokModelId = 'fixture-custom-model'
-      byok.toriiFontId = TORII_FONT_WILDWORDS
-      byok.assertValid()
-
-      byok.toriiByokSourceProfileId = ''
-      let rejected: boolean = false
-      try {
-        byok.assertValid()
-      } catch (_error) {
-        rejected = true
-      }
-      expect(rejected).assertEqual(true)
-    })
-
-    it('round-trips the Torii credential, migrates legacy BYOK storage, and rejects controls', 0, () => {
+    it('round-trips the Torii credential, drops legacy BYOK secrets, and rejects controls', 0, () => {
       const credential: ToriiWholePageCredential = new ToriiWholePageCredential()
       credential.toriiApiKey = 'fixture-torii-key'
       const raw: string = ToriiWholePageCredential.serialize(credential)

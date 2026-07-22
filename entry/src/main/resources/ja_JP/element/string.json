@@ -4901,30 +4901,6 @@
       "value": "Torii 公式カタログのスナップショット（確認日 %s）"
     },
     {
-      "name": "comic_torii_billing",
-      "value": "モデル料金"
-    },
-    {
-      "name": "comic_torii_billing_managed",
-      "value": "Torii credits"
-    },
-    {
-      "name": "comic_torii_billing_byok",
-      "value": "LLM ソースを使用"
-    },
-    {
-      "name": "comic_torii_billing_managed_hint",
-      "value": "Torii がモデル料金を支払い credits を差し引きます"
-    },
-    {
-      "name": "comic_torii_billing_byok_hint",
-      "value": "画像ごとに 1 Torii credit とプロバイダー料金"
-    },
-    {
-      "name": "comic_torii_byok_provider",
-      "value": "BYOK プロバイダー"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API Key"
     },
@@ -4937,24 +4913,8 @@
       "value": "利用可能な Credits"
     },
     {
-      "name": "comic_torii_byok_api_key",
-      "value": "BYOK API Key"
-    },
-    {
-      "name": "comic_torii_byok_api_key_hint",
-      "value": "BYOK リクエスト時に Torii へ送信されます"
-    },
-    {
-      "name": "comic_torii_upload_notice",
-      "value": "クラウドルートのみ: Torii は画像、コンテキスト、任意のプロバイダー Key を受信します。端末内ルートはこれらを読み取りません。"
-    },
-    {
       "name": "comic_torii_notice_managed",
       "value": "選択したモデルは Torii credits を使用します。画像とコンテキストはクラウドページ翻訳時のみ送信されます。"
-    },
-    {
-      "name": "comic_torii_notice_byok",
-      "value": "1 ページにつき 1 Torii credit と LLM 料金が必要です。Torii に URL、モデル、API Key が送信され、URL は公開アクセス可能である必要があります。"
     },
     {
       "name": "comic_torii_save_failed",
