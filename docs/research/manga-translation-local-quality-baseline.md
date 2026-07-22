@@ -3,8 +3,8 @@
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v20`
-- **current production render profile**: `reader-local-bubble-layout-v33` /
-  `local-ctd-aot-inpaint-v24` / `local-bubble-typography-v28`
+- **current production render profile**: `reader-local-bubble-layout-v36` /
+  `local-ctd-aot-inpaint-v24` / `local-bubble-typography-v31`
 - **measured**: 2026-07-21
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -101,8 +101,14 @@ v33 将这条边界前移到翻译之前。同一 OCR tile 内，被明显更大
 压力”的补充语义。该结果说明嵌套 OCR 的根因在分析/翻译边界，而不是继续在渲染后拼接短句。目标设备
 回归仍为 12/12，signed app、signed `entry@ohosTest` 与 V2 inventory 均通过。
 
-视觉结论仍是 **未达到生产可用**：v32 恢复短句后的拥挤已由 v33 消除；当前剩余的是长段落仍会侵入
-拟声词/画面空间，且页脚 OCR 仍有残留。v30 完成时
+v36 修正横排空间计算中的独立缺陷：历史 360 px 扩展上限不再反向缩窄本来就更宽的源段落；实际宽度超过
+360 px 时，额外宽度只用于减少换行，单块字号仍以 360 px 参考宽度拟合，不能随矩形变宽而增大。设备
+`237` 复用同一 v20 英文文档重排后，左上段落从约 360 px 恢复到接近 435 px 源宽，行数和垂直占用下降，
+右侧与左下段落保持稳定；目标设备回归升为 13/13，signed app、signed `entry@ohosTest` 与 V2 inventory
+均通过。
+
+视觉结论仍是 **未达到生产可用**：v33 已消除重复短句，v36 已修复宽段落被错误压窄；当前渲染仍没有
+感知拟声词、人物和其他画面障碍的能力，且页脚 OCR 仍有残留。v30 完成时
 还触发过 `THREAD_BLOCK_6S`，当时进程 RSS 约 1.95 GiB，主线程
 停在结果完成后的系统 Toast 路径；Reader 现取消这条冗余成功 Toast，只保留结果图片和错误反馈。v31 在
 ready 后继续响应控件点击并保持进程存活，但单次未复现不能替代连续页峰值内存与 appfreeze 回归门。

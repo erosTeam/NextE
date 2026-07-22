@@ -1650,13 +1650,26 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       canvas.detachBrush()
       return
     }
+    let blockFontCap: number = block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      horizontalFontCap : LOCAL_MAX_FONT_SIZE
+    if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT && textRect.width() > 360) {
+      const referenceWidth: number = 360
+      const referencePadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
+      const referenceLayout: LocalTextLayout = ComicLocalVisualBackend.layout(
+        translatedText,
+        Math.max(1, referenceWidth - referencePadding * 2),
+        contentHeight,
+        font,
+        blockFontCap,
+      )
+      blockFontCap = Math.min(blockFontCap, referenceLayout.fontSize)
+    }
     const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
       translatedText,
       contentWidth,
       contentHeight,
       font,
-      block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-        horizontalFontCap : LOCAL_MAX_FONT_SIZE,
+      blockFontCap,
     )
     textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
     canvas.attachPen(textPen)
@@ -1788,11 +1801,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         block.styleHint,
         LOCAL_HORIZONTAL_STYLE_HINT,
       )
-      const horizontalPadding: number = Math.max(4, Math.min(12, rect.width() * 0.08))
+      // Wider source paragraphs may use their full geometry for wrapping, but they must not
+      // raise the page-wide font cap. Measure the cap against the historical 360 px reference
+      // width so added space reduces line count instead of enlarging every paragraph.
+      const referenceWidth: number = Math.min(360, rect.width())
+      const horizontalPadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
       const verticalPadding: number = Math.max(4, Math.min(10, rect.height() * 0.08))
       const layout: LocalTextLayout = ComicLocalVisualBackend.layout(
         renderPlans[index].translatedText,
-        Math.max(1, rect.width() - horizontalPadding * 2),
+        Math.max(1, referenceWidth - horizontalPadding * 2),
         Math.max(1, rect.height() - verticalPadding * 2),
         font,
         LOCAL_MAX_FONT_SIZE,
@@ -2059,14 +2076,18 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const safeMargin: number = Math.min(16, imageWidth * 0.02, imageHeight * 0.02)
     const availableWidth: number = Math.max(1, imageWidth - safeMargin * 2)
     const availableHeight: number = Math.max(1, imageHeight - safeMargin * 2)
+    const preferredWidth: number = Math.max(
+      rawWidth + 60,
+      rawWidth * 2.2,
+      Math.min(320, rawHeight * 0.65),
+    )
+    // The 360 px expansion cap must not make an already-wide paragraph narrower than its
+    // detected source region. Preserving that width reduces Latin line count and keeps the
+    // translation inside the original paragraph's vertical footprint instead of crowding
+    // artwork beneath it.
     const targetWidth: number = Math.min(
       availableWidth,
-      360,
-      Math.max(
-        rawWidth + 60,
-        rawWidth * 2.2,
-        Math.min(320, rawHeight * 0.65),
-      ),
+      Math.max(rawWidth, Math.min(360, preferredWidth)),
     )
     const targetHeight: number = Math.min(
       availableHeight,

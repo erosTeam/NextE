@@ -312,6 +312,44 @@ class EdgeRenderOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class WideParagraphOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'wide-paragraph-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('右側の縦書き列です', 100, 180, 150, 580))
+    result.lines.push(this.line('左側の縦書き列です', 550, 180, 600, 580))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(left, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, top))
+    line.polygon.push(new ComicLocalOcrPoint(right, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(left, bottom))
+    return line
+  }
+}
+
 class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
   profileId(): string {
     return 'adjacent-column-region-fixture'
@@ -958,6 +996,52 @@ export default function comicLocalVisualBackendTest(): void {
           )
           expect(bounds.changed > 0).assertEqual(true)
           expect(bounds.left >= 24).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('preserves a wide source paragraph width for Latin layout', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/wide-paragraph-source.png`
+        let renderedPath: string = ''
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new WideParagraphOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM',
+            '',
+            14,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.right - bounds.left > 360).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)
