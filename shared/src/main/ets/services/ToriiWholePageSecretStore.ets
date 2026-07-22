@@ -2,24 +2,28 @@ import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 
-const TORII_CREDENTIAL_VERSION: number = 1
+const TORII_CREDENTIAL_VERSION: number = 2
+const TORII_LEGACY_CREDENTIAL_VERSION: number = 1
 const MAX_TORII_CREDENTIAL_CHARS: number = 16 * 1024
 const MAX_TORII_API_KEY_CHARS: number = 8192
 
 class StoredToriiWholePageCredential {
   version: number = TORII_CREDENTIAL_VERSION
   toriiApiKey: string = ''
+}
+
+class LegacyStoredToriiWholePageCredential {
+  version: number = TORII_LEGACY_CREDENTIAL_VERSION
+  toriiApiKey: string = ''
   byokApiKey: string = ''
 }
 
 export class ToriiWholePageCredential {
   toriiApiKey: string = ''
-  byokApiKey: string = ''
 
   copy(): ToriiWholePageCredential {
     const value: ToriiWholePageCredential = new ToriiWholePageCredential()
     value.toriiApiKey = this.toriiApiKey
-    value.byokApiKey = this.byokApiKey
     return value
   }
 
@@ -38,24 +42,30 @@ export class ToriiWholePageCredential {
       throw new Error('Torii credential is invalid')
     }
     if (stored === null || typeof stored !== 'object' ||
-      stored.version !== TORII_CREDENTIAL_VERSION ||
-      typeof stored.toriiApiKey !== 'string' || typeof stored.byokApiKey !== 'string') {
+      (stored.version !== TORII_CREDENTIAL_VERSION &&
+        stored.version !== TORII_LEGACY_CREDENTIAL_VERSION) ||
+      typeof stored.toriiApiKey !== 'string') {
       throw new Error('Torii credential is invalid')
     }
+    if (stored.version === TORII_LEGACY_CREDENTIAL_VERSION) {
+      const legacy: LegacyStoredToriiWholePageCredential =
+        JSON.parse(rawValue) as LegacyStoredToriiWholePageCredential
+      if (typeof legacy.byokApiKey !== 'string') {
+        throw new Error('Torii credential is invalid')
+      }
+    }
     output.toriiApiKey = stored.toriiApiKey
-    output.byokApiKey = stored.byokApiKey
     ToriiWholePageCredential.validate(output)
     return output
   }
 
   static serialize(value: ToriiWholePageCredential): string {
     ToriiWholePageCredential.validate(value)
-    if (value.toriiApiKey.length === 0 && value.byokApiKey.length === 0) {
+    if (value.toriiApiKey.length === 0) {
       return ''
     }
     const stored: StoredToriiWholePageCredential = new StoredToriiWholePageCredential()
     stored.toriiApiKey = value.toriiApiKey
-    stored.byokApiKey = value.byokApiKey
     const raw: string = JSON.stringify(stored)
     if (raw.length <= 0 || raw.length > MAX_TORII_CREDENTIAL_CHARS || /[\r\n]/.test(raw)) {
       throw new Error('Torii credential is invalid')
@@ -65,7 +75,6 @@ export class ToriiWholePageCredential {
 
   private static validate(value: ToriiWholePageCredential): void {
     ToriiWholePageCredential.validateKey(value.toriiApiKey)
-    ToriiWholePageCredential.validateKey(value.byokApiKey)
   }
 
   private static validateKey(value: string): void {

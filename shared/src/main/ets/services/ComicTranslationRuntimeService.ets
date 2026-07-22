@@ -3,12 +3,14 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
+import { LLM_SOURCE_TYPE_OPENAI_COMPATIBLE, LlmSourceProfile } from '../model/LlmSourceProfile'
 import { ComicRenderProfile } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
   COMIC_VISUAL_ROUTE_TORII,
   ComicVisualProviderSettings,
   ComicVisualProviderSettingsSnapshot,
+  TORII_BILLING_BYOK,
 } from '../settings/ComicVisualProviderSettings'
 import { CacheStat } from './CacheStat'
 import {
@@ -28,6 +30,8 @@ import {
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
 import { ComicTranslationRepository } from './ComicTranslationRepository'
 import { PersistentComicTranslationRepository } from './ComicTranslationPersistentRepository'
+import { LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
+import { LlmSourceSecretStore } from './LlmSourceSecretStore'
 import {
   ComicRegionRenderBackend,
   ComicTextTranslator,
@@ -189,10 +193,29 @@ export class ComicTranslationRuntimeService {
       await ToriiWholePageSecretStore.read(context)
     const config: ToriiWholePageConfig = new ToriiWholePageConfig()
     config.toriiApiKey = credential.toriiApiKey
-    config.modelId = settings.toriiModelId
     config.billingMode = settings.toriiBillingMode
-    config.byokProvider = settings.toriiByokProvider
-    config.byokApiKey = credential.byokApiKey
+    config.fontId = settings.toriiFontId
+    if (settings.toriiBillingMode === TORII_BILLING_BYOK) {
+      if (!settings.byokConfigured()) {
+        throw new Error('Torii BYOK LLM source is not configured')
+      }
+      const profile: LlmSourceProfile = LlmSourceRuntimeResolver.profile(
+        settings.toriiByokSourceProfileId,
+      )
+      if (profile.sourceType !== LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
+        throw new Error('Torii BYOK requires an OpenAI-compatible LLM source')
+      }
+      config.modelId = settings.toriiByokModelId
+      config.byokSourceProfileId = profile.sourceProfileId
+      config.byokSourceRevision = profile.sourceRevision
+      config.byokBaseUrl = profile.baseUrl
+      config.byokApiKey = await LlmSourceSecretStore.readApiKey(
+        context,
+        profile.sourceProfileId,
+      )
+    } else {
+      config.modelId = settings.toriiModelId
+    }
     config.assertValid()
     const contextStore: ToriiWholePageContextStore =
       ComicTranslationRuntimeService.toriiContextStoreFor(context)

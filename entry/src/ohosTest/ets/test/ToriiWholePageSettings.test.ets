@@ -6,10 +6,10 @@ import {
   TORII_BILLING_BYOK,
   TORII_BILLING_MANAGED,
   TORII_BYOK_GOOGLE,
-  TORII_BYOK_OPENAI,
   TORII_BYOK_OPENROUTER,
   TORII_CREDITS_ENDPOINT,
   TORII_DEFAULT_MODEL_ID,
+  TORII_FONT_WILDWORDS,
   ToriiCreditsHttpTransport,
   ToriiCreditsService,
   ToriiCreditsSnapshot,
@@ -57,7 +57,7 @@ export default function toriiWholePageSettingsTest(): void {
       )).assertEqual(true)
     })
 
-    it('filters direct BYOK models while OpenRouter accepts the published catalog', 0, () => {
+    it('keeps the Torii catalog separate from reusable OpenAI-compatible BYOK bindings', 0, () => {
       expect(ToriiTranslatorModelCatalog.compatible(
         'gemini-3.1-flash-lite',
         TORII_BILLING_BYOK,
@@ -74,31 +74,38 @@ export default function toriiWholePageSettingsTest(): void {
         TORII_BYOK_OPENROUTER,
       )).assertEqual(true)
 
-      const invalid: ComicVisualProviderSettingsSnapshot =
+      const byok: ComicVisualProviderSettingsSnapshot =
         new ComicVisualProviderSettingsSnapshot()
-      invalid.route = COMIC_VISUAL_ROUTE_TORII
-      invalid.toriiModelId = 'gemini-3.1-flash-lite'
-      invalid.toriiBillingMode = TORII_BILLING_BYOK
-      invalid.toriiByokProvider = TORII_BYOK_OPENAI
+      byok.route = COMIC_VISUAL_ROUTE_TORII
+      byok.toriiBillingMode = TORII_BILLING_BYOK
+      byok.toriiByokSourceProfileId = 'fixture-openai-compatible'
+      byok.toriiByokModelId = 'fixture-custom-model'
+      byok.toriiFontId = TORII_FONT_WILDWORDS
+      byok.assertValid()
+
+      byok.toriiByokSourceProfileId = ''
       let rejected: boolean = false
       try {
-        invalid.assertValid()
+        byok.assertValid()
       } catch (_error) {
         rejected = true
       }
       expect(rejected).assertEqual(true)
     })
 
-    it('round-trips bounded credentials and rejects control characters', 0, () => {
+    it('round-trips the Torii credential, migrates legacy BYOK storage, and rejects controls', 0, () => {
       const credential: ToriiWholePageCredential = new ToriiWholePageCredential()
       credential.toriiApiKey = 'fixture-torii-key'
-      credential.byokApiKey = 'fixture-provider-key'
       const raw: string = ToriiWholePageCredential.serialize(credential)
       const restored: ToriiWholePageCredential = ToriiWholePageCredential.parse(raw)
       expect(restored.toriiApiKey).assertEqual(credential.toriiApiKey)
-      expect(restored.byokApiKey).assertEqual(credential.byokApiKey)
+      expect(raw.includes('fixture-provider-key')).assertFalse()
+      const legacy: ToriiWholePageCredential = ToriiWholePageCredential.parse(
+        '{"version":1,"toriiApiKey":"fixture-legacy-key","byokApiKey":"discarded"}',
+      )
+      expect(legacy.toriiApiKey).assertEqual('fixture-legacy-key')
 
-      credential.byokApiKey = 'unsafe\nkey'
+      credential.toriiApiKey = 'unsafe\nkey'
       let rejected: boolean = false
       try {
         ToriiWholePageCredential.serialize(credential)

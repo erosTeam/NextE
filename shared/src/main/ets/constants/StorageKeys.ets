@@ -117,10 +117,15 @@ export class StorageKeys {
     'comicTranslation.torii.billingMode'
   static readonly COMIC_TRANSLATION_TORII_BYOK_PROVIDER: string =
     'comicTranslation.torii.byokProvider'
+  static readonly COMIC_TRANSLATION_TORII_BYOK_SOURCE_PROFILE: string =
+    'comicTranslation.torii.byokSourceProfile'
+  static readonly COMIC_TRANSLATION_TORII_BYOK_MODEL: string =
+    'comicTranslation.torii.byokModel'
+  static readonly COMIC_TRANSLATION_TORII_FONT: string = 'comicTranslation.torii.font'
   // Device-local stale-while-revalidate balance snapshot. Never sync or copy through backup.
   static readonly COMIC_TRANSLATION_TORII_CREDITS_CACHE: string =
     'comicTranslation.torii.creditsCache'
-  // Torii account and optional upstream BYOK secrets. Encrypted backup only; never sync.
+  // Torii account secret. Encrypted backup only; never sync.
   static readonly COMIC_TRANSLATION_TORII_CREDENTIAL: string =
     'comicTranslation.torii.credential'
   static readonly COMIC_TRANSLATION_RENDER_SERVICE_URL: string =

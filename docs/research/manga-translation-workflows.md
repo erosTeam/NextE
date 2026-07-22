@@ -153,7 +153,13 @@ Torii 的 `translator` 模型选择与 BYOK 是两个正交参数：不启用 BY
 快速廉价模型未必带来显著绝对节省，因为 1 credit 扫描费本来就是主要下限；它更大的价值是账单归属、使用
 自有额度和固定 Torii 费用，而不是获得模型选择权。NextE 不据此拆接 Torii 的子阶段：这样会把云端服务的
 区域、mask、字体和重试语义混入自有端侧路线，模糊两条路线的质量与责任边界。Torii 只验证一键整图；
-端侧路线继续使用共享 LLM 源、Codex OAuth、术语上下文和自有视觉处理。
+端侧路线继续使用共享 LLM 源、Codex OAuth、术语上下文和自有视觉处理。Torii BYOK 只复用其中的
+OpenAI-compatible 源，将源 URL、所选模型和可选 Key 按官方 self-hosted 契约披露给 Torii；不复制凭据，
+也不把 Codex OAuth token 转交给第三方。
+
+字体属于 Torii 整图渲染参数。官方目录把 NotoSans 标为覆盖 130 种语言，把 WildWords 标为覆盖 60 种语言；
+前者更适合中文等广字符集的稳妥回退，后者更接近漫画手写字形。NextE 默认 NotoSans，同时允许显式选择
+WildWords，并把字体纳入译图缓存身份。
 
 #### ImageTranslate.ai、PixLab 与 ImgText
 

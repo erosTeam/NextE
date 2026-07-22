@@ -3,12 +3,15 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
+import { ComicGlossaryTerm, ComicGlossaryTermStatus } from '../model/ComicTranslation'
 import { ComicRenderedPage } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { AxiosBinaryResponse, AxiosHttpClient } from '../network/AxiosHttpClient'
 import {
   TORII_BILLING_BYOK,
   TORII_BILLING_MANAGED,
+  TORII_FONT_NOTO,
+  TORII_FONT_WILDWORDS,
   ToriiTranslatorModelCatalog,
 } from '../settings/ComicVisualProviderSettings'
 import {
@@ -24,14 +27,13 @@ import {
 
 export const TORII_WHOLE_PAGE_ENDPOINT: string =
   'https://api.toriitranslate.com/api/v2/upload'
-export const TORII_WHOLE_PAGE_SOURCE_REVISION: number = 1
-export const TORII_WHOLE_PAGE_PROMPT_VERSION: string = 'torii-whole-page-v1'
-export const TORII_WHOLE_PAGE_RENDER_PROFILE_ID: string = 'torii-whole-page-noto-v1'
+export const TORII_WHOLE_PAGE_SOURCE_REVISION: number = 2
+export const TORII_WHOLE_PAGE_PROMPT_VERSION: string = 'torii-whole-page-v2'
+export const TORII_WHOLE_PAGE_RENDER_PROFILE_ID: string = 'torii-whole-page-v2'
 export const TORII_WHOLE_PAGE_SOURCE_TREATMENT_PROFILE_ID: string =
   'torii-cloud-inpaint-v1'
-export const TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID: string = 'torii-cloud-noto-layout-v1'
+export const TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID: string = 'torii-cloud-layout-v2'
 
-const TORII_FONT_ID: string = 'noto'
 const MAX_TORII_SOURCE_IMAGE_BYTES: number = 20 * 1024 * 1024
 const MAX_TORII_MULTIPART_BYTES: number = 24 * 1024 * 1024
 const MAX_TORII_RESPONSE_BYTES: number = 96 * 1024 * 1024
@@ -70,38 +72,61 @@ export class ToriiWholePageConfig {
   toriiApiKey: string = ''
   modelId: string = ''
   billingMode: string = TORII_BILLING_MANAGED
-  byokProvider: string = ''
+  fontId: string = TORII_FONT_NOTO
+  byokSourceProfileId: string = ''
+  byokSourceRevision: number = 0
+  byokBaseUrl: string = ''
   byokApiKey: string = ''
 
   assertValid(): void {
     ToriiWholePageConfig.validateKey(this.toriiApiKey, true)
     if ((this.billingMode !== TORII_BILLING_MANAGED &&
       this.billingMode !== TORII_BILLING_BYOK) ||
-      !ToriiTranslatorModelCatalog.compatible(
-        this.modelId,
-        this.billingMode,
-        this.byokProvider,
-      )) {
+      (this.fontId !== TORII_FONT_NOTO && this.fontId !== TORII_FONT_WILDWORDS)) {
       throw new Error('Torii whole-page configuration is invalid')
     }
-    if (this.billingMode === TORII_BILLING_BYOK) {
-      ToriiWholePageConfig.validateKey(this.byokApiKey, true)
-    } else if (this.byokApiKey.length > 0) {
-      ToriiWholePageConfig.validateKey(this.byokApiKey, false)
+    if (this.billingMode === TORII_BILLING_MANAGED) {
+      if (ToriiTranslatorModelCatalog.find(this.modelId) === null) {
+        throw new Error('Torii whole-page configuration is invalid')
+      }
+      return
     }
+    if (!ToriiWholePageConfig.identifier(this.modelId, 160) ||
+      !ToriiWholePageConfig.identifier(this.byokSourceProfileId, 160) ||
+      !ToriiWholePageConfig.positiveInteger(this.byokSourceRevision) ||
+      !ToriiWholePageConfig.httpUrl(this.byokBaseUrl)) {
+      throw new Error('Torii whole-page BYOK source is invalid')
+    }
+    ToriiWholePageConfig.validateKey(this.byokApiKey, false)
   }
 
   sourceProfileId(): string {
     this.assertValid()
     const billing: string = this.billingMode === TORII_BILLING_BYOK
-      ? `byok-${this.byokProvider}`
+      ? `byok-source-${this.byokSourceProfileId}-r${this.byokSourceRevision}`
       : 'managed'
     const secretIdentity: string = this.billingMode === TORII_BILLING_BYOK
-      ? `${this.toriiApiKey}\n${this.byokApiKey}`
+      ? `${this.toriiApiKey}\n${this.byokBaseUrl}\n${this.byokApiKey}`
       : this.toriiApiKey
     return `torii-whole-page:${billing}:${ToriiWholePageConfig.sha256Text(
-      secretIdentity,
+      `${secretIdentity}\n${this.fontId}`,
     ).substring(0, 16)}`
+  }
+
+  private static identifier(value: string, maxChars: number): boolean {
+    return value.length > 0 && value.length <= maxChars && value === value.trim() &&
+      !/[\u0000-\u001f\u007f]/.test(value)
+  }
+
+  private static positiveInteger(value: number): boolean {
+    return Number.isFinite(value) && value > 0 && Math.floor(value) === value &&
+      value <= Number.MAX_SAFE_INTEGER
+  }
+
+  private static httpUrl(value: string): boolean {
+    return value.length > 0 && value.length <= 2048 && value === value.trim() &&
+      !/[\u0000-\u001f\u007f]/.test(value) &&
+      (value.startsWith('https://') || value.startsWith('http://'))
   }
 
   private static validateKey(value: string, required: boolean): void {
@@ -207,7 +232,7 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       request.context.targetLanguage,
       context,
       ToriiWholePageRenderBackend.customPrompt(request),
-      TORII_FONT_ID,
+      this.config.fontId,
       this.sourceProfileId(),
       this.modelId(),
       this.promptVersion(),
@@ -357,7 +382,7 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       ToriiWholePageRenderBackend.targetLanguage(request.context.targetLanguage),
     ))
     parts.push(ToriiWholePageRenderBackend.textPart('translator', this.modelId()))
-    parts.push(ToriiWholePageRenderBackend.textPart('font', TORII_FONT_ID))
+    parts.push(ToriiWholePageRenderBackend.textPart('font', this.config.fontId))
     parts.push(ToriiWholePageRenderBackend.textPart('text_align', 'auto'))
     parts.push(ToriiWholePageRenderBackend.textPart('stroke_disabled', 'false'))
     parts.push(ToriiWholePageRenderBackend.textPart('min_font_size', '6'))
@@ -372,9 +397,15 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     ))
     if (this.config.billingMode === TORII_BILLING_BYOK) {
       parts.push(ToriiWholePageRenderBackend.textPart(
-        `x-byok-${this.config.byokProvider}`,
-        this.config.byokApiKey,
+        'x-byok-local-url',
+        this.config.byokBaseUrl,
       ))
+      if (this.config.byokApiKey.length > 0) {
+        parts.push(ToriiWholePageRenderBackend.textPart(
+          'x-byok-local',
+          this.config.byokApiKey,
+        ))
+      }
     }
     return parts
   }
@@ -385,8 +416,43 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       request.context.targetLanguage +
       '. Keep character names, forms of address, tone, and references consistent. ' +
       'Preserve the original horizontal or vertical reading direction and do not alter artwork.'
-    const value: string = style.length > 0 ? `${prefix} ${style}` : prefix
+    let value: string = style.length > 0 ? `${prefix} ${style}` : prefix
+    value = ToriiWholePageRenderBackend.appendGlossary(
+      value,
+      request.context.glossary,
+      ComicGlossaryTermStatus.LOCKED,
+    )
+    value = ToriiWholePageRenderBackend.appendGlossary(
+      value,
+      request.context.glossary,
+      ComicGlossaryTermStatus.PROVISIONAL,
+    )
     return value.substring(0, Math.min(value.length, 1000))
+  }
+
+  private static appendGlossary(
+    current: string,
+    glossary: ComicGlossaryTerm[],
+    status: ComicGlossaryTermStatus,
+  ): string {
+    let output: string = current
+    for (let index: number = 0; index < glossary.length; index++) {
+      const term: ComicGlossaryTerm = glossary[index]
+      if (term.status !== status) {
+        continue
+      }
+      const source: string = term.sourceTerm.trim()
+      const target: string = term.targetTerm.trim()
+      if (source.length === 0 || target.length === 0) {
+        continue
+      }
+      const entry: string = ` Glossary: ${source} => ${target}.`
+      if (output.length + entry.length > 1000) {
+        continue
+      }
+      output += entry
+    }
+    return output
   }
 
   private static providerContext(request: ComicWholePageRenderRequest): string {

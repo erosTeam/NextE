@@ -430,8 +430,14 @@ OCR/inpaint/typeset 子端点不接入 NextE；拆接它们会模糊“端侧能
 整张成图负责”的边界。Torii credits 代付和 BYOK 只改变账单与凭据披露，不改变这条处理路线。
 
 整图出图的优势是接入短、无需客户端处理坐标；代价是可能改动画面、难以逐框修订、术语变化通常需要
-整页重跑，所以必须保留原图切换并把非文字区域保真列入验收。共享 API/Codex LLM 源不自动进入 Torii
-路线；Torii API Key 与可选 BYOK Key 单独保存并在用户明确选择云端整图后才读取。
+整页重跑，所以必须保留原图切换并把非文字区域保真列入验收。Torii BYOK 复用共享的
+OpenAI-compatible LLM 源：运行时读取所选源的公网 URL、模型和可选 API Key，并用
+`x-byok-local-url` / `x-byok-local` 交给 Torii；Codex OAuth 不是可转交的 OpenAI-compatible 凭据，不能进入
+该选择器。Torii 自身 API Key 仍单独保存，只在用户明确选择云端整图后读取。
+
+Torii 请求每页发送固定翻译约束和项目 style/glossary 到 `custom_prompt`（最多 1,000 字符），首张图以
+`context=None` 启动上下文链，后续页只复用上一页响应中的 `context`（最多 10,000 字符）。字体是渲染身份
+的一部分：NotoSans 作为覆盖面更广的默认值，WildWords 作为漫画手写风格选项；切换字体必须使缓存失效。
 
 Torii adapter 不能把官方示例中的 PNG data URL 当作唯一响应格式。2026-07-22 的真实设备请求返回了 JPEG
 data URL；稳定边界因此是“允许的声明 MIME + 对应文件签名 + 可解码同尺寸图片”，随后由端侧有界归一化

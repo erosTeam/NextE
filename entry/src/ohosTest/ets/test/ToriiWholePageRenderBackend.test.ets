@@ -7,13 +7,14 @@ import { describe, expect, it } from '@ohos/hypium'
 import {
   ComicRenderedPage,
   ComicRenderedPageIdentity,
+  ComicGlossaryTerm,
   ComicVisualPageSource,
   ComicVisualTranslationRoute,
   ComicWholePageRenderRequest,
   TORII_BILLING_BYOK,
   TORII_BILLING_MANAGED,
-  TORII_BYOK_GOOGLE,
   TORII_DEFAULT_MODEL_ID,
+  TORII_FONT_WILDWORDS,
   TORII_WHOLE_PAGE_ENDPOINT,
   TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID,
   TORII_WHOLE_PAGE_PROMPT_VERSION,
@@ -95,8 +96,12 @@ function managedConfig(): ToriiWholePageConfig {
 function byokConfig(): ToriiWholePageConfig {
   const config: ToriiWholePageConfig = managedConfig()
   config.billingMode = TORII_BILLING_BYOK
-  config.byokProvider = TORII_BYOK_GOOGLE
-  config.byokApiKey = 'fixture-google-secret'
+  config.modelId = 'fixture-custom-model'
+  config.fontId = TORII_FONT_WILDWORDS
+  config.byokSourceProfileId = 'fixture-openai-compatible'
+  config.byokSourceRevision = 3
+  config.byokBaseUrl = 'https://llm.fixture.example/v1'
+  config.byokApiKey = 'fixture-provider-secret'
   return config
 }
 
@@ -123,6 +128,10 @@ function renderRequest(
   request.context.rollingSummary = rollingContext
   request.context.styleGuide = '人名优保持一致。'
   request.context.glossaryRevision = 1
+  const term: ComicGlossaryTerm = new ComicGlossaryTerm()
+  term.sourceTerm = '優'
+  term.targetTerm = '小优'
+  request.context.glossary.push(term)
 
   const identity: ComicRenderedPageIdentity = new ComicRenderedPageIdentity()
   identity.route = ComicVisualTranslationRoute.WHOLE_PAGE_RENDER
@@ -269,6 +278,7 @@ export default function toriiWholePageRenderBackendTest(): void {
           expect(firstBodyText.includes('name="font"')).assertEqual(true)
           expect(firstBodyText.includes('\r\n\r\nnoto\r\n')).assertEqual(true)
           expect(firstBodyText.includes('\r\n\r\nNone\r\n')).assertEqual(true)
+          expect(firstBodyText.includes('Glossary: 優 => 小优.')).assertEqual(true)
           expect(secondBodyText.includes(nextContext)).assertEqual(true)
           expect(firstBodyText.includes('x-byok-')).assertEqual(false)
           expect(firstBodyText.includes('fixture-shared-llm-secret')).assertEqual(false)
@@ -284,7 +294,7 @@ export default function toriiWholePageRenderBackendTest(): void {
         done()
       })
 
-    it('adds only the selected provider key in BYOK mode', 0,
+    it('reuses an OpenAI-compatible source endpoint, model, and optional key in BYOK mode', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const ability = await delegator.getCurrentTopAbility()
@@ -314,9 +324,13 @@ export default function toriiWholePageRenderBackendTest(): void {
           renderedPath = page.localFilePath
           expect(transport.requests.length).assertEqual(1)
           const requestBodyText: string = multipartText(transport.requests[0].body)
-          expect(requestBodyText.includes('name="x-byok-google"')).assertEqual(true)
-          expect(requestBodyText.includes('fixture-google-secret')).assertEqual(true)
-          expect(requestBodyText.includes('x-byok-openai')).assertEqual(false)
+          expect(requestBodyText.includes('name="translator"')).assertEqual(true)
+          expect(requestBodyText.includes('fixture-custom-model')).assertEqual(true)
+          expect(requestBodyText.includes('name="x-byok-local-url"')).assertEqual(true)
+          expect(requestBodyText.includes('https://llm.fixture.example/v1')).assertEqual(true)
+          expect(requestBodyText.includes('name="x-byok-local"')).assertEqual(true)
+          expect(requestBodyText.includes('fixture-provider-secret')).assertEqual(true)
+          expect(requestBodyText.includes('\r\n\r\nwildwords\r\n')).assertEqual(true)
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)

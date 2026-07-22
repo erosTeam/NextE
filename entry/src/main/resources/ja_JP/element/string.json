@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "現在のページを明示的に翻訳した場合のみ、漫画画像とコンテキストを Torii に送信します。Torii は完成画像を返し、端末内の段階処理には参加しません。"
+      "value": "翻訳を実行した場合のみ画像とコンテキストを送信します。BYOK では、選択した LLM の URL、モデル、API Key も Torii に送信します。"
     },
     {
       "name": "comic_local_detector_model",
@@ -4893,6 +4893,10 @@
       "value": "翻訳モデル"
     },
     {
+      "name": "comic_torii_font",
+      "value": "フォント"
+    },
+    {
       "name": "comic_torii_model_hint",
       "value": "Torii 公式カタログのスナップショット（確認日 %s）"
     },
@@ -4906,7 +4910,7 @@
     },
     {
       "name": "comic_torii_billing_byok",
-      "value": "自分のプロバイダー Key"
+      "value": "LLM ソースを使用"
     },
     {
       "name": "comic_torii_billing_managed_hint",
@@ -4950,7 +4954,7 @@
     },
     {
       "name": "comic_torii_notice_byok",
-      "value": "1 ページにつき 1 Torii credit とプロバイダー料金が必要です。画像、コンテキスト、BYOK Key はクラウドページ翻訳時のみ送信されます。"
+      "value": "1 ページにつき 1 Torii credit と LLM 料金が必要です。Torii に URL、モデル、API Key が送信され、URL は公開アクセス可能である必要があります。"
     },
     {
       "name": "comic_torii_save_failed",

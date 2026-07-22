@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "只有你主动翻译当前页时，漫画图片和上下文才会上传到 Torii。Torii 直接返回完整译图，不会接入端侧分阶段管线。"
+      "value": "只有主动翻译时才会上传图片和上下文；使用 BYOK 时，Torii 还会收到所选 LLM 源的地址、模型和 API Key。"
     },
     {
       "name": "comic_local_detector_model",
@@ -4893,6 +4893,10 @@
       "value": "翻译模型"
     },
     {
+      "name": "comic_torii_font",
+      "value": "字体"
+    },
+    {
       "name": "comic_torii_model_hint",
       "value": "Torii 官方目录快照，复核于 %s"
     },
@@ -4906,7 +4910,7 @@
     },
     {
       "name": "comic_torii_billing_byok",
-      "value": "使用自有供应商 Key"
+      "value": "使用 LLM 源"
     },
     {
       "name": "comic_torii_billing_managed_hint",
@@ -4950,7 +4954,7 @@
     },
     {
       "name": "comic_torii_notice_byok",
-      "value": "每页 1 Torii credit，供应商另行计费；图片、上下文和 BYOK Key 仅在云端整图翻译时发送。"
+      "value": "每页 1 Torii credit，LLM 另行计费。Torii 会收到所选源的地址、模型和 API Key；该地址必须可从公网访问。"
     },
     {
       "name": "comic_torii_save_failed",

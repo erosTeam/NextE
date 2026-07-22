@@ -12,6 +12,8 @@ export const TORII_BYOK_GOOGLE: string = 'google'
 export const TORII_BYOK_ANTHROPIC: string = 'anthropic'
 export const TORII_BYOK_DEEPSEEK: string = 'deepseek'
 export const TORII_BYOK_XAI: string = 'xai'
+export const TORII_FONT_NOTO: string = 'noto'
+export const TORII_FONT_WILDWORDS: string = 'wildwords'
 export const TORII_MODEL_CATALOG_REVIEWED_AT: string = '2026-07-22'
 export const TORII_DEFAULT_MODEL_ID: string = 'gemini-3.1-flash-lite'
 
@@ -104,7 +106,9 @@ export class ComicVisualProviderSettingsSnapshot {
   route: string = COMIC_VISUAL_ROUTE_LOCAL
   toriiModelId: string = TORII_DEFAULT_MODEL_ID
   toriiBillingMode: string = TORII_BILLING_MANAGED
-  toriiByokProvider: string = TORII_BYOK_OPENROUTER
+  toriiByokSourceProfileId: string = ''
+  toriiByokModelId: string = ''
+  toriiFontId: string = TORII_FONT_NOTO
 
   copy(): ComicVisualProviderSettingsSnapshot {
     const value: ComicVisualProviderSettingsSnapshot =
@@ -112,7 +116,9 @@ export class ComicVisualProviderSettingsSnapshot {
     value.route = this.route
     value.toriiModelId = this.toriiModelId
     value.toriiBillingMode = this.toriiBillingMode
-    value.toriiByokProvider = this.toriiByokProvider
+    value.toriiByokSourceProfileId = this.toriiByokSourceProfileId
+    value.toriiByokModelId = this.toriiByokModelId
+    value.toriiFontId = this.toriiFontId
     return value
   }
 
@@ -121,14 +127,42 @@ export class ComicVisualProviderSettingsSnapshot {
       this.route !== COMIC_VISUAL_ROUTE_TORII) ||
       (this.toriiBillingMode !== TORII_BILLING_MANAGED &&
         this.toriiBillingMode !== TORII_BILLING_BYOK) ||
-      ToriiTranslatorModelCatalog.byokProviders().indexOf(this.toriiByokProvider) < 0 ||
-      !ToriiTranslatorModelCatalog.compatible(
-        this.toriiModelId,
-        this.toriiBillingMode,
-        this.toriiByokProvider,
+      ToriiTranslatorModelCatalog.find(this.toriiModelId) === null ||
+      (this.toriiFontId !== TORII_FONT_NOTO &&
+        this.toriiFontId !== TORII_FONT_WILDWORDS) ||
+      !ComicVisualProviderSettingsSnapshot.validOptionalByokBinding(
+        this.toriiByokSourceProfileId,
+        this.toriiByokModelId,
       )) {
       throw new Error('Comic visual provider settings are invalid')
     }
+  }
+
+  byokConfigured(): boolean {
+    return this.toriiByokSourceProfileId.length > 0 && this.toriiByokModelId.length > 0
+  }
+
+  private static validOptionalByokBinding(sourceProfileId: string, modelId: string): boolean {
+    const emptySource: boolean = sourceProfileId.length === 0
+    const emptyModel: boolean = modelId.length === 0
+    if (emptySource && emptyModel) {
+      return true
+    }
+    return !emptySource && ComicVisualProviderSettingsSnapshot.identifier(sourceProfileId, 160) &&
+      (emptyModel || ComicVisualProviderSettingsSnapshot.identifier(modelId, 160))
+  }
+
+  private static identifier(value: string, maxChars: number): boolean {
+    if (value.length === 0 || value.length > maxChars || value !== value.trim()) {
+      return false
+    }
+    for (let index: number = 0; index < value.length; index++) {
+      const code: number = value.charCodeAt(index)
+      if (code <= 31 || code === 127) {
+        return false
+      }
+    }
+    return true
   }
 }
 
@@ -154,9 +188,17 @@ export class ComicVisualProviderSettings {
       StorageKeys.COMIC_TRANSLATION_TORII_BILLING_MODE,
       TORII_BILLING_MANAGED,
     ) as string
-    snapshot.toriiByokProvider = store.getSync(
-      StorageKeys.COMIC_TRANSLATION_TORII_BYOK_PROVIDER,
-      TORII_BYOK_OPENROUTER,
+    snapshot.toriiByokSourceProfileId = store.getSync(
+      StorageKeys.COMIC_TRANSLATION_TORII_BYOK_SOURCE_PROFILE,
+      '',
+    ) as string
+    snapshot.toriiByokModelId = store.getSync(
+      StorageKeys.COMIC_TRANSLATION_TORII_BYOK_MODEL,
+      '',
+    ) as string
+    snapshot.toriiFontId = store.getSync(
+      StorageKeys.COMIC_TRANSLATION_TORII_FONT,
+      TORII_FONT_NOTO,
     ) as string
     try {
       snapshot.assertValid()
@@ -181,10 +223,21 @@ export class ComicVisualProviderSettings {
       StorageKeys.COMIC_TRANSLATION_TORII_BILLING_MODE,
       snapshot.toriiBillingMode,
     )
-    store.putSync(
-      StorageKeys.COMIC_TRANSLATION_TORII_BYOK_PROVIDER,
-      snapshot.toriiByokProvider,
-    )
+    if (snapshot.toriiByokSourceProfileId.length > 0) {
+      store.putSync(
+        StorageKeys.COMIC_TRANSLATION_TORII_BYOK_SOURCE_PROFILE,
+        snapshot.toriiByokSourceProfileId,
+      )
+    } else {
+      store.deleteSync(StorageKeys.COMIC_TRANSLATION_TORII_BYOK_SOURCE_PROFILE)
+    }
+    if (snapshot.toriiByokModelId.length > 0) {
+      store.putSync(StorageKeys.COMIC_TRANSLATION_TORII_BYOK_MODEL, snapshot.toriiByokModelId)
+    } else {
+      store.deleteSync(StorageKeys.COMIC_TRANSLATION_TORII_BYOK_MODEL)
+    }
+    store.putSync(StorageKeys.COMIC_TRANSLATION_TORII_FONT, snapshot.toriiFontId)
+    store.deleteSync(StorageKeys.COMIC_TRANSLATION_TORII_BYOK_PROVIDER)
     store.flushSync()
   }
 }

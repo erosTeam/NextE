@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "The current manga page and context will be uploaded to Torii only when you explicitly translate it. Torii returns a finished translated image; it does not join the on-device processing pipeline."
+      "value": "The page and context are uploaded only when you translate. With BYOK, Torii also receives the selected LLM endpoint, model, and API key."
     },
     {
       "name": "comic_local_detector_model",
@@ -4893,6 +4893,10 @@
       "value": "Translation model"
     },
     {
+      "name": "comic_torii_font",
+      "value": "Font"
+    },
+    {
       "name": "comic_torii_model_hint",
       "value": "Official Torii catalog snapshot reviewed %s"
     },
@@ -4906,7 +4910,7 @@
     },
     {
       "name": "comic_torii_billing_byok",
-      "value": "Use my provider key"
+      "value": "Use LLM source"
     },
     {
       "name": "comic_torii_billing_managed_hint",
@@ -4950,7 +4954,7 @@
     },
     {
       "name": "comic_torii_notice_byok",
-      "value": "1 Torii credit per page, plus provider charges. Images, context, and the BYOK key are sent only for cloud whole-page translation."
+      "value": "1 Torii credit per page plus LLM charges. Torii receives the selected source endpoint, model, and API key; the endpoint must be publicly reachable."
     },
     {
       "name": "comic_torii_save_failed",
