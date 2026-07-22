@@ -12,12 +12,14 @@ import {
   ComicLocalOcrPoint,
   ComicLocalOcrResult,
   ComicLocalRegionDetector,
+  ComicLocalSourceInpainter,
   ComicLocalTextMasker,
   ComicLocalTextRecognizer,
   ComicLocalVisualBackend,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
   ComicNativeRegionPoint,
+  ComicNativeInpaintingResult,
   ComicNativeTextRecognitionResult,
   ComicNativeTextMaskResult,
   ComicRegionAnalysisRequest,
@@ -352,6 +354,81 @@ class WideParagraphOcrEngine implements ComicLocalOcrEngine {
   }
 }
 
+class StackedHorizontalBubbleOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'stacked-horizontal-bubble-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('一行目です', 0, 200))
+    result.lines.push(this.line('二行目です', 1, 250))
+    result.lines.push(this.line('三行目です', 2, 300))
+    result.lines.push(this.line('四行目です', 3, 350))
+    result.lines.push(this.line('別の一行目です', 4, 440))
+    result.lines.push(this.line('別の二行目です', 5, 490))
+    result.lines.push(this.line('別の三行目です', 6, 540))
+    result.lines.push(this.line('別の四行目です', 7, 590))
+    return Promise.resolve(result)
+  }
+
+  private line(text: string, blockIndex: number, top: number): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(200, top))
+    line.polygon.push(new ComicLocalOcrPoint(500, top))
+    line.polygon.push(new ComicLocalOcrPoint(500, top + 40))
+    line.polygon.push(new ComicLocalOcrPoint(200, top + 40))
+    return line
+  }
+}
+
+class OverlappingHorizontalLinesOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'overlapping-horizontal-lines-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    result.lines.push(this.line('重なる一行目です', 0, 200, 242))
+    result.lines.push(this.line('重なる二行目です', 1, 231, 264))
+    return Promise.resolve(result)
+  }
+
+  private line(
+    text: string,
+    blockIndex: number,
+    top: number,
+    bottom: number,
+  ): ComicLocalOcrLine {
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = text
+    line.blockIndex = blockIndex
+    line.polygon.push(new ComicLocalOcrPoint(200, top))
+    line.polygon.push(new ComicLocalOcrPoint(500, top))
+    line.polygon.push(new ComicLocalOcrPoint(500, bottom))
+    line.polygon.push(new ComicLocalOcrPoint(200, bottom))
+    return line
+  }
+}
+
 class SourceOnlyTextMasker implements ComicLocalTextMasker {
   profileId(): string {
     return 'source-only-mask-fixture'
@@ -377,6 +454,34 @@ class SourceOnlyTextMasker implements ComicLocalTextMasker {
     result.backend = 'source-only-mask-fixture'
     result.maskedPixels = 36
     return result
+  }
+}
+
+class CountingSourceInpainter implements ComicLocalSourceInpainter {
+  callCount: number = 0
+
+  profileId(): string {
+    return 'counting-source-inpainter-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  inpaint(
+    pixels: ArrayBuffer,
+    _mask: ArrayBuffer,
+    width: number,
+    height: number,
+    _stride: number,
+  ): Promise<ComicNativeInpaintingResult> {
+    this.callCount = this.callCount + 1
+    const result: ComicNativeInpaintingResult = new ComicNativeInpaintingResult()
+    result.pixels = pixels
+    result.backend = 'counting-source-inpainter-fixture'
+    result.inferenceWidth = width
+    result.inferenceHeight = height
+    return Promise.resolve(result)
   }
 }
 
@@ -600,6 +705,53 @@ async function writeSolidImage(path: string, width: number, height: number): Pro
   try {
     const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
     new Uint8Array(buffer).fill(255)
+    pixelMap = await image.createPixelMap(buffer, {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    })
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+  }
+}
+
+async function writeAdjacentBubbleImage(path: string, width: number, height: number): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    pixels.fill(255)
+    for (let y: number = 280; y < 510; y++) {
+      for (let x: number = 250; x < 270; x++) {
+        const offset: number = (y * width + x) * 4
+        pixels[offset] = 0
+        pixels[offset + 1] = 0
+        pixels[offset + 2] = 0
+      }
+      for (let x: number = 350; x < 370; x++) {
+        const offset: number = (y * width + x) * 4
+        pixels[offset] = 0
+        pixels[offset + 1] = 0
+        pixels[offset + 2] = 0
+      }
+    }
     pixelMap = await image.createPixelMap(buffer, {
       size: { width: width, height: height },
       srcPixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -1026,6 +1178,71 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
     })
 
+    it('keeps adjacent translated balloons as separate render plans', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/adjacent-bubble-render-source.png`
+        let renderedPath: string = ''
+        await writeAdjacentBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const inpainter: CountingSourceInpainter = new CountingSourceInpainter()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            null,
+            null,
+            inpainter,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          const right = analysis.document.blocks[0]
+          right.styleHint = 'vertical-rl'
+          right.polygon[0].x = 320
+          right.polygon[0].y = 240
+          right.polygon[1].x = 400
+          right.polygon[1].y = 240
+          right.polygon[2].x = 400
+          right.polygon[2].y = 560
+          right.polygon[3].x = 320
+          right.polygon[3].y = 560
+          const left = analysis.document.blocks[1]
+          left.styleHint = 'vertical-rl'
+          left.polygon[0].x = 220
+          left.polygon[0].y = 250
+          left.polygon[1].x = 300
+          left.polygon[1].y = 250
+          left.polygon[2].x = 300
+          left.polygon[2].y = 570
+          left.polygon[3].x = 220
+          left.polygon[3].y = 570
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The first message remains inside its own balloon.',
+            'The second message also keeps an independent layout region.',
+            16,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          expect(page.byteLength > 0).assertEqual(true)
+          expect(inpainter.callCount).assertEqual(2)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('consolidates contained OCR columns before translation', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -1306,7 +1523,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(22)
+          expect(backend.protocolRevision()).assertEqual(25)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -1354,6 +1571,67 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
           expect(analysis.document.blocks[0].polygon[2].x).assertEqual(320)
           expect(analysis.document.blocks[0].polygon[2].y).assertEqual(360)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('does not grow line spacing until a paragraph absorbs the next balloon', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/stacked-bubble-grouping-source.png`
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new StackedHorizontalBubbleOcrEngine(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.blocks[0].sourceText).assertEqual(
+            '一行目です\n二行目です\n三行目です\n四行目です',
+          )
+          expect(analysis.document.blocks[0].polygon[0].y).assertEqual(200)
+          expect(analysis.document.blocks[0].polygon[2].y).assertEqual(390)
+          expect(analysis.document.blocks[1].sourceText).assertEqual(
+            '別の一行目です\n別の二行目です\n別の三行目です\n別の四行目です',
+          )
+          expect(analysis.document.blocks[1].polygon[0].y).assertEqual(440)
+          expect(analysis.document.blocks[1].polygon[2].y).assertEqual(630)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('merges lightly overlapping detector lines in the same paragraph', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/overlapping-lines-source.png`
+        await writeSolidImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new OverlappingHorizontalLinesOcrEngine(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].sourceText).assertEqual(
+            '重なる一行目です\n重なる二行目です',
+          )
+          expect(analysis.document.blocks[0].polygon[0].y).assertEqual(200)
+          expect(analysis.document.blocks[0].polygon[2].y).assertEqual(264)
         } finally {
           removeFile(sourcePath)
         }
@@ -1467,7 +1745,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(23)
+          expect(backend.protocolRevision()).assertEqual(26)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
