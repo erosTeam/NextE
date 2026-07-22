@@ -874,13 +874,12 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
     })
 
-    it('keeps unique nested OCR translations in their single owning region', 0,
+    it('consolidates contained OCR columns before translation', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const ability = await delegator.getCurrentTopAbility()
         const sourcePath: string = `${ability.context.cacheDir}/contained-render-source.png`
-        let duplicatePath: string = ''
-        let uniquePath: string = ''
+        let renderedPath: string = ''
         await writeSolidImage(sourcePath, 1024, 1536)
         try {
           const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
@@ -892,39 +891,30 @@ export default function comicLocalVisualBackendTest(): void {
           analysisRequest.requestedRegionRevision = 2
           analysisRequest.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
-          expect(analysis.document.blocks.length).assertEqual(2)
-          const duplicateRequest: ComicRegionRenderRequest = renderRequest(
+          expect(analysis.document.blocks.length).assertEqual(1)
+          expect(analysis.document.blocks[0].sourceText.includes(
+            'これは十分に長い親領域の文章で重複した認識結果を含みます',
+          )).assertEqual(true)
+          expect(analysis.document.blocks[0].sourceText.includes(
+            '補足の文章です',
+          )).assertEqual(true)
+          const request: ComicRegionRenderRequest = renderRequest(
             backend,
             sourcePath,
             page01Fixture(),
             analysis,
           )
           setEnglishRenderText(
-            duplicateRequest,
-            'Primary translated paragraph uses it every day with complete context',
-            'complete context',
-            11,
-          )
-          const duplicatePage: ComicRenderedPage = await backend.render(duplicateRequest)
-          duplicatePath = duplicatePage.localFilePath
-          const uniqueRequest: ComicRegionRenderRequest = renderRequest(
-            backend,
-            sourcePath,
-            page01Fixture(),
-            analysis,
-          )
-          setEnglishRenderText(
-            uniqueRequest,
-            'Primary translated paragraph uses it every day with complete context',
-            'Very',
+            request,
+            'One consolidated translation contains both the paragraph and its recovered detail',
+            '',
             12,
           )
-          const uniquePage: ComicRenderedPage = await backend.render(uniqueRequest)
-          uniquePath = uniquePage.localFilePath
-          expect(duplicatePage.artifactHash === uniquePage.artifactHash).assertEqual(false)
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          expect(page.byteLength > 0).assertEqual(true)
         } finally {
-          removeFile(uniquePath)
-          removeFile(duplicatePath)
+          removeFile(renderedPath)
           removeFile(sourcePath)
         }
         done()
@@ -1036,7 +1026,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(20)
+          expect(backend.protocolRevision()).assertEqual(21)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -1197,7 +1187,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(21)
+          expect(backend.protocolRevision()).assertEqual(22)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>

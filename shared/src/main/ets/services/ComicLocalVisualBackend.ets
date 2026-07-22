@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v19'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 19
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v20'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 20
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -1082,8 +1082,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     )
     const verticalMerged: LocalMappedBlock[] =
       ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
-    const output: LocalMappedBlock[] =
+    const horizontalMerged: LocalMappedBlock[] =
       ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
+    const output: LocalMappedBlock[] =
+      ComicLocalVisualBackend.collapseContainedVerticalSourceBlocks(horizontalMerged)
     output.sort((left: LocalMappedBlock, right: LocalMappedBlock): number => {
       const leftRect: LocalRenderRect = ComicLocalVisualBackend.bounds(left.polygon)
       const rightRect: LocalRenderRect = ComicLocalVisualBackend.bounds(right.polygon)
@@ -1094,6 +1096,107 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return rightRect.right - leftRect.right
     })
     return output
+  }
+
+  private static collapseContainedVerticalSourceBlocks(
+    values: LocalMappedBlock[],
+  ): LocalMappedBlock[] {
+    const suppressed: boolean[] = new Array<boolean>(values.length).fill(false)
+    const candidateIndexes: number[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      candidateIndexes.push(index)
+    }
+    candidateIndexes.sort((left: number, right: number): number =>
+      ComicLocalVisualBackend.mappedBlockArea(values[left]) -
+        ComicLocalVisualBackend.mappedBlockArea(values[right]))
+    for (let orderIndex: number = 0; orderIndex < candidateIndexes.length; orderIndex++) {
+      const candidateIndex: number = candidateIndexes[orderIndex]
+      let ownerIndex: number = -1
+      let ownerArea: number = Number.POSITIVE_INFINITY
+      for (let containerIndex: number = 0; containerIndex < values.length; containerIndex++) {
+        if (candidateIndex === containerIndex || suppressed[containerIndex] ||
+          !ComicLocalVisualBackend.isContainedVerticalSourceFragment(
+            values[candidateIndex],
+            values[containerIndex],
+          )) {
+          continue
+        }
+        const area: number = ComicLocalVisualBackend.mappedBlockArea(values[containerIndex])
+        if (area < ownerArea) {
+          ownerIndex = containerIndex
+          ownerArea = area
+        }
+      }
+      if (ownerIndex < 0) {
+        continue
+      }
+      const combined: string = ComicLocalVisualBackend.combinedSourceText(
+        values[ownerIndex].text,
+        values[candidateIndex].text,
+      )
+      if (combined.length > LOCAL_MAX_SOURCE_TEXT_CHARS) {
+        continue
+      }
+      values[ownerIndex].text = combined
+      suppressed[candidateIndex] = true
+    }
+    const output: LocalMappedBlock[] = []
+    for (let index: number = 0; index < values.length; index++) {
+      if (!suppressed[index]) {
+        output.push(values[index])
+      }
+    }
+    return output
+  }
+
+  private static mappedBlockArea(block: LocalMappedBlock): number {
+    const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    return Math.max(1, rect.width() * rect.height())
+  }
+
+  private static isContainedVerticalSourceFragment(
+    candidate: LocalMappedBlock,
+    container: LocalMappedBlock,
+  ): boolean {
+    if (candidate.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      container.styleHint !== LOCAL_VERTICAL_STYLE_HINT ||
+      candidate.tileIndex !== container.tileIndex ||
+      container.text.length < candidate.text.length * 2) {
+      return false
+    }
+    const candidateRect: LocalRenderRect = ComicLocalVisualBackend.bounds(candidate.polygon)
+    const containerRect: LocalRenderRect = ComicLocalVisualBackend.bounds(container.polygon)
+    const candidateArea: number = Math.max(1, candidateRect.width() * candidateRect.height())
+    const containerArea: number = Math.max(1, containerRect.width() * containerRect.height())
+    if (containerArea < candidateArea * 3 ||
+      containerRect.width() < candidateRect.width() * 2.4) {
+      return false
+    }
+    const overlapWidth: number = Math.max(
+      0,
+      Math.min(candidateRect.right, containerRect.right) -
+        Math.max(candidateRect.left, containerRect.left),
+    )
+    const overlapHeight: number = Math.max(
+      0,
+      Math.min(candidateRect.bottom, containerRect.bottom) -
+        Math.max(candidateRect.top, containerRect.top),
+    )
+    return overlapWidth * overlapHeight / candidateArea >= 0.9
+  }
+
+  private static combinedSourceText(container: string, fragment: string): string {
+    const normalizedContainer: string = ComicLocalVisualBackend.normalizedSourceText(container)
+    const normalizedFragment: string = ComicLocalVisualBackend.normalizedSourceText(fragment)
+    if (normalizedFragment.length <= 0 || normalizedContainer.includes(normalizedFragment)) {
+      return container
+    }
+    return container + '\n' + fragment
+  }
+
+  private static normalizedSourceText(value: string): string {
+    return value.toLowerCase()
+      .replace(/[\s.,!?;:'"()\[\]{}\-–—…，。！？；：、“”‘’（）【】]+/g, '')
   }
 
   private static applyDetectorRegionGeometry(
