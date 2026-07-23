@@ -1103,6 +1103,42 @@ class ArtworkTextMasker implements ComicLocalTextMasker {
   }
 }
 
+class RepeatedArtworkTextMasker implements ComicLocalTextMasker {
+  profileId(): string {
+    return 'repeated-artwork-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(buffer)
+    const lefts: number[] = [120, 280, 440, 600, 760]
+    for (let cluster: number = 0; cluster < lefts.length; cluster++) {
+      for (let row: number = 0; row < 4; row++) {
+        for (let column: number = 0; column < 4; column++) {
+          const left: number = lefts[cluster] + column * 16
+          const top: number = 420 + row * 16
+          for (let y: number = top; y < top + 12; y++) {
+            for (let x: number = left; x < left + 12 && x < width; x++) {
+              mask[y * width + x] = 1
+            }
+          }
+        }
+      }
+    }
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = buffer
+    result.backend = 'fixture'
+    return result
+  }
+}
+
 function writeFile(path: string, bytes: Uint8Array): void {
   let file: fileIo.File | null = null
   try {
@@ -2364,7 +2400,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(31)
+          expect(backend.protocolRevision()).assertEqual(34)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2586,7 +2622,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(32)
+          expect(backend.protocolRevision()).assertEqual(35)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
@@ -2711,6 +2747,49 @@ export default function comicLocalVisualBackendTest(): void {
           expect(recognizer.callCount).assertEqual(0)
           expect(ocr.callCount).assertEqual(1)
           expect(analysis.document.blocks.length).assertEqual(0)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('bounds expensive supplemental OCR retries across a noisy page', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/bounded-ctd-retries-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const ocr: SystemCropOcrEngine = new SystemCropOcrEngine('O ラ 00O')
+          const recognizer: RejectingArtworkTextRecognizer =
+            new RejectingArtworkTextRecognizer()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            ocr,
+            null,
+            recognizer,
+            null,
+            new RepeatedArtworkTextMasker(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          DiagnosticLogger.clear()
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(recognizer.callCount).assertEqual(4)
+          expect(ocr.callCount).assertEqual(2)
+          expect(analysis.document.blocks.length).assertEqual(0)
+          expect(diagnostics.includes('attempted=2 attemptedCtd=2 accepted=0 fallbackRegions=1 ' +
+            'splitRecognitions=2 systemRetries=1')).assertEqual(true)
         } finally {
           removeFile(sourcePath)
         }

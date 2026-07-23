@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
   LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
   LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
@@ -42,6 +43,7 @@ class ComicResponsesTextTranslatorCore {
     config: ComicResponsesCallConfig,
     sourceRevision: number,
   ): Promise<ComicTextTranslationResult> {
+    const startedAt: number = Date.now()
     const prompt: string = ComicResponsesTextTranslationProtocol.buildPrompt(request)
     const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
       request.source.imageFilePath,
@@ -56,11 +58,35 @@ class ComicResponsesTextTranslatorCore {
       input.imageDataUrl = crops[index].dataUrl
       additionalImages.push(input)
     }
+    let cropDataUrlChars: number = 0
+    let cropBytes: number = 0
+    let cropPixels: number = 0
+    for (let index: number = 0; index < crops.length; index++) {
+      cropDataUrlChars += crops[index].dataUrl.length
+      cropBytes += crops[index].byteLength
+      cropPixels += crops[index].width * crops[index].height
+    }
+    const payloadPreparedAt: number = Date.now()
+    DiagnosticLogger.info(
+      'comic-translation',
+      'text_request_payload',
+      `page=${request.source.pageIndex} source=${request.source.imageWidth}x${request.source.imageHeight} ` +
+        `blocks=${request.document.blocks.length} promptChars=${prompt.length} ` +
+        `fullImageChars=${imageDataUrl.length} crops=${crops.length} ` +
+        `cropChars=${cropDataUrlChars} cropBytes=${cropBytes} cropPixels=${cropPixels} ` +
+        `prepare=${payloadPreparedAt - startedAt}ms`,
+    )
     const providerJson: string = await this.providerCore.requestJson(
       prompt,
       imageDataUrl,
       config,
       additionalImages,
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'text_request_timing',
+      `page=${request.source.pageIndex} prepare=${payloadPreparedAt - startedAt}ms ` +
+        `provider=${Date.now() - payloadPreparedAt}ms total=${Date.now() - startedAt}ms`,
     )
     try {
       return ComicResponsesTextTranslationProtocol.parse(

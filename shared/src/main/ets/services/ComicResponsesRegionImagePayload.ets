@@ -25,6 +25,9 @@ class ComicRegionCropRect {
 export class ComicResponsesRegionImage {
   blockId: string = ''
   dataUrl: string = ''
+  width: number = 0
+  height: number = 0
+  byteLength: number = 0
 }
 
 /** Produces bounded, enlarged close-ups so the vision model can verify OCR inside known regions. */
@@ -82,6 +85,9 @@ export class ComicResponsesRegionImagePayload {
           result.blockId = block.blockId
           result.dataUrl = 'data:image/jpeg;base64,' +
             new util.Base64Helper().encodeToStringSync(bytes)
+          result.width = desired.width
+          result.height = desired.height
+          result.byteLength = bytes.byteLength
           results.push(result)
         } finally {
           if (pixelMap !== undefined) {

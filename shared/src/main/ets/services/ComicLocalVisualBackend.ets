@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v30'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 30
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v33'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 33
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -73,6 +73,8 @@ const LOCAL_HASH_CHUNK_BYTES: number = 256 * 1024
 const LOCAL_MAX_RENDERED_BYTES: number = 80 * 1024 * 1024
 const LOCAL_MAX_RENDER_PIXELS: number = 16 * 1024 * 1024
 const LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS: number = 16
+const LOCAL_CTD_SUPPLEMENTAL_MAX_REGIONS: number = 2
+const LOCAL_CTD_SUPPLEMENTAL_MAX_FALLBACK_REGIONS: number = 1
 const LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS: number = 2 * 1024 * 1024
 const LOCAL_SUPPLEMENTAL_OCR_MIN_CONFIDENCE: number = 0.85
 const LOCAL_SUPPLEMENTAL_OCR_MAX_TEXT_CHARS: number = 96
@@ -784,175 +786,208 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       covered.add(regionIndex)
     }
     let attempted: number = 0
+    let attemptedCtd: number = 0
     let accepted: number = 0
     let inferenceMs: number = 0
     let modelLoadMs: number = 0
-    for (let regionIndex: number = 0;
-      regionIndex < detection.regions.length &&
-      attempted < LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS; regionIndex++) {
-      if (covered.has(regionIndex)) {
-        continue
-      }
-      const region: ComicNativeDetectedRegion = detection.regions[regionIndex]
-      if (region.label === 'ctd-text' &&
-        region.proposalOccupiedCells < LOCAL_CTD_SUPPLEMENTAL_MIN_OCCUPIED_CELLS) {
-        continue
-      }
-      const rect: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
-        region,
-        sourceWidth,
-        sourceHeight,
-      )
-      if (rect.width() < 8 || rect.height() < 8 ||
-        rect.width() * rect.height() > LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS) {
-        continue
-      }
-      attempted = attempted + 1
-      try {
-        const recognized: ComicNativeTextRecognitionResult = await this.recognizeRegion(
-          source,
-          rect,
-        )
-        modelLoadMs = modelLoadMs + recognized.modelLoadMs
-        inferenceMs = inferenceMs + recognized.inferenceMs
-        let text: string = recognized.text.trim()
-        let score: number = recognized.score
-        let strategy: string = 'whole'
-        let acceptedResult: boolean = ComicLocalVisualBackend.supplementalTextAccepted(
-          text,
-          score,
-        ) && !ComicLocalVisualBackend.isPeripheralLatinLabel(
-          text,
-          rect,
+    let fallbackRegions: number = 0
+    let splitRecognitions: number = 0
+    let systemRetries: number = 0
+    let recognizerSourcePixelMap: image.PixelMap | undefined = undefined
+    try {
+      for (let regionIndex: number = 0;
+        regionIndex < detection.regions.length &&
+        attempted < LOCAL_SUPPLEMENTAL_OCR_MAX_REGIONS; regionIndex++) {
+        if (covered.has(regionIndex)) {
+          continue
+        }
+        const region: ComicNativeDetectedRegion = detection.regions[regionIndex]
+        if (region.label === 'ctd-text' &&
+          region.proposalOccupiedCells < LOCAL_CTD_SUPPLEMENTAL_MIN_OCCUPIED_CELLS) {
+          continue
+        }
+        if (region.label === 'ctd-text' &&
+          attemptedCtd >= LOCAL_CTD_SUPPLEMENTAL_MAX_REGIONS) {
+          continue
+        }
+        const rect: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+          region,
           sourceWidth,
           sourceHeight,
-          region.label,
         )
-        if (!acceptedResult && region.label === 'ctd-text') {
-          const splitRects: LocalRenderRect[] = ComicLocalVisualBackend.ctdLineSplitRects(rect)
-          const splitTexts: string[] = []
-          let splitScore: number = 1
-          for (let splitIndex: number = 0; splitIndex < splitRects.length; splitIndex++) {
-            const split: ComicNativeTextRecognitionResult = await this.recognizeRegion(
-              source,
-              splitRects[splitIndex],
-            )
-            modelLoadMs = modelLoadMs + split.modelLoadMs
-            inferenceMs = inferenceMs + split.inferenceMs
-            const splitText: string = split.text.trim()
-            const splitAccepted: boolean = ComicLocalVisualBackend.supplementalTextAccepted(
-              splitText,
-              split.score,
-            ) && !ComicLocalVisualBackend.isPeripheralLatinLabel(
-              splitText,
-              splitRects[splitIndex],
-              sourceWidth,
-              sourceHeight,
-              region.label,
-            )
-            DiagnosticLogger.info(
-              'comic-translation',
-              'local_text_recognizer_split_region',
-              `region=${regionIndex} split=${splitIndex} ` +
-                `bounds=${Math.floor(splitRects[splitIndex].left)},` +
-                `${Math.floor(splitRects[splitIndex].top)},` +
-                `${Math.ceil(splitRects[splitIndex].right)},` +
-                `${Math.ceil(splitRects[splitIndex].bottom)} ` +
-                `score=${split.score.toFixed(3)} chars=${splitText.length} ` +
-                `accepted=${splitAccepted ? 1 : 0}`,
-            )
-            if (!splitAccepted) {
-              continue
-            }
-            splitTexts.push(splitText)
-            splitScore = Math.min(splitScore, split.score)
-          }
-          // A partial split would publish one half's transcript against the whole source region
-          // and could erase untranslated text in the rejected half. Accept split recovery only
-          // when every proposed half is independently trustworthy.
-          if (splitTexts.length > 0 && splitTexts.length === splitRects.length) {
-            text = splitTexts.join(' ')
-            score = splitScore
-            strategy = `split${splitTexts.length}`
-            acceptedResult = true
-          }
+        if (rect.width() < 8 || rect.height() < 8 ||
+          rect.width() * rect.height() > LOCAL_SUPPLEMENTAL_OCR_MAX_REGION_PIXELS) {
+          continue
         }
-        if (!acceptedResult && region.label === 'ctd-text' &&
-          ComicLocalVisualBackend.ctdSystemRetryEligible(
+        attempted = attempted + 1
+        if (region.label === 'ctd-text') {
+          attemptedCtd = attemptedCtd + 1
+        }
+        try {
+          if (recognizerSourcePixelMap === undefined) {
+            recognizerSourcePixelMap = await source.createPixelMap({
+              editable: false,
+              desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+            })
+          }
+          const recognized: ComicNativeTextRecognitionResult = await this.recognizeRegion(
+            recognizerSourcePixelMap,
             rect,
-            sourceWidth,
-            sourceHeight,
-            region.proposalOccupiedCells,
-          )) {
-          const systemText: string = await this.recognizeSystemRegion(source, rect)
-          const systemAccepted: boolean =
-            ComicLocalVisualBackend.supplementalSystemTextAccepted(systemText) &&
-            !ComicLocalVisualBackend.isPeripheralLatinLabel(
-            systemText,
+          )
+          modelLoadMs = modelLoadMs + recognized.modelLoadMs
+          inferenceMs = inferenceMs + recognized.inferenceMs
+          let text: string = recognized.text.trim()
+          let score: number = recognized.score
+          let strategy: string = 'whole'
+          let acceptedResult: boolean = ComicLocalVisualBackend.supplementalTextAccepted(
+            text,
+            score,
+          ) && !ComicLocalVisualBackend.isPeripheralLatinLabel(
+            text,
             rect,
             sourceWidth,
             sourceHeight,
             region.label,
           )
+          let fallbackAllowed: boolean = false
+          if (!acceptedResult && region.label === 'ctd-text' &&
+            fallbackRegions < LOCAL_CTD_SUPPLEMENTAL_MAX_FALLBACK_REGIONS) {
+            fallbackRegions = fallbackRegions + 1
+            fallbackAllowed = true
+            const splitRects: LocalRenderRect[] = ComicLocalVisualBackend.ctdLineSplitRects(rect)
+            const splitTexts: string[] = []
+            let splitScore: number = 1
+            for (let splitIndex: number = 0; splitIndex < splitRects.length; splitIndex++) {
+              splitRecognitions = splitRecognitions + 1
+              const split: ComicNativeTextRecognitionResult = await this.recognizeRegion(
+                recognizerSourcePixelMap,
+                splitRects[splitIndex],
+              )
+              modelLoadMs = modelLoadMs + split.modelLoadMs
+              inferenceMs = inferenceMs + split.inferenceMs
+              const splitText: string = split.text.trim()
+              const splitAccepted: boolean = ComicLocalVisualBackend.supplementalTextAccepted(
+                splitText,
+                split.score,
+              ) && !ComicLocalVisualBackend.isPeripheralLatinLabel(
+                splitText,
+                splitRects[splitIndex],
+                sourceWidth,
+                sourceHeight,
+                region.label,
+              )
+              DiagnosticLogger.info(
+                'comic-translation',
+                'local_text_recognizer_split_region',
+                `region=${regionIndex} split=${splitIndex} ` +
+                  `bounds=${Math.floor(splitRects[splitIndex].left)},` +
+                  `${Math.floor(splitRects[splitIndex].top)},` +
+                  `${Math.ceil(splitRects[splitIndex].right)},` +
+                  `${Math.ceil(splitRects[splitIndex].bottom)} ` +
+                  `score=${split.score.toFixed(3)} chars=${splitText.length} ` +
+                  `accepted=${splitAccepted ? 1 : 0}`,
+              )
+              if (!splitAccepted) {
+                continue
+              }
+              splitTexts.push(splitText)
+              splitScore = Math.min(splitScore, split.score)
+            }
+            // A partial split would publish one half's transcript against the whole source region
+            // and could erase untranslated text in the rejected half. Accept split recovery only
+            // when every proposed half is independently trustworthy.
+            if (splitTexts.length > 0 && splitTexts.length === splitRects.length) {
+              text = splitTexts.join(' ')
+              score = splitScore
+              strategy = `split${splitTexts.length}`
+              acceptedResult = true
+            }
+          }
+          if (!acceptedResult && fallbackAllowed &&
+            ComicLocalVisualBackend.ctdSystemRetryEligible(
+              rect,
+              sourceWidth,
+              sourceHeight,
+              region.proposalOccupiedCells,
+            )) {
+            systemRetries = systemRetries + 1
+            const systemText: string = await this.recognizeSystemRegion(source, rect)
+            const systemAccepted: boolean =
+              ComicLocalVisualBackend.supplementalSystemTextAccepted(systemText) &&
+              !ComicLocalVisualBackend.isPeripheralLatinLabel(
+                systemText,
+                rect,
+                sourceWidth,
+                sourceHeight,
+                region.label,
+              )
+            DiagnosticLogger.info(
+              'comic-translation',
+              'local_system_ocr_region',
+              `region=${regionIndex} bounds=${Math.floor(rect.left)},${Math.floor(rect.top)},` +
+                `${Math.ceil(rect.right)},${Math.ceil(rect.bottom)} chars=${systemText.length} ` +
+                `accepted=${systemAccepted ? 1 : 0}`,
+            )
+            if (systemAccepted) {
+              text = systemText
+              score = 1
+              strategy = 'system-crop'
+              acceptedResult = true
+            }
+          }
           DiagnosticLogger.info(
             'comic-translation',
-            'local_system_ocr_region',
-            `region=${regionIndex} bounds=${Math.floor(rect.left)},${Math.floor(rect.top)},` +
-              `${Math.ceil(rect.right)},${Math.ceil(rect.bottom)} chars=${systemText.length} ` +
-              `accepted=${systemAccepted ? 1 : 0}`,
+            'local_text_recognizer_region',
+            `region=${regionIndex} source=${region.label === 'ctd-text' ? 'ctd' : 'detector'} ` +
+              `bounds=${Math.floor(rect.left)},${Math.floor(rect.top)},` +
+              `${Math.ceil(rect.right)},${Math.ceil(rect.bottom)} ` +
+              `score=${score.toFixed(3)} chars=${text.length} strategy=${strategy} ` +
+              `accepted=${acceptedResult ? 1 : 0}`,
           )
-          if (systemAccepted) {
-            text = systemText
-            score = 1
-            strategy = 'system-crop'
-            acceptedResult = true
+          if (!acceptedResult) {
+            continue
           }
+          const line: LocalMappedLine = new LocalMappedLine()
+          line.text = text
+          line.tileIndex = LOCAL_MAX_BLOCKS + regionIndex
+          line.blockIndex = regionIndex
+          line.lineIndex = 0
+          line.detectorRegionIndex = regionIndex
+          for (let pointIndex: number = 0; pointIndex < region.points.length; pointIndex++) {
+            line.polygon.push(new ComicPoint(
+              Math.max(0, Math.min(sourceWidth, region.points[pointIndex].x)),
+              Math.max(0, Math.min(sourceHeight, region.points[pointIndex].y)),
+            ))
+          }
+          lines.push(line)
+          accepted = accepted + 1
+        } catch (error) {
+          DiagnosticLogger.warn(
+            'comic-translation',
+            'local_text_recognizer_region_skipped',
+            `profile=${this.supplementalRecognizer.profileId()} message=${(error as Error).message}`,
+          )
         }
-        DiagnosticLogger.info(
-          'comic-translation',
-          'local_text_recognizer_region',
-          `region=${regionIndex} source=${region.label === 'ctd-text' ? 'ctd' : 'detector'} ` +
-            `bounds=${Math.floor(rect.left)},${Math.floor(rect.top)},` +
-            `${Math.ceil(rect.right)},${Math.ceil(rect.bottom)} ` +
-            `score=${score.toFixed(3)} chars=${text.length} strategy=${strategy} ` +
-            `accepted=${acceptedResult ? 1 : 0}`,
-        )
-        if (!acceptedResult) {
-          continue
-        }
-        const line: LocalMappedLine = new LocalMappedLine()
-        line.text = text
-        line.tileIndex = LOCAL_MAX_BLOCKS + regionIndex
-        line.blockIndex = regionIndex
-        line.lineIndex = 0
-        line.detectorRegionIndex = regionIndex
-        for (let pointIndex: number = 0; pointIndex < region.points.length; pointIndex++) {
-          line.polygon.push(new ComicPoint(
-            Math.max(0, Math.min(sourceWidth, region.points[pointIndex].x)),
-            Math.max(0, Math.min(sourceHeight, region.points[pointIndex].y)),
-          ))
-        }
-        lines.push(line)
-        accepted = accepted + 1
-      } catch (error) {
-        DiagnosticLogger.warn(
-          'comic-translation',
-          'local_text_recognizer_region_skipped',
-          `profile=${this.supplementalRecognizer.profileId()} message=${(error as Error).message}`,
-        )
+      }
+    } finally {
+      if (recognizerSourcePixelMap !== undefined) {
+        await recognizerSourcePixelMap.release()
       }
     }
     DiagnosticLogger.info(
       'comic-translation',
       'local_text_recognizer_complete',
       `profile=${this.supplementalRecognizer.profileId()} attempted=${attempted} ` +
-        `accepted=${accepted} loadMs=${modelLoadMs} inferenceMs=${inferenceMs}`,
+        `attemptedCtd=${attemptedCtd} ` +
+        `accepted=${accepted} fallbackRegions=${fallbackRegions} ` +
+        `splitRecognitions=${splitRecognitions} systemRetries=${systemRetries} ` +
+        `loadMs=${modelLoadMs} inferenceMs=${inferenceMs}`,
     )
     return accepted
   }
 
   private async recognizeRegion(
-    source: image.ImageSource,
+    sourcePixelMap: image.PixelMap,
     rect: LocalRenderRect,
   ): Promise<ComicNativeTextRecognitionResult> {
     if (this.supplementalRecognizer === null) {
@@ -960,18 +995,25 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     let pixelMap: image.PixelMap | undefined = undefined
     try {
-      pixelMap = await source.createPixelMap({
-        editable: false,
-        desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
-        desiredRegion: {
+      const width: number = Math.ceil(rect.width())
+      const height: number = Math.ceil(rect.height())
+      const rowBytes: number = width * 4
+      const pixels: ArrayBuffer = new ArrayBuffer(rowBytes * height)
+      await sourcePixelMap.readPixels({
+        pixels: pixels,
+        offset: 0,
+        stride: rowBytes,
+        region: {
           x: Math.floor(rect.left),
           y: Math.floor(rect.top),
-          size: {
-            width: Math.ceil(rect.width()),
-            height: Math.ceil(rect.height()),
-          },
+          size: { width: width, height: height },
         },
-        cropAndScaleStrategy: image.CropAndScaleStrategy.CROP_FIRST,
+      })
+      pixelMap = await image.createPixelMap(pixels, {
+        size: { width: width, height: height },
+        srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+        pixelFormat: image.PixelMapFormat.RGBA_8888,
+        editable: false,
       })
       return await this.supplementalRecognizer.recognize(
         pixelMap,

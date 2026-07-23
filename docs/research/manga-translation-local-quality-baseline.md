@@ -2,7 +2,7 @@
 
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
-- **current production analyzer**: `core-vision-ocr-bubble-group-v30`
+- **current production analyzer**: `core-vision-ocr-bubble-group-v33`
 - **current production render profile**: `reader-local-bubble-layout-v43` /
   `local-ctd-aot-inpaint-v29` / `local-bubble-typography-v37`
 - **measured**: 2026-07-23
@@ -407,9 +407,26 @@ PyTorch 在生产基准的精确候选框上，7 个普通对白/旁白全部正
 
 同一 production opt-in 用例现额外记录 Core Vision 的精确拟声词裁片探针：第 1 页返回 `N 000`，第 2 页
 返回 `O ラ 00O`，两者均被当前短混合脚本规则拒绝。由此确认 9/11 缺口不是“页边没有重试”造成，放宽
-重试范围或接受阈值只会恢复已知误擦风险。当前 production 继续冻结在 v30；下一 recognizer 必须在扩大
+重试范围或接受阈值只会恢复已知误擦风险。当前 production 继续冻结 v30 的识别接受阈值，backend identity
+因后续资源与重试预算修正升至 v33；下一 recognizer 必须在扩大
 的合法艺术字集合上同时提高 recall、保持 accepted negative 为 0，并报告许可、模型大小、端侧 P50/P95
 和峰值内存，满足后才允许接入。
+
+## Reader 连续页与补充 OCR 预算（2026-07-23）
+
+设备 `237` 使用同一 9 页真实画廊，从未命中 `core-vision-ocr-bubble-group-v33` 缓存的第 8 页开启会话级
+自动翻译。第 8 页先完整收敛，日志随后才出现第 9 页 `prefetch=1`，没有并行提交或继续预取第 10 页；
+翻入第 9 页时直接显示已完成译图。最终 v33 复测中，第 8 页分析/LLM/渲染为
+2.886/25.959/3.078 秒，总计 31.991 秒；第 9 页为 5.531/6.473/0.949 秒，总计 12.982 秒。
+LLM provider 的 6.381–25.811 秒仍是普通页主要波动源，请求图片准备只有 81–141 ms，因此没有以降低
+区域裁图质量换取无意义的小幅节省。
+
+第 9 页 CTD 产生 13 个未覆盖候选。旧无界流程的分析为 19.158 秒；v33 只尝试最强 2 个 CTD 候选，
+其中只有第 1 个执行两次半块识别和一次系统 OCR，日志为
+`attempted=2 attemptedCtd=2 fallbackRegions=1 splitRecognitions=2 systemRetries=1`，分析降至 5.531 秒，
+最终仍只发布两个原有可信文本块。YSGYolo detector 未覆盖区域不使用这条 CTD 两候选上限，长图 fixture
+继续恢复 3 个 detector 区域，避免以性能优化牺牲 detector recall。连续翻入第 9 页后的进程 PSS 为
+641,297 kB；此前同路径基线约 604 MB、运行峰值约 930 MB、完成后约 833 MB，未观察到逐页持续增长。
 
 ## LaMa large 修复模型否决性验证（2026-07-23）
 

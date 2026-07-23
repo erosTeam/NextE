@@ -4,7 +4,7 @@
 - **measured**: 2026-07-23
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 pages
 - **measured local profile**: `core-vision-ocr-directional-render-v13`
-- **current Reader profile**: `core-vision-ocr-bubble-group-v30` /
+- **current Reader profile**: `core-vision-ocr-bubble-group-v33` /
   `reader-local-bubble-layout-v43` / `local-ctd-aot-inpaint-v29`
 - **sidecar profile**: patched `manga-translator-ui v1.9.9-nexte2`, 48px OCR without hybrid retry
 
