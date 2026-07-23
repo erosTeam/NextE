@@ -3420,7 +3420,7 @@ napi_value DetectComicRegions(napi_env env, napi_callback_info info)
         napi_throw_error(env, nullptr, "failed to create comic region detector task");
         return nullptr;
     }
-    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_user_initiated) != napi_ok) {
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic region detector task");

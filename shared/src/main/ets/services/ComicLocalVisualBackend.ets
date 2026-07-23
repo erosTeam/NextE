@@ -747,10 +747,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     try {
       const combined: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+      let sourcePixelMapCreateMs: number = 0
+      let sourcePixelMapReleaseMs: number = 0
       for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
         const tile: LocalOcrTile = tiles[tileIndex]
         let pixelMap: image.PixelMap | undefined = undefined
         try {
+          const pixelMapCreateStartedAt: number = Date.now()
           pixelMap = await source.createPixelMap({
             editable: false,
             desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -761,12 +764,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             },
             cropAndScaleStrategy: image.CropAndScaleStrategy.CROP_FIRST,
           })
+          sourcePixelMapCreateMs =
+            sourcePixelMapCreateMs + Date.now() - pixelMapCreateStartedAt
           const detected: ComicNativeRegionDetectionResult = await this.detector.detect(pixelMap)
           if (combined.backend.length <= 0) {
             combined.backend = detected.backend
           }
           combined.modelLoadMs = combined.modelLoadMs + detected.modelLoadMs
           combined.inferenceMs = combined.inferenceMs + detected.inferenceMs
+          combined.pixelMapReadMs = combined.pixelMapReadMs + detected.pixelMapReadMs
+          combined.nativeCallMs = combined.nativeCallMs + detected.nativeCallMs
           ComicLocalVisualBackend.appendDetectedRegions(
             combined.regions,
             detected.regions,
@@ -776,7 +783,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           )
         } finally {
           if (pixelMap !== undefined) {
+            const pixelMapReleaseStartedAt: number = Date.now()
             await pixelMap.release()
+            sourcePixelMapReleaseMs =
+              sourcePixelMapReleaseMs + Date.now() - pixelMapReleaseStartedAt
           }
         }
       }
@@ -787,6 +797,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         `profile=${this.detector.profileId()} tiles=${tiles.length} ` +
           `regions=${combined.regions.length} loadMs=${combined.modelLoadMs} ` +
           `inferenceMs=${combined.inferenceMs}`,
+      )
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_region_detector_timings',
+        `sourceMap=${sourcePixelMapCreateMs}ms sourceRelease=${sourcePixelMapReleaseMs}ms ` +
+          `pixelRead=${combined.pixelMapReadMs}ms nativeCall=${combined.nativeCallMs}ms ` +
+          `nativeBridge=${Math.max(
+            0,
+            combined.nativeCallMs - combined.modelLoadMs - combined.inferenceMs,
+          )}ms load=${combined.modelLoadMs}ms inference=${combined.inferenceMs}ms`,
       )
       return combined
     } catch (error) {

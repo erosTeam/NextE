@@ -54,6 +54,8 @@ export class ComicNativeRegionDetectionResult {
   backend: string = ''
   modelLoadMs: number = 0
   inferenceMs: number = 0
+  pixelMapReadMs: number = 0
+  nativeCallMs: number = 0
 }
 
 export interface ComicLocalRegionDetector {
@@ -164,16 +166,23 @@ export class ComicNcnnLocalRegionDetector implements ComicLocalRegionDetector {
     const height: number = Math.floor(info.size.height)
     const stride: number = Math.max(Math.floor(info.stride), width * 4)
     const pixels: ArrayBuffer = new ArrayBuffer(pixelMap.getPixelBytesNumber())
+    const pixelMapReadStartedAt: number = Date.now()
     await pixelMap.readPixelsToBuffer(pixels)
-    return ComicNativeRegionDetector.detectRgba(
-      pixels,
-      width,
-      height,
-      stride,
-      this.paramPath,
-      this.modelPath,
-      this.confidenceThreshold,
-      this.threads,
-    )
+    const pixelMapReadMs: number = Date.now() - pixelMapReadStartedAt
+    const nativeCallStartedAt: number = Date.now()
+    const result: ComicNativeRegionDetectionResult =
+      await ComicNativeRegionDetector.detectRgba(
+        pixels,
+        width,
+        height,
+        stride,
+        this.paramPath,
+        this.modelPath,
+        this.confidenceThreshold,
+        this.threads,
+      )
+    result.pixelMapReadMs = pixelMapReadMs
+    result.nativeCallMs = Date.now() - nativeCallStartedAt
+    return result
   }
 }
