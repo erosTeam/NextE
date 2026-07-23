@@ -917,6 +917,110 @@ class CountingStylizedTextRecognizer implements ComicLocalTextRecognizer {
   }
 }
 
+class RejectingArtworkTextRecognizer implements ComicLocalTextRecognizer {
+  callCount: number = 0
+
+  profileId(): string {
+    return 'rejecting-artwork-recognizer-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  recognize(
+    _pixelMap: image.PixelMap,
+    _rotateCounterClockwise: boolean,
+  ): Promise<ComicNativeTextRecognitionResult> {
+    this.callCount = this.callCount + 1
+    const result: ComicNativeTextRecognitionResult = new ComicNativeTextRecognitionResult()
+    result.backend = 'fixture'
+    result.text = '誤'
+    result.score = 0.2
+    return Promise.resolve(result)
+  }
+}
+
+class SystemCropOcrEngine implements ComicLocalOcrEngine {
+  callCount: number = 0
+  private readonly cropText: string
+
+  constructor(cropText: string) {
+    this.cropText = cropText
+  }
+
+  engineId(): string {
+    return 'system-crop-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  async recognize(pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    this.callCount = this.callCount + 1
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    if (info.size.width > 800 || info.size.height > 800) {
+      return result
+    }
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = this.cropText
+    line.blockIndex = 0
+    result.lines.push(line)
+    return result
+  }
+}
+
+class ArtworkTextMasker implements ComicLocalTextMasker {
+  private readonly sparse: boolean
+
+  constructor(sparse: boolean = false) {
+    this.sparse = sparse
+  }
+
+  profileId(): string {
+    return this.sparse ? 'sparse-artwork-mask-fixture' : 'artwork-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(buffer)
+    if (this.sparse) {
+      for (let index: number = 0; index < 8; index++) {
+        mask[(420 + index * 8) * width + 420 + index * 8] = 1
+      }
+    } else {
+      for (let row: number = 0; row < 4; row++) {
+        for (let column: number = 0; column < 4; column++) {
+          const left: number = 420 + column * 16
+          const top: number = 420 + row * 16
+          for (let y: number = top; y < top + 12; y++) {
+            for (let x: number = left; x < left + 12; x++) {
+              mask[y * width + x] = 1
+            }
+          }
+        }
+      }
+    }
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = buffer
+    result.backend = 'fixture'
+    return result
+  }
+}
+
 function writeFile(path: string, bytes: Uint8Array): void {
   let file: fileIo.File | null = null
   try {
@@ -2091,7 +2195,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(30)
+          expect(backend.protocolRevision()).assertEqual(31)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2313,7 +2417,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(31)
+          expect(backend.protocolRevision()).assertEqual(32)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
@@ -2360,6 +2464,84 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks[1].polygon[0].x >= 590).assertEqual(true)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_text_recognizer_supplemented')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('rejects a short mixed-script hallucination from the system artwork crop', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/mixed-script-crop-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const ocr: SystemCropOcrEngine = new SystemCropOcrEngine('O ラ 00O')
+          const recognizer: RejectingArtworkTextRecognizer =
+            new RejectingArtworkTextRecognizer()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            ocr,
+            null,
+            recognizer,
+            null,
+            new ArtworkTextMasker(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(recognizer.callCount).assertEqual(3)
+          expect(ocr.callCount).assertEqual(2)
+          expect(analysis.document.blocks.length).assertEqual(0)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('skips supplemental OCR for a sparse CTD noise component', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/sparse-ctd-noise-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const ocr: SystemCropOcrEngine = new SystemCropOcrEngine('手書き音')
+          const recognizer: RejectingArtworkTextRecognizer =
+            new RejectingArtworkTextRecognizer()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            ocr,
+            null,
+            recognizer,
+            null,
+            new ArtworkTextMasker(true),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(recognizer.callCount).assertEqual(0)
+          expect(ocr.callCount).assertEqual(1)
+          expect(analysis.document.blocks.length).assertEqual(0)
         } finally {
           removeFile(sourcePath)
         }

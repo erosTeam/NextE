@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v29'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 29
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v30'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 30
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -81,6 +81,7 @@ const LOCAL_TEXT_MASK_CANDIDATE_DILATION_PASSES: number = 2
 const LOCAL_TEXT_MASK_CANDIDATE_MIN_CELLS: number = 4
 const LOCAL_TEXT_MASK_CANDIDATE_MAX_REGIONS: number = 32
 const LOCAL_TEXT_MASK_KNOWN_COVERAGE_RATIO: number = 0.25
+const LOCAL_CTD_SUPPLEMENTAL_MIN_OCCUPIED_CELLS: number = 64
 const LOCAL_TEXT_MASK_CACHE_MAX_ENTRIES: number = 2
 const LOCAL_TEXT_MASK_CACHE_MAX_BYTES: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
@@ -742,6 +743,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         continue
       }
       const region: ComicNativeDetectedRegion = detection.regions[regionIndex]
+      if (region.label === 'ctd-text' &&
+        region.proposalOccupiedCells < LOCAL_CTD_SUPPLEMENTAL_MIN_OCCUPIED_CELLS) {
+        continue
+      }
       const rect: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
         region,
         sourceWidth,
@@ -826,12 +831,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             rect,
             sourceWidth,
             sourceHeight,
+            region.proposalOccupiedCells,
           )) {
           const systemText: string = await this.recognizeSystemRegion(source, rect)
-          const systemAccepted: boolean = ComicLocalVisualBackend.supplementalTextAccepted(
-            systemText,
-            1,
-          ) && !ComicLocalVisualBackend.isPeripheralLatinLabel(
+          const systemAccepted: boolean =
+            ComicLocalVisualBackend.supplementalSystemTextAccepted(systemText) &&
+            !ComicLocalVisualBackend.isPeripheralLatinLabel(
             systemText,
             rect,
             sourceWidth,
@@ -973,6 +978,22 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       !/[\u0000-\u001f]/.test(text)
   }
 
+  private static supplementalSystemTextAccepted(text: string): boolean {
+    if (!ComicLocalVisualBackend.supplementalTextAccepted(text, 1)) {
+      return false
+    }
+    const compact: string = text.replace(/\s+/g, '')
+    const latinDigits: string = compact.replace(/[^A-Za-z0-9]/g, '')
+    const cjk: string = compact.replace(
+      /[^\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g,
+      '',
+    )
+    // Enlarged artwork crops can make Core Vision alternate between O/0 and one kana or
+    // ideograph. A false positive here would erase source artwork, so mixed short fragments
+    // fail closed and remain visible for a future manga-specific recognizer.
+    return !(compact.length <= 8 && latinDigits.length >= 3 && cjk.length <= 1)
+  }
+
   private static ctdLineSplitRects(rect: LocalRenderRect): LocalRenderRect[] {
     if (rect.width() < 48 || rect.height() < 64 ||
       rect.height() < rect.width() * 0.65 || rect.height() > rect.width() * 1.8) {
@@ -997,8 +1018,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     rect: LocalRenderRect,
     sourceWidth: number,
     sourceHeight: number,
+    occupiedCells: number,
   ): boolean {
-    return rect.width() >= 64 && rect.height() >= 64 &&
+    return occupiedCells >= LOCAL_CTD_SUPPLEMENTAL_MIN_OCCUPIED_CELLS &&
+      rect.width() >= 64 && rect.height() >= 64 &&
       rect.left > sourceWidth * 0.08 && rect.right < sourceWidth * 0.92 &&
       rect.top > sourceHeight * 0.12 && rect.bottom < sourceHeight * 0.88
   }
@@ -1178,6 +1201,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         region.score = 1
         region.classId = -1
         region.label = 'ctd-text'
+        region.proposalOccupiedCells = candidates[index].occupiedCells
         region.points.push(new ComicNativeRegionPoint(rect.left, rect.top))
         region.points.push(new ComicNativeRegionPoint(rect.right, rect.top))
         region.points.push(new ComicNativeRegionPoint(rect.right, rect.bottom))
@@ -1273,6 +1297,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       mapped.score = source.score
       mapped.classId = source.classId
       mapped.label = source.label
+      mapped.proposalOccupiedCells = source.proposalOccupiedCells
       for (let pointIndex: number = 0; pointIndex < source.points.length; pointIndex++) {
         mapped.points.push(new ComicNativeRegionPoint(
           Math.max(0, Math.min(sourceWidth, source.points[pointIndex].x + tile.x)),

@@ -68,6 +68,7 @@ import toriiWholePageSettingsTest from './ToriiWholePageSettings.test'
 import toriiWholePageRenderBackendTest from './ToriiWholePageRenderBackend.test'
 import comicNativeSourceInpainterTest from './ComicNativeSourceInpainter.test'
 import comicNativeTextMaskerTest from './ComicNativeTextMasker.test'
+import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -140,4 +141,5 @@ export default function testsuite(): void {
   toriiWholePageRenderBackendTest()
   comicNativeSourceInpainterTest()
   comicNativeTextMaskerTest()
+  comicLocalProductionQualityTest()
 }

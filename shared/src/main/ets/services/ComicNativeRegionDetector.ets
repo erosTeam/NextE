@@ -46,6 +46,7 @@ export class ComicNativeDetectedRegion {
   score: number = 0
   classId: number = 0
   label: string = ''
+  proposalOccupiedCells: number = 0
 }
 
 export class ComicNativeRegionDetectionResult {
