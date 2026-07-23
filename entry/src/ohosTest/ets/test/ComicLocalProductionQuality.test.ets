@@ -1,5 +1,6 @@
 import { application, common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
+import { image } from '@kit.ImageKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
@@ -127,6 +128,52 @@ function removeFile(path: string): void {
   } catch (_error) {}
 }
 
+async function recognizeSystemCrop(
+  ocr: HarmonyComicLocalOcrEngine,
+  sourcePath: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): Promise<string> {
+  let source: image.ImageSource | undefined = undefined
+  let pixelMap: image.PixelMap | undefined = undefined
+  try {
+    source = image.createImageSource(sourcePath)
+    const scale: number = Math.min(3, Math.max(2, 512 / Math.max(width, height)))
+    pixelMap = await source.createPixelMap({
+      editable: false,
+      desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+      desiredRegion: {
+        x: x,
+        y: y,
+        size: { width: width, height: height },
+      },
+      desiredSize: {
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+      },
+      cropAndScaleStrategy: image.CropAndScaleStrategy.CROP_FIRST,
+    })
+    const recognized = await ocr.recognize(pixelMap)
+    const texts: string[] = []
+    for (let index: number = 0; index < recognized.lines.length; index++) {
+      const text: string = recognized.lines[index].text.trim()
+      if (text.length > 0) {
+        texts.push(text)
+      }
+    }
+    return texts.join(' ')
+  } finally {
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+    if (source !== undefined) {
+      source.release()
+    }
+  }
+}
+
 export default function comicLocalProductionQualityTest(): void {
   describe('ComicLocalProductionQuality', (): void => {
     it('measures installed detector recognizer and CTD on owned manga fixtures', 0,
@@ -227,6 +274,13 @@ export default function comicLocalProductionQualityTest(): void {
                   `matched=${accuracy.matchedSourceBlocks} missing=${accuracy.missingSourceBlocks} ` +
                   `unexpected=${accuracy.unexpectedSourceBlocks} ` +
                   `analysisMs=${Date.now() - startedAt} text=${recognized.join('|')}`,
+              )
+              const artworkText: string = fixture.pageIndex === 0 ?
+                await recognizeSystemCrop(ocr, sourcePath, 232, 36, 192, 388) :
+                await recognizeSystemCrop(ocr, sourcePath, 100, 1092, 152, 92)
+              console.info(
+                `ComicProductionArtworkProbe page=${fixture.pageIndex + 1} ` +
+                  `text=${artworkText}`,
               )
             } finally {
               removeFile(sourcePath)
