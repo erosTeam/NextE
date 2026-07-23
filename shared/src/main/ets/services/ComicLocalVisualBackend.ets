@@ -4262,6 +4262,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const allowed: Uint8Array = new Uint8Array(width * height)
     const fallbackColors: Uint8Array = new Uint8Array(width * height * 3)
     let masked: number = 0
+    let maskMinX: number = width
+    let maskMinY: number = height
+    let maskMaxX: number = -1
+    let maskMaxY: number = -1
     for (let targetIndex: number = 0;
       targetIndex < treatmentLefts.length; targetIndex++) {
       const background: LocalFillStyle = activeTargets[targetIndex].background
@@ -4308,6 +4312,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             if (mask[y * width + x] === 0) {
               mask[y * width + x] = 1
               masked = masked + 1
+              maskMinX = Math.min(maskMinX, x)
+              maskMinY = Math.min(maskMinY, y)
+              maskMaxX = Math.max(maskMaxX, x)
+              maskMaxY = Math.max(maskMaxY, y)
             }
           }
         }
@@ -4319,11 +4327,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     if (masked <= 0) {
       return
     }
+    // Keep each dilation round isolated: collect only the new frontier, then merge it after
+    // scanning. This is byte-equivalent to cloning the full mask every round without four
+    // full-region copies for the 64-pixel AOT context border.
+    const pendingExpansion: Uint8Array = new Uint8Array(width * height)
     for (let dilation: number = 0;
       dilation < LOCAL_TEXT_MASK_DILATION_PASSES; dilation++) {
-      const expanded: Uint8Array = new Uint8Array(mask)
-      for (let y: number = 1; y < height - 1; y++) {
-        for (let x: number = 1; x < width - 1; x++) {
+      const sourceMinX: number = Math.max(1, maskMinX)
+      const sourceMinY: number = Math.max(1, maskMinY)
+      const sourceMaxX: number = Math.min(width - 2, maskMaxX)
+      const sourceMaxY: number = Math.min(height - 2, maskMaxY)
+      const expandedIndices: number[] = []
+      for (let y: number = sourceMinY; y <= sourceMaxY; y++) {
+        for (let x: number = sourceMinX; x <= sourceMaxX; x++) {
           if (mask[y * width + x] === 0) {
             continue
           }
@@ -4331,14 +4347,28 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             for (let xOffset: number = -1; xOffset <= 1; xOffset++) {
               const expandedX: number = x + xOffset
               const expandedY: number = y + yOffset
-              if (allowed[expandedY * width + expandedX] !== 0) {
-                expanded[expandedY * width + expandedX] = 1
+              const expandedIndex: number = expandedY * width + expandedX
+              if (allowed[expandedIndex] !== 0 && mask[expandedIndex] === 0 &&
+                pendingExpansion[expandedIndex] === 0) {
+                pendingExpansion[expandedIndex] = 1
+                expandedIndices.push(expandedIndex)
               }
             }
           }
         }
       }
-      mask.set(expanded)
+      if (expandedIndices.length <= 0) {
+        break
+      }
+      for (let index: number = 0; index < expandedIndices.length; index++) {
+        const expandedIndex: number = expandedIndices[index]
+        mask[expandedIndex] = 1
+        pendingExpansion[expandedIndex] = 0
+      }
+      maskMinX = Math.max(0, maskMinX - 1)
+      maskMinY = Math.max(0, maskMinY - 1)
+      maskMaxX = Math.min(width - 1, maskMaxX + 1)
+      maskMaxY = Math.min(height - 1, maskMaxY + 1)
     }
     const maskBuildMs: number = Date.now() - maskBuildStartedAt
     if (sourceInpainter !== null) {
