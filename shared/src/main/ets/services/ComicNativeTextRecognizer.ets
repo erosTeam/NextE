@@ -8,7 +8,9 @@ interface NativeComicTextRecognitionResult {
   score: number
   backend: string
   modelLoadMs: number
+  preprocessingMs: number
   inferenceMs: number
+  decodingMs: number
 }
 
 interface NativeComicTextRecognizerModule {
@@ -30,7 +32,14 @@ export class ComicNativeTextRecognitionResult {
   score: number = 0
   backend: string = ''
   modelLoadMs: number = 0
+  preprocessingMs: number = 0
   inferenceMs: number = 0
+  decodingMs: number = 0
+  pixelMapReadMs: number = 0
+  nativeCallMs: number = 0
+  regionCropReadMs: number = 0
+  regionPixelMapCreateMs: number = 0
+  regionPixelMapReleaseMs: number = 0
 }
 
 export interface ComicLocalTextRecognizer {
@@ -79,7 +88,8 @@ export class ComicNativeTextRecognizer {
     )
     if (native.text.length > COMIC_NATIVE_MAX_TEXT_CHARS ||
       !Number.isFinite(native.score) || native.score < 0 || native.score > 1 ||
-      native.backend.length <= 0 || native.modelLoadMs < 0 || native.inferenceMs < 0) {
+      native.backend.length <= 0 || native.modelLoadMs < 0 || native.preprocessingMs < 0 ||
+      native.inferenceMs < 0 || native.decodingMs < 0) {
       throw new Error('invalid native comic text recognizer result')
     }
     const result: ComicNativeTextRecognitionResult = new ComicNativeTextRecognitionResult()
@@ -87,7 +97,9 @@ export class ComicNativeTextRecognizer {
     result.score = native.score
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
+    result.preprocessingMs = native.preprocessingMs
     result.inferenceMs = native.inferenceMs
+    result.decodingMs = native.decodingMs
     return result
   }
 }
@@ -127,18 +139,25 @@ export class ComicNcnnLocalTextRecognizer implements ComicLocalTextRecognizer {
     const width: number = Math.floor(info.size.width)
     const height: number = Math.floor(info.size.height)
     const pixels: ArrayBuffer = new ArrayBuffer(pixelMap.getPixelBytesNumber())
+    const pixelMapReadStartedAt: number = Date.now()
     await pixelMap.readPixelsToBuffer(pixels)
+    const pixelMapReadMs: number = Date.now() - pixelMapReadStartedAt
     const stride: number = Math.floor(pixels.byteLength / Math.max(1, height))
-    return ComicNativeTextRecognizer.recognizeRgba(
-      pixels,
-      width,
-      height,
-      stride,
-      this.paramPath,
-      this.modelPath,
-      this.dictionaryPath,
-      rotateCounterClockwise,
-      this.threads,
-    )
+    const nativeCallStartedAt: number = Date.now()
+    const result: ComicNativeTextRecognitionResult =
+      await ComicNativeTextRecognizer.recognizeRgba(
+        pixels,
+        width,
+        height,
+        stride,
+        this.paramPath,
+        this.modelPath,
+        this.dictionaryPath,
+        rotateCounterClockwise,
+        this.threads,
+      )
+    result.pixelMapReadMs = pixelMapReadMs
+    result.nativeCallMs = Date.now() - nativeCallStartedAt
+    return result
   }
 }

@@ -126,6 +126,44 @@ class LocalMappedBlock {
   lineHeightScale: number = 1
 }
 
+class LocalSupplementalOcrTimings {
+  sourcePixelMapCreateMs: number = 0
+  regionCropReadMs: number = 0
+  regionPixelMapCreateMs: number = 0
+  regionPixelMapReleaseMs: number = 0
+  recognizerPixelMapReadMs: number = 0
+  nativeCallMs: number = 0
+  modelLoadMs: number = 0
+  nativePreprocessingMs: number = 0
+  nativeInferenceMs: number = 0
+  nativeDecodingMs: number = 0
+  systemRetryMs: number = 0
+
+  addRecognition(result: ComicNativeTextRecognitionResult): void {
+    this.regionCropReadMs = this.regionCropReadMs + result.regionCropReadMs
+    this.regionPixelMapCreateMs =
+      this.regionPixelMapCreateMs + result.regionPixelMapCreateMs
+    this.regionPixelMapReleaseMs =
+      this.regionPixelMapReleaseMs + result.regionPixelMapReleaseMs
+    this.recognizerPixelMapReadMs =
+      this.recognizerPixelMapReadMs + result.pixelMapReadMs
+    this.nativeCallMs = this.nativeCallMs + result.nativeCallMs
+    this.modelLoadMs = this.modelLoadMs + result.modelLoadMs
+    this.nativePreprocessingMs =
+      this.nativePreprocessingMs + result.preprocessingMs
+    this.nativeInferenceMs = this.nativeInferenceMs + result.inferenceMs
+    this.nativeDecodingMs = this.nativeDecodingMs + result.decodingMs
+  }
+
+  nativeBridgeMs(): number {
+    return Math.max(
+      0,
+      this.nativeCallMs - this.modelLoadMs - this.nativePreprocessingMs -
+        this.nativeInferenceMs - this.nativeDecodingMs,
+    )
+  }
+}
+
 class LocalTemplatePoint {
   x: number = 0
   y: number = 0
@@ -793,6 +831,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     let fallbackRegions: number = 0
     let splitRecognitions: number = 0
     let systemRetries: number = 0
+    const timings: LocalSupplementalOcrTimings = new LocalSupplementalOcrTimings()
     let recognizerSourcePixelMap: image.PixelMap | undefined = undefined
     try {
       for (let regionIndex: number = 0;
@@ -825,15 +864,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         }
         try {
           if (recognizerSourcePixelMap === undefined) {
+            const sourcePixelMapStartedAt: number = Date.now()
             recognizerSourcePixelMap = await source.createPixelMap({
               editable: false,
               desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
             })
+            timings.sourcePixelMapCreateMs =
+              Date.now() - sourcePixelMapStartedAt
           }
           const recognized: ComicNativeTextRecognitionResult = await this.recognizeRegion(
             recognizerSourcePixelMap,
             rect,
           )
+          timings.addRecognition(recognized)
           modelLoadMs = modelLoadMs + recognized.modelLoadMs
           inferenceMs = inferenceMs + recognized.inferenceMs
           let text: string = recognized.text.trim()
@@ -863,6 +906,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
                 recognizerSourcePixelMap,
                 splitRects[splitIndex],
               )
+              timings.addRecognition(split)
               modelLoadMs = modelLoadMs + split.modelLoadMs
               inferenceMs = inferenceMs + split.inferenceMs
               const splitText: string = split.text.trim()
@@ -911,7 +955,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
               region.proposalOccupiedCells,
             )) {
             systemRetries = systemRetries + 1
+            const systemRetryStartedAt: number = Date.now()
             const systemText: string = await this.recognizeSystemRegion(source, rect)
+            timings.systemRetryMs =
+              timings.systemRetryMs + Date.now() - systemRetryStartedAt
             const systemAccepted: boolean =
               ComicLocalVisualBackend.supplementalSystemTextAccepted(systemText) &&
               !ComicLocalVisualBackend.isPeripheralLatinLabel(
@@ -981,7 +1028,30 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         `attemptedCtd=${attemptedCtd} ` +
         `accepted=${accepted} fallbackRegions=${fallbackRegions} ` +
         `splitRecognitions=${splitRecognitions} systemRetries=${systemRetries} ` +
-        `loadMs=${modelLoadMs} inferenceMs=${inferenceMs}`,
+        `sourceMapMs=${timings.sourcePixelMapCreateMs} ` +
+        `cropReadMs=${timings.regionCropReadMs} cropMapMs=${timings.regionPixelMapCreateMs} ` +
+        `cropReleaseMs=${timings.regionPixelMapReleaseMs} ` +
+        `recognizerReadMs=${timings.recognizerPixelMapReadMs} ` +
+        `nativeCallMs=${timings.nativeCallMs} nativeBridgeMs=${timings.nativeBridgeMs()} ` +
+        `loadMs=${modelLoadMs} preprocessMs=${timings.nativePreprocessingMs} ` +
+        `inferenceMs=${inferenceMs} decodeMs=${timings.nativeDecodingMs} ` +
+        `systemRetryMs=${timings.systemRetryMs}`,
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_recognizer_input_timings',
+      `sourceMap=${timings.sourcePixelMapCreateMs}ms ` +
+        `cropRead=${timings.regionCropReadMs}ms cropMap=${timings.regionPixelMapCreateMs}ms ` +
+        `cropRelease=${timings.regionPixelMapReleaseMs}ms ` +
+        `recognizerRead=${timings.recognizerPixelMapReadMs}ms`,
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_recognizer_native_timings',
+      `nativeCall=${timings.nativeCallMs}ms nativeBridge=${timings.nativeBridgeMs()}ms ` +
+        `load=${timings.modelLoadMs}ms preprocess=${timings.nativePreprocessingMs}ms ` +
+        `inference=${timings.nativeInferenceMs}ms decode=${timings.nativeDecodingMs}ms ` +
+        `systemRetry=${timings.systemRetryMs}ms`,
     )
     return accepted
   }
@@ -994,11 +1064,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       throw new Error('Local manga text recognizer is unavailable')
     }
     let pixelMap: image.PixelMap | undefined = undefined
+    let result: ComicNativeTextRecognitionResult | undefined = undefined
     try {
       const width: number = Math.ceil(rect.width())
       const height: number = Math.ceil(rect.height())
       const rowBytes: number = width * 4
       const pixels: ArrayBuffer = new ArrayBuffer(rowBytes * height)
+      const cropReadStartedAt: number = Date.now()
       await sourcePixelMap.readPixels({
         pixels: pixels,
         offset: 0,
@@ -1009,19 +1081,29 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           size: { width: width, height: height },
         },
       })
+      const cropReadMs: number = Date.now() - cropReadStartedAt
+      const cropPixelMapStartedAt: number = Date.now()
       pixelMap = await image.createPixelMap(pixels, {
         size: { width: width, height: height },
         srcPixelFormat: image.PixelMapFormat.RGBA_8888,
         pixelFormat: image.PixelMapFormat.RGBA_8888,
         editable: false,
       })
-      return await this.supplementalRecognizer.recognize(
+      const cropPixelMapCreateMs: number = Date.now() - cropPixelMapStartedAt
+      result = await this.supplementalRecognizer.recognize(
         pixelMap,
         rect.height() > rect.width() * 1.2,
       )
+      result.regionCropReadMs = cropReadMs
+      result.regionPixelMapCreateMs = cropPixelMapCreateMs
+      return result
     } finally {
       if (pixelMap !== undefined) {
+        const releaseStartedAt: number = Date.now()
         await pixelMap.release()
+        if (result !== undefined) {
+          result.regionPixelMapReleaseMs = Date.now() - releaseStartedAt
+        }
       }
     }
   }

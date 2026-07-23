@@ -213,7 +213,9 @@ struct ComicTextRecognitionTask {
     std::string error;
     float score = 0.0f;
     int64_t modelLoadMs = 0;
+    int64_t preprocessingMs = 0;
     int64_t inferenceMs = 0;
+    int64_t decodingMs = 0;
 };
 
 struct ComicInpaintingTask {
@@ -2373,6 +2375,7 @@ bool RunComicTextRecognition(ComicTextRecognitionTask &task)
     if (net == nullptr) {
         return false;
     }
+    const SteadyClock::time_point preprocessingStartedAt = SteadyClock::now();
     std::vector<uint8_t> rotated;
     const uint8_t *source = task.input.data();
     int sourceWidth = task.width;
@@ -2422,7 +2425,8 @@ bool RunComicTextRecognition(ComicTextRecognitionTask &task)
         task.error = "comic text recognizer preprocessing failed";
         return false;
     }
-    const SteadyClock::time_point startedAt = SteadyClock::now();
+    task.preprocessingMs = ElapsedMilliseconds(preprocessingStartedAt);
+    const SteadyClock::time_point inferenceStartedAt = SteadyClock::now();
     ncnn::Extractor extractor = net->create_extractor();
     if (extractor.input("in0", input) != 0) {
         task.error = "comic text recognizer rejected the input tensor";
@@ -2433,13 +2437,14 @@ bool RunComicTextRecognition(ComicTextRecognitionTask &task)
         task.error = "comic text recognizer failed to infer output";
         return false;
     }
-    task.inferenceMs = ElapsedMilliseconds(startedAt);
+    task.inferenceMs = ElapsedMilliseconds(inferenceStartedAt);
     if (output.dims != 2 || output.w != kComicRecognizerCharacters ||
         output.h != kComicRecognizerTimeSteps || output.elempack != 1) {
         task.error = "comic text recognizer returned an unexpected output shape";
         ResetCachedComicRecognizer();
         return false;
     }
+    const SteadyClock::time_point decodingStartedAt = SteadyClock::now();
     int previous = -1;
     float confidence = 0.0f;
     int selected = 0;
@@ -2462,6 +2467,7 @@ bool RunComicTextRecognition(ComicTextRecognitionTask &task)
         previous = best;
     }
     task.score = selected > 0 ? confidence / static_cast<float>(selected) : 0.0f;
+    task.decodingMs = ElapsedMilliseconds(decodingStartedAt);
     return true;
 }
 
@@ -3137,7 +3143,13 @@ void CompleteComicTextRecognition(napi_env env, napi_status status, void *data)
             napi_set_named_property(env, result, "score", DoubleValue(env, task->score));
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(
+                env,
+                result,
+                "preprocessingMs",
+                Int64Value(env, task->preprocessingMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(env, result, "decodingMs", Int64Value(env, task->decodingMs));
             napi_resolve_deferred(env, task->deferred, result);
         } else {
             task->error = "failed to allocate comic text recognizer result";
@@ -3460,7 +3472,10 @@ napi_value RecognizeComicText(napi_env env, napi_callback_info info)
         napi_throw_error(env, nullptr, "failed to create comic text recognizer task");
         return nullptr;
     }
-    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_background) != napi_ok) {
+    // Supplemental PP-OCR is bounded to a few short recognitions and directly gates the
+    // user-requested current-page result. Background QoS can starve these small tasks for
+    // seconds behind unrelated native work even though inference itself takes milliseconds.
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_user_initiated) != napi_ok) {
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic text recognizer task");
