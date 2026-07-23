@@ -279,6 +279,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
     ComicVisualTranslationContract.validateRegionAnalysisRequest(request)
+    const analysisStartedAt: number = Date.now()
+    let detectorMs: number = 0
+    let systemOcrMs: number = 0
+    let proposalMaskMs: number = 0
+    let supplementalOcrMs: number = 0
     let source: image.ImageSource | undefined = undefined
     try {
       source = image.createImageSource(request.source.imageFilePath)
@@ -287,17 +292,20 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         Math.floor(info.size.height) !== request.source.imageHeight) {
         throw new Error('Local comic OCR source dimensions do not match the request')
       }
+      let stageStartedAt: number = Date.now()
       let detection: ComicNativeRegionDetectionResult | null =
         await this.detectRegions(
           source,
           request.source.imageWidth,
           request.source.imageHeight,
         )
+      detectorMs = Date.now() - stageStartedAt
       const tiles: LocalOcrTile[] = ComicLocalVisualBackend.tiles(
         request.source.imageWidth,
         request.source.imageHeight,
       )
       const mapped: LocalMappedLine[] = []
+      stageStartedAt = Date.now()
       for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
         const tile: LocalOcrTile = tiles[tileIndex]
         let pixelMap: image.PixelMap | undefined = undefined
@@ -327,6 +335,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           }
         }
       }
+      systemOcrMs = Date.now() - stageStartedAt
       const lines: LocalMappedLine[] = ComicLocalVisualBackend.suppressFurigana(
         ComicLocalVisualBackend.deduplicate(mapped),
       )
@@ -336,6 +345,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ComicLocalVisualBackend.assignDetectorRegions(lines, detection)
       const candidateCoverageLines: LocalMappedLine[] =
         ComicLocalVisualBackend.suppressUnmatchedShortText(lines, detection)
+      stageStartedAt = Date.now()
       detection = await this.addTextMaskCandidates(
         source,
         candidateCoverageLines,
@@ -344,6 +354,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageHeight,
         request.source.imageHash,
       )
+      proposalMaskMs = Date.now() - stageStartedAt
       ComicLocalVisualBackend.assignDetectorRegions(lines, detection)
       ComicLocalVisualBackend.logDetectorCoverage(
         lines,
@@ -351,6 +362,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageWidth,
         request.source.imageHeight,
       )
+      stageStartedAt = Date.now()
       const supplementalCount: number = await this.supplementMissedRegions(
         source,
         lines,
@@ -358,6 +370,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageWidth,
         request.source.imageHeight,
       )
+      supplementalOcrMs = Date.now() - stageStartedAt
+      const layoutStartedAt: number = Date.now()
       const layoutLines: LocalMappedLine[] = ComicLocalVisualBackend.suppressUnmatchedShortText(
         lines,
         detection,
@@ -399,6 +413,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         result.document,
         result.adapterTemplate,
       )
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_analysis_stage_timings',
+        `detector=${detectorMs}ms systemOcr=${systemOcrMs}ms ` +
+          `proposalMask=${proposalMaskMs}ms supplementalOcr=${supplementalOcrMs}ms ` +
+          `layout=${Date.now() - layoutStartedAt}ms total=${Date.now() - analysisStartedAt}ms ` +
+          `tiles=${tiles.length} blocks=${result.document.blocks.length}`,
+      )
       return result
     } finally {
       if (source !== undefined) {
@@ -417,6 +439,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     let pixelMap: image.PixelMap | undefined = undefined
     let packer: image.ImagePacker | undefined = undefined
     let outputFile: fileIo.File | null = null
+    const renderStartedAt: number = Date.now()
+    let decodeMs: number = 0
+    let maskMs: number = 0
+    let layoutMs: number = 0
+    let inpaintMs: number = 0
+    let drawMs: number = 0
+    let encodeMs: number = 0
     const identityHash: string = ComicLocalVisualBackend.sha256Text(request.identity.cacheKey())
     const dir: string = `${this.context.cacheDir}/${LOCAL_RENDER_CACHE_DIR}`
     ComicLocalVisualBackend.ensureDir(dir)
@@ -427,6 +456,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         editable: true,
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
       })
+      decodeMs = Date.now() - renderStartedAt
+      const maskStartedAt: number = Date.now()
       let pageTextMask: Uint8Array | null = this.takeTreatmentMask(
         request.source.imageHash,
         request.source.imageWidth,
@@ -439,6 +470,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         }
         pageTextMask = new Uint8Array(maskResult.mask)
       }
+      maskMs = Date.now() - maskStartedAt
+      const layoutStartedAt: number = Date.now()
       const translations: Map<string, string> = new Map<string, string>()
       for (let index: number = 0; index < request.translations.blocks.length; index++) {
         translations.set(
@@ -546,9 +579,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         'local_render_groups_ready',
         `drawable=${drawableGroups.length} skipped=${renderGroups.length - drawableGroups.length}`,
       )
+      layoutMs = Date.now() - layoutStartedAt
       // All geometry and text layout decisions must finish against the untouched page. Erase
       // only regions that have a drawable replacement so one pathological translation cannot
       // blank its source text or abort otherwise valid regions on the page.
+      const inpaintStartedAt: number = Date.now()
       for (let index: number = 0; index < drawableGroups.length; index++) {
         const targets: LocalSourceTreatmentTarget[] = []
         for (let memberIndex: number = 0;
@@ -576,6 +611,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           pageTextMask,
         )
       }
+      inpaintMs = Date.now() - inpaintStartedAt
+      const drawStartedAt: number = Date.now()
       const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
       for (let index: number = 0; index < drawableGroups.length; index++) {
         const block: ComicTextBlock = drawableGroups[index].plan.block
@@ -591,6 +628,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           horizontalOffsets[index],
         )
       }
+      drawMs = Date.now() - drawStartedAt
+      const encodeStartedAt: number = Date.now()
       packer = image.createImagePacker()
       outputFile = fileIo.openSync(
         partial,
@@ -599,6 +638,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
       fileIo.closeSync(outputFile)
       outputFile = null
+      encodeMs = Date.now() - encodeStartedAt
       const stat: fileIo.Stat = fileIo.statSync(partial)
       if (!stat.isFile() || stat.size <= 0 || stat.size > LOCAL_MAX_RENDERED_BYTES) {
         throw new Error('Local comic rendered page size is invalid')
@@ -619,6 +659,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       page.createdAt = now
       page.lastAccessAt = now
       ComicVisualTranslationContract.validateRenderedPage(request.identity, page)
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_render_stage_timings',
+        `decode=${decodeMs}ms mask=${maskMs}ms layout=${layoutMs}ms ` +
+          `inpaint=${inpaintMs}ms draw=${drawMs}ms encode=${encodeMs}ms ` +
+          `finalize=${Date.now() - encodeStartedAt - encodeMs}ms ` +
+          `total=${Date.now() - renderStartedAt}ms groups=${drawableGroups.length} ` +
+          `bytes=${page.byteLength}`,
+      )
       return page
     } catch (error) {
       ComicLocalVisualBackend.removeFile(partial)
