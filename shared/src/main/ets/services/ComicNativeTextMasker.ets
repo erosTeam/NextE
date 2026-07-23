@@ -15,6 +15,7 @@ interface NativeComicTextMaskResult {
   preprocessingMs: number
   inferenceMs: number
   postprocessingMs: number
+  resultMarshallingMs: number
   maskedPixels: number
   secondaryMaskedPixels: number
 }
@@ -49,6 +50,7 @@ export class ComicNativeTextMaskResult {
   preprocessingMs: number = 0
   inferenceMs: number = 0
   postprocessingMs: number = 0
+  resultMarshallingMs: number = 0
   tileCount: number = 1
   maskedPixels: number = 0
   secondaryMaskedPixels: number = 0
@@ -105,6 +107,7 @@ export class ComicNativeTextMasker {
     if (native.mask.byteLength !== width * height || native.backend.length <= 0 ||
       native.modelLoadMs < 0 || native.preprocessingMs < 0 ||
       native.inferenceMs < 0 || native.postprocessingMs < 0 ||
+      native.resultMarshallingMs < 0 ||
       native.maskedPixels < 0 || native.maskedPixels > width * height ||
       native.secondaryMaskedPixels < 0 ||
       native.secondaryMaskedPixels > width * height ||
@@ -125,6 +128,7 @@ export class ComicNativeTextMasker {
     result.preprocessingMs = native.preprocessingMs
     result.inferenceMs = native.inferenceMs
     result.postprocessingMs = native.postprocessingMs
+    result.resultMarshallingMs = native.resultMarshallingMs
     result.maskedPixels = native.maskedPixels
     result.secondaryMaskedPixels = native.secondaryMaskedPixels
     return result
@@ -250,6 +254,8 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
       aggregate.preprocessingMs = aggregate.preprocessingMs + result.preprocessingMs
       aggregate.inferenceMs = aggregate.inferenceMs + result.inferenceMs
       aggregate.postprocessingMs = aggregate.postprocessingMs + result.postprocessingMs
+      aggregate.resultMarshallingMs =
+        aggregate.resultMarshallingMs + result.resultMarshallingMs
       aggregate.pixelMapReadMs = aggregate.pixelMapReadMs + result.pixelMapReadMs
       aggregate.nativeCallMs = aggregate.nativeCallMs + result.nativeCallMs
       aggregate.maskedPixels = aggregate.maskedPixels + result.maskedPixels
@@ -362,9 +368,11 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
         `nativeCall=${result.nativeCallMs}ms nativeBridge=${Math.max(
           0,
           result.nativeCallMs - result.modelLoadMs - result.preprocessingMs -
-            result.inferenceMs - result.postprocessingMs,
+            result.inferenceMs - result.postprocessingMs -
+            result.resultMarshallingMs,
         )}ms load=${result.modelLoadMs}ms preprocess=${result.preprocessingMs}ms ` +
-        `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms`,
+        `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms ` +
+        `marshal=${result.resultMarshallingMs}ms`,
     )
   }
 

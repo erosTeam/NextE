@@ -260,6 +260,7 @@ struct ComicTextMaskTask {
     int64_t preprocessingMs = 0;
     int64_t inferenceMs = 0;
     int64_t postprocessingMs = 0;
+    int64_t resultMarshallingMs = 0;
     int64_t maskedPixels = 0;
     int64_t secondaryMaskedPixels = 0;
 };
@@ -3185,6 +3186,7 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
 {
     auto *task = static_cast<ComicTextMaskTask *>(data);
     if (status == napi_ok && task->error.empty()) {
+        const SteadyClock::time_point marshallingStartedAt = SteadyClock::now();
         napi_value result = nullptr;
         napi_value outputBuffer = nullptr;
         void *outputData = nullptr;
@@ -3220,6 +3222,7 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
         } else {
             task->error = "failed to allocate comic text mask result";
         }
+        task->resultMarshallingMs = ElapsedMilliseconds(marshallingStartedAt);
         if (task->error.empty()) {
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp16-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
@@ -3234,6 +3237,11 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
                 result,
                 "postprocessingMs",
                 Int64Value(env, task->postprocessingMs));
+            napi_set_named_property(
+                env,
+                result,
+                "resultMarshallingMs",
+                Int64Value(env, task->resultMarshallingMs));
             napi_set_named_property(env, result, "maskedPixels", Int64Value(env, task->maskedPixels));
             napi_set_named_property(
                 env,
@@ -3612,7 +3620,9 @@ napi_value InferComicTextMask(napi_env env, napi_callback_info info)
         napi_throw_error(env, nullptr, "failed to create comic text mask task");
         return nullptr;
     }
-    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_utility) != napi_ok) {
+    // CTD proposal/treatment is serialized and directly blocks the requested page result.
+    // Keep the heavier inference unchanged, but avoid utility-queue starvation on the current page.
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_user_initiated) != napi_ok) {
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic text mask task");

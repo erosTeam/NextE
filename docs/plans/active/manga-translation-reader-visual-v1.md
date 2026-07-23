@@ -886,3 +886,16 @@ CTD 提升为 `user_initiated`，也不恢复已否决的 CTD/Core Vision 并行
 VM-owned mask 结果复制与实际队列等待；不得用 external ArrayBuffer 重新引入连续页 PSS 不回收问题。
 最终 signed app、signed `entry@ohosTest`、CI preflight、V2 inventory 和 `git diff --check` 通过；
 重装 test host 后设备完整 Hypium 为 288/288。
+
+2026-07-24 CTD 队列与结果回传继续拆分。native 结果新增 VM-owned mask 分配、主/次 mask 复制和 JS
+对象组装的独立计时；设备 `237` 的 `utility` 基线中，三页 result marshalling 仅为 1/1/21 ms，
+而扣除加载、预处理、推理、后处理和回传后的 native queue/bridge 为 111/221/455 ms。结果复制不是
+当前瓶颈，因此明确保留 VM 管理 ArrayBuffer，不用 external ArrayBuffer 换取至多几十毫秒并重新引入
+此前连续页 PSS 不回收问题。
+
+CTD proposal/treatment 串行阻塞当前页，模型输入、线程、阈值、瓦片和推理本身均未改变；只将
+`InferComicTextMask` 的 native work 从 `utility` 调整为 `user_initiated`，AOT 仍为 `utility`。
+两轮候选的三页 queue/bridge 分别为 130/116/317 ms 和 105/108/323 ms；普通第 2 页和长页的等待缩短
+可重复，长页 proposal stage 由 2,993 ms 降至 2,474/2,493 ms，完整目标用例由 18,928 ms 降至
+18,213/18,266 ms。质量保持 11 个预期块命中 9、误检 0，三页渲染字节数未变。utility 基线热档位为
+1/1/2，连续热跑候选为 2/2/2，因此这里只认定热态下仍稳定和队列等待下降，不宣称热负载改善。
