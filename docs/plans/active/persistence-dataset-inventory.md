@@ -124,6 +124,7 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Manga translation model selected within its shared source |
 | StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE | setting | plaintext | excluded | Explicit on-device or Torii whole-page visual route; defaults to on-device |
 | StorageKeys.COMIC_TRANSLATION_TORII_MODEL | setting | plaintext | excluded | Model ID selected from the versioned official Torii catalog snapshot |
+| StorageKeys.COMIC_TRANSLATION_TORII_FONT | setting | plaintext | excluded | Torii whole-page rendering font ID |
 | StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
 | StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_PROVIDER | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
 | StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_SOURCE_PROFILE | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |

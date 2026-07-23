@@ -38,28 +38,22 @@ jobs:
       - name: Verify module registration
         shell: bash
         run: |
-          node scripts/test_version_consistency_contract.mjs
+          bash scripts/run_ci_preflight.sh module
 
       - name: Check i18n resources
         shell: bash
         run: |
-          python3 scripts/check_i18n_duplicates.py
+          bash scripts/run_ci_preflight.sh i18n
 
       - name: Check State Management V2 inventory
         shell: bash
         run: |
-          node scripts/test_v1_decorator_inventory_contract.mjs
+          bash scripts/run_ci_preflight.sh v2
 
       - name: Check severe source boundaries
         shell: bash
         run: |
-          node scripts/test_error_classification_contract.mjs
-          node scripts/test_cookie_roundtrip_contract.mjs
-          node scripts/test_cookie_import_contract.mjs
-          node scripts/test_remote_write_retry_contract.mjs
-          node scripts/test_persistence_inventory_contract.mjs
-          node scripts/test_public_clipboard_build_contract.mjs
-          node scripts/test_local_only_incident_boundary_contract.mjs
+          bash scripts/run_ci_preflight.sh severe
 
       - name: Disable Huawei Cloud sync for public CI builds
         shell: bash

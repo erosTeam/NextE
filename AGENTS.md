@@ -29,6 +29,12 @@ to require V1, stop and return `BLOCKED` with source/build evidence and a V2-onl
 For every ArkTS/UI/state change, run `node scripts/test_v1_decorator_inventory_contract.mjs`; it must
 report `0 file(s)` before merge or push.
 
+## Hard Stop: CI Preflight Before Push
+
+Before any push, run `bash scripts/run_ci_preflight.sh`; it must pass every repository gate used by the
+current GitHub Actions workflow. After pushing, inspect the Actions run for the exact pushed HEAD and do
+not report delivery complete until it succeeds. A local Hvigor build or a subset of gates is not CI proof.
+
 ## Hard Stop: Device Selection
 
 Before any device-affecting command, the user or current explicit task must identify the intended device.

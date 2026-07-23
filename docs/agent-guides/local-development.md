@@ -22,8 +22,8 @@ worktree、任务队列或某次验证快照。所有易变化事实都必须实
 - 每次用 `git status`、`git worktree list` 和当前环境实际路径确认状态；不依赖历史 handoff 的
   分支、worktree、CLI 版本或设备列表。
 - 不清理、不复用、不覆盖旧 worktree 或其他任务的 WIP，除非用户明确给出路径和操作授权。
-- 不假设存在统一的本地 harness。全局 CI 门禁以 `.github/workflows/build.yml` 为准；本地按当前
-  变更范围直接运行对应脚本。配置或旧日志里出现过某个工具，不等于当前环境已经执行它。
+- 全局 CI 门禁由 `scripts/run_ci_preflight.sh` 统一执行，`.github/workflows/build.yml` 必须调用同一
+  脚本，避免本地与远端清单漂移。配置或旧日志里出现过某个工具，不等于当前环境已经执行它。
 
 ## 设备
 
@@ -33,7 +33,7 @@ worktree、任务队列或某次验证快照。所有易变化事实都必须实
 
 ## 基础检查
 
-按变更范围选择，不把所有脚本机械地当作每次必跑：
+开发过程中可按变更范围选择检查：
 
 ```bash
 node scripts/test_v1_decorator_inventory_contract.mjs
@@ -42,4 +42,11 @@ python3 scripts/check_i18n_duplicates.py
 git diff --check
 ```
 
-用户可见、设备相关和 CI/release 工作仍需要各自指南要求的运行时证据。
+任何推送前都必须额外运行：
+
+```bash
+bash scripts/run_ci_preflight.sh
+```
+
+推送后必须检查精确 HEAD 对应的 GitHub Actions 结论；Actions 未成功时不能用本地 Hvigor 或部分门禁
+宣布交付完成。用户可见、设备相关和 CI/release 工作仍需要各自指南要求的运行时证据。
