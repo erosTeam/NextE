@@ -286,6 +286,7 @@ export struct ReaderPage {
   @Local readModeMenuShown: boolean = false;
   @Local readerTopMoreMenuShown: boolean = false;
   @Local comicTranslationRunning: boolean = false;
+  @Local comicTranslationPrefetchRunning: boolean = false;
   @Local comicTranslationErrorCode: string = '';
   @Local comicTranslationPageIndex: number = -1;
   @Local comicTranslationCacheHit: boolean = false;
@@ -1374,6 +1375,7 @@ export struct ReaderPage {
   private resetComicTranslationPresentation(): void {
     this.comicTranslationUiEpoch++
     this.comicTranslationRunning = false
+    this.comicTranslationPrefetchRunning = false
     this.comicTranslationErrorCode = ''
     this.comicTranslationPageIndex = -1
     this.comicTranslationCacheHit = false
@@ -1758,6 +1760,7 @@ export struct ReaderPage {
     this.comicTranslationCacheHit = false
     this.comicTranslationErrorCode = ''
     this.comicTranslationRunning = true
+    this.comicTranslationPrefetchRunning = autoPrefetch
     const translationStartedAt: number = Date.now()
     ComicTranslationRuntimeService.runReaderPage(this.hostContext(), input, forceRefresh)
       .then((result: ComicVisualTranslationRunResult): void => {
@@ -1778,6 +1781,7 @@ export struct ReaderPage {
         this.comicTranslationCacheHit = result.cacheHit
         this.comicTranslationErrorCode = ''
         this.comicTranslationRunning = false
+        this.comicTranslationPrefetchRunning = false
         if (!resultPageIsVisible) {
           this.comicTranslationPageIndex = -1
         }
@@ -1811,6 +1815,7 @@ export struct ReaderPage {
         }
         this.comicTranslationErrorCode = resultPageIsVisible ? errorCode : ''
         this.comicTranslationRunning = false
+        this.comicTranslationPrefetchRunning = false
         if (!resultPageIsVisible) {
           this.comicTranslationPageIndex = -1
         }
@@ -1882,7 +1887,9 @@ export struct ReaderPage {
           .fontColor([Color.White])
       }
       Text(this.comicTranslationRunning
-        ? $r('app.string.reader_comic_translation_running')
+        ? (this.comicTranslationPrefetchRunning
+          ? $r('app.string.reader_comic_translation_prefetch_running')
+          : $r('app.string.reader_comic_translation_running'))
         : this.comicTranslationFailureText())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(Color.White)
@@ -1976,7 +1983,10 @@ export struct ReaderPage {
 
   private cacheWarmImageIndexes(): number[] {
     const indexes: number[] = []
-    const preloadPages: number = this.readerPreloadPages()
+    const preloadPages: number = ReaderComicTranslationAutoPolicy.warmLookahead(
+      this.readerPreloadPages(),
+      this.comicTranslationAutoEnabled,
+    )
     if (!this.readerContentReady() || preloadPages <= 0 || this.viewWidth <= 0 || this.viewHeight <= 0) {
       return indexes
     }
@@ -2012,6 +2022,9 @@ export struct ReaderPage {
             },
             onImageFileReady: (page: number, filePath: string, bytes: number) => {
               this.rememberImageFile(page, filePath, bytes)
+            },
+            onImageMetrics: (page: number, width: number, height: number) => {
+              this.rememberImageMetrics(page, width, height)
             },
             translateX: this.warmerTranslateX(),
           })
@@ -4974,6 +4987,8 @@ struct ReaderCacheWarmImage {
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string, bytes: number) => void =
     (_page: number, _filePath: string, _bytes: number) => {};
+  @Param onImageMetrics: (page: number, width: number, height: number) => void =
+    (_page: number, _width: number, _height: number) => {};
 
   private warmingKey: string = '';
   private warmingUrl: string = '';
@@ -5093,11 +5108,14 @@ struct ReaderCacheWarmImage {
         src: this.warmDisplayUri,
         widthValue: '100%',
         heightValue: '100%',
-        onComplete: (_event?: ReaderImageLoadEvent) => {
+        onComplete: (event?: ReaderImageLoadEvent) => {
           if (this.decodedKey === this.warmedKey) {
             return
           }
           this.decodedKey = this.warmedKey
+          if (event && event.width && event.height) {
+            this.onImageMetrics(this.page, event.width, event.height)
+          }
           this.onImageLoaded(this.page)
           DiagnosticLogger.info('image-cache', 'reader_warm_decoded', `page ${this.page}`)
           DiagnosticLogger.info('image', 'reader_image_display_decoded', `page=${this.page} warm=true`)

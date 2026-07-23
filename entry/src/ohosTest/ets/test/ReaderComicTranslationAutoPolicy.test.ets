@@ -3,6 +3,14 @@ import { ReaderComicTranslationAutoPolicy } from 'reader'
 
 export default function readerComicTranslationAutoPolicyTest(): void {
   describe('Reader comic translation auto policy', () => {
+    it('warms one next page for auto translation even when reader preload is disabled', 0,
+      (done: Function) => {
+        expect(ReaderComicTranslationAutoPolicy.warmLookahead(0, false)).assertEqual(0)
+        expect(ReaderComicTranslationAutoPolicy.warmLookahead(0, true)).assertEqual(1)
+        expect(ReaderComicTranslationAutoPolicy.warmLookahead(2, true)).assertEqual(2)
+        done()
+      })
+
     it('always prepares the current page before looking ahead', 0, (done: Function) => {
       expect(ReaderComicTranslationAutoPolicy.selectTarget(4, true, false, true))
         .assertEqual(4)

@@ -5289,6 +5289,10 @@
       "value": "Transcribing and translating the current page…"
     },
     {
+      "name": "reader_comic_translation_prefetch_running",
+      "value": "Finishing pre-translation…"
+    },
+    {
       "name": "reader_comic_translation_refresh",
       "value": "Retranslate"
     },

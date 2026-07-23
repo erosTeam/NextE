@@ -1,4 +1,11 @@
 export class ReaderComicTranslationAutoPolicy {
+  static warmLookahead(configuredPreloadPages: number, autoEnabled: boolean): number {
+    if (!autoEnabled) {
+      return configuredPreloadPages
+    }
+    return Math.max(1, configuredPreloadPages)
+  }
+
   static selectTarget(
     currentIndex: number,
     currentNeedsWork: boolean,

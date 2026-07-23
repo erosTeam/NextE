@@ -5289,6 +5289,10 @@
       "value": "現在のページを文字起こしして翻訳中…"
     },
     {
+      "name": "reader_comic_translation_prefetch_running",
+      "value": "事前翻訳を完了しています…"
+    },
+    {
       "name": "reader_comic_translation_refresh",
       "value": "再翻訳"
     },

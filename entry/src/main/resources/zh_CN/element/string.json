@@ -5289,6 +5289,10 @@
       "value": "正在转录并翻译当前页…"
     },
     {
+      "name": "reader_comic_translation_prefetch_running",
+      "value": "正在完成预翻译…"
+    },
+    {
       "name": "reader_comic_translation_refresh",
       "value": "重新翻译"
     },
