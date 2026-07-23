@@ -1,4 +1,7 @@
 import { common } from '@kit.AbilityKit'
+import { thermal } from '@kit.BasicServicesKit'
+import { fileIo } from '@kit.CoreFileKit'
+import { hidebug } from '@kit.PerformanceAnalysisKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
@@ -15,6 +18,34 @@ function integrationEnabled(): boolean {
 function parameter(name: string): string {
   const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
   return parameters[`-s ${name}`] ?? ''
+}
+
+function continuousIterations(): number {
+  const parsed: number = Number(parameter('comicContinuousIterations'))
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+  return Math.max(0, Math.min(20, Math.floor(parsed)))
+}
+
+function percentile(values: number[], quantile: number): number {
+  if (values.length <= 0) {
+    return 0
+  }
+  const sorted: number[] = values.slice().sort((left: number, right: number): number => left - right)
+  const index: number = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * quantile) - 1),
+  )
+  return sorted[index]
+}
+
+function maximum(values: number[]): number {
+  let result: number = 0
+  for (let index: number = 0; index < values.length; index++) {
+    result = Math.max(result, values[index])
+  }
+  return result
 }
 
 function fixture(width: number, height: number): ArrayBuffer {
@@ -78,6 +109,40 @@ async function externalModelPath(
     120000,
   )
   return target
+}
+
+function removeDownloadedModel(pathParameter: string, path: string): void {
+  if (parameter(pathParameter).length > 0) {
+    return
+  }
+  try {
+    if (fileIo.accessSync(path)) {
+      fileIo.unlinkSync(path)
+    }
+  } catch (_error) {}
+}
+
+async function repeatedInferenceMs(
+  width: number,
+  height: number,
+  paramPath: string,
+  modelPath: string,
+): Promise<number> {
+  const repeated: ComicNativeInpaintingResult =
+    await ComicNativeSourceInpainter.inpaintBgra(
+      fixture(width, height),
+      fixtureMask(width, height),
+      width,
+      height,
+      width * 4,
+      paramPath,
+      modelPath,
+      4,
+    )
+  expect(repeated.modelLoadMs).assertEqual(0)
+  expect(repeated.inferenceWidth).assertEqual(176)
+  expect(repeated.inferenceHeight).assertEqual(256)
+  return repeated.inferenceMs
 }
 
 export default function comicNativeSourceInpainterTest(): void {
@@ -200,6 +265,34 @@ export default function comicNativeSourceInpainterTest(): void {
       expect(largeResult.inferenceWidth).assertEqual(176)
       expect(largeResult.inferenceHeight).assertEqual(256)
       expect(largeResult.pixels.byteLength).assertEqual(largeWidth * largeHeight * 4)
+      const iterations: number = continuousIterations()
+      if (iterations > 0) {
+        const inferenceTimes: number[] = []
+        const pssSamples: number[] = [Number(hidebug.getAppNativeMemInfo().pss)]
+        const thermalSamples: thermal.ThermalLevel[] = [thermal.getLevel()]
+        for (let index: number = 0; index < iterations; index++) {
+          inferenceTimes.push(await repeatedInferenceMs(
+            largeWidth,
+            largeHeight,
+            paramPath,
+            modelPath,
+          ))
+          pssSamples.push(Number(hidebug.getAppNativeMemInfo().pss))
+          thermalSamples.push(thermal.getLevel())
+        }
+        console.info(
+          `Comic continuous AOT iterations=${iterations} ` +
+          `p50=${percentile(inferenceTimes, 0.5)}ms ` +
+          `p95=${percentile(inferenceTimes, 0.95)}ms ` +
+          `pssStart=${pssSamples[0]}kB ` +
+          `pssPeak=${maximum(pssSamples)}kB ` +
+          `pssFinal=${pssSamples[pssSamples.length - 1]}kB ` +
+          `pssSeries=${pssSamples.join(',')} ` +
+          `thermalSeries=${thermalSamples.join(',')}`,
+        )
+      }
+      removeDownloadedModel('comicInpainterParam', paramPath)
+      removeDownloadedModel('comicInpainterModel', modelPath)
     })
   })
 }

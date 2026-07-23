@@ -1,5 +1,8 @@
 import { application, common } from '@kit.AbilityKit'
+import { thermal } from '@kit.BasicServicesKit'
+import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
+import { hidebug } from '@kit.PerformanceAnalysisKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
@@ -19,6 +22,34 @@ function integrationEnabled(): boolean {
 function parameter(name: string): string {
   const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
   return parameters[`-s ${name}`] ?? ''
+}
+
+function continuousIterations(): number {
+  const parsed: number = Number(parameter('comicContinuousIterations'))
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+  return Math.max(0, Math.min(20, Math.floor(parsed)))
+}
+
+function percentile(values: number[], quantile: number): number {
+  if (values.length <= 0) {
+    return 0
+  }
+  const sorted: number[] = values.slice().sort((left: number, right: number): number => left - right)
+  const index: number = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * quantile) - 1),
+  )
+  return sorted[index]
+}
+
+function maximum(values: number[]): number {
+  let result: number = 0
+  for (let index: number = 0; index < values.length; index++) {
+    result = Math.max(result, values[index])
+  }
+  return result
 }
 
 async function appContext(): Promise<common.UIAbilityContext> {
@@ -53,6 +84,45 @@ async function externalModelPath(
     120000,
   )
   return target
+}
+
+function removeDownloadedModel(pathParameter: string, path: string): void {
+  if (parameter(pathParameter).length > 0) {
+    return
+  }
+  try {
+    if (fileIo.accessSync(path)) {
+      fileIo.unlinkSync(path)
+    }
+  } catch (_error) {}
+}
+
+async function repeatedInferenceMs(
+  pixels: ArrayBuffer,
+  width: number,
+  height: number,
+  stride: number,
+  paramPath: string,
+  modelPath: string,
+  expectedMaskedPixels: number,
+  expectedSecondaryMaskedPixels: number,
+): Promise<number> {
+  const repeated: ComicNativeTextMaskResult =
+    await ComicNativeTextMasker.inferBgra(
+      pixels,
+      width,
+      height,
+      stride,
+      paramPath,
+      modelPath,
+      0.15,
+      4,
+      0.3,
+    )
+  expect(repeated.modelLoadMs).assertEqual(0)
+  expect(repeated.maskedPixels).assertEqual(expectedMaskedPixels)
+  expect(repeated.secondaryMaskedPixels).assertEqual(expectedSecondaryMaskedPixels)
+  return repeated.inferenceMs
 }
 
 export default function comicNativeTextMaskerTest(): void {
@@ -166,6 +236,38 @@ export default function comicNativeTextMaskerTest(): void {
             }
           }
           expect(subsetViolations).assertEqual(0)
+          const iterations: number = continuousIterations()
+          if (iterations > 0) {
+            const inferenceTimes: number[] = []
+            const pssSamples: number[] = [Number(hidebug.getAppNativeMemInfo().pss)]
+            const thermalSamples: thermal.ThermalLevel[] = [thermal.getLevel()]
+            for (let index: number = 0; index < iterations; index++) {
+              inferenceTimes.push(await repeatedInferenceMs(
+                pixels,
+                width,
+                height,
+                stride,
+                paramPath,
+                modelPath,
+                paired.maskedPixels,
+                paired.secondaryMaskedPixels,
+              ))
+              pssSamples.push(Number(hidebug.getAppNativeMemInfo().pss))
+              thermalSamples.push(thermal.getLevel())
+            }
+            console.info(
+              `Comic continuous CTD iterations=${iterations} ` +
+              `p50=${percentile(inferenceTimes, 0.5)}ms ` +
+              `p95=${percentile(inferenceTimes, 0.95)}ms ` +
+              `pssStart=${pssSamples[0]}kB ` +
+              `pssPeak=${maximum(pssSamples)}kB ` +
+              `pssFinal=${pssSamples[pssSamples.length - 1]}kB ` +
+              `pssSeries=${pssSamples.join(',')} ` +
+              `thermalSeries=${thermalSamples.join(',')}`,
+            )
+          }
+          removeDownloadedModel('comicTextMaskParam', paramPath)
+          removeDownloadedModel('comicTextMaskModel', modelPath)
         } finally {
           if (pixelMap !== undefined) {
             await pixelMap.release()

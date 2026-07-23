@@ -3159,36 +3159,37 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
     if (status == napi_ok && task->error.empty()) {
         napi_value result = nullptr;
         napi_value outputBuffer = nullptr;
-        auto *output = new std::vector<uint8_t>(std::move(task->mask));
+        void *outputData = nullptr;
+        // HarmonyOS does not export napi_adjust_external_memory. Keep these full-page masks
+        // VM-owned so consecutive pages contribute to GC pressure instead of accumulating
+        // unreported external buffers until an unrelated collection.
         const bool primaryCreated = napi_create_object(env, &result) == napi_ok &&
-            napi_create_external_arraybuffer(
+            napi_create_arraybuffer(
                 env,
-                output->data(),
-                output->size(),
-                FinalizeOutputBuffer,
-                output,
+                task->mask.size(),
+                &outputData,
                 &outputBuffer) == napi_ok;
         if (primaryCreated) {
+            std::memcpy(outputData, task->mask.data(), task->mask.size());
             napi_set_named_property(env, result, "mask", outputBuffer);
             if (!task->secondaryMask.empty()) {
                 napi_value secondaryBuffer = nullptr;
-                auto *secondaryOutput =
-                    new std::vector<uint8_t>(std::move(task->secondaryMask));
-                if (napi_create_external_arraybuffer(
+                void *secondaryData = nullptr;
+                if (napi_create_arraybuffer(
                         env,
-                        secondaryOutput->data(),
-                        secondaryOutput->size(),
-                        FinalizeOutputBuffer,
-                        secondaryOutput,
+                        task->secondaryMask.size(),
+                        &secondaryData,
                         &secondaryBuffer) == napi_ok) {
+                    std::memcpy(
+                        secondaryData,
+                        task->secondaryMask.data(),
+                        task->secondaryMask.size());
                     napi_set_named_property(env, result, "secondaryMask", secondaryBuffer);
                 } else {
-                    delete secondaryOutput;
                     task->error = "failed to allocate secondary comic text mask result";
                 }
             }
         } else {
-            delete output;
             task->error = "failed to allocate comic text mask result";
         }
         if (task->error.empty()) {
