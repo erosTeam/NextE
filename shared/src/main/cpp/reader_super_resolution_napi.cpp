@@ -241,11 +241,13 @@ struct ComicTextMaskTask {
     napi_deferred deferred = nullptr;
     std::vector<uint8_t> input;
     std::vector<uint8_t> mask;
+    std::vector<uint8_t> secondaryMask;
     int width = 0;
     int height = 0;
     int stride = 0;
     int threads = 2;
     float threshold = 0.3f;
+    float secondaryThreshold = 0.0f;
     bool inputBgra = false;
     std::string paramPath;
     std::string modelPath;
@@ -2482,7 +2484,9 @@ bool ValidateComicTextMaskTask(ComicTextMaskTask &task)
     if (task.width <= 1 || task.height <= 1 || task.width > 2048 || task.height > 2048 ||
         task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
         task.paramPath.empty() || task.modelPath.empty() ||
-        task.threshold <= 0.0f || task.threshold >= 1.0f) {
+        task.threshold <= 0.0f || task.threshold >= 1.0f ||
+        task.secondaryThreshold < 0.0f || task.secondaryThreshold >= 1.0f ||
+        (task.secondaryThreshold > 0.0f && task.secondaryThreshold <= task.threshold)) {
         task.error = "invalid comic text mask configuration";
         return false;
     }
@@ -2607,12 +2611,21 @@ bool RunComicTextMask(ComicTextMaskTask &task)
     task.mask.assign(
         static_cast<size_t>(task.width) * static_cast<size_t>(task.height),
         0);
+    if (task.secondaryThreshold > 0.0f) {
+        task.secondaryMask.assign(
+            static_cast<size_t>(task.width) * static_cast<size_t>(task.height),
+            0);
+    }
     for (int y = 0; y < task.height; ++y) {
         const float *row = restored.row(y);
         for (int x = 0; x < task.width; ++x) {
+            const size_t index = static_cast<size_t>(y) * static_cast<size_t>(task.width) +
+                static_cast<size_t>(x);
             if (row[x] >= task.threshold) {
-                task.mask[static_cast<size_t>(y) * static_cast<size_t>(task.width) +
-                    static_cast<size_t>(x)] = 1;
+                task.mask[index] = 1;
+            }
+            if (task.secondaryThreshold > 0.0f && row[x] >= task.secondaryThreshold) {
+                task.secondaryMask[index] = 1;
             }
         }
     }
@@ -3147,22 +3160,42 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
         napi_value result = nullptr;
         napi_value outputBuffer = nullptr;
         auto *output = new std::vector<uint8_t>(std::move(task->mask));
-        if (napi_create_object(env, &result) == napi_ok &&
+        const bool primaryCreated = napi_create_object(env, &result) == napi_ok &&
             napi_create_external_arraybuffer(
                 env,
                 output->data(),
                 output->size(),
                 FinalizeOutputBuffer,
                 output,
-                &outputBuffer) == napi_ok) {
+                &outputBuffer) == napi_ok;
+        if (primaryCreated) {
             napi_set_named_property(env, result, "mask", outputBuffer);
+            if (!task->secondaryMask.empty()) {
+                napi_value secondaryBuffer = nullptr;
+                auto *secondaryOutput =
+                    new std::vector<uint8_t>(std::move(task->secondaryMask));
+                if (napi_create_external_arraybuffer(
+                        env,
+                        secondaryOutput->data(),
+                        secondaryOutput->size(),
+                        FinalizeOutputBuffer,
+                        secondaryOutput,
+                        &secondaryBuffer) == napi_ok) {
+                    napi_set_named_property(env, result, "secondaryMask", secondaryBuffer);
+                } else {
+                    delete secondaryOutput;
+                    task->error = "failed to allocate secondary comic text mask result";
+                }
+            }
+        } else {
+            delete output;
+            task->error = "failed to allocate comic text mask result";
+        }
+        if (task->error.empty()) {
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp16-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
             napi_resolve_deferred(env, task->deferred, result);
-        } else {
-            delete output;
-            task->error = "failed to allocate comic text mask result";
         }
     }
     if (status != napi_ok || !task->error.empty()) {
@@ -3479,10 +3512,10 @@ napi_value InpaintComicRegion(napi_env env, napi_callback_info info)
 
 napi_value InferComicTextMask(napi_env env, napi_callback_info info)
 {
-    size_t argc = 9;
-    napi_value argv[9] = {nullptr};
-    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
-        napi_throw_type_error(env, nullptr, "inferComicTextMask expects 9 arguments");
+    size_t argc = 10;
+    napi_value argv[10] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 10) {
+        napi_throw_type_error(env, nullptr, "inferComicTextMask expects 10 arguments");
         return nullptr;
     }
     auto *task = new ComicTextMaskTask();
@@ -3492,7 +3525,8 @@ napi_value InferComicTextMask(napi_env env, napi_callback_info info)
         !GetInt(env, argv[3], task->stride) ||
         !GetFloat(env, argv[6], task->threshold) ||
         !GetInt(env, argv[7], task->threads) ||
-        napi_get_value_bool(env, argv[8], &task->inputBgra) != napi_ok) {
+        napi_get_value_bool(env, argv[8], &task->inputBgra) != napi_ok ||
+        !GetFloat(env, argv[9], task->secondaryThreshold)) {
         delete task;
         napi_throw_type_error(env, nullptr, "invalid comic text mask argument type");
         return nullptr;

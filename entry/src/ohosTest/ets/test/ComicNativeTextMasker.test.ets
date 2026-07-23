@@ -142,6 +142,30 @@ export default function comicNativeTextMaskerTest(): void {
           )
           expect(warm.modelLoadMs).assertEqual(0)
           expect(warm.maskedPixels).assertEqual(result.maskedPixels)
+
+          const paired: ComicNativeTextMaskResult = await ComicNativeTextMasker.inferBgra(
+            pixels,
+            width,
+            height,
+            stride,
+            paramPath,
+            modelPath,
+            0.15,
+            4,
+            0.3,
+          )
+          expect(paired.secondaryMask.byteLength).assertEqual(width * height)
+          expect(paired.secondaryMaskedPixels).assertEqual(result.maskedPixels)
+          expect(paired.maskedPixels >= paired.secondaryMaskedPixels).assertEqual(true)
+          const proposalMask: Uint8Array = new Uint8Array(paired.mask)
+          const treatmentMask: Uint8Array = new Uint8Array(paired.secondaryMask)
+          let subsetViolations: number = 0
+          for (let index: number = 0; index < treatmentMask.length; index++) {
+            if (treatmentMask[index] !== 0 && proposalMask[index] === 0) {
+              subsetViolations = subsetViolations + 1
+            }
+          }
+          expect(subsetViolations).assertEqual(0)
         } finally {
           if (pixelMap !== undefined) {
             await pixelMap.release()

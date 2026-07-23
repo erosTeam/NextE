@@ -9,6 +9,7 @@ const COMIC_TEXT_MASK_MAX_PIXELS: number = 16 * 1024 * 1024
 
 interface NativeComicTextMaskResult {
   mask: ArrayBuffer
+  secondaryMask?: ArrayBuffer
   backend: string
   modelLoadMs: number
   inferenceMs: number
@@ -25,6 +26,7 @@ interface NativeComicTextMaskModule {
     threshold: number,
     threads: number,
     inputBgra: boolean,
+    secondaryThreshold: number,
   ): Promise<NativeComicTextMaskResult>
 }
 
@@ -37,11 +39,13 @@ class ComicTextMaskTile {
 
 export class ComicNativeTextMaskResult {
   mask: ArrayBuffer = new ArrayBuffer(0)
+  secondaryMask: ArrayBuffer = new ArrayBuffer(0)
   backend: string = ''
   modelLoadMs: number = 0
   inferenceMs: number = 0
   tileCount: number = 1
   maskedPixels: number = 0
+  secondaryMaskedPixels: number = 0
 }
 
 export interface ComicLocalTextMasker {
@@ -64,6 +68,7 @@ export class ComicNativeTextMasker {
     threshold: number,
     threads: number,
     inputBgra: boolean,
+    secondaryThreshold: number,
   ): Promise<ComicNativeTextMaskResult> {
     if (width <= 1 || height <= 1 || width > COMIC_TEXT_MASK_TILE_EDGE ||
       height > COMIC_TEXT_MASK_TILE_EDGE || stride < width * 4 ||
@@ -71,7 +76,9 @@ export class ComicNativeTextMasker {
       throw new Error('invalid native comic text mask input')
     }
     if (paramPath.trim().length <= 0 || modelPath.trim().length <= 0 ||
-      threshold <= 0 || threshold >= 1 || threads < 1 || threads > 8) {
+      threshold <= 0 || threshold >= 1 || threads < 1 || threads > 8 ||
+      secondaryThreshold < 0 || secondaryThreshold >= 1 ||
+      (secondaryThreshold > 0 && secondaryThreshold <= threshold)) {
       throw new Error('invalid native comic text mask configuration')
     }
     const native: NativeComicTextMaskResult = await nativeRuntime.inferComicTextMask(
@@ -84,13 +91,20 @@ export class ComicNativeTextMasker {
       threshold,
       threads,
       inputBgra,
+      secondaryThreshold,
     )
     if (native.mask.byteLength !== width * height || native.backend.length <= 0 ||
-      native.modelLoadMs < 0 || native.inferenceMs < 0) {
+      native.modelLoadMs < 0 || native.inferenceMs < 0 ||
+      (secondaryThreshold > 0 && native.secondaryMask === undefined) ||
+      (native.secondaryMask !== undefined &&
+        native.secondaryMask.byteLength !== width * height)) {
       throw new Error('invalid native comic text mask result')
     }
     const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
     result.mask = native.mask
+    if (native.secondaryMask !== undefined) {
+      result.secondaryMask = native.secondaryMask
+    }
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
     result.inferenceMs = native.inferenceMs
@@ -98,6 +112,12 @@ export class ComicNativeTextMasker {
     for (let index: number = 0; index < mask.length; index++) {
       if (mask[index] !== 0) {
         result.maskedPixels = result.maskedPixels + 1
+      }
+    }
+    const secondaryMask: Uint8Array = new Uint8Array(result.secondaryMask)
+    for (let index: number = 0; index < secondaryMask.length; index++) {
+      if (secondaryMask[index] !== 0) {
+        result.secondaryMaskedPixels = result.secondaryMaskedPixels + 1
       }
     }
     return result
@@ -112,6 +132,7 @@ export class ComicNativeTextMasker {
     modelPath: string,
     threshold: number = 0.3,
     threads: number = 4,
+    secondaryThreshold: number = 0,
   ): Promise<ComicNativeTextMaskResult> {
     return ComicNativeTextMasker.infer(
       pixels,
@@ -123,6 +144,7 @@ export class ComicNativeTextMasker {
       threshold,
       threads,
       false,
+      secondaryThreshold,
     )
   }
 
@@ -135,6 +157,7 @@ export class ComicNativeTextMasker {
     modelPath: string,
     threshold: number = 0.3,
     threads: number = 4,
+    secondaryThreshold: number = 0,
   ): Promise<ComicNativeTextMaskResult> {
     return ComicNativeTextMasker.infer(
       pixels,
@@ -146,6 +169,7 @@ export class ComicNativeTextMasker {
       threshold,
       threads,
       true,
+      secondaryThreshold,
     )
   }
 }
@@ -156,25 +180,28 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
   private readonly modelPath: string
   private readonly threshold: number
   private readonly threads: number
+  private readonly secondaryThreshold: number
 
   constructor(
     paramPath: string,
     modelPath: string,
     threshold: number = 0.3,
     threads: number = 4,
+    secondaryThreshold: number = 0,
   ) {
     this.paramPath = paramPath
     this.modelPath = modelPath
     this.threshold = threshold
     this.threads = threads
+    this.secondaryThreshold = secondaryThreshold
   }
 
   profileId(): string {
-    return 'ctd-seg-1024-ncnn-fp16-tiled-v2'
+    return 'ctd-seg-1024-ncnn-fp16-tiled-v3'
   }
 
   revision(): number {
-    return 2
+    return 3
   }
 
   async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
@@ -190,8 +217,12 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
     }
     const mergedBuffer: ArrayBuffer = new ArrayBuffer(width * height)
     const merged: Uint8Array = new Uint8Array(mergedBuffer)
+    const secondaryMergedBuffer: ArrayBuffer = this.secondaryThreshold > 0 ?
+      new ArrayBuffer(width * height) : new ArrayBuffer(0)
+    const secondaryMerged: Uint8Array = new Uint8Array(secondaryMergedBuffer)
     const aggregate: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
     aggregate.mask = mergedBuffer
+    aggregate.secondaryMask = secondaryMergedBuffer
     aggregate.tileCount = tiles.length
     for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
       const tile: ComicTextMaskTile = tiles[tileIndex]
@@ -218,17 +249,22 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
         this.modelPath,
         this.threshold,
         this.threads,
+        this.secondaryThreshold,
       )
       aggregate.backend = result.backend
       aggregate.modelLoadMs = aggregate.modelLoadMs + result.modelLoadMs
       aggregate.inferenceMs = aggregate.inferenceMs + result.inferenceMs
       const tileMask: Uint8Array = new Uint8Array(result.mask)
+      const secondaryTileMask: Uint8Array = new Uint8Array(result.secondaryMask)
       for (let y: number = 0; y < tile.height; y++) {
         const sourceRow: number = y * tile.width
         const targetRow: number = (tile.y + y) * width + tile.x
         for (let x: number = 0; x < tile.width; x++) {
           if (tileMask[sourceRow + x] !== 0) {
             merged[targetRow + x] = 1
+          }
+          if (secondaryTileMask.length > 0 && secondaryTileMask[sourceRow + x] !== 0) {
+            secondaryMerged[targetRow + x] = 1
           }
         }
       }
@@ -237,12 +273,16 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
       if (merged[index] !== 0) {
         aggregate.maskedPixels = aggregate.maskedPixels + 1
       }
+      if (secondaryMerged.length > 0 && secondaryMerged[index] !== 0) {
+        aggregate.secondaryMaskedPixels = aggregate.secondaryMaskedPixels + 1
+      }
     }
     DiagnosticLogger.info(
       'comic-translation',
       'local_text_mask_inferred',
       `backend=${aggregate.backend} page=${width}x${height} tiles=${tiles.length} ` +
-      `masked=${aggregate.maskedPixels} load=${aggregate.modelLoadMs}ms ` +
+      `masked=${aggregate.maskedPixels} secondary=${aggregate.secondaryMaskedPixels} ` +
+      `load=${aggregate.modelLoadMs}ms ` +
       `inference=${aggregate.inferenceMs}ms`,
     )
     return aggregate

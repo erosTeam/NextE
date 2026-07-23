@@ -81,6 +81,8 @@ const LOCAL_TEXT_MASK_CANDIDATE_DILATION_PASSES: number = 2
 const LOCAL_TEXT_MASK_CANDIDATE_MIN_CELLS: number = 4
 const LOCAL_TEXT_MASK_CANDIDATE_MAX_REGIONS: number = 32
 const LOCAL_TEXT_MASK_KNOWN_COVERAGE_RATIO: number = 0.25
+const LOCAL_TEXT_MASK_CACHE_MAX_ENTRIES: number = 2
+const LOCAL_TEXT_MASK_CACHE_MAX_BYTES: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE: number = 10
@@ -223,6 +225,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private readonly sourceMasker: ComicLocalTextMasker | null
   private readonly proposalMasker: ComicLocalTextMasker | null
   private readonly resolvedProfileId: string
+  private readonly treatmentMaskCache: Map<string, Uint8Array> = new Map<string, Uint8Array>()
+  private treatmentMaskCacheBytes: number = 0
 
   constructor(
     context: common.UIAbilityContext,
@@ -330,6 +334,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         detection,
         request.source.imageWidth,
         request.source.imageHeight,
+        request.source.imageHash,
       )
       ComicLocalVisualBackend.assignDetectorRegions(lines, detection)
       ComicLocalVisualBackend.logDetectorCoverage(
@@ -414,8 +419,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         editable: true,
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
       })
-      let pageTextMask: Uint8Array | null = null
-      if (this.sourceMasker !== null) {
+      let pageTextMask: Uint8Array | null = this.takeTreatmentMask(
+        request.source.imageHash,
+        request.source.imageWidth,
+        request.source.imageHeight,
+      )
+      if (pageTextMask === null && this.sourceMasker !== null) {
         const maskResult: ComicNativeTextMaskResult = await this.sourceMasker.mask(pixelMap)
         if (maskResult.mask.byteLength !== request.source.imageWidth * request.source.imageHeight) {
           throw new Error('Local comic text mask dimensions do not match the source page')
@@ -1010,12 +1019,99 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       rect.top <= sourceHeight * 0.12 || rect.bottom >= sourceHeight * 0.88
   }
 
+  private static treatmentMaskCacheKey(
+    sourceImageHash: string,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): string {
+    return `${sourceImageHash}:${sourceWidth}x${sourceHeight}`
+  }
+
+  private cacheTreatmentMask(
+    sourceImageHash: string,
+    sourceWidth: number,
+    sourceHeight: number,
+    mask: ArrayBuffer,
+  ): void {
+    const expectedBytes: number = sourceWidth * sourceHeight
+    if (this.sourceMasker === null || mask.byteLength !== expectedBytes ||
+      expectedBytes <= 0 || expectedBytes > LOCAL_TEXT_MASK_CACHE_MAX_BYTES) {
+      return
+    }
+    const key: string = ComicLocalVisualBackend.treatmentMaskCacheKey(
+      sourceImageHash,
+      sourceWidth,
+      sourceHeight,
+    )
+    const replaced: Uint8Array | undefined = this.treatmentMaskCache.get(key)
+    if (replaced !== undefined) {
+      this.treatmentMaskCache.delete(key)
+      this.treatmentMaskCacheBytes = Math.max(
+        0,
+        this.treatmentMaskCacheBytes - replaced.byteLength,
+      )
+    }
+    while (this.treatmentMaskCache.size >= LOCAL_TEXT_MASK_CACHE_MAX_ENTRIES ||
+      this.treatmentMaskCacheBytes + expectedBytes > LOCAL_TEXT_MASK_CACHE_MAX_BYTES) {
+      const oldestKey: string | undefined = this.treatmentMaskCache.keys().next().value
+      if (oldestKey === undefined) {
+        break
+      }
+      const oldest: Uint8Array | undefined = this.treatmentMaskCache.get(oldestKey)
+      this.treatmentMaskCache.delete(oldestKey)
+      if (oldest !== undefined) {
+        this.treatmentMaskCacheBytes = Math.max(
+          0,
+          this.treatmentMaskCacheBytes - oldest.byteLength,
+        )
+      }
+    }
+    const cached: Uint8Array = new Uint8Array(mask)
+    this.treatmentMaskCache.set(key, cached)
+    this.treatmentMaskCacheBytes = this.treatmentMaskCacheBytes + cached.byteLength
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_mask_cache_stored',
+      `bytes=${cached.byteLength} entries=${this.treatmentMaskCache.size} ` +
+        `totalBytes=${this.treatmentMaskCacheBytes}`,
+    )
+  }
+
+  private takeTreatmentMask(
+    sourceImageHash: string,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): Uint8Array | null {
+    const key: string = ComicLocalVisualBackend.treatmentMaskCacheKey(
+      sourceImageHash,
+      sourceWidth,
+      sourceHeight,
+    )
+    const cached: Uint8Array | undefined = this.treatmentMaskCache.get(key)
+    if (cached === undefined) {
+      return null
+    }
+    this.treatmentMaskCache.delete(key)
+    this.treatmentMaskCacheBytes = Math.max(
+      0,
+      this.treatmentMaskCacheBytes - cached.byteLength,
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_mask_cache_hit',
+      `bytes=${cached.byteLength} entries=${this.treatmentMaskCache.size} ` +
+        `totalBytes=${this.treatmentMaskCacheBytes}`,
+    )
+    return cached
+  }
+
   private async addTextMaskCandidates(
     source: image.ImageSource,
     lines: LocalMappedLine[],
     detection: ComicNativeRegionDetectionResult | null,
     sourceWidth: number,
     sourceHeight: number,
+    sourceImageHash: string,
   ): Promise<ComicNativeRegionDetectionResult | null> {
     if (this.proposalMasker === null || this.supplementalRecognizer === null) {
       return detection
@@ -1030,6 +1126,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       if (maskResult.mask.byteLength !== sourceWidth * sourceHeight) {
         throw new Error('Local comic analysis text mask dimensions do not match the source page')
       }
+      this.cacheTreatmentMask(
+        sourceImageHash,
+        sourceWidth,
+        sourceHeight,
+        maskResult.secondaryMask,
+      )
       const candidates: LocalTextMaskCandidate[] =
         ComicLocalVisualBackend.textMaskCandidates(
           new Uint8Array(maskResult.mask),

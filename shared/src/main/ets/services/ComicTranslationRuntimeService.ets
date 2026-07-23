@@ -305,6 +305,7 @@ export class ComicTranslationRuntimeService {
           textMaskPaths.modelPath,
           0.15,
           4,
+          0.3,
         ),
     )
   }

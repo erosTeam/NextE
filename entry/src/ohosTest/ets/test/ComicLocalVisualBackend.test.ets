@@ -831,6 +831,8 @@ class CoveredTextRegionDetector implements ComicLocalRegionDetector {
 }
 
 class StylizedMissTextMasker implements ComicLocalTextMasker {
+  callCount: number = 0
+
   profileId(): string {
     return 'stylized-miss-mask-fixture'
   }
@@ -840,6 +842,7 @@ class StylizedMissTextMasker implements ComicLocalTextMasker {
   }
 
   async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    this.callCount = this.callCount + 1
     const info: image.ImageInfo = await pixelMap.getImageInfo()
     const width: number = Math.floor(info.size.width)
     const height: number = Math.floor(info.size.height)
@@ -850,6 +853,7 @@ class StylizedMissTextMasker implements ComicLocalTextMasker {
     this.cluster(mask, width, 600, 540)
     const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
     result.mask = buffer
+    result.secondaryMask = buffer
     result.backend = 'stylized-miss-mask-fixture'
     return result
   }
@@ -863,6 +867,23 @@ class StylizedMissTextMasker implements ComicLocalTextMasker {
         }
       }
     }
+  }
+}
+
+class UnexpectedTreatmentTextMasker implements ComicLocalTextMasker {
+  callCount: number = 0
+
+  profileId(): string {
+    return 'unexpected-treatment-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  mask(_pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    this.callCount = this.callCount + 1
+    return Promise.reject(new Error('cached treatment mask was not reused'))
   }
 }
 
@@ -2340,6 +2361,68 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_text_recognizer_supplemented')).assertEqual(true)
         } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('reuses the paired treatment mask without a second CTD inference', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/paired-mask-source.png`
+        let renderedPath: string = ''
+        writeFile(sourcePath, bytes)
+        try {
+          const proposalMasker: StylizedMissTextMasker = new StylizedMissTextMasker()
+          const treatmentMasker: UnexpectedTreatmentTextMasker =
+            new UnexpectedTreatmentTextMasker()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new CoveredTextOcrEngine(),
+            new CoveredTextRegionDetector(),
+            new CountingStylizedTextRecognizer(),
+            null,
+            treatmentMasker,
+            proposalMasker,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(proposalMasker.callCount).assertEqual(1)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'Covered text',
+            'Recovered handwriting',
+            32,
+          )
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(page.byteLength > 0).assertEqual(true)
+          expect(treatmentMasker.callCount).assertEqual(0)
+          expect(diagnostics.includes(
+            'comic-translation.local_text_mask_cache_hit',
+          )).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
           removeFile(sourcePath)
         }
         done()
