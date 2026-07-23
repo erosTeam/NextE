@@ -5261,6 +5261,14 @@
       "value": "Translate current page"
     },
     {
+      "name": "reader_comic_translation_auto",
+      "value": "Auto translate"
+    },
+    {
+      "name": "reader_comic_translation_auto_confirm",
+      "value": "Auto-translate pages in this reading session. This may use credits and upload images. It turns off when you leave the reader."
+    },
+    {
       "name": "reader_comic_translation_show_original",
       "value": "Show original page"
     },

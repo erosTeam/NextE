@@ -5261,6 +5261,14 @@
       "value": "現在のページを翻訳"
     },
     {
+      "name": "reader_comic_translation_auto",
+      "value": "自動翻訳"
+    },
+    {
+      "name": "reader_comic_translation_auto_confirm",
+      "value": "この閲覧中のみページを自動翻訳します。クレジット消費や画像アップロードが発生する場合があります。Readerを閉じるとオフになります。"
+    },
+    {
       "name": "reader_comic_translation_show_original",
       "value": "元のページを表示"
     },

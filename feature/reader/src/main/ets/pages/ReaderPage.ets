@@ -50,6 +50,7 @@ import {
   ImageBlockRuntimeService,
   ImageBlockSettingsState,
   connectImageBlockSettings,
+  SettingsCheckedMenuItem,
   ReaderLocalSourceService,
   ReaderSourceKind,
   ReaderSourceVariant,
@@ -287,6 +288,7 @@ export struct ReaderPage {
   @Local comicTranslationErrorCode: string = '';
   @Local comicTranslationPageIndex: number = -1;
   @Local comicTranslationCacheHit: boolean = false;
+  @Local comicTranslationAutoEnabled: boolean = false;
   @Local comicTranslationPages: number[] = [];
   @Local comicTranslationPaths: string[] = [];
   @Local comicTranslationArtifactHashes: string[] = [];
@@ -341,6 +343,8 @@ export struct ReaderPage {
   private superResolutionInteractionResumeTimer: number = -1;
   private superResolutionForegroundInteractionActive: boolean = false;
   private comicTranslationUiEpoch: number = 0;
+  private comicTranslationAutoScheduleToken: number = 0;
+  private comicTranslationAutoFailedPages: number[] = [];
 
   build() {
     HdsNavDestination() {
@@ -441,6 +445,7 @@ export struct ReaderPage {
       this.readerRouteVisible = true
       this.scheduleEntryStatusBarVisibility()
       this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
+      this.scheduleComicTranslationAutoForCurrentPage()
     })
     .onWillDisappear(() => {
       this.resetSuperResolutionInteractionPause()
@@ -861,6 +866,7 @@ export struct ReaderPage {
   /** Clears page-number keyed state before a retained ReaderPage starts another gallery. */
   private resetReaderGalleryState(): void {
     this.releaseAllSuperResolutionPrefetches()
+    this.resetComicTranslationAutoSession()
     this.resetComicTranslationPresentation()
     this.comicTranslationPages = []
     this.comicTranslationPaths = []
@@ -914,12 +920,14 @@ export struct ReaderPage {
       if (this.imageMetricPages[i] === page) {
         this.imageMetricWidths[i] = Math.round(width)
         this.imageMetricHeights[i] = Math.round(height)
+        this.scheduleComicTranslationAutoForCurrentPage()
         return
       }
     }
     this.imageMetricPages.push(page)
     this.imageMetricWidths.push(Math.round(width))
     this.imageMetricHeights.push(Math.round(height))
+    this.scheduleComicTranslationAutoForCurrentPage()
   }
 
   private imageMetricsText(page: number): string {
@@ -1091,12 +1099,14 @@ export struct ReaderPage {
       if (this.imageFilePages[i] === page) {
         this.imageFileBytes[i] = bytes
         this.imageFileFormats[i] = format
+        this.scheduleComicTranslationAutoForCurrentPage()
         return
       }
     }
     this.imageFilePages.push(page)
     this.imageFileBytes.push(bytes)
     this.imageFileFormats.push(format)
+    this.scheduleComicTranslationAutoForCurrentPage()
   }
 
   private superResolutionPrefetchBaseIndex(): number {
@@ -1368,6 +1378,103 @@ export struct ReaderPage {
     this.comicTranslationCacheHit = false
   }
 
+  private resetComicTranslationAutoSession(): void {
+    const wasEnabled: boolean = this.comicTranslationAutoEnabled
+    this.comicTranslationAutoScheduleToken++
+    this.comicTranslationAutoEnabled = false
+    this.comicTranslationAutoFailedPages = []
+    if (wasEnabled) {
+      DiagnosticLogger.info(
+        'comic-translation',
+        'reader_auto_reset',
+        'scope=reader_session',
+      )
+    }
+  }
+
+  private comicTranslationAutoFailedForPage(page: number): boolean {
+    return this.comicTranslationAutoFailedPages.includes(page)
+  }
+
+  private setComicTranslationAutoFailedForPage(page: number, failed: boolean): void {
+    const pages: number[] = this.comicTranslationAutoFailedPages.slice()
+    const index: number = pages.indexOf(page)
+    if (failed && index < 0) {
+      pages.push(page)
+    } else if (!failed && index >= 0) {
+      pages.splice(index, 1)
+    } else {
+      return
+    }
+    this.comicTranslationAutoFailedPages = pages
+  }
+
+  private scheduleComicTranslationAutoForCurrentPage(): void {
+    const token: number = ++this.comicTranslationAutoScheduleToken
+    setTimeout((): void => {
+      if (token !== this.comicTranslationAutoScheduleToken) {
+        return
+      }
+      this.runComicTranslationAutoForCurrentPage()
+    }, 0)
+  }
+
+  private runComicTranslationAutoForCurrentPage(): void {
+    if (!this.comicTranslationAutoEnabled || this.comicTranslationRunning ||
+      this.readerClosing || !this.readerRouteVisible ||
+      !this.comicTranslationCurrentPageReady() ||
+      !this.vm.hasPreviewAt(this.vm.currentIndex)) {
+      return
+    }
+    const page: number = this.vm.imageAt(this.vm.currentIndex).page
+    if (this.comicTranslationAutoFailedForPage(page) ||
+      (this.comicTranslationPathForPage(page).length > 0 &&
+        this.comicTranslationResultMatchesCurrentSettings(page))) {
+      return
+    }
+    DiagnosticLogger.info(
+      'comic-translation',
+      'reader_auto_start',
+      `pageIndex=${this.vm.currentIndex} page=${page}`,
+    )
+    this.startCurrentPageComicTranslation()
+  }
+
+  private toggleComicTranslationAuto(): void {
+    this.readerTopMoreMenuShown = false
+    if (this.comicTranslationAutoEnabled) {
+      this.comicTranslationAutoScheduleToken++
+      this.comicTranslationAutoEnabled = false
+      DiagnosticLogger.info(
+        'comic-translation',
+        'reader_auto_changed',
+        'enabled=0',
+      )
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.reader_comic_translation_auto'),
+      message: $r('app.string.reader_comic_translation_auto_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.common_on'),
+        action: () => {
+          this.comicTranslationAutoFailedPages = []
+          this.comicTranslationAutoEnabled = true
+          DiagnosticLogger.info(
+            'comic-translation',
+            'reader_auto_changed',
+            'enabled=1 scope=reader_session concurrency=1',
+          )
+          this.scheduleComicTranslationAutoForCurrentPage()
+        },
+      },
+    })
+  }
+
   private comicTranslationRecordIndex(page: number): number {
     for (let index: number = 0; index < this.comicTranslationPages.length; index++) {
       if (this.comicTranslationPages[index] === page) {
@@ -1552,6 +1659,7 @@ export struct ReaderPage {
       return
     }
     this.setComicTranslationHiddenForPage(page, true)
+    this.setComicTranslationAutoFailedForPage(page, false)
     this.startCurrentPageComicTranslation()
   }
 
@@ -1622,12 +1730,14 @@ export struct ReaderPage {
         }
         const resultPageIsVisible: boolean = this.vm.currentIndex === pageIndex
         this.rememberComicTranslationPage(result.renderedPage, settingsRevision)
+        this.setComicTranslationAutoFailedForPage(image.page, false)
         this.comicTranslationCacheHit = result.cacheHit
         this.comicTranslationErrorCode = ''
         this.comicTranslationRunning = false
         if (!resultPageIsVisible) {
           this.comicTranslationPageIndex = -1
         }
+        this.scheduleComicTranslationAutoForCurrentPage()
         DiagnosticLogger.info(
           'comic-translation',
           'reader_page_ready',
@@ -1650,11 +1760,15 @@ export struct ReaderPage {
         }
         const resultPageIsVisible: boolean = this.vm.currentIndex === pageIndex
         const errorCode: string = ComicTranslationErrorClassifier.classify(error)
+        if (this.comicTranslationAutoEnabled) {
+          this.setComicTranslationAutoFailedForPage(image.page, true)
+        }
         this.comicTranslationErrorCode = resultPageIsVisible ? errorCode : ''
         this.comicTranslationRunning = false
         if (!resultPageIsVisible) {
           this.comicTranslationPageIndex = -1
         }
+        this.scheduleComicTranslationAutoForCurrentPage()
         DiagnosticLogger.warn(
           'comic-translation',
           'reader_page_failed',
@@ -2424,6 +2538,7 @@ export struct ReaderPage {
       )
     }
     this.syncCurrentImageBlockFile()
+    this.scheduleComicTranslationAutoForCurrentPage()
     setTimeout((): void => {
       if (!this.readerClosing && this.readerRouteVisible) {
         this.scheduleReadySuperResolutionPrefetches()
@@ -2494,6 +2609,7 @@ export struct ReaderPage {
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
     this.releaseAllSuperResolutionPrefetches()
+    this.resetComicTranslationAutoSession()
     this.resetComicTranslationPresentation()
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.flush(this.hostContext())
@@ -3619,6 +3735,13 @@ export struct ReaderPage {
           this.readerTopMoreMenuShown = false
           this.openCurrentPageComicTranslationAction()
         })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.reader_comic_translation_auto'),
+        selected: this.comicTranslationAutoEnabled,
+        selectAction: (): void => {
+          this.toggleComicTranslationAuto()
+        },
+      })
       if (this.canShowReaderImageBlockAction()) {
         MenuItem({ content: $r('app.string.reader_image_block_mark') })
           .enabled(!this.imageBlockRuleSaving)

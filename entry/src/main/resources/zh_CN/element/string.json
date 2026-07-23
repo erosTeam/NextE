@@ -5261,6 +5261,14 @@
       "value": "翻译当前页"
     },
     {
+      "name": "reader_comic_translation_auto",
+      "value": "自动翻译"
+    },
+    {
+      "name": "reader_comic_translation_auto_confirm",
+      "value": "本次阅读中自动翻译页面，可能消耗额度并上传图片；退出 Reader 后关闭。"
+    },
+    {
       "name": "reader_comic_translation_show_original",
       "value": "显示原图"
     },
