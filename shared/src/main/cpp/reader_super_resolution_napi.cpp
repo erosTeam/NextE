@@ -233,7 +233,9 @@ struct ComicInpaintingTask {
     std::string modelPath;
     std::string error;
     int64_t modelLoadMs = 0;
+    int64_t preprocessingMs = 0;
     int64_t inferenceMs = 0;
+    int64_t postprocessingMs = 0;
     int inferenceWidth = 0;
     int inferenceHeight = 0;
 };
@@ -255,7 +257,9 @@ struct ComicTextMaskTask {
     std::string modelPath;
     std::string error;
     int64_t modelLoadMs = 0;
+    int64_t preprocessingMs = 0;
     int64_t inferenceMs = 0;
+    int64_t postprocessingMs = 0;
     int64_t maskedPixels = 0;
     int64_t secondaryMaskedPixels = 0;
 };
@@ -2543,6 +2547,7 @@ bool RunComicTextMask(ComicTextMaskTask &task)
     if (net == nullptr) {
         return false;
     }
+    const SteadyClock::time_point preprocessingStartedAt = SteadyClock::now();
     // Match comic-text-detector's CPU ONNX preprocessing: preserve aspect ratio, place the
     // resized RGB image at the top-left of a 1024 square, and zero-pad only right/bottom.
     const float gain = std::min(
@@ -2584,6 +2589,7 @@ bool RunComicTextMask(ComicTextMaskTask &task)
     }
     const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
     input.substract_mean_normalize(nullptr, normalize);
+    task.preprocessingMs = ElapsedMilliseconds(preprocessingStartedAt);
     const SteadyClock::time_point startedAt = SteadyClock::now();
     MmapNcnnAllocator blobAllocator;
     MmapNcnnAllocator workspaceAllocator;
@@ -2607,6 +2613,7 @@ bool RunComicTextMask(ComicTextMaskTask &task)
         ResetCachedComicTextMask();
         return false;
     }
+    const SteadyClock::time_point postprocessingStartedAt = SteadyClock::now();
     ncnn::Mat cropped;
     ncnn::copy_cut_border(output, cropped, 0, bottom, 0, right, net->opt);
     ncnn::Mat restored;
@@ -2639,6 +2646,7 @@ bool RunComicTextMask(ComicTextMaskTask &task)
             }
         }
     }
+    task.postprocessingMs = ElapsedMilliseconds(postprocessingStartedAt);
     return true;
 }
 
@@ -2729,6 +2737,7 @@ bool RunComicInpainting(ComicInpaintingTask &task)
     if (net == nullptr) {
         return false;
     }
+    const SteadyClock::time_point preprocessingStartedAt = SteadyClock::now();
     int inferenceWidth = task.width;
     int inferenceHeight = task.height;
     const int sourceMaxEdge = std::max(task.width, task.height);
@@ -2849,6 +2858,7 @@ bool RunComicInpainting(ComicInpaintingTask &task)
             }
         }
     }
+    task.preprocessingMs = ElapsedMilliseconds(preprocessingStartedAt);
 
     const SteadyClock::time_point startedAt = SteadyClock::now();
     MmapNcnnAllocator blobAllocator;
@@ -2875,6 +2885,7 @@ bool RunComicInpainting(ComicInpaintingTask &task)
         ResetCachedComicInpainter();
         return false;
     }
+    const SteadyClock::time_point postprocessingStartedAt = SteadyClock::now();
     ncnn::Mat cropped;
     ncnn::copy_cut_border(modelOutput, cropped, top, bottom, left, right, net->opt);
     if (cropped.empty() || cropped.w != inferenceWidth || cropped.h != inferenceHeight ||
@@ -2918,6 +2929,7 @@ bool RunComicInpainting(ComicInpaintingTask &task)
             task.output[pixelOffset + 2] = task.inputBgra ? redByte : blueByte;
         }
     }
+    task.postprocessingMs = ElapsedMilliseconds(postprocessingStartedAt);
     return true;
 }
 
@@ -3211,7 +3223,17 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
         if (task->error.empty()) {
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp16-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(
+                env,
+                result,
+                "preprocessingMs",
+                Int64Value(env, task->preprocessingMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(
+                env,
+                result,
+                "postprocessingMs",
+                Int64Value(env, task->postprocessingMs));
             napi_set_named_property(env, result, "maskedPixels", Int64Value(env, task->maskedPixels));
             napi_set_named_property(
                 env,
@@ -3253,7 +3275,17 @@ void CompleteComicInpainting(napi_env env, napi_status status, void *data)
             napi_set_named_property(env, result, "pixels", outputBuffer);
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(
+                env,
+                result,
+                "preprocessingMs",
+                Int64Value(env, task->preprocessingMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(
+                env,
+                result,
+                "postprocessingMs",
+                Int64Value(env, task->postprocessingMs));
             napi_set_named_property(env, result, "inferenceWidth", IntValue(env, task->inferenceWidth));
             napi_set_named_property(env, result, "inferenceHeight", IntValue(env, task->inferenceHeight));
             napi_resolve_deferred(env, task->deferred, result);

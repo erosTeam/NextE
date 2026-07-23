@@ -4252,7 +4252,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         size: { width: width, height: height },
       },
     }
+    const sourceReadStartedAt: number = Date.now()
     await pixelMap.readPixels(area)
+    const sourceReadMs: number = Date.now() - sourceReadStartedAt
+    const maskBuildStartedAt: number = Date.now()
     const pixels: Uint8Array = new Uint8Array(buffer)
     const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
     const mask: Uint8Array = new Uint8Array(maskBuffer)
@@ -4337,6 +4340,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
       mask.set(expanded)
     }
+    const maskBuildMs: number = Date.now() - maskBuildStartedAt
     if (sourceInpainter !== null) {
       try {
         const result: ComicNativeInpaintingResult = await sourceInpainter.inpaint(
@@ -4347,13 +4351,27 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           rowBytes,
         )
         pixels.set(new Uint8Array(result.pixels))
+        const writeStartedAt: number = Date.now()
         await pixelMap.writePixels(area)
+        const writeMs: number = Date.now() - writeStartedAt
         DiagnosticLogger.info(
           'comic-translation',
           'local_source_inpainted',
           `backend=${result.backend} blocks=${activeTargets.length} region=${width}x${height} ` +
           `inference=${result.inferenceWidth}x${result.inferenceHeight} ` +
           `load=${result.modelLoadMs}ms inference=${result.inferenceMs}ms`,
+        )
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_source_inpaint_timings',
+          `sourceRead=${sourceReadMs}ms maskBuild=${maskBuildMs}ms ` +
+            `nativeCall=${result.nativeCallMs}ms nativeBridge=${Math.max(
+              0,
+              result.nativeCallMs - result.modelLoadMs - result.preprocessingMs -
+                result.inferenceMs - result.postprocessingMs,
+            )}ms load=${result.modelLoadMs}ms preprocess=${result.preprocessingMs}ms ` +
+            `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms ` +
+            `write=${writeMs}ms`,
         )
         return
       } catch (error) {

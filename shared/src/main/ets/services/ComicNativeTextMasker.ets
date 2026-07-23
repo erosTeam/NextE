@@ -12,7 +12,9 @@ interface NativeComicTextMaskResult {
   secondaryMask?: ArrayBuffer
   backend: string
   modelLoadMs: number
+  preprocessingMs: number
   inferenceMs: number
+  postprocessingMs: number
   maskedPixels: number
   secondaryMaskedPixels: number
 }
@@ -44,10 +46,15 @@ export class ComicNativeTextMaskResult {
   secondaryMask: ArrayBuffer = new ArrayBuffer(0)
   backend: string = ''
   modelLoadMs: number = 0
+  preprocessingMs: number = 0
   inferenceMs: number = 0
+  postprocessingMs: number = 0
   tileCount: number = 1
   maskedPixels: number = 0
   secondaryMaskedPixels: number = 0
+  pixelMapReadMs: number = 0
+  nativeCallMs: number = 0
+  wrapperTotalMs: number = 0
 }
 
 export interface ComicLocalTextMasker {
@@ -96,7 +103,8 @@ export class ComicNativeTextMasker {
       secondaryThreshold,
     )
     if (native.mask.byteLength !== width * height || native.backend.length <= 0 ||
-      native.modelLoadMs < 0 || native.inferenceMs < 0 ||
+      native.modelLoadMs < 0 || native.preprocessingMs < 0 ||
+      native.inferenceMs < 0 || native.postprocessingMs < 0 ||
       native.maskedPixels < 0 || native.maskedPixels > width * height ||
       native.secondaryMaskedPixels < 0 ||
       native.secondaryMaskedPixels > width * height ||
@@ -114,7 +122,9 @@ export class ComicNativeTextMasker {
     }
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
+    result.preprocessingMs = native.preprocessingMs
     result.inferenceMs = native.inferenceMs
+    result.postprocessingMs = native.postprocessingMs
     result.maskedPixels = native.maskedPixels
     result.secondaryMaskedPixels = native.secondaryMaskedPixels
     return result
@@ -202,6 +212,7 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
   }
 
   async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const wrapperStartedAt: number = Date.now()
     const info: image.ImageInfo = await pixelMap.getImageInfo()
     const width: number = Math.floor(info.size.width)
     const height: number = Math.floor(info.size.height)
@@ -217,6 +228,7 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
       firstTile.width === width && firstTile.height === height) {
       const result: ComicNativeTextMaskResult = await this.inferTile(pixelMap, firstTile)
       result.tileCount = 1
+      result.wrapperTotalMs = Date.now() - wrapperStartedAt
       ComicNcnnLocalTextMasker.logResult(result, width, height)
       return result
     }
@@ -229,35 +241,65 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
     aggregate.mask = mergedBuffer
     aggregate.secondaryMask = secondaryMergedBuffer
     aggregate.tileCount = tiles.length
+    const coveredRightByRow: Int32Array = new Int32Array(height)
     for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
       const tile: ComicTextMaskTile = tiles[tileIndex]
       const result: ComicNativeTextMaskResult = await this.inferTile(pixelMap, tile)
       aggregate.backend = result.backend
       aggregate.modelLoadMs = aggregate.modelLoadMs + result.modelLoadMs
+      aggregate.preprocessingMs = aggregate.preprocessingMs + result.preprocessingMs
       aggregate.inferenceMs = aggregate.inferenceMs + result.inferenceMs
+      aggregate.postprocessingMs = aggregate.postprocessingMs + result.postprocessingMs
+      aggregate.pixelMapReadMs = aggregate.pixelMapReadMs + result.pixelMapReadMs
+      aggregate.nativeCallMs = aggregate.nativeCallMs + result.nativeCallMs
+      aggregate.maskedPixels = aggregate.maskedPixels + result.maskedPixels
+      aggregate.secondaryMaskedPixels =
+        aggregate.secondaryMaskedPixels + result.secondaryMaskedPixels
       const tileMask: Uint8Array = new Uint8Array(result.mask)
       const secondaryTileMask: Uint8Array = new Uint8Array(result.secondaryMask)
       for (let y: number = 0; y < tile.height; y++) {
         const sourceRow: number = y * tile.width
-        const targetRow: number = (tile.y + y) * width + tile.x
-        for (let x: number = 0; x < tile.width; x++) {
+        const targetY: number = tile.y + y
+        const targetRow: number = targetY * width + tile.x
+        const coveredRight: number = coveredRightByRow[targetY]
+        const overlapWidth: number = Math.max(
+          0,
+          Math.min(tile.width, coveredRight - tile.x),
+        )
+        for (let x: number = 0; x < overlapWidth; x++) {
           if (tileMask[sourceRow + x] !== 0) {
+            if (merged[targetRow + x] !== 0) {
+              aggregate.maskedPixels = aggregate.maskedPixels - 1
+            }
             merged[targetRow + x] = 1
           }
           if (secondaryTileMask.length > 0 && secondaryTileMask[sourceRow + x] !== 0) {
+            if (secondaryMerged[targetRow + x] !== 0) {
+              aggregate.secondaryMaskedPixels =
+                aggregate.secondaryMaskedPixels - 1
+            }
             secondaryMerged[targetRow + x] = 1
           }
         }
+        if (overlapWidth < tile.width) {
+          merged.set(
+            tileMask.subarray(sourceRow + overlapWidth, sourceRow + tile.width),
+            targetRow + overlapWidth,
+          )
+          if (secondaryTileMask.length > 0) {
+            secondaryMerged.set(
+              secondaryTileMask.subarray(
+                sourceRow + overlapWidth,
+                sourceRow + tile.width,
+              ),
+              targetRow + overlapWidth,
+            )
+          }
+        }
+        coveredRightByRow[targetY] = Math.max(coveredRight, tile.x + tile.width)
       }
     }
-    for (let index: number = 0; index < merged.length; index++) {
-      if (merged[index] !== 0) {
-        aggregate.maskedPixels = aggregate.maskedPixels + 1
-      }
-      if (secondaryMerged.length > 0 && secondaryMerged[index] !== 0) {
-        aggregate.secondaryMaskedPixels = aggregate.secondaryMaskedPixels + 1
-      }
-    }
+    aggregate.wrapperTotalMs = Date.now() - wrapperStartedAt
     ComicNcnnLocalTextMasker.logResult(aggregate, width, height)
     return aggregate
   }
@@ -278,19 +320,26 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
         size: { width: tile.width, height: tile.height },
       },
     }
+    const pixelMapReadStartedAt: number = Date.now()
     await pixelMap.readPixels(area)
+    const pixelMapReadMs: number = Date.now() - pixelMapReadStartedAt
     // PixelMap.readPixels exposes BGRA_8888 bytes on HarmonyOS.
-    return ComicNativeTextMasker.inferBgra(
-      pixels,
-      tile.width,
-      tile.height,
-      stride,
-      this.paramPath,
-      this.modelPath,
-      this.threshold,
-      this.threads,
-      this.secondaryThreshold,
-    )
+    const nativeCallStartedAt: number = Date.now()
+    const result: ComicNativeTextMaskResult =
+      await ComicNativeTextMasker.inferBgra(
+        pixels,
+        tile.width,
+        tile.height,
+        stride,
+        this.paramPath,
+        this.modelPath,
+        this.threshold,
+        this.threads,
+        this.secondaryThreshold,
+      )
+    result.pixelMapReadMs = pixelMapReadMs
+    result.nativeCallMs = Date.now() - nativeCallStartedAt
+    return result
   }
 
   private static logResult(
@@ -305,6 +354,17 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
       `masked=${result.maskedPixels} secondary=${result.secondaryMaskedPixels} ` +
       `load=${result.modelLoadMs}ms ` +
       `inference=${result.inferenceMs}ms`,
+    )
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_text_mask_timings',
+      `total=${result.wrapperTotalMs}ms pixelRead=${result.pixelMapReadMs}ms ` +
+        `nativeCall=${result.nativeCallMs}ms nativeBridge=${Math.max(
+          0,
+          result.nativeCallMs - result.modelLoadMs - result.preprocessingMs -
+            result.inferenceMs - result.postprocessingMs,
+        )}ms load=${result.modelLoadMs}ms preprocess=${result.preprocessingMs}ms ` +
+        `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms`,
     )
   }
 

@@ -865,3 +865,24 @@ YSGYolo 是当前页分析的必经阻塞任务，且单 tile 推理约 0.13–0
 重装 test host 后设备完整 Hypium 为 288/288。下一段应继续按相同方法拆分 CTD proposal 与 AOT
 inpaint 的 native 调用、推理和 wrapper 开销；不得直接把更重的任务提升优先级，也不得用并行化重新引入
 已经实测无收益的 CTD/Core Vision 资源竞争。
+
+2026-07-24 CTD/AOT 分段测量没有继续套用 QoS 结论。CTD 与 AOT 的 native 结果现分别暴露预处理、推理、
+后处理和 NAPI 总调用；CTD wrapper 另记录 tile 像素读取与总耗时，AOT render 另记录区域读取、mask
+构造、native 调用和 PixelMap 回写。设备 `237` 基线证明 AOT 每个 region 的 native bridge 只有
+16–41 ms，主体是 179–467 ms 的真实模型推理；区域读取为 1–14 ms、mask 构造为 29–77 ms。故本阶段
+不调整 AOT 的 `utility` QoS、线程、分辨率或同气泡合并边界。
+
+CTD 普通页没有同类 wrapper 问题，但 1024×3072 两瓦片长页为 2,972 ms，其中像素读取 69 ms、native
+调用 1,851 ms，余下约 1,052 ms 来自 ArkTS 对每个 tile 全量逐像素 OR、再全页扫描计数。多瓦片合并现
+按行维护已覆盖右边界：新覆盖区域使用 typed-array 行复制，只在重叠段逐像素 OR 并扣除重复命中，主/次
+mask 像素数在同一遍直接维护，不再二次全页计数。两个候选轮次的长页 wrapper 余量稳定为 223/221 ms，
+较基线减少约 829/831 ms（约 -79%）。同期 native 推理由 1,332 ms 波动到 1,728/1,925 ms，故完整
+proposal stage 分别为 3,140/3,492 ms，对比基线 3,351 ms 只说明模型热波动可吞掉 CPU 减负，不能宣称
+固定端到端加速。
+
+两轮候选仍为 11 个预期块命中 9、误检 0，长页主/次 mask 计数为 54,937/48,555，三页 PNG 字节数保持
+3,271,874/3,054,637/6,317,177。该阶段保留的是确定性的多瓦片 CPU/内存遍历减负和可持续计时，不把
+CTD 提升为 `user_initiated`，也不恢复已否决的 CTD/Core Vision 并行。后续若继续拆 CTD，应先区分
+VM-owned mask 结果复制与实际队列等待；不得用 external ArrayBuffer 重新引入连续页 PSS 不回收问题。
+最终 signed app、signed `entry@ohosTest`、CI preflight、V2 inventory 和 `git diff --check` 通过；
+重装 test host 后设备完整 Hypium 为 288/288。

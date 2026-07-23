@@ -4,7 +4,9 @@ interface NativeComicInpaintingResult {
   pixels: ArrayBuffer
   backend: string
   modelLoadMs: number
+  preprocessingMs: number
   inferenceMs: number
+  postprocessingMs: number
   inferenceWidth: number
   inferenceHeight: number
 }
@@ -27,7 +29,10 @@ export class ComicNativeInpaintingResult {
   pixels: ArrayBuffer = new ArrayBuffer(0)
   backend: string = ''
   modelLoadMs: number = 0
+  preprocessingMs: number = 0
   inferenceMs: number = 0
+  postprocessingMs: number = 0
+  nativeCallMs: number = 0
   inferenceWidth: number = 0
   inferenceHeight: number = 0
 }
@@ -80,7 +85,8 @@ export class ComicNativeSourceInpainter {
       inputBgra,
     )
     if (native.pixels.byteLength !== stride * height || native.backend.length <= 0 ||
-      native.modelLoadMs < 0 || native.inferenceMs < 0 ||
+      native.modelLoadMs < 0 || native.preprocessingMs < 0 ||
+      native.inferenceMs < 0 || native.postprocessingMs < 0 ||
       native.inferenceWidth < 0 || native.inferenceWidth > 256 ||
       native.inferenceHeight < 0 || native.inferenceHeight > 256) {
       throw new Error('invalid native comic inpainter result')
@@ -89,7 +95,9 @@ export class ComicNativeSourceInpainter {
     result.pixels = native.pixels
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
+    result.preprocessingMs = native.preprocessingMs
     result.inferenceMs = native.inferenceMs
+    result.postprocessingMs = native.postprocessingMs
     result.inferenceWidth = native.inferenceWidth
     result.inferenceHeight = native.inferenceHeight
     return result
@@ -170,15 +178,19 @@ export class ComicNcnnLocalSourceInpainter implements ComicLocalSourceInpainter 
     stride: number,
   ): Promise<ComicNativeInpaintingResult> {
     // PixelMap.readPixels exposes BGRA_8888 bytes on HarmonyOS.
-    return ComicNativeSourceInpainter.inpaintBgra(
-      pixels,
-      mask,
-      width,
-      height,
-      stride,
-      this.paramPath,
-      this.modelPath,
-      this.threads,
-    )
+    const nativeCallStartedAt: number = Date.now()
+    const result: ComicNativeInpaintingResult =
+      await ComicNativeSourceInpainter.inpaintBgra(
+        pixels,
+        mask,
+        width,
+        height,
+        stride,
+        this.paramPath,
+        this.modelPath,
+        this.threads,
+      )
+    result.nativeCallMs = Date.now() - nativeCallStartedAt
+    return result
   }
 }
