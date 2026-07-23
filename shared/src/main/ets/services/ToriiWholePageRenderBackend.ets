@@ -8,8 +8,10 @@ import { ComicRenderedPage } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { AxiosBinaryResponse, AxiosHttpClient } from '../network/AxiosHttpClient'
 import {
+  TORII_FONT_MA_SHAN_ZHENG,
   TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
+  ToriiFontCatalog,
   ToriiTranslatorModelCatalog,
 } from '../settings/ComicVisualProviderSettings'
 import {
@@ -74,7 +76,8 @@ export class ToriiWholePageConfig {
   assertValid(): void {
     ToriiWholePageConfig.validateKey(this.toriiApiKey)
     if (ToriiTranslatorModelCatalog.find(this.modelId) === null ||
-      (this.fontId !== TORII_FONT_NOTO && this.fontId !== TORII_FONT_WILDWORDS)) {
+      (this.fontId !== TORII_FONT_NOTO && this.fontId !== TORII_FONT_WILDWORDS &&
+        this.fontId !== TORII_FONT_MA_SHAN_ZHENG)) {
       throw new Error('Torii whole-page configuration is invalid')
     }
   }
@@ -215,7 +218,11 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
 
   async render(request: ComicWholePageRenderRequest): Promise<ComicRenderedPage> {
     ComicVisualTranslationContract.validateWholePageRenderRequest(request)
-    if (request.identity.translationSourceProfileId !== this.sourceProfileId() ||
+    if (!ToriiFontCatalog.supports(
+      this.config.fontId,
+      request.context.targetLanguage,
+    ) ||
+      request.identity.translationSourceProfileId !== this.sourceProfileId() ||
       request.identity.translationSourceRevision !== this.sourceRevision() ||
       request.identity.translationModelId !== this.modelId() ||
       request.identity.translationPromptVersion !== this.promptVersion() ||

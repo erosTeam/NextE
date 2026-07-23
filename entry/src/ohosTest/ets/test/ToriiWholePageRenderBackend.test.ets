@@ -12,6 +12,7 @@ import {
   ComicVisualTranslationRoute,
   ComicWholePageRenderRequest,
   TORII_DEFAULT_MODEL_ID,
+  TORII_FONT_MA_SHAN_ZHENG,
   TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
   TORII_WHOLE_PAGE_ENDPOINT,
@@ -331,6 +332,48 @@ export default function toriiWholePageRenderBackendTest(): void {
           expect(requestBodyText.includes('\r\n\r\nen-us\r\n')).assertEqual(true)
           expect(requestBodyText.includes('Translate every visible comic text into en-US.'))
             .assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+          await contextStore.clear()
+        }
+        done()
+      })
+
+    it('sends MaShanZheng for a simplified Chinese target', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const appContext: common.UIAbilityContext = ability.context as common.UIAbilityContext
+        const fixtureContext = await application.createModuleContext(ability.context, FIXTURE_MODULE)
+        const imageBytes: Uint8Array =
+          await fixtureContext.resourceManager.getRawFileContent(SOURCE_IMAGE_PATH)
+        const sourcePath: string = `${appContext.cacheDir}/torii-mashanzheng-source.png`
+        writeFile(sourcePath, imageBytes)
+        const contextStore: ToriiWholePageContextStore =
+          new ToriiWholePageContextStore(appContext)
+        const transport: FakeToriiTransport = new FakeToriiTransport()
+        transport.responses.push(successfulResponse(imageBytes, 'Chinese font fixture context'))
+        const config: ToriiWholePageConfig = managedConfig()
+        config.fontId = TORII_FONT_MA_SHAN_ZHENG
+        const backend: ToriiWholePageRenderBackend = new ToriiWholePageRenderBackend(
+          appContext,
+          config,
+          contextStore,
+          transport,
+        )
+        let renderedPath: string = ''
+        try {
+          const page: ComicRenderedPage = await backend.render(renderRequest(
+            backend,
+            source(sourcePath, imageBytes, 0),
+            '',
+            'zh-CN',
+          ))
+          renderedPath = page.localFilePath
+          const requestBodyText: string = multipartText(transport.requests[0].body)
+          expect(requestBodyText.includes('\r\n\r\nmashanzheng\r\n')).assertTrue()
+          expect(requestBodyText.includes('\r\n\r\nzh-cn\r\n')).assertTrue()
         } finally {
           removeFile(renderedPath)
           removeFile(sourcePath)

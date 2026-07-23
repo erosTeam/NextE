@@ -1,8 +1,13 @@
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
+  TORII_FONT_MA_SHAN_ZHENG,
+  TORII_FONT_NOTO,
+  TORII_FONT_WILDWORDS,
   TORII_CREDITS_ENDPOINT,
   TORII_DEFAULT_MODEL_ID,
+  ToriiFontCatalog,
+  ToriiFontOption,
   ToriiCreditsHttpTransport,
   ToriiCreditsService,
   ToriiCreditsSnapshot,
@@ -44,6 +49,30 @@ export default function toriiWholePageSettingsTest(): void {
       expect(models[0].modelId).assertEqual(TORII_DEFAULT_MODEL_ID)
       expect(ToriiTranslatorModelCatalog.find('manually-entered-model')).assertEqual(null)
       expect(ToriiTranslatorModelCatalog.find('gpt-5.4') !== null).assertEqual(true)
+    })
+
+    it('offers only fonts supported by the current translation target', 0, () => {
+      const simplifiedChinese: ToriiFontOption[] =
+        ToriiFontCatalog.forTargetLanguage('zh-CN')
+      expect(simplifiedChinese.length).assertEqual(2)
+      expect(simplifiedChinese[0].fontId).assertEqual(TORII_FONT_NOTO)
+      expect(simplifiedChinese[1].fontId).assertEqual(TORII_FONT_MA_SHAN_ZHENG)
+      expect(ToriiFontCatalog.supports(TORII_FONT_WILDWORDS, 'zh-CN'))
+        .assertFalse()
+      expect(ToriiFontCatalog.effectiveFontId(TORII_FONT_WILDWORDS, 'zh-CN'))
+        .assertEqual(TORII_FONT_NOTO)
+
+      const traditionalChinese: ToriiFontOption[] =
+        ToriiFontCatalog.forTargetLanguage('zh-TW')
+      expect(traditionalChinese.length).assertEqual(1)
+      expect(traditionalChinese[0].fontId).assertEqual(TORII_FONT_NOTO)
+
+      const english: ToriiFontOption[] = ToriiFontCatalog.forTargetLanguage('en-US')
+      expect(english.length).assertEqual(3)
+      expect(ToriiFontCatalog.supports(TORII_FONT_WILDWORDS, 'en-US'))
+        .assertTrue()
+      expect(ToriiFontCatalog.supports(TORII_FONT_MA_SHAN_ZHENG, 'en-US'))
+        .assertTrue()
     })
 
     it('round-trips the Torii credential, drops legacy BYOK secrets, and rejects controls', 0, () => {

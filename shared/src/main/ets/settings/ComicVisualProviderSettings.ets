@@ -6,8 +6,85 @@ export const COMIC_VISUAL_ROUTE_LOCAL: string = 'local'
 export const COMIC_VISUAL_ROUTE_TORII: string = 'torii_whole_page'
 export const TORII_FONT_NOTO: string = 'noto'
 export const TORII_FONT_WILDWORDS: string = 'wildwords'
+export const TORII_FONT_MA_SHAN_ZHENG: string = 'mashanzheng'
 export const TORII_MODEL_CATALOG_REVIEWED_AT: string = '2026-07-22'
 export const TORII_DEFAULT_MODEL_ID: string = 'gemini-3.1-flash-lite'
+
+export class ToriiFontOption {
+  fontId: string = ''
+  displayName: string = ''
+
+  static create(fontId: string, displayName: string): ToriiFontOption {
+    const option: ToriiFontOption = new ToriiFontOption()
+    option.fontId = fontId
+    option.displayName = displayName
+    return option
+  }
+}
+
+/** Target-aware subset of Torii's published font catalog used by NextE. */
+export class ToriiFontCatalog {
+  static forTargetLanguage(targetLanguage: string): ToriiFontOption[] {
+    const options: ToriiFontOption[] = [
+      ToriiFontOption.create(TORII_FONT_NOTO, 'NotoSans'),
+    ]
+    if (ToriiFontCatalog.isEnglish(targetLanguage)) {
+      options.push(ToriiFontOption.create(TORII_FONT_WILDWORDS, 'WildWords'))
+      options.push(ToriiFontOption.create(
+        TORII_FONT_MA_SHAN_ZHENG,
+        'MaShanZheng',
+      ))
+    } else if (ToriiFontCatalog.isSimplifiedChinese(targetLanguage)) {
+      options.push(ToriiFontOption.create(
+        TORII_FONT_MA_SHAN_ZHENG,
+        'MaShanZheng',
+      ))
+    }
+    return options
+  }
+
+  static supports(fontId: string, targetLanguage: string): boolean {
+    const options: ToriiFontOption[] =
+      ToriiFontCatalog.forTargetLanguage(targetLanguage)
+    for (let index: number = 0; index < options.length; index++) {
+      if (options[index].fontId === fontId) {
+        return true
+      }
+    }
+    return false
+  }
+
+  static effectiveFontId(fontId: string, targetLanguage: string): string {
+    return ToriiFontCatalog.supports(fontId, targetLanguage)
+      ? fontId
+      : TORII_FONT_NOTO
+  }
+
+  static displayName(fontId: string): string {
+    if (fontId === TORII_FONT_WILDWORDS) {
+      return 'WildWords'
+    }
+    if (fontId === TORII_FONT_MA_SHAN_ZHENG) {
+      return 'MaShanZheng'
+    }
+    return 'NotoSans'
+  }
+
+  private static normalizedLanguage(targetLanguage: string): string {
+    return targetLanguage.trim().toLowerCase().replace('_', '-')
+  }
+
+  private static isEnglish(targetLanguage: string): boolean {
+    const normalized: string = ToriiFontCatalog.normalizedLanguage(targetLanguage)
+    return normalized === 'en' || normalized.startsWith('en-')
+  }
+
+  private static isSimplifiedChinese(targetLanguage: string): boolean {
+    const normalized: string = ToriiFontCatalog.normalizedLanguage(targetLanguage)
+    return normalized === 'zh' || normalized === 'zh-cn' ||
+      normalized === 'zh-hans' || normalized.startsWith('zh-hans-')
+  }
+}
 
 export class ToriiTranslatorModel {
   modelId: string = ''
@@ -86,7 +163,8 @@ export class ComicVisualProviderSettingsSnapshot {
       this.route !== COMIC_VISUAL_ROUTE_TORII) ||
       ToriiTranslatorModelCatalog.find(this.toriiModelId) === null ||
       (this.toriiFontId !== TORII_FONT_NOTO &&
-        this.toriiFontId !== TORII_FONT_WILDWORDS)) {
+        this.toriiFontId !== TORII_FONT_WILDWORDS &&
+        this.toriiFontId !== TORII_FONT_MA_SHAN_ZHENG)) {
       throw new Error('Comic visual provider settings are invalid')
     }
   }

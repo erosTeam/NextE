@@ -11,6 +11,7 @@ import {
   ComicTranslationLiveEvaluationService,
   ComicTranslationModelService,
   ComicTranslationModelCatalogService,
+  CommentTranslationService,
   ConciseListRow,
   DiagnosticLogger,
   GroupedListSection,
@@ -22,8 +23,9 @@ import {
   SecondaryListScaffold,
   TORII_DEFAULT_MODEL_ID,
   TORII_FONT_NOTO,
-  TORII_FONT_WILDWORDS,
   ThemeConstants,
+  ToriiFontCatalog,
+  ToriiFontOption,
   ToriiCreditsService,
   ToriiCreditsSnapshot,
   ToriiTranslatorModel,
@@ -92,7 +94,10 @@ export struct ComicTranslationSettingsPage {
         await ToriiWholePageSecretStore.read(this.ctx())
       this.visualRoute = snapshot.route
       this.toriiModelId = snapshot.toriiModelId
-      this.toriiFontId = snapshot.toriiFontId
+      this.toriiFontId = ToriiFontCatalog.effectiveFontId(
+        snapshot.toriiFontId,
+        CommentTranslationService.targetLanguage(),
+      )
       this.toriiApiKeyDraft = credential.toriiApiKey
       this.toriiCredits = await ToriiCreditsService.cached(
         this.ctx(),
@@ -275,10 +280,22 @@ export struct ComicTranslationSettingsPage {
   }
 
   private toriiFontText(): string {
-    return this.toriiFontId === TORII_FONT_WILDWORDS ? 'WildWords' : 'NotoSans'
+    return ToriiFontCatalog.displayName(this.toriiFontId)
+  }
+
+  private toriiFonts(): ToriiFontOption[] {
+    return ToriiFontCatalog.forTargetLanguage(
+      CommentTranslationService.targetLanguage(),
+    )
   }
 
   private selectToriiFont(fontId: string): void {
+    if (!ToriiFontCatalog.supports(
+      fontId,
+      CommentTranslationService.targetLanguage(),
+    )) {
+      return
+    }
     this.toriiFontId = fontId
     this.toriiFontMenuShown = false
     this.persistVisualSettings(true)
@@ -669,22 +686,20 @@ export struct ComicTranslationSettingsPage {
   @Builder
   private ToriiFontMenu() {
     Menu() {
-      MenuItem({
-        content: 'NotoSans',
-        symbolEndIcon: this.toriiFontId === TORII_FONT_NOTO
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.selectToriiFont(TORII_FONT_NOTO)
-      })
-      MenuItem({
-        content: 'WildWords',
-        symbolEndIcon: this.toriiFontId === TORII_FONT_WILDWORDS
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.selectToriiFont(TORII_FONT_WILDWORDS)
-      })
+      ForEach(
+        this.toriiFonts(),
+        (font: ToriiFontOption) => {
+          MenuItem({
+            content: font.displayName,
+            symbolEndIcon: this.toriiFontId === font.fontId
+              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+              : undefined,
+          }).onClick(() => {
+            this.selectToriiFont(font.fontId)
+          })
+        },
+        (font: ToriiFontOption) => font.fontId,
+      )
     }
   }
 

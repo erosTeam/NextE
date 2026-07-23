@@ -9,6 +9,7 @@ import {
   COMIC_VISUAL_ROUTE_TORII,
   ComicVisualProviderSettings,
   ComicVisualProviderSettingsSnapshot,
+  ToriiFontCatalog,
 } from '../settings/ComicVisualProviderSettings'
 import { CacheStat } from './CacheStat'
 import {
@@ -193,7 +194,10 @@ export class ComicTranslationRuntimeService {
       await ToriiWholePageSecretStore.read(context)
     const config: ToriiWholePageConfig = new ToriiWholePageConfig()
     config.toriiApiKey = credential.toriiApiKey
-    config.fontId = settings.toriiFontId
+    config.fontId = ToriiFontCatalog.effectiveFontId(
+      settings.toriiFontId,
+      input.targetLanguage,
+    )
     config.modelId = settings.toriiModelId
     config.assertValid()
     const contextStore: ToriiWholePageContextStore =
