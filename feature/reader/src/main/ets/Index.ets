@@ -10,4 +10,5 @@ export {
   ReaderSessionRequest,
   ReaderSessionRequestGate,
 } from './model/ReaderSessionRequestGate'
+export { ReaderComicTranslationAutoPolicy } from './model/ReaderComicTranslationAutoPolicy'
 export { ReaderThumbnailGeometry, ReaderThumbnailSize } from './model/ReaderThumbnailGeometry'

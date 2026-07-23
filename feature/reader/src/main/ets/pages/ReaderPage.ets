@@ -68,6 +68,7 @@ import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentatio
 import { ReaderImageLoadPriority } from '../model/ReaderImageLoadPriority'
 import { ReaderImageSourceRequest, ReaderImageSourceRequestGate } from '../model/ReaderImageSourceRequestGate'
 import { ReaderSessionRequest } from '../model/ReaderSessionRequestGate'
+import { ReaderComicTranslationAutoPolicy } from '../model/ReaderComicTranslationAutoPolicy'
 import { ReaderThumbnailGeometry, ReaderThumbnailSize } from '../model/ReaderThumbnailGeometry'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
@@ -1421,23 +1422,21 @@ export struct ReaderPage {
 
   private runComicTranslationAutoForCurrentPage(): void {
     if (!this.comicTranslationAutoEnabled || this.comicTranslationRunning ||
-      this.readerClosing || !this.readerRouteVisible ||
-      !this.comicTranslationCurrentPageReady() ||
-      !this.vm.hasPreviewAt(this.vm.currentIndex)) {
+      this.readerClosing || !this.readerRouteVisible) {
       return
     }
-    const page: number = this.vm.imageAt(this.vm.currentIndex).page
-    if (this.comicTranslationAutoFailedForPage(page) ||
-      (this.comicTranslationPathForPage(page).length > 0 &&
-        this.comicTranslationResultMatchesCurrentSettings(page))) {
+    const pageIndex: number = this.comicTranslationAutoTargetPageIndex()
+    if (pageIndex < 0 || !this.vm.hasPreviewAt(pageIndex)) {
       return
     }
+    const page: number = this.vm.imageAt(pageIndex).page
+    const prefetch: boolean = pageIndex !== this.vm.currentIndex
     DiagnosticLogger.info(
       'comic-translation',
       'reader_auto_start',
-      `pageIndex=${this.vm.currentIndex} page=${page}`,
+      `pageIndex=${pageIndex} page=${page} prefetch=${prefetch ? 1 : 0}`,
     )
-    this.startCurrentPageComicTranslation()
+    this.startComicTranslationForPage(pageIndex, false, prefetch)
   }
 
   private toggleComicTranslationAuto(): void {
@@ -1630,12 +1629,45 @@ export struct ReaderPage {
   }
 
   private comicTranslationCurrentPageReady(): boolean {
-    if (this.params.gid.trim().length === 0 || !this.vm.hasPreviewAt(this.vm.currentIndex)) {
+    return this.comicTranslationPageReady(this.vm.currentIndex)
+  }
+
+  private comicTranslationPageReady(pageIndex: number): boolean {
+    if (this.params.gid.trim().length === 0 || !this.vm.hasPreviewAt(pageIndex)) {
       return false
     }
-    const page: number = this.vm.imageAt(this.vm.currentIndex).page
+    const page: number = this.vm.imageAt(pageIndex).page
     return page > 0 && this.imageBlockFileForPage(page).length > 0 &&
       this.imageMetricWidthForPage(page) > 0 && this.imageMetricHeightForPage(page) > 0
+  }
+
+  private comicTranslationPageNeedsAutoWork(pageIndex: number): boolean {
+    if (!this.comicTranslationPageReady(pageIndex)) {
+      return false
+    }
+    const page: number = this.vm.imageAt(pageIndex).page
+    return !this.comicTranslationAutoFailedForPage(page) &&
+      (this.comicTranslationPathForPage(page).length <= 0 ||
+        !this.comicTranslationResultMatchesCurrentSettings(page))
+  }
+
+  private comicTranslationAutoTargetPageIndex(): number {
+    const currentIndex: number = this.vm.currentIndex
+    const currentNeedsWork: boolean = this.comicTranslationPageNeedsAutoWork(currentIndex)
+    let currentSettled: boolean = false
+    if (this.comicTranslationPageReady(currentIndex)) {
+      const currentPage: number = this.vm.imageAt(currentIndex).page
+      currentSettled = this.comicTranslationAutoFailedForPage(currentPage) ||
+        (this.comicTranslationPathForPage(currentPage).length > 0 &&
+          this.comicTranslationResultMatchesCurrentSettings(currentPage))
+    }
+    const nextIndex: number = currentIndex + 1
+    return ReaderComicTranslationAutoPolicy.selectTarget(
+      currentIndex,
+      currentNeedsWork,
+      currentSettled,
+      this.comicTranslationPageNeedsAutoWork(nextIndex),
+    )
   }
 
   private comicTranslationProjectId(isEx: boolean, targetLanguage: string): string {
@@ -1678,12 +1710,21 @@ export struct ReaderPage {
   }
 
   private startCurrentPageComicTranslation(forceRefresh: boolean = false): void {
+    this.startComicTranslationForPage(this.vm.currentIndex, forceRefresh, false)
+  }
+
+  private startComicTranslationForPage(
+    pageIndex: number,
+    forceRefresh: boolean = false,
+    autoPrefetch: boolean = false,
+  ): void {
     if (this.comicTranslationRunning) {
       return
     }
-    const pageIndex: number = this.vm.currentIndex
     if (!this.vm.hasPreviewAt(pageIndex)) {
-      this.showComicTranslationImageUnavailable()
+      if (!autoPrefetch) {
+        this.showComicTranslationImageUnavailable()
+      }
       return
     }
     const image: EhGalleryImage = this.vm.imageAt(pageIndex)
@@ -1691,7 +1732,9 @@ export struct ReaderPage {
     const width: number = this.imageMetricWidthForPage(image.page)
     const height: number = this.imageMetricHeightForPage(image.page)
     if (this.params.gid.trim().length === 0 || filePath.length === 0 || width <= 0 || height <= 0) {
-      this.showComicTranslationImageUnavailable()
+      if (!autoPrefetch) {
+        this.showComicTranslationImageUnavailable()
+      }
       return
     }
     const routeEpoch: number = this.readerRouteEpoch
@@ -1715,6 +1758,7 @@ export struct ReaderPage {
     this.comicTranslationCacheHit = false
     this.comicTranslationErrorCode = ''
     this.comicTranslationRunning = true
+    const translationStartedAt: number = Date.now()
     ComicTranslationRuntimeService.runReaderPage(this.hostContext(), input, forceRefresh)
       .then((result: ComicVisualTranslationRunResult): void => {
         if (!this.isComicTranslationRequestCurrent(
@@ -1743,6 +1787,8 @@ export struct ReaderPage {
           'reader_page_ready',
           `page=${pageIndex} cache=${result.cacheHit ? 1 : 0} ` +
             `visible=${resultPageIsVisible ? 1 : 0} bytes=${result.renderedPage.byteLength} ` +
+            `prefetch=${autoPrefetch ? 1 : 0} ` +
+            `duration=${Date.now() - translationStartedAt}ms ` +
             `artifact=${result.renderedPage.artifactHash.substring(0, 12)}`,
         )
       })
@@ -1773,6 +1819,8 @@ export struct ReaderPage {
           'comic-translation',
           'reader_page_failed',
           `page=${pageIndex} code=${errorCode} visible=${resultPageIsVisible ? 1 : 0} ` +
+            `prefetch=${autoPrefetch ? 1 : 0} ` +
+            `duration=${Date.now() - translationStartedAt}ms ` +
             `reason=${error.name}:${error.message}`,
         )
       })

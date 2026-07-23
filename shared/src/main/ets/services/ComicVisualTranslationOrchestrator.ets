@@ -1,6 +1,7 @@
 import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { ComicPageDocument } from '../model/ComicTranslation'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
   ComicRenderedPage,
   ComicRenderedPageIdentity,
@@ -143,11 +144,19 @@ export class ComicVisualTranslationOrchestrator {
     lookupKey: string,
     allowDocumentReuse: boolean,
   ): Promise<ComicVisualTranslationRunResult> {
+    const pipelineStartedAt: number = Date.now()
+    let analysisMs: number = 0
+    let translationMs: number = 0
+    let renderMs: number = 0
+    let persistMs: number = 0
+    let documentCacheHit: boolean = false
     const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
     analysisRequest.source = request.source.copy()
     analysisRequest.requestedRegionRevision = request.requestedRegionRevision
     analysisRequest.requestedDocumentRevision = request.requestedDocumentRevision
+    let stageStartedAt: number = Date.now()
     const analysis = await this.regionBackend.analyze(analysisRequest)
+    analysisMs = Date.now() - stageStartedAt
     ComicVisualTranslationContract.validateRegionAnalysisResult(
       analysisRequest,
       analysis.backendId,
@@ -173,10 +182,12 @@ export class ComicVisualTranslationOrchestrator {
     )
     let translation: ComicTextTranslationResult | null = null
     let translatedDocument: ComicPageDocument | null = null
+    stageStartedAt = Date.now()
     if (allowDocumentReuse) {
       const cachedDocument: ComicPageDocument | null =
         await this.documentRepository.load(documentIdentity)
       if (cachedDocument !== null) {
+        documentCacheHit = true
         translation = this.translationFromDocument(
           request,
           cachedDocument,
@@ -225,6 +236,7 @@ export class ComicVisualTranslationOrchestrator {
       )
       translatedDocument.imagePreparationProfile.profileId = this.regionBackend.profileId()
     }
+    translationMs = Date.now() - stageStartedAt
     const identity: ComicRenderedPageIdentity = this.renderedIdentity(
       request,
       analysis.regionRevision,
@@ -239,15 +251,27 @@ export class ComicVisualTranslationOrchestrator {
     renderRequest.adapterTemplate = analysis.adapterTemplate.copy()
     renderRequest.renderProfile = request.renderProfile.copy()
     renderRequest.identity = identity.copy()
+    stageStartedAt = Date.now()
     const renderedPage: ComicRenderedPage = await this.regionBackend.render(renderRequest)
+    renderMs = Date.now() - stageStartedAt
     ComicVisualTranslationContract.validateRenderedPage(identity, renderedPage)
 
+    stageStartedAt = Date.now()
     if (this.cacheWritesEnabled) {
       await this.documentRepository.save(documentIdentity, translatedDocument)
       await this.renderedRepository.save(lookupKey, renderedPage)
     } else {
       await this.renderedRepository.discardArtifact(renderedPage)
     }
+    persistMs = Date.now() - stageStartedAt
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_pipeline_stage_timings',
+      `page=${request.source.pageIndex} analysis=${analysisMs}ms ` +
+        `translation=${translationMs}ms render=${renderMs}ms persist=${persistMs}ms ` +
+        `documentCache=${documentCacheHit ? 1 : 0} ` +
+        `total=${Date.now() - pipelineStartedAt}ms`,
+    )
     return ComicVisualTranslationOrchestrator.result(renderedPage, false)
   }
 

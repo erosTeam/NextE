@@ -43,16 +43,12 @@ class ComicResponsesTextTranslatorCore {
     sourceRevision: number,
   ): Promise<ComicTextTranslationResult> {
     const prompt: string = ComicResponsesTextTranslationProtocol.buildPrompt(request)
-    ComicResponsesImagePayload.dataUrl(
+    const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
       request.source.imageFilePath,
       request.source.imageHash,
     )
     const crops: ComicResponsesRegionImage[] =
       await ComicResponsesRegionImagePayload.build(request)
-    const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
-      request.source.imageFilePath,
-      request.source.imageHash,
-    )
     const additionalImages: ComicResponsesLabeledImage[] = []
     for (let index: number = 0; index < crops.length; index++) {
       const input: ComicResponsesLabeledImage = new ComicResponsesLabeledImage()
