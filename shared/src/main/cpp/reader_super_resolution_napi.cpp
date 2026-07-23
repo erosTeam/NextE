@@ -254,6 +254,8 @@ struct ComicTextMaskTask {
     std::string error;
     int64_t modelLoadMs = 0;
     int64_t inferenceMs = 0;
+    int64_t maskedPixels = 0;
+    int64_t secondaryMaskedPixels = 0;
 };
 
 std::once_flag gGpuInitFlag;
@@ -2623,9 +2625,11 @@ bool RunComicTextMask(ComicTextMaskTask &task)
                 static_cast<size_t>(x);
             if (row[x] >= task.threshold) {
                 task.mask[index] = 1;
+                ++task.maskedPixels;
             }
             if (task.secondaryThreshold > 0.0f && row[x] >= task.secondaryThreshold) {
                 task.secondaryMask[index] = 1;
+                ++task.secondaryMaskedPixels;
             }
         }
     }
@@ -3196,6 +3200,12 @@ void CompleteComicTextMask(napi_env env, napi_status status, void *data)
             napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp16-cpu"));
             napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
             napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(env, result, "maskedPixels", Int64Value(env, task->maskedPixels));
+            napi_set_named_property(
+                env,
+                result,
+                "secondaryMaskedPixels",
+                Int64Value(env, task->secondaryMaskedPixels));
             napi_resolve_deferred(env, task->deferred, result);
         }
     }

@@ -8,6 +8,7 @@ import { describe, expect, it } from '@ohos/hypium'
 import {
   ComicNativeTextMaskResult,
   ComicNativeTextMasker,
+  ComicNcnnLocalTextMasker,
   EhHttpClient,
 } from 'shared'
 
@@ -50,6 +51,31 @@ function maximum(values: number[]): number {
     result = Math.max(result, values[index])
   }
   return result
+}
+
+function countMaskedPixels(mask: ArrayBuffer): number {
+  const values: Uint8Array = new Uint8Array(mask)
+  let result: number = 0
+  for (let index: number = 0; index < values.length; index++) {
+    if (values[index] !== 0) {
+      result = result + 1
+    }
+  }
+  return result
+}
+
+function masksEqual(left: ArrayBuffer, right: ArrayBuffer): boolean {
+  if (left.byteLength !== right.byteLength) {
+    return false
+  }
+  const leftValues: Uint8Array = new Uint8Array(left)
+  const rightValues: Uint8Array = new Uint8Array(right)
+  for (let index: number = 0; index < leftValues.length; index++) {
+    if (leftValues[index] !== rightValues[index]) {
+      return false
+    }
+  }
+  return true
 }
 
 async function appContext(): Promise<common.UIAbilityContext> {
@@ -225,6 +251,10 @@ export default function comicNativeTextMaskerTest(): void {
             0.3,
           )
           expect(paired.secondaryMask.byteLength).assertEqual(width * height)
+          expect(paired.maskedPixels).assertEqual(countMaskedPixels(paired.mask))
+          expect(paired.secondaryMaskedPixels).assertEqual(
+            countMaskedPixels(paired.secondaryMask),
+          )
           expect(paired.secondaryMaskedPixels).assertEqual(result.maskedPixels)
           expect(paired.maskedPixels >= paired.secondaryMaskedPixels).assertEqual(true)
           const proposalMask: Uint8Array = new Uint8Array(paired.mask)
@@ -236,6 +266,48 @@ export default function comicNativeTextMaskerTest(): void {
             }
           }
           expect(subsetViolations).assertEqual(0)
+          const productionMasker: ComicNcnnLocalTextMasker = new ComicNcnnLocalTextMasker(
+            paramPath,
+            modelPath,
+            0.15,
+            4,
+            0.3,
+          )
+          const wrapperTotals: number[] = []
+          const wrapperOverheads: number[] = []
+          let wrapperReference: ComicNativeTextMaskResult | undefined = undefined
+          for (let index: number = 0; index < 3; index++) {
+            const wrapperStartedAt: number = Date.now()
+            const wrapped: ComicNativeTextMaskResult = await productionMasker.mask(pixelMap)
+            const wrapperTotal: number = Date.now() - wrapperStartedAt
+            wrapperTotals.push(wrapperTotal)
+            wrapperOverheads.push(
+              Math.max(0, wrapperTotal - wrapped.modelLoadMs - wrapped.inferenceMs),
+            )
+            expect(wrapped.tileCount).assertEqual(1)
+            expect(wrapped.maskedPixels).assertEqual(countMaskedPixels(wrapped.mask))
+            expect(wrapped.secondaryMaskedPixels).assertEqual(
+              countMaskedPixels(wrapped.secondaryMask),
+            )
+            if (wrapperReference === undefined) {
+              wrapperReference = wrapped
+            } else {
+              expect(wrapped.maskedPixels).assertEqual(wrapperReference.maskedPixels)
+              expect(wrapped.secondaryMaskedPixels).assertEqual(
+                wrapperReference.secondaryMaskedPixels,
+              )
+              expect(masksEqual(wrapped.mask, wrapperReference.mask)).assertEqual(true)
+              expect(masksEqual(
+                wrapped.secondaryMask,
+                wrapperReference.secondaryMask,
+              )).assertEqual(true)
+            }
+          }
+          console.info(
+            `Comic production CTD wrapper benchmark iterations=${wrapperTotals.length} ` +
+            `totalSeries=${wrapperTotals.join(',')}ms ` +
+            `overheadSeries=${wrapperOverheads.join(',')}ms`,
+          )
           const iterations: number = continuousIterations()
           if (iterations > 0) {
             const inferenceTimes: number[] = []

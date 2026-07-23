@@ -13,6 +13,8 @@ interface NativeComicTextMaskResult {
   backend: string
   modelLoadMs: number
   inferenceMs: number
+  maskedPixels: number
+  secondaryMaskedPixels: number
 }
 
 interface NativeComicTextMaskModule {
@@ -95,6 +97,11 @@ export class ComicNativeTextMasker {
     )
     if (native.mask.byteLength !== width * height || native.backend.length <= 0 ||
       native.modelLoadMs < 0 || native.inferenceMs < 0 ||
+      native.maskedPixels < 0 || native.maskedPixels > width * height ||
+      native.secondaryMaskedPixels < 0 ||
+      native.secondaryMaskedPixels > width * height ||
+      Math.floor(native.maskedPixels) !== native.maskedPixels ||
+      Math.floor(native.secondaryMaskedPixels) !== native.secondaryMaskedPixels ||
       (secondaryThreshold > 0 && native.secondaryMask === undefined) ||
       (native.secondaryMask !== undefined &&
         native.secondaryMask.byteLength !== width * height)) {
@@ -108,18 +115,8 @@ export class ComicNativeTextMasker {
     result.backend = native.backend
     result.modelLoadMs = native.modelLoadMs
     result.inferenceMs = native.inferenceMs
-    const mask: Uint8Array = new Uint8Array(native.mask)
-    for (let index: number = 0; index < mask.length; index++) {
-      if (mask[index] !== 0) {
-        result.maskedPixels = result.maskedPixels + 1
-      }
-    }
-    const secondaryMask: Uint8Array = new Uint8Array(result.secondaryMask)
-    for (let index: number = 0; index < secondaryMask.length; index++) {
-      if (secondaryMask[index] !== 0) {
-        result.secondaryMaskedPixels = result.secondaryMaskedPixels + 1
-      }
-    }
+    result.maskedPixels = native.maskedPixels
+    result.secondaryMaskedPixels = native.secondaryMaskedPixels
     return result
   }
 
@@ -215,6 +212,14 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
     if (tiles.length <= 0 || tiles.length > COMIC_TEXT_MASK_MAX_TILES) {
       throw new Error('comic text mask page exceeds the on-device tile boundary')
     }
+    const firstTile: ComicTextMaskTile = tiles[0]
+    if (tiles.length === 1 && firstTile.x === 0 && firstTile.y === 0 &&
+      firstTile.width === width && firstTile.height === height) {
+      const result: ComicNativeTextMaskResult = await this.inferTile(pixelMap, firstTile)
+      result.tileCount = 1
+      ComicNcnnLocalTextMasker.logResult(result, width, height)
+      return result
+    }
     const mergedBuffer: ArrayBuffer = new ArrayBuffer(width * height)
     const merged: Uint8Array = new Uint8Array(mergedBuffer)
     const secondaryMergedBuffer: ArrayBuffer = this.secondaryThreshold > 0 ?
@@ -226,31 +231,7 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
     aggregate.tileCount = tiles.length
     for (let tileIndex: number = 0; tileIndex < tiles.length; tileIndex++) {
       const tile: ComicTextMaskTile = tiles[tileIndex]
-      const stride: number = tile.width * 4
-      const pixels: ArrayBuffer = new ArrayBuffer(stride * tile.height)
-      const area: image.PositionArea = {
-        pixels: pixels,
-        offset: 0,
-        stride: stride,
-        region: {
-          x: tile.x,
-          y: tile.y,
-          size: { width: tile.width, height: tile.height },
-        },
-      }
-      await pixelMap.readPixels(area)
-      // PixelMap.readPixels exposes BGRA_8888 bytes on HarmonyOS.
-      const result: ComicNativeTextMaskResult = await ComicNativeTextMasker.inferBgra(
-        pixels,
-        tile.width,
-        tile.height,
-        stride,
-        this.paramPath,
-        this.modelPath,
-        this.threshold,
-        this.threads,
-        this.secondaryThreshold,
-      )
+      const result: ComicNativeTextMaskResult = await this.inferTile(pixelMap, tile)
       aggregate.backend = result.backend
       aggregate.modelLoadMs = aggregate.modelLoadMs + result.modelLoadMs
       aggregate.inferenceMs = aggregate.inferenceMs + result.inferenceMs
@@ -277,15 +258,54 @@ export class ComicNcnnLocalTextMasker implements ComicLocalTextMasker {
         aggregate.secondaryMaskedPixels = aggregate.secondaryMaskedPixels + 1
       }
     }
+    ComicNcnnLocalTextMasker.logResult(aggregate, width, height)
+    return aggregate
+  }
+
+  private async inferTile(
+    pixelMap: image.PixelMap,
+    tile: ComicTextMaskTile,
+  ): Promise<ComicNativeTextMaskResult> {
+    const stride: number = tile.width * 4
+    const pixels: ArrayBuffer = new ArrayBuffer(stride * tile.height)
+    const area: image.PositionArea = {
+      pixels: pixels,
+      offset: 0,
+      stride: stride,
+      region: {
+        x: tile.x,
+        y: tile.y,
+        size: { width: tile.width, height: tile.height },
+      },
+    }
+    await pixelMap.readPixels(area)
+    // PixelMap.readPixels exposes BGRA_8888 bytes on HarmonyOS.
+    return ComicNativeTextMasker.inferBgra(
+      pixels,
+      tile.width,
+      tile.height,
+      stride,
+      this.paramPath,
+      this.modelPath,
+      this.threshold,
+      this.threads,
+      this.secondaryThreshold,
+    )
+  }
+
+  private static logResult(
+    result: ComicNativeTextMaskResult,
+    width: number,
+    height: number,
+  ): void {
     DiagnosticLogger.info(
       'comic-translation',
       'local_text_mask_inferred',
-      `backend=${aggregate.backend} page=${width}x${height} tiles=${tiles.length} ` +
-      `masked=${aggregate.maskedPixels} secondary=${aggregate.secondaryMaskedPixels} ` +
-      `load=${aggregate.modelLoadMs}ms ` +
-      `inference=${aggregate.inferenceMs}ms`,
+      `backend=${result.backend} page=${width}x${height} tiles=${result.tileCount} ` +
+      `masked=${result.maskedPixels} secondary=${result.secondaryMaskedPixels} ` +
+      `load=${result.modelLoadMs}ms ` +
+      `inference=${result.inferenceMs}ms`,
     )
-    return aggregate
   }
 
   private static tiles(width: number, height: number): ComicTextMaskTile[] {
