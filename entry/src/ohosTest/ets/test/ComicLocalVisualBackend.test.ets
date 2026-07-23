@@ -16,6 +16,7 @@ import {
   ComicLocalTextMasker,
   ComicLocalTextRecognizer,
   ComicLocalVisualBackend,
+  ComicNcnnLocalSourceInpainter,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
   ComicNativeRegionPoint,
@@ -34,10 +35,12 @@ import {
   ComicTranslationReferenceBlock,
   ComicTranslationReferencePage,
   ComicTranslationModelService,
+  ComicSourceInpaintingModelPaths,
   ComicVisualPageSource,
   ComicVisualTranslationContract,
   ComicVisualTranslationRoute,
   DiagnosticLogger,
+  EhHttpClient,
   HarmonyComicLocalOcrEngine,
 } from 'shared'
 
@@ -54,6 +57,51 @@ const TALL_FIXTURE_HASH: string =
   'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 const TALL_FIXTURE_WIDTH: number = 720
 const TALL_FIXTURE_HEIGHT: number = 4608
+const GROUPED_AOT_RELEASE_BASE: string =
+  'https://github.com/erosTeam/NextE-Models/releases/download/model-pack-v1.1.6'
+
+function groupedAotBenchmarkEnabled(): boolean {
+  const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
+  return parameters['-s comicGroupedAotBenchmark'] === 'true'
+}
+
+function testParameter(name: string): string {
+  const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
+  return parameters[`-s ${name}`] ?? ''
+}
+
+async function downloadGroupedAotAsset(
+  context: common.UIAbilityContext,
+  parameterName: string,
+  defaultFileName: string,
+  targetFileName: string,
+): Promise<string> {
+  const configuredUrl: string = testParameter(parameterName)
+  const url: string = configuredUrl.length > 0 ?
+    configuredUrl : `${GROUPED_AOT_RELEASE_BASE}/${defaultFileName}`
+  const target: string = `${context.cacheDir}/${targetFileName}`
+  removeFile(target)
+  try {
+    const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+      url,
+      target,
+      (_loaded: number, _total: number): void => {},
+      15000,
+      0,
+      'application/octet-stream,text/plain,*/*',
+      2,
+      10 * 60 * 1000,
+    )
+    if (bytes <= 0) {
+      throw new Error(`${defaultFileName} response is empty`)
+    }
+    return target
+  } catch (error) {
+    removeFile(target)
+    throw error as Error
+  }
+}
+
 class LocalComicFixture {
   pageIndex: number = 0
   rawFile: string = ''
@@ -547,6 +595,40 @@ class SourceOnlyTextMasker implements ComicLocalTextMasker {
     result.mask = maskBuffer
     result.backend = 'source-only-mask-fixture'
     result.maskedPixels = 36
+    return result
+  }
+}
+
+class SharedBubbleColumnsTextMasker implements ComicLocalTextMasker {
+  profileId(): string {
+    return 'shared-bubble-columns-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(maskBuffer)
+    let maskedPixels: number = 0
+    for (let y: number = 400; y < 650; y++) {
+      for (let x: number = 475; x < 485; x++) {
+        mask[y * width + x] = 1
+        maskedPixels = maskedPixels + 1
+      }
+      for (let x: number = 525; x < 535; x++) {
+        mask[y * width + x] = 1
+        maskedPixels = maskedPixels + 1
+      }
+    }
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = maskBuffer
+    result.backend = 'shared-bubble-columns-mask-fixture'
+    result.maskedPixels = maskedPixels
     return result
   }
 }
@@ -1954,9 +2036,14 @@ export default function comicLocalVisualBackendTest(): void {
         let renderedPath: string = ''
         await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
         try {
+          const inpainter: CountingSourceInpainter = new CountingSourceInpainter()
           const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
             ability.context,
             new SharedBubbleColumnsOcrEngine(),
+            null,
+            null,
+            inpainter,
+            new SharedBubbleColumnsTextMasker(),
           )
           const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
           analysisRequest.source = source(sourcePath, page01Fixture())
@@ -1989,6 +2076,7 @@ export default function comicLocalVisualBackendTest(): void {
           expect(diagnostics.includes(
             'comic-translation.local_bubble_render_groups plans=2 groups=1 merged=1',
           )).assertEqual(true)
+          expect(inpainter.callCount).assertEqual(1)
           const bounds: LocalChangedPixelBounds = await changedPixelBounds(
             sourcePath,
             renderedPath,
@@ -2004,6 +2092,87 @@ export default function comicLocalVisualBackendTest(): void {
           removeFile(sourcePath)
         }
         done()
+      })
+
+    it('runs one real AOT treatment for neighbouring columns in a confirmed balloon', 0,
+      async (): Promise<void> => {
+        if (!groupedAotBenchmarkEnabled()) {
+          expect(true).assertEqual(true)
+          return
+        }
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const paths: ComicSourceInpaintingModelPaths =
+          new ComicSourceInpaintingModelPaths()
+        const sourcePath: string =
+          `${ability.context.cacheDir}/shared-bubble-columns-aot-source.png`
+        let renderedPath: string = ''
+        try {
+          paths.paramPath = await downloadGroupedAotAsset(
+            ability.context,
+            'comicGroupedAotParamUrl',
+            'aot-manga-inpainting-256.ncnn.param',
+            'grouped-aot-benchmark.ncnn.param',
+          )
+          paths.modelPath = await downloadGroupedAotAsset(
+            ability.context,
+            'comicGroupedAotModelUrl',
+            'aot-manga-inpainting-256.ncnn.bin',
+            'grouped-aot-benchmark.ncnn.bin',
+          )
+          await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new SharedBubbleColumnsOcrEngine(),
+            null,
+            null,
+            new ComicNcnnLocalSourceInpainter(paths.paramPath, paths.modelPath, 4),
+            new SharedBubbleColumnsTextMasker(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The first translated sentence belongs in this balloon.',
+            'The second sentence shares the same repair.',
+            24,
+          )
+          DiagnosticLogger.clear()
+          const startedAt: number = Date.now()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const elapsedMs: number = Date.now() - startedAt
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          const marker: string = 'comic-translation.local_source_inpainted'
+          expect(diagnostics.split(marker).length - 1).assertEqual(1)
+          expect(diagnostics.includes('blocks=2')).assertEqual(true)
+          expect(page.byteLength > 0).assertEqual(true)
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 430).assertEqual(true)
+          expect(bounds.right <= 590).assertEqual(true)
+          expect(bounds.top >= 320).assertEqual(true)
+          expect(bounds.bottom <= 740).assertEqual(true)
+          console.info(`Grouped AOT benchmark elapsed=${elapsedMs}ms bytes=${page.byteLength}`)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+          removeFile(paths.paramPath)
+          removeFile(paths.modelPath)
+        }
       })
 
     it('preserves a wide source paragraph width for Latin layout', 0,

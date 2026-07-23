@@ -4,7 +4,7 @@
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v30`
 - **current production render profile**: `reader-local-bubble-layout-v43` /
-  `local-ctd-aot-inpaint-v28` / `local-bubble-typography-v37`
+  `local-ctd-aot-inpaint-v29` / `local-bubble-typography-v37`
 - **measured**: 2026-07-23
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -426,9 +426,26 @@ PyTorch 在生产基准的精确候选框上，7 个普通对白/旁白全部正
 决定性失败来自设备资源。设备 `237` 的 LaMa ncnn FP32 冷/热区域推理为 23.968/23.759 秒，复测为
 23.780/24.212 秒；加载约 0.39 秒，测试进程总 PSS 样点最高 1,142,558 kB。现有 AOT 同类真实区域约
 238–468 ms，因此当前 LaMa 导出慢约 50–100 倍，并额外携带约 195 MiB 权重。实验代码、下载模型和设备
-临时文件已经撤回/清理，production 继续使用 AOT v28；不得把该 LaMa 以隐藏开关、设置项或“高质量档”
+临时文件已经撤回/清理；该候选阶段 production 继续使用 AOT v28，不得把该 LaMa 以隐藏开关、设置项或“高质量档”
 重新加入。只有显著更小的移动端模型或更合适的运行时同时通过固定画质集、设备 P50/P95、峰值 PSS、
 连续页热稳定性和失败回退，才允许重新评估。
+
+## AOT 同气泡多列分组验证（2026-07-23）
+
+source treatment v29 复用 v42 已确认的闭合气泡视觉组，不修改文档 block 或翻译缓存身份。同一气泡的多个
+drawable block 以一个外围 crop 送入 AOT，但像素 mask、膨胀和 fallback 填色只取各 block treatment
+区域的并集；每个 block 仍须分别命中 CTD mask。若合并 crop 最长边超过最大单块 crop 的 1.35 倍，立即
+回退逐块修复。该门同时避免“为了少一次推理而擦掉列间画面”和“扩大 crop 后降低 AOT 有效分辨率”。
+
+确定性设备用例中，同一闭合气泡的两列从 2 次 AOT 降为 1 次；两个相邻但独立的气泡仍是 2 次。设备
+`237` 再使用 `model-pack-v1.1.6` 的真实 AOT ncnn 权重验证，诊断为
+`blocks=2 region=239x454 inference=136x256 load=114ms inference=208ms`，全部变化像素仍限制在
+闭合气泡 `x=430–590, y=320–740` 内。带临时权重下载的 opt-in 目标套件在 60 秒上限下 28/28 通过，
+测试结束清理 param/bin，不依赖或改动主应用模型安装状态；最终完整设备 Hypium 为 281/281。
+
+该结果证明已确认同气泡多列可以安全消除一次重复 AOT；它不是跨气泡 batch，也未给出连续真实 Reader
+页面的 P50/P95 或峰值 PSS。下一性能项必须保持独立气泡 fail-closed 边界，测连续多页 CTD/AOT 热稳定性，
+不能把本次 208 ms 单区域推理外推成整页延迟。
 
 ## 当前缺口与后续门槛
 
@@ -441,5 +458,6 @@ PyTorch 在生产基准的精确候选框上，7 个普通对白/旁白全部正
    调用 LLM；
 4. 在普通页、长图和连续多页场景记录 P50/P95、峰值 PSS、失败回退与热稳定性；
 5. 在已发布 detector、补充 recognizer 与 Core Vision OCR 行归属基础上补齐长图分块、扩展样本和持续
-   性能门；优先测 AOT 重叠区域合并/批处理，资源缺失、低置信度或推理失败继续无损回退当前系统 OCR；
+   性能门；同气泡重复 AOT 已完成分组，下一步测连续多页 CTD/AOT P50/P95、峰值 PSS 和热稳定性，资源
+   缺失、低置信度或推理失败继续无损回退当前系统 OCR；
 6. 只有拟声词/艺术字覆盖、复杂背景修复和跨样本视觉复核通过后，才允许关闭 B2/F 的 V1 质量项。

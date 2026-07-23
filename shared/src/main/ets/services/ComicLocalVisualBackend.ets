@@ -209,6 +209,13 @@ class LocalBubbleRenderGroup {
   memberIndexes: number[] = []
 }
 
+class LocalSourceTreatmentTarget {
+  raw: LocalRenderRect = new LocalRenderRect()
+  treatment: LocalRenderRect = new LocalRenderRect()
+  background: LocalFillStyle = new LocalFillStyle()
+  styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
+}
+
 class LocalColorSample {
   red: number = 0
   green: number = 0
@@ -500,10 +507,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       )
       const drawableGroups: LocalBubbleRenderGroup[] = []
       const horizontalOffsets: number[] = []
-      const drawablePlans: boolean[] = []
-      for (let index: number = 0; index < renderPlans.length; index++) {
-        drawablePlans.push(false)
-      }
       for (let index: number = 0; index < renderGroups.length; index++) {
         const group: LocalBubbleRenderGroup = renderGroups[index]
         try {
@@ -527,10 +530,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           )
           drawableGroups.push(group)
           horizontalOffsets.push(offset)
-          for (let memberIndex: number = 0;
-            memberIndex < group.memberIndexes.length; memberIndex++) {
-            drawablePlans[group.memberIndexes[memberIndex]] = true
-          }
         } catch (error) {
           DiagnosticLogger.warn(
             'comic-translation',
@@ -550,26 +549,29 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       // All geometry and text layout decisions must finish against the untouched page. Erase
       // only regions that have a drawable replacement so one pathological translation cannot
       // blank its source text or abort otherwise valid regions on the page.
-      for (let index: number = 0; index < renderPlans.length; index++) {
-        if (!drawablePlans[index]) {
-          continue
+      for (let index: number = 0; index < drawableGroups.length; index++) {
+        const targets: LocalSourceTreatmentTarget[] = []
+        for (let memberIndex: number = 0;
+          memberIndex < drawableGroups[index].memberIndexes.length; memberIndex++) {
+          const planIndex: number = drawableGroups[index].memberIndexes[memberIndex]
+          const block: ComicTextBlock = renderPlans[planIndex].block
+          const target: LocalSourceTreatmentTarget = new LocalSourceTreatmentTarget()
+          target.raw = ComicLocalVisualBackend.bounds(block.polygon)
+          target.treatment = ComicLocalVisualBackend.sourceTreatmentRect(
+            target.raw,
+            request.source.imageWidth,
+            request.source.imageHeight,
+            block.styleHint,
+          )
+          target.background = fillStyles[planIndex]
+          target.styleHint = block.styleHint
+          targets.push(target)
         }
-        const block: ComicTextBlock = renderPlans[index].block
-        const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
-        const treatment: LocalRenderRect = ComicLocalVisualBackend.sourceTreatmentRect(
-          raw,
-          request.source.imageWidth,
-          request.source.imageHeight,
-          block.styleHint,
-        )
-        await ComicLocalVisualBackend.eraseSourceRegion(
+        await ComicLocalVisualBackend.eraseSourceRegions(
           pixelMap,
           request.source.imageWidth,
           request.source.imageHeight,
-          raw,
-          treatment,
-          fillStyles[index],
-          block.styleHint,
+          targets,
           this.sourceInpainter,
           pageTextMask,
         )
@@ -3952,34 +3954,97 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return style
   }
 
-  private static async eraseSourceRegion(
+  private static async eraseSourceRegions(
     pixelMap: image.PixelMap,
     imageWidth: number,
     imageHeight: number,
-    raw: LocalRenderRect,
-    treatment: LocalRenderRect,
-    background: LocalFillStyle,
-    styleHint: string,
+    targets: LocalSourceTreatmentTarget[],
     sourceInpainter: ComicLocalSourceInpainter | null,
     pageTextMask: Uint8Array | null,
   ): Promise<void> {
-    const treatmentLeft: number = Math.max(0, Math.floor(treatment.left))
-    const treatmentTop: number = Math.max(0, Math.floor(treatment.top))
-    const treatmentRight: number = Math.min(imageWidth, Math.ceil(treatment.right))
-    const treatmentBottom: number = Math.min(imageHeight, Math.ceil(treatment.bottom))
-    if (treatmentRight <= treatmentLeft || treatmentBottom <= treatmentTop) {
+    if (targets.length <= 0) {
       return
     }
     // AOT needs enough known artwork around the glyph mask. A six-pixel crop leaves narrow
     // vertical text regions almost entirely masked and produces unstable colour hallucinations.
     const border: number = 64
-    const outerLeft: number = Math.max(0, treatmentLeft - border)
-    const outerTop: number = Math.max(0, treatmentTop - border)
-    const outerRight: number = Math.min(imageWidth, treatmentRight + border)
-    const outerBottom: number = Math.min(imageHeight, treatmentBottom + border)
+    const treatmentLefts: number[] = []
+    const treatmentTops: number[] = []
+    const treatmentRights: number[] = []
+    const treatmentBottoms: number[] = []
+    const rawLefts: number[] = []
+    const rawTops: number[] = []
+    const rawRights: number[] = []
+    const rawBottoms: number[] = []
+    const activeTargets: LocalSourceTreatmentTarget[] = []
+    let outerLeft: number = imageWidth
+    let outerTop: number = imageHeight
+    let outerRight: number = 0
+    let outerBottom: number = 0
+    let largestIndividualEdge: number = 0
+    for (let index: number = 0; index < targets.length; index++) {
+      const target: LocalSourceTreatmentTarget = targets[index]
+      const treatmentLeft: number = Math.max(0, Math.floor(target.treatment.left))
+      const treatmentTop: number = Math.max(0, Math.floor(target.treatment.top))
+      const treatmentRight: number =
+        Math.min(imageWidth, Math.ceil(target.treatment.right))
+      const treatmentBottom: number =
+        Math.min(imageHeight, Math.ceil(target.treatment.bottom))
+      if (treatmentRight <= treatmentLeft || treatmentBottom <= treatmentTop) {
+        continue
+      }
+      treatmentLefts.push(treatmentLeft)
+      treatmentTops.push(treatmentTop)
+      treatmentRights.push(treatmentRight)
+      treatmentBottoms.push(treatmentBottom)
+      rawLefts.push(Math.max(treatmentLeft, Math.floor(target.raw.left)))
+      rawTops.push(Math.max(treatmentTop, Math.floor(target.raw.top)))
+      rawRights.push(target.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+        Math.min(
+          treatmentRight,
+          Math.ceil(
+            target.raw.right + Math.max(8, Math.min(18, target.raw.width() * 0.25)),
+          ),
+        ) : Math.min(treatmentRight, Math.ceil(target.raw.right)))
+      rawBottoms.push(Math.min(treatmentBottom, Math.ceil(target.raw.bottom)))
+      activeTargets.push(target)
+      const targetOuterLeft: number = Math.max(0, treatmentLeft - border)
+      const targetOuterTop: number = Math.max(0, treatmentTop - border)
+      const targetOuterRight: number = Math.min(imageWidth, treatmentRight + border)
+      const targetOuterBottom: number = Math.min(imageHeight, treatmentBottom + border)
+      outerLeft = Math.min(outerLeft, targetOuterLeft)
+      outerTop = Math.min(outerTop, targetOuterTop)
+      outerRight = Math.max(outerRight, targetOuterRight)
+      outerBottom = Math.max(outerBottom, targetOuterBottom)
+      largestIndividualEdge = Math.max(
+        largestIndividualEdge,
+        targetOuterRight - targetOuterLeft,
+        targetOuterBottom - targetOuterTop,
+      )
+    }
+    if (treatmentLefts.length <= 0) {
+      return
+    }
     const width: number = outerRight - outerLeft
     const height: number = outerBottom - outerTop
     if (width <= 1 || height <= 1) {
+      return
+    }
+    // One AOT call is useful only while combining neighbouring columns does not materially
+    // reduce the model's effective resolution. Widely spread members keep their old
+    // independent treatment even if layout can safely share one large balloon.
+    if (activeTargets.length > 1 &&
+      Math.max(width, height) > largestIndividualEdge * 1.35) {
+      for (let index: number = 0; index < activeTargets.length; index++) {
+        await ComicLocalVisualBackend.eraseSourceRegions(
+          pixelMap,
+          imageWidth,
+          imageHeight,
+          [activeTargets[index]],
+          sourceInpainter,
+          pageTextMask,
+        )
+      }
       return
     }
     const rowBytes: number = width * 4
@@ -3998,71 +4063,79 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const pixels: Uint8Array = new Uint8Array(buffer)
     const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
     const mask: Uint8Array = new Uint8Array(maskBuffer)
-    const rawLeft: number = Math.max(treatmentLeft, Math.floor(raw.left))
-    const rawTop: number = Math.max(treatmentTop, Math.floor(raw.top))
-    const rawRight: number = styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      Math.min(
-        treatmentRight,
-        Math.ceil(raw.right + Math.max(8, Math.min(18, raw.width() * 0.25))),
-      ) : Math.min(treatmentRight, Math.ceil(raw.right))
-    const rawBottom: number = Math.min(treatmentBottom, Math.ceil(raw.bottom))
+    const allowed: Uint8Array = new Uint8Array(width * height)
+    const fallbackColors: Uint8Array = new Uint8Array(width * height * 3)
     let masked: number = 0
-    for (let globalY: number = rawTop; globalY < rawBottom; globalY++) {
-      const y: number = globalY - outerTop
-      for (let globalX: number = rawLeft; globalX < rawRight; globalX++) {
-        const x: number = globalX - outerLeft
-        let isTextPixel: boolean = false
-        if (pageTextMask !== null) {
-          isTextPixel = pageTextMask[globalY * imageWidth + globalX] !== 0
-        } else {
-          const offset: number = y * rowBytes + x * 4
-          const blue: number = pixels[offset]
-          const green: number = pixels[offset + 1]
-          const red: number = pixels[offset + 2]
-          const backgroundLuminance: number = background.red * 0.299 +
-            background.green * 0.587 + background.blue * 0.114
-          const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
-          const colorDelta: number = Math.max(
-            Math.abs(red - background.red),
-            Math.abs(green - background.green),
-            Math.abs(blue - background.blue),
-          )
-          isTextPixel = Math.abs(luminance - backgroundLuminance) >= 36 && colorDelta >= 44
+    for (let targetIndex: number = 0;
+      targetIndex < treatmentLefts.length; targetIndex++) {
+      const background: LocalFillStyle = activeTargets[targetIndex].background
+      for (let globalY: number = treatmentTops[targetIndex];
+        globalY < treatmentBottoms[targetIndex]; globalY++) {
+        const y: number = globalY - outerTop
+        for (let globalX: number = treatmentLefts[targetIndex];
+          globalX < treatmentRights[targetIndex]; globalX++) {
+          const allowedIndex: number = y * width + globalX - outerLeft
+          allowed[allowedIndex] = 1
+          const colorOffset: number = allowedIndex * 3
+          fallbackColors[colorOffset] = background.blue
+          fallbackColors[colorOffset + 1] = background.green
+          fallbackColors[colorOffset + 2] = background.red
         }
-        if (isTextPixel) {
-          mask[y * width + x] = 1
-          masked = masked + 1
+      }
+      let targetMasked: number = 0
+      for (let globalY: number = rawTops[targetIndex];
+        globalY < rawBottoms[targetIndex]; globalY++) {
+        const y: number = globalY - outerTop
+        for (let globalX: number = rawLefts[targetIndex];
+          globalX < rawRights[targetIndex]; globalX++) {
+          const x: number = globalX - outerLeft
+          let isTextPixel: boolean = false
+          if (pageTextMask !== null) {
+            isTextPixel = pageTextMask[globalY * imageWidth + globalX] !== 0
+          } else {
+            const offset: number = y * rowBytes + x * 4
+            const blue: number = pixels[offset]
+            const green: number = pixels[offset + 1]
+            const red: number = pixels[offset + 2]
+            const backgroundLuminance: number = background.red * 0.299 +
+              background.green * 0.587 + background.blue * 0.114
+            const luminance: number = red * 0.299 + green * 0.587 + blue * 0.114
+            const colorDelta: number = Math.max(
+              Math.abs(red - background.red),
+              Math.abs(green - background.green),
+              Math.abs(blue - background.blue),
+            )
+            isTextPixel = Math.abs(luminance - backgroundLuminance) >= 36 && colorDelta >= 44
+          }
+          if (isTextPixel) {
+            targetMasked = targetMasked + 1
+            if (mask[y * width + x] === 0) {
+              mask[y * width + x] = 1
+              masked = masked + 1
+            }
+          }
         }
+      }
+      if (targetMasked <= 0 && pageTextMask !== null) {
+        throw new Error('Local comic text mask did not cover a translated block')
       }
     }
     if (masked <= 0) {
-      if (pageTextMask !== null) {
-        throw new Error('Local comic text mask did not cover a translated block')
-      }
       return
     }
     for (let dilation: number = 0;
       dilation < LOCAL_TEXT_MASK_DILATION_PASSES; dilation++) {
       const expanded: Uint8Array = new Uint8Array(mask)
       for (let y: number = 1; y < height - 1; y++) {
-        const globalY: number = outerTop + y
-        if (globalY < treatmentTop || globalY >= treatmentBottom) {
-          continue
-        }
         for (let x: number = 1; x < width - 1; x++) {
-          const globalX: number = outerLeft + x
-          if (globalX < treatmentLeft || globalX >= treatmentRight ||
-            mask[y * width + x] === 0) {
+          if (mask[y * width + x] === 0) {
             continue
           }
           for (let yOffset: number = -1; yOffset <= 1; yOffset++) {
             for (let xOffset: number = -1; xOffset <= 1; xOffset++) {
               const expandedX: number = x + xOffset
               const expandedY: number = y + yOffset
-              const expandedGlobalX: number = outerLeft + expandedX
-              const expandedGlobalY: number = outerTop + expandedY
-              if (expandedGlobalX >= treatmentLeft && expandedGlobalX < treatmentRight &&
-                expandedGlobalY >= treatmentTop && expandedGlobalY < treatmentBottom) {
+              if (allowed[expandedY * width + expandedX] !== 0) {
                 expanded[expandedY * width + expandedX] = 1
               }
             }
@@ -4085,7 +4158,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         DiagnosticLogger.info(
           'comic-translation',
           'local_source_inpainted',
-          `backend=${result.backend} region=${width}x${height} ` +
+          `backend=${result.backend} blocks=${activeTargets.length} region=${width}x${height} ` +
           `inference=${result.inferenceWidth}x${result.inferenceHeight} ` +
           `load=${result.modelLoadMs}ms inference=${result.inferenceMs}ms`,
         )
@@ -4158,9 +4231,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           continue
         }
         const offset: number = index * 4
-        pixels[offset] = background.blue
-        pixels[offset + 1] = background.green
-        pixels[offset + 2] = background.red
+        const colorOffset: number = index * 3
+        pixels[offset] = fallbackColors[colorOffset]
+        pixels[offset + 1] = fallbackColors[colorOffset + 1]
+        pixels[offset + 2] = fallbackColors[colorOffset + 2]
       }
     }
     await pixelMap.writePixels(area)
