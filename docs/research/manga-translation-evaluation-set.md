@@ -105,3 +105,19 @@ more uniform dialogue size and cleaner ordinary text on this fixture, but used a
 untranslated. These pages therefore measure stage-specific trade-offs, not an overall winner. Full images, timing,
 deployment size and the replaceable-backend interpretation are recorded in
 [Visual backend and replaceable stack](manga-translation-backend-comparison.md).
+
+## Real-gallery validation boundary
+
+Owned synthetic fixtures remain the committed deterministic gate, but they are not accepted as the only visual-quality
+evidence. Real Reader tuning must additionally use user-authorized gallery pages with ordinary dialogue density and at
+least one known difficult page. The two roles are reviewed together: a difficult page may justify failure-closed source
+preservation, while an ordinary page must prove the same rule does not broadly suppress translation.
+
+Real page images, crops, source text, translated text, gallery identifiers and hashes are temporary device evidence and
+must not be added to the repository. Durable documentation records only anonymized page characteristics, aggregate block
+counts, policy decisions, stage timings and pass/fail conclusions. Generated images cannot substitute for this lane.
+
+The 2026-07-24 `core-vision-ocr-bubble-group-v39` check on device `237` used a 35-page Japanese black-and-white gallery.
+On the stylized problem page, 4 of 11 blocks were preserved and 7 rendered; on the ordinary dialogue page, all 9 blocks
+rendered. This pair is an incident regression, not a representative corpus score. Future quality changes must repeat both
+roles and expand to additional authorized galleries instead of repeatedly tuning against one screenshot.

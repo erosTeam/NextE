@@ -55,8 +55,9 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v33'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 33
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v39'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 39
+const LOCAL_PRESERVE_SOURCE_SIGNAL: string = 'local_source_geometry_not_supported'
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
 const LOCAL_OCR_TILE_EDGE: number = 2048
@@ -122,6 +123,7 @@ class LocalMappedBlock {
   styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
   tileIndex: number = 0
   detectorRegionIndex: number = -1
+  preserveSource: boolean = false
   lineWidthScale: number = 1
   lineHeightScale: number = 1
 }
@@ -2157,6 +2159,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
       grouped.push(ComicLocalVisualBackend.group(groups[index]))
     }
+    ComicLocalVisualBackend.applyDetectorRenderPolicy(
+      grouped,
+      detection,
+      sourceWidth,
+      sourceHeight,
+    )
     // Detector regions commonly describe individual source columns rather than the whole
     // paragraph. Apply their geometry first so adjacent columns can be merged into one layout
     // region instead of independently expanding translated text into each other.
@@ -2172,6 +2180,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
     const output: LocalMappedBlock[] =
       ComicLocalVisualBackend.collapseContainedVerticalSourceBlocks(horizontalMerged)
+    ComicLocalVisualBackend.logDetectorRenderPolicy(
+      output,
+      detection,
+      sourceWidth,
+      sourceHeight,
+    )
     DiagnosticLogger.info(
       'comic-translation',
       'local_line_grouping_stages',
@@ -2238,6 +2252,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         continue
       }
       values[ownerIndex].text = combined
+      values[ownerIndex].preserveSource =
+        values[ownerIndex].preserveSource || values[candidateIndex].preserveSource
       suppressed[candidateIndex] = true
     }
     const output: LocalMappedBlock[] = []
@@ -2252,6 +2268,102 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private static mappedBlockArea(block: LocalMappedBlock): number {
     const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     return Math.max(1, rect.width() * rect.height())
+  }
+
+  private static applyDetectorRenderPolicy(
+    blocks: LocalMappedBlock[],
+    detection: ComicNativeRegionDetectionResult | null,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    if (detection === null) {
+      return
+    }
+    for (let index: number = 0; index < blocks.length; index++) {
+      const regionIndex: number = blocks[index].detectorRegionIndex
+      if (regionIndex < 0 || regionIndex >= detection.regions.length) {
+        continue
+      }
+      const regionRect: LocalRenderRect = ComicLocalVisualBackend.detectedRegionBounds(
+        detection.regions[regionIndex],
+        sourceWidth,
+        sourceHeight,
+      )
+      const regionAreaRatio: number = Math.max(
+        0,
+        regionRect.width() * regionRect.height(),
+      ) / Math.max(1, sourceWidth * sourceHeight)
+      blocks[index].preserveSource =
+        ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+          detection.regions[regionIndex].label,
+          blocks[index].text,
+          regionAreaRatio,
+        )
+    }
+  }
+
+  static detectorRegionNeedsSourcePreservation(
+    label: string,
+    text: string,
+    regionAreaRatio: number,
+  ): boolean {
+    if (ComicLocalVisualBackend.detectorLabelNeedsOriginalGeometry(label)) {
+      return true
+    }
+    const normalized: string = label.trim().toLowerCase()
+    const compactChars: number = text.replace(/\s+/g, '').length
+    // CTD proposes axis-aligned boxes from its text mask. On real pages, a large stylized or
+    // diagonal lettering region can fall back to system OCR with only two to four characters.
+    // Erasing that much source artwork from such weak text evidence creates an unrecoverable
+    // white hole, so keep the source until a recognizer can recover enough of the lettering.
+    return normalized === 'ctd-text' &&
+      compactChars <= 4 &&
+      regionAreaRatio >= 0.02
+  }
+
+  static detectorLabelNeedsOriginalGeometry(label: string): boolean {
+    const normalized: string = label.trim().toLowerCase()
+    // YSGYolo defines these classes as oblique vertical/horizontal text. The current renderer
+    // owns only axis-aligned layout and masks; replacing either class would erase the source
+    // lettering before drawing a differently oriented translation over the artwork.
+    return normalized === 'shuqing' || normalized === 'hengxie'
+  }
+
+  private static logDetectorRenderPolicy(
+    blocks: LocalMappedBlock[],
+    detection: ComicNativeRegionDetectionResult | null,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    if (detection === null) {
+      return
+    }
+    const values: string[] = []
+    for (let index: number = 0; index < blocks.length; index++) {
+      const block: LocalMappedBlock = blocks[index]
+      const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+      const regionIndex: number = block.detectorRegionIndex
+      const label: string = regionIndex >= 0 && regionIndex < detection.regions.length
+        ? detection.regions[regionIndex].label.trim().toLowerCase()
+        : 'unmatched'
+      const chars: number = block.text.replace(/\s+/g, '').length
+      const areaRatio: number = Math.max(0, rect.width() * rect.height()) /
+        Math.max(1, sourceWidth * sourceHeight)
+      values.push(
+        `b${index}=r${regionIndex}:${label}:chars${chars}:` +
+          `${Math.floor(rect.left)},${Math.floor(rect.top)},` +
+          `${Math.ceil(rect.right)},${Math.ceil(rect.bottom)}:` +
+          `area${areaRatio.toFixed(3)}:keep${block.preserveSource ? 1 : 0}`,
+      )
+    }
+    const chunkSize: number = 1
+    for (let start: number = 0; start < values.length; start += chunkSize) {
+      DiagnosticLogger.info(
+        'comic-translation',
+        'local_detector_render_policy',
+        values.slice(start, Math.min(values.length, start + chunkSize)).join(';'),
+      )
+    }
   }
 
   private static isContainedVerticalSourceFragment(
@@ -2465,6 +2577,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.tileIndex = first.tileIndex
     block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
       first.detectorRegionIndex : -1
+    block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)
     block.lineHeightScale = Math.max(first.lineHeightScale, second.lineHeightScale)
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
@@ -2555,6 +2668,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.tileIndex = first.tileIndex
     block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
       first.detectorRegionIndex : -1
+    block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)
     block.lineHeightScale = Math.max(first.lineHeightScale, second.lineHeightScale)
     const leftEdge: number = Math.min(firstRect.left, secondRect.left)
@@ -2624,6 +2738,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       block.sourceOrigin = ComicSourceOrigin.OCR
       block.sourceRevision = request.requestedDocumentRevision
       document.blocks.push(block)
+      if (lines[index].preserveSource) {
+        const preserveSignal: ComicQualitySignal = new ComicQualitySignal()
+        preserveSignal.code = LOCAL_PRESERVE_SOURCE_SIGNAL
+        preserveSignal.severity = ComicQualitySeverity.WARNING
+        preserveSignal.blockId = block.blockId
+        preserveSignal.message =
+          'The detected source text lacks reliable replacement evidence and remains unchanged.'
+        document.qualitySignals.push(preserveSignal)
+      }
     }
     const signal: ComicQualitySignal = new ComicQualitySignal()
     signal.code = 'local_system_ocr_requires_visual_review'
@@ -3380,6 +3503,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const plans: LocalRenderPlanBlock[] = []
     for (let index: number = 0; index < document.blocks.length; index++) {
       const source: ComicTextBlock = document.blocks[index]
+      if (ComicLocalVisualBackend.documentPreservesSource(document, source.blockId)) {
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_render_plan_source_preserved',
+          `block=${source.blockId} reason=${LOCAL_PRESERVE_SOURCE_SIGNAL}`,
+        )
+        continue
+      }
       const translated: string | undefined = translations.get(source.blockId)
       if (translated === undefined || translated.trim().length <= 0) {
         throw new Error('Local comic renderer is missing a translated block')
@@ -3393,6 +3524,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     // pixel-derived closed-balloon boundary independently confirms that several plans share
     // one visual container; adjacency alone never changes this document boundary.
     return plans
+  }
+
+  private static documentPreservesSource(
+    document: ComicPageDocument,
+    blockId: string,
+  ): boolean {
+    for (let index: number = 0; index < document.qualitySignals.length; index++) {
+      const signal: ComicQualitySignal = document.qualitySignals[index]
+      if (signal.code === LOCAL_PRESERVE_SOURCE_SIGNAL && signal.blockId === blockId) {
+        return true
+      }
+    }
+    return false
   }
 
   private static bubbleRenderGroups(

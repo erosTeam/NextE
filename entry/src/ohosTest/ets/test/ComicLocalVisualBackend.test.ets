@@ -184,6 +184,12 @@ class BubbleGroupingOcrEngine implements ComicLocalOcrEngine {
 }
 
 class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
+  private readonly labels: string[]
+
+  constructor(labels: string[] = ['balloon', 'balloon']) {
+    this.labels = labels
+  }
+
   profileId(): string {
     return 'fixture-region-detector'
   }
@@ -195,8 +201,8 @@ class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
   detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
     const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
     result.backend = 'fixture'
-    result.regions.push(this.region(96, 210, 320, 360))
-    result.regions.push(this.region(500, 1090, 620, 1390))
+    result.regions.push(this.region(96, 210, 320, 360, this.labels[0] ?? 'balloon'))
+    result.regions.push(this.region(500, 1090, 620, 1390, this.labels[1] ?? 'balloon'))
     return Promise.resolve(result)
   }
 
@@ -205,11 +211,12 @@ class BubbleGroupingRegionDetector implements ComicLocalRegionDetector {
     top: number,
     right: number,
     bottom: number,
+    label: string,
   ): ComicNativeDetectedRegion {
     const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
     region.score = 0.9
     region.classId = 0
-    region.label = 'balloon'
+    region.label = label
     region.points.push(new ComicNativeRegionPoint(left, top))
     region.points.push(new ComicNativeRegionPoint(right, top))
     region.points.push(new ComicNativeRegionPoint(right, bottom))
@@ -1695,6 +1702,46 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
     })
 
+    it('preserves oblique detector classes that the axis-aligned renderer cannot replace', 0,
+      () => {
+        expect(ComicLocalVisualBackend.detectorLabelNeedsOriginalGeometry('shuqing'))
+          .assertEqual(true)
+        expect(ComicLocalVisualBackend.detectorLabelNeedsOriginalGeometry('hengxie'))
+          .assertEqual(true)
+        expect(ComicLocalVisualBackend.detectorLabelNeedsOriginalGeometry('qipao'))
+          .assertEqual(false)
+        expect(ComicLocalVisualBackend.detectorLabelNeedsOriginalGeometry('changfangtiao'))
+          .assertEqual(false)
+      })
+
+    it('preserves large CTD regions when OCR recovers too little source text', 0, () => {
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '呼!啊?',
+        0.104,
+      )).assertEqual(true)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '呼!啊?呀',
+        0.104,
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '!?',
+        0.01,
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '这是完整识别的普通对话',
+        0.104,
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'qipao',
+        '嗯?',
+        0.104,
+      )).assertEqual(false)
+    })
+
     it('keeps adjacent translated balloons as separate render plans', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -2400,7 +2447,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(34)
+          expect(backend.protocolRevision()).assertEqual(40)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2412,6 +2459,43 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysis.document.blocks[1].polygon[2].y).assertEqual(1390)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_region_detector_active')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('marks oblique detector blocks for source preservation before translation rendering', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string =
+          `${ability.context.cacheDir}/detector-oblique-preservation-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            new BubbleGroupingRegionDetector(['qipao', 'shuqing']),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          const preservedSignals = analysis.document.qualitySignals.filter(
+            (signal): boolean => signal.code === 'local_source_geometry_not_supported',
+          )
+          expect(preservedSignals.length).assertEqual(1)
+          expect(preservedSignals[0].blockId).assertEqual(analysis.document.blocks[1].blockId)
         } finally {
           removeFile(sourcePath)
         }
@@ -2622,7 +2706,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(35)
+          expect(backend.protocolRevision()).assertEqual(41)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
