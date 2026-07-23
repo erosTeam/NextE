@@ -298,6 +298,14 @@ export class ComicTranslationRuntimeService {
           0.3,
           4,
         ),
+      inpaintingPaths === null || textMaskPaths === null
+        ? null
+        : new ComicNcnnLocalTextMasker(
+          textMaskPaths.paramPath,
+          textMaskPaths.modelPath,
+          0.15,
+          4,
+        ),
     )
   }
 

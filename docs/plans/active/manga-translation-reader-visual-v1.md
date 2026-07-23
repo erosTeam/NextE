@@ -666,3 +666,18 @@ inventory 和 `git diff --check` 均通过。
 该阶段不改变 analyzer v24、语义文档、LLM 译文或源文字清理，生产身份仅升级为
 `reader-local-bubble-layout-v43` / `local-bubble-typography-v37`、render revision 29。后续若要减少剩余侧转，
 必须从可靠边界空间或翻译长度入手，不得降低可读字号门槛或恢复词内断行。
+
+2026-07-23 端侧 backend v29 艺术字候选与局部失败隔离：真实 P5 证明 YSGYolo 的 27 个区域没有覆盖两处
+画面手写字。CTD 现分成 0.3 擦字 mask 与 0.15 proposal-only 两个实例；低阈值候选必须再通过 PP-OCRv5
+整块/半块或内部放大 Core Vision，不能直接擦字或送入 LLM。右侧 `732,488–876,652` 最终由放大系统 OCR
+补回 3 字，左侧沿用已有 OCR，页边 `LIVE` 与中央噪声被拒绝。相邻纵列允许 detector box 约三分之一字宽
+交叠后，P5 从 22 个旧 document block 收敛为 16 个完整气泡块。
+
+渲染改为先在原图上解析气泡安全区并预排版，确认可绘制后才擦除；不可排版的单个视觉组保留原文，不能再
+中止或预先擦空整页。英文布局先缩字号保证完整单词，再换行。设备 `237` 最终 P5 为 16/16 组、P4 为
+18/18 视觉组、P3 为 3/3 组，三页 `skipped=0` 且均 ready；真实截图保存在
+`.hvigor/outputs/aot-reader-production/nexte-v59-p3-final.jpeg`、`nexte-v59-p4-final.jpeg`、
+`nexte-v59-p5-final.jpeg`。目标套件 23 个确定性用例通过；端点无关 Core Vision 测量仍因固定 5 秒上限
+偶发 timeout；完整 Hypium 为 276 项、275 项通过、同一测量超时，不能写成全绿。下一项转为扩大艺术字/
+拟声词合法样本和误检率统计，并评估 analysis/render
+两次 CTD 的有界缓存；不得降低 OCR 安全阈值，也不得让低阈值 mask 直接决定擦除。

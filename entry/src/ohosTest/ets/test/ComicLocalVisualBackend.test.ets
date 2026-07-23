@@ -633,7 +633,7 @@ class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
     const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
     result.backend = 'fixture'
     result.regions.push(this.region(292, 200, 350, 440))
-    result.regions.push(this.region(232, 205, 290, 435))
+    result.regions.push(this.region(232, 205, 300, 435))
     return Promise.resolve(result)
   }
 
@@ -767,6 +767,132 @@ class FixtureTextRecognizer implements ComicLocalTextRecognizer {
     result.text = '月影駅東口'
     result.score = 0.94
     return Promise.resolve(result)
+  }
+}
+
+class CoveredTextOcrEngine implements ComicLocalOcrEngine {
+  engineId(): string {
+    return 'covered-text-ocr-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  supportedLanguages(): Promise<string[]> {
+    return Promise.resolve(['ja'])
+  }
+
+  recognize(_pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
+    const result: ComicLocalOcrResult = new ComicLocalOcrResult()
+    const line: ComicLocalOcrLine = new ComicLocalOcrLine()
+    line.text = '既存の文字です'
+    line.blockIndex = 0
+    line.polygon.push(new ComicLocalOcrPoint(100, 200))
+    line.polygon.push(new ComicLocalOcrPoint(240, 200))
+    line.polygon.push(new ComicLocalOcrPoint(240, 250))
+    line.polygon.push(new ComicLocalOcrPoint(100, 250))
+    result.lines.push(line)
+    const shortNoise: ComicLocalOcrLine = new ComicLocalOcrLine()
+    shortNoise.text = '誤'
+    shortNoise.blockIndex = 1
+    shortNoise.polygon.push(new ComicLocalOcrPoint(605, 505))
+    shortNoise.polygon.push(new ComicLocalOcrPoint(650, 505))
+    shortNoise.polygon.push(new ComicLocalOcrPoint(650, 540))
+    shortNoise.polygon.push(new ComicLocalOcrPoint(605, 540))
+    result.lines.push(shortNoise)
+    return Promise.resolve(result)
+  }
+}
+
+class CoveredTextRegionDetector implements ComicLocalRegionDetector {
+  profileId(): string {
+    return 'covered-text-region-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
+    const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
+    result.backend = 'fixture'
+    const region: ComicNativeDetectedRegion = new ComicNativeDetectedRegion()
+    region.score = 0.95
+    region.classId = 0
+    region.label = 'text'
+    region.points.push(new ComicNativeRegionPoint(90, 190))
+    region.points.push(new ComicNativeRegionPoint(250, 190))
+    region.points.push(new ComicNativeRegionPoint(250, 260))
+    region.points.push(new ComicNativeRegionPoint(90, 260))
+    result.regions.push(region)
+    return Promise.resolve(result)
+  }
+}
+
+class StylizedMissTextMasker implements ComicLocalTextMasker {
+  profileId(): string {
+    return 'stylized-miss-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(buffer)
+    this.cluster(mask, width, 112, 208)
+    this.cluster(mask, width, 600, 500)
+    this.cluster(mask, width, 600, 540)
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = buffer
+    result.backend = 'stylized-miss-mask-fixture'
+    return result
+  }
+
+  private cluster(mask: Uint8Array, width: number, left: number, top: number): void {
+    for (let glyph: number = 0; glyph < 4; glyph++) {
+      const glyphLeft: number = left + glyph * 20
+      for (let y: number = top; y < top + 32; y++) {
+        for (let x: number = glyphLeft; x < glyphLeft + 16; x++) {
+          mask[y * width + x] = 1
+        }
+      }
+    }
+  }
+}
+
+class CountingStylizedTextRecognizer implements ComicLocalTextRecognizer {
+  callCount: number = 0
+
+  profileId(): string {
+    return 'stylized-text-recognizer-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async recognize(
+    pixelMap: image.PixelMap,
+    _rotateCounterClockwise: boolean,
+  ): Promise<ComicNativeTextRecognitionResult> {
+    this.callCount = this.callCount + 1
+    const result: ComicNativeTextRecognitionResult = new ComicNativeTextRecognitionResult()
+    result.backend = 'fixture'
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    if (info.size.height >= 80) {
+      result.text = '誤'
+      result.score = 0.2
+      return result
+    }
+    result.text = this.callCount === 2 ? '手書き上' : '手書き下'
+    result.score = 0.94
+    return result
   }
 }
 
@@ -1391,6 +1517,70 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
+    it('preserves an unrenderable source region while rendering the rest of the page', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/partial-render-source.png`
+        let renderedPath: string = ''
+        await writeAdjacentBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const inpainter: CountingSourceInpainter = new CountingSourceInpainter()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            null,
+            null,
+            inpainter,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          const skipped = analysis.document.blocks[1]
+          skipped.styleHint = 'horizontal-tb'
+          skipped.polygon[0].x = 700
+          skipped.polygon[0].y = 700
+          skipped.polygon[1].x = 704
+          skipped.polygon[1].y = 700
+          skipped.polygon[2].x = 704
+          skipped.polygon[2].y = 704
+          skipped.polygon[3].x = 700
+          skipped.polygon[3].y = 704
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'This translated sentence still renders normally.',
+            'This deliberately oversized translation has far too many words for its tiny ' +
+              'detected region and must leave the original source pixels untouched.',
+            21,
+          )
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(page.byteLength > 0).assertEqual(true)
+          expect(inpainter.callCount).assertEqual(1)
+          expect(diagnostics.includes(
+            'comic-translation.local_render_group_skipped members=1',
+          )).assertEqual(true)
+          expect(diagnostics.includes(
+            'comic-translation.local_render_groups_ready drawable=1 skipped=1',
+          )).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('consolidates contained OCR columns before translation', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
@@ -1717,7 +1907,7 @@ export default function comicLocalVisualBackendTest(): void {
           )
           setEnglishRenderText(
             request,
-            'MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM',
+            'MMMMMM MMMMMM',
             '',
             14,
           )
@@ -1880,7 +2070,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(25)
+          expect(backend.protocolRevision()).assertEqual(30)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2102,9 +2292,51 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(26)
+          expect(backend.protocolRevision()).assertEqual(31)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
+          expect(analysis.document.qualitySignals.some((signal) =>
+            signal.code === 'local_manga_text_recognizer_supplemented')).assertEqual(true)
+        } finally {
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('uses the text mask to recover stylized text outside detector regions', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const fixtureContext: common.Context = await application.createModuleContext(
+          ability.context,
+          FIXTURE_MODULE,
+        )
+        const bytes: Uint8Array = await fixtureContext.resourceManager.getRawFileContent(
+          FIXTURE_PAGE_01_PATH,
+        )
+        const sourcePath: string = `${ability.context.cacheDir}/mask-supplement-source.png`
+        writeFile(sourcePath, bytes)
+        try {
+          const recognizer: CountingStylizedTextRecognizer =
+            new CountingStylizedTextRecognizer()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new CoveredTextOcrEngine(),
+            new CoveredTextRegionDetector(),
+            recognizer,
+            null,
+            new StylizedMissTextMasker(),
+          )
+          const request: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          request.source = source(sourcePath, page01Fixture())
+          request.requestedRegionRevision = 2
+          request.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
+          expect(recognizer.callCount).assertEqual(3)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          expect(analysis.document.blocks[0].sourceText).assertEqual('既存の文字です')
+          expect(analysis.document.blocks[1].sourceText).assertEqual('手書き上 手書き下')
+          expect(analysis.document.blocks[1].polygon[0].x >= 590).assertEqual(true)
           expect(analysis.document.qualitySignals.some((signal) =>
             signal.code === 'local_manga_text_recognizer_supplemented')).assertEqual(true)
         } finally {
