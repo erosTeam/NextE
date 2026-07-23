@@ -27,6 +27,7 @@ The set is intentionally not a benchmark claim. It establishes a reproducible mi
 | `comic_translation_eval_page_01.png` | `b12a64700e64a9e707152d0570a8af8c5296055226f953c769307cb59e3176a9` | Rainy station, caption, signage, SFX, vertical dialogue, furigana |
 | `comic_translation_eval_page_02.png` | `72ee2ef048ec6035f0ade14f7a07c9f50302f377907076fa677b95977c0c246c` | Same characters, name reuse, vertical dialogue, handwriting, SFX |
 | `comic_translation_eval_manifest.json` | verified during test compilation/run | Expected source variants, order and required translation terms |
+| `comic_artwork_recognizer_eval_v1.json` | verified by `scripts/test_comic_artwork_recognizer_fixture.mjs` | Exact source-page rectangles for 10 prose controls, 2 artwork positives and 5 texture negatives |
 | `comic_translation_live_eval_page_01.jpg` | `eede03d3c797c9278bc9b8f316998fdbb712c1ff9e5b9da0ac1972173bfe7388` | Production live-run derivative of page 1 |
 | `comic_translation_live_eval_page_02.jpg` | `4223bca41e70b722708c480d4d1fd4dec2d5a6f6a42b77c084346050f7374751` | Production live-run derivative of page 2 |
 | `comic_translation_live_eval_manifest.json` | verified before every live run | Production image identity and the same reference rules |
@@ -37,6 +38,12 @@ The 2026-07-21 live review corrected one reference omission: the clearly visible
 an expected block in both manifests. The reference therefore contains 5 blocks on page 1 and 6 on page 2.
 The reviewed question-mark variant accepts both Japanese full-width `？` and OCR-normalized ASCII `?`; this does not
 relax any character or block-boundary match.
+
+The artwork recognizer manifest references rectangles in the same lossless source PNGs rather than committing another
+set of derived images. It is a model-candidate gate, not a page-level accuracy score: prose controls detect recognizer
+regression, artwork positives measure the two current SFX gaps, and texture negatives measure hallucination/false
+acceptance. New recognizers must report these three roles separately. Adding cases requires an owned or explicitly
+licensed source, exact transcript review and an updated source hash; changing thresholds cannot alter this reference.
 
 ## Evaluation Rules
 

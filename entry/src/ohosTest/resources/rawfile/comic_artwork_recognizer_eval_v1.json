@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetId": "nexte-original-artwork-recognizer-v1",
+  "provenance": "Rectangles reference the two original synthetic NextE manga pages generated on 2026-07-20; no third-party page, character, logo, or OCR transcript is included.",
+  "sources": [
+    {
+      "id": "page-01",
+      "rawFile": "comic_translation_eval_page_01.png",
+      "sha256": "b12a64700e64a9e707152d0570a8af8c5296055226f953c769307cb59e3176a9",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "page-02",
+      "rawFile": "comic_translation_eval_page_02.png",
+      "sha256": "72ee2ef048ec6035f0ade14f7a07c9f50302f377907076fa677b95977c0c246c",
+      "width": 1024,
+      "height": 1536
+    }
+  ],
+  "cases": [
+    {
+      "id": "p1-caption",
+      "sourceId": "page-01",
+      "role": "prose-control",
+      "bounds": [81, 143, 122, 327],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["午後七時、雨。"]
+    },
+    {
+      "id": "p1-dialogue-apology",
+      "sourceId": "page-01",
+      "role": "prose-control",
+      "bounds": [95, 779, 136, 902],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["ごめん。"]
+    },
+    {
+      "id": "p1-dialogue-station",
+      "sourceId": "page-01",
+      "role": "prose-control",
+      "bounds": [49, 780, 92, 959],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["駅で迷った。"]
+    },
+    {
+      "id": "p1-dialogue-yuu",
+      "sourceId": "page-01",
+      "role": "prose-control",
+      "bounds": [900, 698, 945, 930],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["優、遅かったね。", "優（ゆう）、遅かったね。"]
+    },
+    {
+      "id": "p1-sign",
+      "sourceId": "page-01",
+      "role": "prose-control",
+      "bounds": [603, 186, 850, 263],
+      "rotateCounterClockwise": false,
+      "expectedVariants": ["月影駅 東", "月影駅東"]
+    },
+    {
+      "id": "p1-sfx-rain",
+      "sourceId": "page-01",
+      "role": "artwork-positive",
+      "bounds": [232, 36, 424, 424],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["ザアア…", "ザアア・・・", "ザアア..."]
+    },
+    {
+      "id": "p1-negative-station-light",
+      "sourceId": "page-01",
+      "role": "artwork-negative",
+      "bounds": [768, 344, 824, 380],
+      "rotateCounterClockwise": false,
+      "expectedVariants": []
+    },
+    {
+      "id": "p1-negative-floor-highlight",
+      "sourceId": "page-01",
+      "role": "artwork-negative",
+      "bounds": [884, 1316, 924, 1352],
+      "rotateCounterClockwise": false,
+      "expectedVariants": []
+    },
+    {
+      "id": "p1-negative-station-detail",
+      "sourceId": "page-01",
+      "role": "artwork-negative",
+      "bounds": [576, 356, 608, 384],
+      "rotateCounterClockwise": false,
+      "expectedVariants": []
+    },
+    {
+      "id": "p1-negative-panel-detail",
+      "sourceId": "page-01",
+      "role": "artwork-negative",
+      "bounds": [592, 644, 620, 668],
+      "rotateCounterClockwise": false,
+      "expectedVariants": []
+    },
+    {
+      "id": "p2-caption",
+      "sourceId": "page-02",
+      "role": "prose-control",
+      "bounds": [84, 91, 122, 204],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["その夜。"]
+    },
+    {
+      "id": "p2-dialogue-letter",
+      "sourceId": "page-02",
+      "role": "prose-control",
+      "bounds": [84, 712, 124, 946],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["兄さんの手紙？", "兄さんの手紙?"]
+    },
+    {
+      "id": "p2-dialogue-yuu",
+      "sourceId": "page-02",
+      "role": "prose-control",
+      "bounds": [895, 694, 937, 932],
+      "rotateCounterClockwise": true,
+      "expectedVariants": ["優、これを見て。", "優（ゆう）、これを見て。"]
+    },
+    {
+      "id": "p2-sign",
+      "sourceId": "page-02",
+      "role": "prose-control",
+      "bounds": [830, 173, 961, 224],
+      "rotateCounterClockwise": false,
+      "expectedVariants": ["月影駅 東口", "月影駅東口"]
+    },
+    {
+      "id": "p2-date",
+      "sourceId": "page-02",
+      "role": "prose-control",
+      "bounds": [461, 1167, 588, 1239],
+      "rotateCounterClockwise": false,
+      "expectedVariants": ["七月二十日"]
+    },
+    {
+      "id": "p2-sfx-page",
+      "sourceId": "page-02",
+      "role": "artwork-positive",
+      "bounds": [100, 1092, 252, 1184],
+      "rotateCounterClockwise": false,
+      "expectedVariants": ["パラ…", "パラ・・・", "パラ..."]
+    },
+    {
+      "id": "p2-negative-window-highlight",
+      "sourceId": "page-02",
+      "role": "artwork-negative",
+      "bounds": [480, 464, 528, 512],
+      "rotateCounterClockwise": false,
+      "expectedVariants": []
+    }
+  ]
+}
