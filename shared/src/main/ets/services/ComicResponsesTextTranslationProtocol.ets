@@ -53,6 +53,8 @@ export class ComicResponsesTextTranslationProtocol {
     lines.push('Silently correct misrecognized characters from the image when translating; do not copy an OCR mistake into the translation.')
     lines.push('After the full page image, labeled enlarged region crops may follow. Use each crop for exact transcription of its blockId; if a crop conflicts with supplied OCR text, the crop wins.')
     lines.push('Translate only legible text inside each supplied polygon. Never invent parenthetical narration for facial expressions, actions, scenery, or other visual content.')
+    lines.push('For blocks marked kind="sfx", translate the depicted sound or vocalization in context; repeated kana can represent breathing, impact, motion, or another non-dialogue sound, so do not treat it as ordinary dialogue or laughter without visual evidence.')
+    lines.push('If an sfx block remains genuinely ambiguous after inspecting its crop and page context, copy its sourceText exactly instead of inventing a meaning.')
     lines.push('Do not add, remove, merge, or split blocks.')
     lines.push('Return exactly one JSON object. Do not use Markdown fences or commentary.')
     lines.push('Every supplied blockId must appear exactly once with a non-empty translatedText.')

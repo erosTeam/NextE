@@ -32,6 +32,7 @@ import {
   ComicTranslationBatch,
   ComicTranslationAccuracySnapshot,
   ComicTranslationEvaluator,
+  ComicTextKind,
   ComicTranslationReferenceBlock,
   ComicTranslationReferencePage,
   ComicTranslationModelService,
@@ -1696,10 +1697,42 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.targetUsesVerticalLayout('de-DE')).assertEqual(false)
     })
 
-    it('keeps the visible comic outline near one normal glyph stroke', 0, () => {
-      expect(ComicLocalVisualBackend.outlineWidth(8)).assertEqual(2)
-      expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(4)
-      expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(10)
+    it('keeps the visible comic outline at least as thick as a normal glyph stroke', 0, () => {
+      expect(ComicLocalVisualBackend.outlineWidth(8)).assertEqual(4)
+      expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(10)
+      expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(24)
+    })
+
+    it('preserves dominant coloured source ink instead of inverting from the background', 0, () => {
+      const red: number[] = ComicLocalVisualBackend.dominantSourceTextColor([
+        230, 32, 38,
+        238, 28, 34,
+        220, 35, 42,
+        225, 30, 36,
+        12, 12, 12,
+        250, 250, 250,
+      ])
+      expect(red[0]).assertEqual(228)
+      expect(red[1]).assertEqual(31)
+      expect(red[2]).assertEqual(38)
+      const dark: number[] = ComicLocalVisualBackend.dominantSourceTextColor([
+        18, 18, 18,
+        22, 22, 22,
+        26, 26, 26,
+        242, 242, 242,
+        248, 248, 248,
+      ])
+      expect(dark[0]).assertEqual(18)
+      expect(dark[1]).assertEqual(18)
+      expect(dark[2]).assertEqual(18)
+      const emptyMask: number[] = ComicLocalVisualBackend.dominantSourceTextColor([
+        248, 248, 248,
+        250, 250, 250,
+        255, 255, 255,
+      ])
+      expect(emptyMask[0]).assertEqual(24)
+      expect(emptyMask[1]).assertEqual(24)
+      expect(emptyMask[2]).assertEqual(24)
     })
 
     it('preserves oblique detector classes that the axis-aligned renderer cannot replace', 0,
@@ -1740,6 +1773,71 @@ export default function comicLocalVisualBackendTest(): void {
         '嗯?',
         0.104,
       )).assertEqual(false)
+    })
+
+    it('fails closed for short mixed-script artwork transcripts', 0, () => {
+      expect(ComicLocalVisualBackend.isAmbiguousShortVisualTranscript('7B B7'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.isAmbiguousShortVisualTranscript('Oラ00O'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.isAmbiguousShortVisualTranscript('ROOM 4'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.isAmbiguousShortVisualTranscript('大丈夫です'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '7B B7',
+        0.004,
+      )).assertEqual(true)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'qipao',
+        '7B B7',
+        0.004,
+      )).assertEqual(false)
+    })
+
+    it('does not redraw implausible short non-CJK output for a CJK target', 0, () => {
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('%', 'zh-CN'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('7B B7', 'zh-CN'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('OK', 'zh-CN'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('404', 'zh-CN'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('哇', 'zh-CN'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('%', 'en'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        'ドキドキ',
+        'zh-CN',
+        'ドキドキ',
+      )).assertEqual(true)
+    })
+
+    it('classifies only repeated kana vocalizations as sound effects', 0, () => {
+      expect(ComicLocalVisualBackend.localTextKind('「はあ……はあ……♡」'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('「はあ……あはは…R「'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('ドキドキ'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('ここ'))
+        .assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind('いいですよ'))
+        .assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind('学校へ行く'))
+        .assertEqual(ComicTextKind.OTHER)
+    })
+
+    it('preserves kana-dominant sound effects with isolated OCR residue', 0, () => {
+      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('「はあ……あはは…R「'))
+        .assertEqual(true)
+      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('ドキドキ'))
+        .assertEqual(false)
+      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('いいですよ'))
+        .assertEqual(false)
     })
 
     it('keeps adjacent translated balloons as separate render plans', 0,
@@ -2447,7 +2545,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(40)
+          expect(backend.protocolRevision()).assertEqual(44)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2706,7 +2804,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(41)
+          expect(backend.protocolRevision()).assertEqual(45)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>

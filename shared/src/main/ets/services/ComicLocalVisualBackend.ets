@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v39'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 39
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v43'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 43
 const LOCAL_PRESERVE_SOURCE_SIGNAL: string = 'local_source_geometry_not_supported'
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
@@ -263,6 +263,13 @@ class LocalColorSample {
   green: number = 0
   blue: number = 0
   luminance: number = 0
+}
+
+class LocalColorBucket {
+  count: number = 0
+  red: number = 0
+  green: number = 0
+  blue: number = 0
 }
 
 /** Endpoint-free visual backend with system OCR and optional manga-specific local models. */
@@ -524,6 +531,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       const renderPlans: LocalRenderPlanBlock[] = ComicLocalVisualBackend.renderPlans(
         request.document,
         translations,
+        request.translations.targetLanguage,
       )
       DiagnosticLogger.info(
         'comic-translation',
@@ -545,7 +553,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           pixelMap,
           request.source.imageWidth,
           request.source.imageHeight,
+          raw,
           treatment,
+          pageTextMask,
         ))
       }
       // Fit every region independently, but cap outlier columns at the page median. This keeps
@@ -1179,16 +1189,23 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     if (!ComicLocalVisualBackend.supplementalTextAccepted(text, 1)) {
       return false
     }
+    // Enlarged artwork crops can make Core Vision alternate between O/0 and one kana or
+    // ideograph. A false positive here would erase source artwork, so mixed short fragments
+    // fail closed and remain visible for a future manga-specific recognizer.
+    return !ComicLocalVisualBackend.isAmbiguousShortVisualTranscript(text)
+  }
+
+  static isAmbiguousShortVisualTranscript(text: string): boolean {
     const compact: string = text.replace(/\s+/g, '')
+    if (compact.length <= 0 || compact.length > 8) {
+      return false
+    }
     const latinDigits: string = compact.replace(/[^A-Za-z0-9]/g, '')
     const cjk: string = compact.replace(
       /[^\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g,
       '',
     )
-    // Enlarged artwork crops can make Core Vision alternate between O/0 and one kana or
-    // ideograph. A false positive here would erase source artwork, so mixed short fragments
-    // fail closed and remain visible for a future manga-specific recognizer.
-    return !(compact.length <= 8 && latinDigits.length >= 3 && cjk.length <= 1)
+    return latinDigits.length >= 3 && cjk.length <= 1
   }
 
   private static ctdLineSplitRects(rect: LocalRenderRect): LocalRenderRect[] {
@@ -2312,6 +2329,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     const normalized: string = label.trim().toLowerCase()
     const compactChars: number = text.replace(/\s+/g, '').length
+    if (normalized === 'ctd-text' &&
+      ComicLocalVisualBackend.isAmbiguousShortVisualTranscript(text)) {
+      return true
+    }
     // CTD proposes axis-aligned boxes from its text mask. On real pages, a large stylized or
     // diagonal lettering region can fall back to system OCR with only two to four characters.
     // Erasing that much source artwork from such weak text evidence creates an unrecoverable
@@ -2730,7 +2751,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       const block: ComicTextBlock = new ComicTextBlock()
       block.blockId = `p${request.source.pageIndex}-local-${index + 1}`
       block.readingOrder = index
-      block.kind = ComicTextKind.OTHER
+      block.kind = ComicLocalVisualBackend.localTextKind(lines[index].text)
       block.sourceText = lines[index].text
       block.normalizedSourceText = lines[index].text.replace(/\s+/g, ' ').trim()
       block.polygon = lines[index].polygon
@@ -3012,7 +3033,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       )
       blockFontCap = Math.min(blockFontCap, referenceLayout.fontSize)
     }
-    result.layout = ComicLocalVisualBackend.layout(
+    result.layout = ComicLocalVisualBackend.outlineSafeHorizontalTextLayout(
       translatedText,
       result.contentWidth,
       result.contentHeight,
@@ -3042,6 +3063,33 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     return result
+  }
+
+  private static outlineSafeHorizontalTextLayout(
+    text: string,
+    width: number,
+    height: number,
+    font: drawing.Font,
+    maxFontSize: number,
+  ): LocalTextLayout {
+    const initial: LocalTextLayout = ComicLocalVisualBackend.layout(
+      text,
+      width,
+      height,
+      font,
+      maxFontSize,
+    )
+    const outline: number = ComicLocalVisualBackend.outlineWidth(initial.fontSize)
+    // Layout bounds describe the filled glyphs. Reserve one full pen width vertically so the
+    // outer half of the comic outline remains inside the selected quiet area as well. Keep the
+    // established wrap width: narrowing it can add a line and consume more height than it saves.
+    return ComicLocalVisualBackend.layout(
+      text,
+      width,
+      Math.max(1, height - outline),
+      font,
+      initial.fontSize,
+    )
   }
 
   private static uprightLatinLayout(
@@ -3240,6 +3288,18 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           `center=${centerScore.toFixed(2)} selected=${bestScore.toFixed(2)} ` +
           `offset=${Math.round(bestOffset)}`,
       )
+      if (bestOffset <= 0) {
+        const outlineInset: number =
+          ComicLocalVisualBackend.outlineWidth(prepared.layout.fontSize) / 2
+        const availableUpwardInset: number = Math.max(
+          0,
+          prepared.rect.top + prepared.verticalPadding - outlineInset,
+        )
+        const upwardInset: number = Math.min(outlineInset, availableUpwardInset)
+        if (upwardInset >= 2) {
+          return -upwardInset
+        }
+      }
       return bestOffset
     } catch (error) {
       DiagnosticLogger.warn(
@@ -3333,8 +3393,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const totalHeight: number = layout.lines.length * lineHeight
     const metrics: drawing.FontMetrics = font.getMetrics()
     const availableOffset: number = Math.max(0, contentHeight - totalHeight)
-    const resolvedOffset: number = verticalOffset < 0 ? availableOffset / 2 :
-      Math.max(0, Math.min(availableOffset, verticalOffset))
+    const resolvedOffset: number = verticalOffset === -1 ? availableOffset / 2 :
+      Math.max(
+        -ComicLocalVisualBackend.outlineWidth(layout.fontSize) / 2,
+        Math.min(availableOffset, verticalOffset),
+      )
     let baseline: number = rect.top + verticalPadding + resolvedOffset - metrics.ascent
     for (let index: number = 0; index < layout.lines.length; index++) {
       const line: string = layout.lines[index]
@@ -3389,9 +3452,76 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   static outlineWidth(fontSize: number): number {
-    // The fill pass covers the inner half of the pen stroke, so a 20% pen width leaves
-    // roughly one normal glyph-stroke of white outline visible around the final text.
-    return Math.max(2.0, Math.min(10.0, fontSize * 0.20))
+    // The fill pass covers the inner half of the pen stroke. A 50% pen therefore leaves
+    // about 25% of the font size outside the glyph: at least one normal glyph stroke,
+    // rather than the thin UI-style halo produced by the former 20% pen.
+    return Math.max(4.0, Math.min(24.0, fontSize * 0.50))
+  }
+
+  static dominantSourceTextColor(channels: number[]): number[] {
+    const fallback: number[] = [24, 24, 24]
+    if (channels.length < 3 || channels.length % 3 !== 0) {
+      return fallback
+    }
+    const samples: LocalColorSample[] = []
+    const saturatedBuckets: Map<number, LocalColorBucket> =
+      new Map<number, LocalColorBucket>()
+    let dominantBucketKey: number = -1
+    let dominantBucketCount: number = 0
+    for (let index: number = 0; index < channels.length; index += 3) {
+      const sample: LocalColorSample = new LocalColorSample()
+      sample.red = Math.max(0, Math.min(255, Math.round(channels[index])))
+      sample.green = Math.max(0, Math.min(255, Math.round(channels[index + 1])))
+      sample.blue = Math.max(0, Math.min(255, Math.round(channels[index + 2])))
+      sample.luminance = sample.red * 0.299 + sample.green * 0.587 +
+        sample.blue * 0.114
+      samples.push(sample)
+      const maximum: number = Math.max(sample.red, sample.green, sample.blue)
+      const minimum: number = Math.min(sample.red, sample.green, sample.blue)
+      if (maximum - minimum < 48) {
+        continue
+      }
+      const key: number = Math.floor(sample.red / 64) * 16 +
+        Math.floor(sample.green / 64) * 4 + Math.floor(sample.blue / 64)
+      let bucket: LocalColorBucket | undefined = saturatedBuckets.get(key)
+      if (bucket === undefined) {
+        bucket = new LocalColorBucket()
+        saturatedBuckets.set(key, bucket)
+      }
+      bucket.count = bucket.count + 1
+      bucket.red = bucket.red + sample.red
+      bucket.green = bucket.green + sample.green
+      bucket.blue = bucket.blue + sample.blue
+      if (bucket.count > dominantBucketCount) {
+        dominantBucketKey = key
+        dominantBucketCount = bucket.count
+      }
+    }
+    const saturatedMinimum: number = Math.max(3, Math.ceil(samples.length * 0.08))
+    const dominantBucket: LocalColorBucket | undefined =
+      saturatedBuckets.get(dominantBucketKey)
+    if (dominantBucket !== undefined && dominantBucket.count >= saturatedMinimum) {
+      return [
+        Math.round(dominantBucket.red / dominantBucket.count),
+        Math.round(dominantBucket.green / dominantBucket.count),
+        Math.round(dominantBucket.blue / dominantBucket.count),
+      ]
+    }
+    samples.sort((leftValue: LocalColorSample, rightValue: LocalColorSample): number =>
+      leftValue.luminance - rightValue.luminance)
+    const bodyIndex: number = Math.min(
+      samples.length - 1,
+      Math.floor((samples.length - 1) * 0.15),
+    )
+    const body: LocalColorSample = samples[bodyIndex]
+    // A text-mask proposal can include only white bubble pixels when the transcript comes from
+    // a synthetic fixture or a loose real-page mask. White is not evidence of source ink here:
+    // using it would make the fill and outline both disappear. Saturated light colours were
+    // handled above; neutral samples without a dark body pixel fail back to readable dark ink.
+    if (body.luminance > 128) {
+      return fallback
+    }
+    return [body.red, body.green, body.blue]
   }
 
   private static verticalPageFontCap(
@@ -3499,6 +3629,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private static renderPlans(
     document: ComicPageDocument,
     translations: Map<string, string>,
+    targetLanguage: string,
   ): LocalRenderPlanBlock[] {
     const plans: LocalRenderPlanBlock[] = []
     for (let index: number = 0; index < document.blocks.length; index++) {
@@ -3511,9 +3642,30 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         )
         continue
       }
+      if (source.kind === ComicTextKind.SFX &&
+        ComicLocalVisualBackend.ambiguousSoundEffectTranscript(source.sourceText)) {
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_render_plan_source_preserved',
+          `block=${source.blockId} reason=ambiguous_sfx_transcript`,
+        )
+        continue
+      }
       const translated: string | undefined = translations.get(source.blockId)
       if (translated === undefined || translated.trim().length <= 0) {
         throw new Error('Local comic renderer is missing a translated block')
+      }
+      if (ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        translated,
+        targetLanguage,
+        source.sourceText,
+      )) {
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_render_plan_translation_rejected',
+          `block=${source.blockId} reason=implausible_short_target_text`,
+        )
+        continue
       }
       const plan: LocalRenderPlanBlock = new LocalRenderPlanBlock()
       plan.block = source.copy()
@@ -3524,6 +3676,78 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     // pixel-derived closed-balloon boundary independently confirms that several plans share
     // one visual container; adjacency alone never changes this document boundary.
     return plans
+  }
+
+  static translatedTextNeedsSourcePreservation(
+    translatedText: string,
+    targetLanguage: string,
+    sourceText: string = '',
+  ): boolean {
+    const normalizedSource: string = sourceText.replace(/\s+/g, '').trim()
+    const compact: string = translatedText.replace(/\s+/g, '').trim()
+    if (normalizedSource.length > 0 && compact === normalizedSource) {
+      return true
+    }
+    const language: string = targetLanguage.trim().toLowerCase()
+    if (!(language === 'zh' || language.startsWith('zh-') ||
+      language === 'ja' || language.startsWith('ja-') ||
+      language === 'ko' || language.startsWith('ko-'))) {
+      return false
+    }
+    if (compact.length <= 0 || compact.length > 8 ||
+      /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(compact)) {
+      return false
+    }
+    const latinCount: number = compact.replace(/[^A-Za-z]/g, '').length
+    const digitCount: number = compact.replace(/[^0-9]/g, '').length
+    const naturalCount: number = latinCount + digitCount
+    return naturalCount <= 0 || (latinCount > 0 && digitCount > 0)
+  }
+
+  static localTextKind(sourceText: string): ComicTextKind {
+    const compact: string = sourceText.replace(
+      /[\s\u3000。、，,.!！?？…⋯・･~〜～―—「」『』（）()\[\]【】♡♥❤♪]+/g,
+      '',
+    )
+    const kana: string = compact.replace(/[^\u3040-\u30ff]/g, '')
+    if (kana.length < 4 || kana.length > 16) {
+      return ComicTextKind.OTHER
+    }
+    for (let unitLength: number = 2;
+      unitLength <= Math.min(4, Math.floor(kana.length / 2)); unitLength++) {
+      if (kana.length % unitLength !== 0) {
+        continue
+      }
+      const unit: string = kana.slice(0, unitLength)
+      let repeated: boolean = true
+      for (let offset: number = unitLength; offset < kana.length; offset += unitLength) {
+        if (kana.slice(offset, offset + unitLength) !== unit) {
+          repeated = false
+          break
+        }
+      }
+      if (repeated) {
+        return ComicTextKind.SFX
+      }
+    }
+    const uniqueKana: Set<string> = new Set<string>()
+    for (let index: number = 0; index < kana.length; index++) {
+      uniqueKana.add(kana[index])
+    }
+    if (kana.length >= 5 && uniqueKana.size <= Math.max(2, Math.floor(kana.length / 3))) {
+      return ComicTextKind.SFX
+    }
+    return ComicTextKind.OTHER
+  }
+
+  static ambiguousSoundEffectTranscript(sourceText: string): boolean {
+    const compact: string = sourceText.replace(
+      /[\s\u3000。、，,.!！?？…⋯・･~〜～―—「」『』（）()\[\]【】♡♥❤♪]+/g,
+      '',
+    )
+    const kana: string = compact.replace(/[^\u3040-\u30ff]/g, '')
+    const residue: string = compact.replace(/[\u3040-\u30ff]/g, '')
+    return kana.length >= 4 && residue.length > 0 && /^[A-Za-z0-9]+$/.test(residue)
   }
 
   private static documentPreservesSource(
@@ -4230,9 +4454,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     pixelMap: image.PixelMap,
     imageWidth: number,
     imageHeight: number,
+    raw: LocalRenderRect,
     treatment: LocalRenderRect,
+    pageTextMask: Uint8Array | null,
   ): Promise<LocalFillStyle> {
     const samples: LocalColorSample[] = []
+    const sourceTextChannels: number[] = []
     const desiredWidth: number = Math.max(1, Math.ceil(treatment.width() + 8))
     const desiredHeight: number = Math.max(1, Math.ceil(treatment.height() + 8))
     const sampleWidth: number = Math.min(256, imageWidth, desiredWidth)
@@ -4273,6 +4500,25 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         samples.push(sample)
       }
     }
+    if (pageTextMask !== null) {
+      const rawLeft: number = Math.max(left, Math.floor(raw.left))
+      const rawTop: number = Math.max(top, Math.floor(raw.top))
+      const rawRight: number = Math.min(left + sampleWidth, Math.ceil(raw.right))
+      const rawBottom: number = Math.min(top + sampleHeight, Math.ceil(raw.bottom))
+      for (let globalY: number = rawTop; globalY < rawBottom; globalY++) {
+        const localY: number = globalY - top
+        for (let globalX: number = rawLeft; globalX < rawRight; globalX++) {
+          if (pageTextMask[globalY * imageWidth + globalX] === 0) {
+            continue
+          }
+          const localX: number = globalX - left
+          const offset: number = localY * rowBytes + localX * 4
+          sourceTextChannels.push(sourcePixels[offset + 2])
+          sourceTextChannels.push(sourcePixels[offset + 1])
+          sourceTextChannels.push(sourcePixels[offset])
+        }
+      }
+    }
     const style: LocalFillStyle = new LocalFillStyle()
     if (samples.length <= 0) {
       return style
@@ -4288,6 +4534,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     style.red = samples[backgroundIndex].red
     style.green = samples[backgroundIndex].green
     style.blue = samples[backgroundIndex].blue
+    const sourceTextColor: number[] =
+      ComicLocalVisualBackend.dominantSourceTextColor(sourceTextChannels)
+    style.textRed = sourceTextColor[0]
+    style.textGreen = sourceTextColor[1]
+    style.textBlue = sourceTextColor[2]
     return style
   }
 
