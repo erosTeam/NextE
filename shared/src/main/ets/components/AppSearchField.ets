@@ -1,6 +1,7 @@
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { uiMaterial } from '@kit.ArkUI'
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
 
 let appSearchFieldSeq: number = 0
 
@@ -23,6 +24,8 @@ export struct AppSearchField {
   @Param useSystemMaterial: boolean = false;
   @Event onTextChange?: (value: string) => void;
   @Event onSubmit?: (value: string) => void;
+  // Search fields can live inside cached title-bar ComponentContent on API levels without system material.
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   // Unique id so getFocusController().requestFocus can target this specific Search instance.
   private fieldId: string = `appSearchField-${appSearchFieldSeq++}`;
 
@@ -74,7 +77,7 @@ export struct AppSearchField {
       .id(this.fieldId)
       .width('100%')
       .height(ThemeConstants.SEARCH_FIELD_HEIGHT)
-      .backgroundColor($r('app.color.card_background'))
+      .backgroundColor(this.themeTracked($r('app.color.card_background')))
       .searchButton(this.searchButtonText, { fontColor: ThemeConstants.BRAND_PRIMARY })
       .onChange((value: string) => {
         this.handleChange(value)
@@ -82,6 +85,11 @@ export struct AppSearchField {
       .onSubmit((value: string) => {
         this.handleSubmit(value)
       })
+  }
+
+  // The color is unchanged; the effectiveDark read registers a dependency so cached search fields repaint.
+  private themeTracked(color: ResourceColor): ResourceColor {
+    return this.themeDisplay.effectiveDark ? color : color
   }
 
   private handleChange(value: string): void {

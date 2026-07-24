@@ -80,6 +80,8 @@ import {
   connectTabletLayout,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  ThemeDisplayState,
+  connectThemeDisplay,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -392,22 +394,37 @@ function IndexReaderGestureProbeRoute() {
   ReaderGestureProbePage()
 }
 
+@ComponentV2
+struct IndexSplitPlaceholder {
+  // HDS keeps splitPlaceholder as a cached ComponentContent. Reading this signal makes the cached
+  // placeholder repaint when the app switches between light and dark mode.
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+
+  private themeTracked(color: ResourceColor): ResourceColor {
+    return this.themeDisplay.effectiveDark ? color : color
+  }
+
+  build() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      SymbolGlyph($r('sys.symbol.rectangle_split_1x2'))
+        .fontSize(ThemeConstants.FONT_SIZE_H1)
+        .fontColor([this.themeTracked($r('sys.color.font_tertiary'))])
+      Text($r('app.string.tablet_select_detail'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(this.themeTracked($r('sys.color.font_tertiary')))
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(this.themeTracked($r('sys.color.ohos_id_color_sub_background')))
+  }
+}
+
 @Builder
 function IndexSplitPlaceholderCCBuilder(_state: Object) {
-  Column({ space: ThemeConstants.SPACE_MD }) {
-    SymbolGlyph($r('sys.symbol.rectangle_split_1x2'))
-      .fontSize(ThemeConstants.FONT_SIZE_H1)
-      .fontColor([$r('sys.color.font_tertiary')])
-    Text($r('app.string.tablet_select_detail'))
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor($r('sys.color.font_tertiary'))
-      .textAlign(TextAlign.Center)
-  }
-  .width('100%')
-  .height('100%')
-  .justifyContent(FlexAlign.Center)
-  .alignItems(HorizontalAlign.Center)
-  .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  IndexSplitPlaceholder()
 }
 
 /**
