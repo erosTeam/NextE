@@ -1864,6 +1864,9 @@ export struct ReaderPage {
     if (this.comicTranslationErrorCode === 'local_visual_unavailable') {
       return AppStrings.get('reader_comic_translation_local_visual_unavailable')
     }
+    if (this.comicTranslationErrorCode === 'no_translatable_text') {
+      return AppStrings.get('reader_comic_translation_no_translatable_text')
+    }
     return AppStrings.get('reader_comic_translation_failed')
       .replace('%s', this.comicTranslationErrorCode)
   }

@@ -5325,6 +5325,10 @@
       "value": "端末上の漫画画像処理は一時的に利用できません"
     },
     {
+      "name": "reader_comic_translation_no_translatable_text",
+      "value": "このページには翻訳可能な文字が検出されませんでした"
+    },
+    {
       "name": "reader_comic_translation_cached",
       "value": "キャッシュ"
     },

@@ -5325,6 +5325,10 @@
       "value": "端侧漫画图像处理暂不可用，请稍后重试"
     },
     {
+      "name": "reader_comic_translation_no_translatable_text",
+      "value": "当前页未检测到可翻译文字"
+    },
+    {
       "name": "reader_comic_translation_cached",
       "value": "缓存"
     },

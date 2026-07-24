@@ -23,6 +23,7 @@ import {
   ComicTextTranslationResult,
   ComicTextTranslator,
   ComicTranslationBatch,
+  ComicTranslationErrorClassifier,
   ComicVisualPageSource,
   ComicVisualTranslationContract,
   ComicVisualTranslationOrchestrator,
@@ -44,6 +45,7 @@ class FixtureRegionRenderBackend implements ComicRegionRenderBackend {
   analyzeCalls: number = 0
   renderCalls: number = 0
   failRender: boolean = false
+  returnNoText: boolean = false
 
   backendId(): string {
     return FIXTURE_BACKEND_ID
@@ -64,6 +66,10 @@ class FixtureRegionRenderBackend implements ComicRegionRenderBackend {
     result.profileId = this.profileId()
     result.regionRevision = request.requestedRegionRevision
     result.document = fixtureDocument(request.source, request.requestedDocumentRevision)
+    if (this.returnNoText) {
+      result.document.hasText = false
+      result.document.blocks = []
+    }
     const template: ComicBackendTemplate = new ComicBackendTemplate()
     template.backendId = this.backendId()
     template.profileId = this.profileId()
@@ -318,6 +324,26 @@ export default function comicVisualTranslationOrchestratorTest(): void {
         await orchestrator.run(fixtureRequest(0, 'a'))
         await orchestrator.run(fixtureRequest(1, 'b'))
         expect(translator.lastPreviousTranslation.includes('译文-0-0')).assertEqual(true)
+        done()
+      })
+
+    it('stops before translation and classifies a page without text separately', 0,
+      async (done: Function) => {
+        const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        backend.returnNoText = true
+        const translator: FixtureTextTranslator = new FixtureTextTranslator()
+        const orchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(backend, translator)
+        let errorCode: string = ''
+        try {
+          await orchestrator.run(fixtureRequest(0, 'a'))
+        } catch (error) {
+          errorCode = ComicTranslationErrorClassifier.classify(error as Error)
+        }
+        expect(errorCode).assertEqual('no_translatable_text')
+        expect(backend.analyzeCalls).assertEqual(1)
+        expect(translator.translateCalls).assertEqual(0)
+        expect(backend.renderCalls).assertEqual(0)
         done()
       })
 

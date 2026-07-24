@@ -53,6 +53,9 @@ export class ComicTranslationErrorClassifier {
     if (message.includes('rendered page artifact')) {
       return 'render_artifact_invalid'
     }
+    if (message.includes('comic page contains no detected text')) {
+      return 'no_translatable_text'
+    }
     if (message.includes('stream failed')) {
       return 'provider_stream_failed'
     }
