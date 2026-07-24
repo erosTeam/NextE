@@ -168,6 +168,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get app version
+        shell: bash
+        run: |
+          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('oh-package.json5','utf8').match(/\"version\"\s*:\s*\"([^\"]+)\"/); if (!m) process.exit(1); console.log(m[1])")
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Verify release notes
+        shell: bash
+        run: |
+          notes="changelog/v${APP_VERSION}.md"
+          test -s "$notes"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -188,4 +203,4 @@ jobs:
           allowUpdates: true
           artifactErrorsFailBuild: true
           replacesArtifacts: true
-          generateReleaseNotes: true
+          bodyFile: changelog/v${{ env.APP_VERSION }}.md

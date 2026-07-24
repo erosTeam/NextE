@@ -1,0 +1,73 @@
+# One-time SSH-triggered migration. Remove this workflow after the historical sync succeeds.
+name: Sync Historical Release Notes
+
+on:
+  push:
+    branches:
+      - release-notes-sync
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Update release bodies only
+    if: github.ref == 'refs/heads/release-notes-sync'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate release notes and releases
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          notes=(changelog/v*.md)
+          test "${#notes[@]}" -gt 0
+          api_root="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+
+          for file in "${notes[@]}"; do
+            tag="${file##*/}"
+            tag="${tag%.md}"
+            case "$tag" in
+              v[0-9]*.[0-9]*.[0-9]*) ;;
+              *) echo "Invalid release notes filename: $file" >&2; exit 1 ;;
+            esac
+            test -s "$file"
+            curl --fail-with-body --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "$api_root/releases/tags/$tag" \
+              | jq -e --arg tag "$tag" '.tag_name == $tag and (.id | type == "number")' >/dev/null
+          done
+
+      - name: Update release bodies
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          api_root="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+
+          for file in changelog/v*.md; do
+            tag="${file##*/}"
+            tag="${tag%.md}"
+            release_id=$(curl --fail-with-body --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "$api_root/releases/tags/$tag" \
+              | jq -er '.id')
+            jq -n --rawfile body "$file" '{body: $body}' \
+              | curl --fail-with-body --silent --show-error \
+                -X PATCH \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data-binary @- \
+                "$api_root/releases/$release_id" \
+                | jq -e --arg tag "$tag" '.tag_name == $tag' >/dev/null
+          done
