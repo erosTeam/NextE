@@ -674,7 +674,11 @@ export struct GalleryCommentsPage {
     this.notifyCommentRowChanged(commentId)
   }
 
-  private async refreshCommentVoteDetails(commentId: string): Promise<void> {
+  private async refreshCommentVoteDetails(
+    commentId: string,
+    acceptedScore: string,
+    acceptedVote: number,
+  ): Promise<void> {
     const result = await EhApiService.getInstance().getGalleryDetail(
       this.params.gid,
       this.params.token,
@@ -685,18 +689,21 @@ export struct GalleryCommentsPage {
       if (comment.commentId !== commentId) {
         continue
       }
-      this.applyVoteState(commentId, comment.score, comment.vote, comment.scoreDetails)
+      // The vote endpoint returns the accepted aggregate score immediately. The follow-up HTML
+      // fetch is only used to obtain score details; it can still carry the previous aggregate while
+      // the server-side comment page catches up, so do not overwrite the accepted score/vote here.
+      this.applyVoteState(commentId, acceptedScore, acceptedVote, comment.scoreDetails)
       connectCommentVoteMutation().publish(
         this.params.gid,
         commentId,
-        comment.score,
-        comment.vote,
+        acceptedScore,
+        acceptedVote,
         comment.scoreDetails,
       )
       DiagnosticLogger.info(
         'gallery',
         'comment_vote_details_refreshed',
-        `id=${commentId} details=${comment.scoreDetails.length}`,
+        `id=${commentId} score=${acceptedScore} details=${comment.scoreDetails.length}`,
       )
       return
     }
@@ -786,7 +793,11 @@ export struct GalleryCommentsPage {
       )
       this.applyVoteResult(result)
       try {
-        await this.refreshCommentVoteDetails(result.commentId)
+        await this.refreshCommentVoteDetails(
+          result.commentId,
+          result.commentScore.toString(),
+          result.commentVote,
+        )
       } catch (detailsError) {
         DiagnosticLogger.warn(
           'gallery',
