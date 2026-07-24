@@ -3,6 +3,7 @@ import { util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
+import { ComicPageDocument } from '../model/ComicTranslation'
 import {
   ComicRenderedPage,
   ComicRegionAnalysisResult,
@@ -314,6 +315,10 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
 
   protocolRevision(): number {
     return MANGA_TRANSLATOR_UI_PROTOCOL_REVISION
+  }
+
+  hasReplacementCandidates(document: ComicPageDocument): boolean {
+    return document.hasText && document.blocks.length > 0
   }
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {

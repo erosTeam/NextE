@@ -326,6 +326,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         0 : this.proposalMasker.revision())
   }
 
+  hasReplacementCandidates(document: ComicPageDocument): boolean {
+    for (let index: number = 0; index < document.blocks.length; index++) {
+      if (document.blocks[index].kind !== ComicTextKind.SFX &&
+        !ComicLocalVisualBackend.documentPreservesSource(
+          document,
+          document.blocks[index].blockId,
+        )) {
+        return true
+      }
+    }
+    return false
+  }
+
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
     ComicVisualTranslationContract.validateRegionAnalysisRequest(request)
     const analysisStartedAt: number = Date.now()

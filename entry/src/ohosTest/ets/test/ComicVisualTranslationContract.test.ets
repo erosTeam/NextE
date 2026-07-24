@@ -256,6 +256,10 @@ class FixtureRegionBackend implements ComicRegionRenderBackend {
     return 1
   }
 
+  hasReplacementCandidates(document: ComicPageDocument): boolean {
+    return document.hasText && document.blocks.length > 0
+  }
+
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
     const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
     result.backendId = this.backendId()

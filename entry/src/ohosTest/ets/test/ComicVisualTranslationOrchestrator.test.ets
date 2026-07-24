@@ -46,6 +46,7 @@ class FixtureRegionRenderBackend implements ComicRegionRenderBackend {
   renderCalls: number = 0
   failRender: boolean = false
   returnNoText: boolean = false
+  returnNoReplacementCandidates: boolean = false
 
   backendId(): string {
     return FIXTURE_BACKEND_ID
@@ -57,6 +58,11 @@ class FixtureRegionRenderBackend implements ComicRegionRenderBackend {
 
   protocolRevision(): number {
     return 1
+  }
+
+  hasReplacementCandidates(document: ComicPageDocument): boolean {
+    return !this.returnNoReplacementCandidates &&
+      document.hasText && document.blocks.length > 0
   }
 
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
@@ -331,6 +337,26 @@ export default function comicVisualTranslationOrchestratorTest(): void {
       async (done: Function) => {
         const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
         backend.returnNoText = true
+        const translator: FixtureTextTranslator = new FixtureTextTranslator()
+        const orchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(backend, translator)
+        let errorCode: string = ''
+        try {
+          await orchestrator.run(fixtureRequest(0, 'a'))
+        } catch (error) {
+          errorCode = ComicTranslationErrorClassifier.classify(error as Error)
+        }
+        expect(errorCode).assertEqual('no_translatable_text')
+        expect(backend.analyzeCalls).assertEqual(1)
+        expect(translator.translateCalls).assertEqual(0)
+        expect(backend.renderCalls).assertEqual(0)
+        done()
+      })
+
+    it('stops before translation when every detected block must preserve the source', 0,
+      async (done: Function) => {
+        const backend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        backend.returnNoReplacementCandidates = true
         const translator: FixtureTextTranslator = new FixtureTextTranslator()
         const orchestrator: ComicVisualTranslationOrchestrator =
           orchestratorFixture(backend, translator)

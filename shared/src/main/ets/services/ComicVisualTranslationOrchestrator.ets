@@ -168,6 +168,9 @@ export class ComicVisualTranslationOrchestrator {
     if (!analysis.document.hasText || analysis.document.blocks.length === 0) {
       throw new Error('Comic page contains no detected text')
     }
+    if (!this.regionBackend.hasReplacementCandidates(analysis.document)) {
+      throw new Error('Comic page contains no translatable text')
+    }
 
     const translationRequest: ComicTextTranslationRequest = new ComicTextTranslationRequest()
     translationRequest.source = request.source.copy()

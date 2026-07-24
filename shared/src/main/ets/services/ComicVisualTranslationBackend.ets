@@ -70,6 +70,8 @@ export interface ComicRegionRenderBackend {
 
   protocolRevision(): number
 
+  hasReplacementCandidates(document: ComicPageDocument): boolean
+
   analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult>
 
   render(request: ComicRegionRenderRequest): Promise<ComicRenderedPage>
