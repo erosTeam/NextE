@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v47'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 47
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v50'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 50
 const LOCAL_PRESERVE_SOURCE_SIGNAL: string = 'local_source_geometry_not_supported'
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
@@ -3667,12 +3667,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         )
         continue
       }
-      if (source.kind === ComicTextKind.SFX &&
-        ComicLocalVisualBackend.ambiguousSoundEffectTranscript(source.sourceText)) {
+      if (source.kind === ComicTextKind.SFX) {
         DiagnosticLogger.info(
           'comic-translation',
           'local_render_plan_source_preserved',
-          `block=${source.blockId} reason=ambiguous_sfx_transcript`,
+          `block=${source.blockId} reason=source_sfx_artwork`,
         )
         continue
       }
@@ -3748,7 +3747,37 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       '',
     )
     const kana: string = compact.replace(/[^\u3040-\u30ff]/g, '')
+    const hiragana: string = compact.replace(/[^\u3040-\u309f]/g, '')
+    const katakana: string = compact.replace(/[^\u30a0-\u30ff]/g, '')
+    const kanji: string = compact.replace(/[^\u3400-\u9fff]/g, '')
+    const latinDigits: string = compact.replace(/[^A-Za-z0-9]/g, '')
+    const otherCount: number =
+      compact.length - kana.length - kanji.length - latinDigits.length
+    const hasSemanticKanaMarker: boolean =
+      /(さま|さん|です|ます|した|する|なる|なれ|たい|ない|ありがとう|すき|ください|お願い|ございます)/.test(
+        sourceText,
+      )
     if (kana.length < 4 || kana.length > 16) {
+      return ComicTextKind.OTHER
+    }
+    if (!hasSemanticKanaMarker && compact.length <= 32 && kanji.length <= 2 &&
+      latinDigits.length >= 3 && kana.length * 2 >= compact.length) {
+      return ComicTextKind.SFX
+    }
+    // Short OCR fragments that are mostly kana but contain digits, foreign-script residue,
+    // or an isolated all-katakana label are not reliable semantic dialogue. Preserving the
+    // source artwork is safer than asking the translator to invent meaning from a damaged
+    // transcript. Clean short hiragana phrases such as ありがとう remain ordinary text.
+    if (!hasSemanticKanaMarker && compact.length <= 16 && kanji.length <= 1 &&
+      kana.length * 2 >= compact.length &&
+      (latinDigits.length > 0 || otherCount > 0 ||
+        (katakana.length >= 4 && hiragana.length <= 1))) {
+      return ComicTextKind.SFX
+    }
+    // Repeated kana inside an ordinary sentence is not sufficient evidence of a sound
+    // effect. Require the complete short transcript to be kana-dominant with at most one
+    // likely OCR residue; otherwise common particles in a semantic sentence can repeat.
+    if (kana.length * 2 < compact.length || kanji.length > 1 || latinDigits.length > 1) {
       return ComicTextKind.OTHER
     }
     for (let unitLength: number = 2;
@@ -3776,16 +3805,6 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return ComicTextKind.SFX
     }
     return ComicTextKind.OTHER
-  }
-
-  static ambiguousSoundEffectTranscript(sourceText: string): boolean {
-    const compact: string = sourceText.replace(
-      /[\s\u3000。、，,.!！?？…⋯・･~〜～―—「」『』（）()\[\]【】♡♥❤♪]+/g,
-      '',
-    )
-    const kana: string = compact.replace(/[^\u3040-\u30ff]/g, '')
-    const residue: string = compact.replace(/[\u3040-\u30ff]/g, '')
-    return kana.length >= 4 && residue.length > 0 && /^[A-Za-z0-9]+$/.test(residue)
   }
 
   private static documentPreservesSource(

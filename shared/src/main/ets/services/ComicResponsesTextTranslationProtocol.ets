@@ -4,6 +4,7 @@ import {
   ComicBlockTranslation,
   ComicTranslationBatch,
 } from '../model/ComicVisualTranslation'
+import { ComicTextKind } from '../model/ComicTranslation'
 import {
   ComicTextTranslationRequest,
   ComicTextTranslationResult,
@@ -53,8 +54,9 @@ export class ComicResponsesTextTranslationProtocol {
     lines.push('Silently correct misrecognized characters from the image when translating; do not copy an OCR mistake into the translation.')
     lines.push('After the full page image, labeled enlarged region crops may follow. Use each crop for exact transcription of its blockId; if a crop conflicts with supplied OCR text, the crop wins.')
     lines.push('Translate only legible text inside each supplied polygon. Never invent parenthetical narration for facial expressions, actions, scenery, or other visual content.')
-    lines.push('For blocks marked kind="sfx", translate the depicted sound or vocalization in context; repeated kana can represent breathing, impact, motion, or another non-dialogue sound, so do not treat it as ordinary dialogue or laughter without visual evidence.')
-    lines.push('If an sfx block remains genuinely ambiguous after inspecting its crop and page context, copy its sourceText exactly instead of inventing a meaning.')
+    lines.push('For blocks marked kind="sfx", copy sourceText exactly. The local reader preserves stylized sound-effect artwork instead of replacing it with typeset text.')
+    lines.push('For any other block that mixes semantic dialogue with repeated breathing, moaning, or onomatopoeia, translate all semantic dialogue but omit every non-semantic vocalization. Do not output a translated sound cue for that fragment.')
+    lines.push('Never expand OCR noise, uncertain fragments, or repeated kana into multiple target-language sounds or invented dialogue.')
     lines.push('Do not add, remove, merge, or split blocks.')
     lines.push('Return exactly one JSON object. Do not use Markdown fences or commentary.')
     lines.push('Every supplied blockId must appear exactly once with a non-empty translatedText.')
@@ -155,14 +157,23 @@ export class ComicResponsesTextTranslationProtocol {
     batch.glossaryRevision = request.context.glossaryRevision
     batch.translationRevision = request.requestedTranslationRevision
     for (let index: number = 0; index < request.document.blocks.length; index++) {
-      const blockId: string = request.document.blocks[index].blockId
+      const sourceBlock = request.document.blocks[index]
+      const blockId: string = sourceBlock.blockId
       const translatedText: string | undefined = translatedById.get(blockId)
       if (translatedText === undefined) {
         throw new Error('Comic text translation output is missing a block')
       }
       const block: ComicBlockTranslation = new ComicBlockTranslation()
       block.blockId = blockId
-      block.translatedText = translatedText
+      // Provider instructions are not a safety boundary. A classified sound effect remains
+      // source artwork even when a provider translates or hallucinates it, and must not leak
+      // into cross-page context as ordinary dialogue.
+      block.translatedText = ComicResponsesTextTranslationProtocol.filteredTranslation(
+        sourceBlock.kind,
+        sourceBlock.sourceText,
+        translatedText,
+        request.context.targetLanguage,
+      )
       batch.blocks.push(block)
     }
     if (translatedById.size !== batch.blocks.length) {
@@ -239,6 +250,70 @@ export class ComicResponsesTextTranslationProtocol {
       Math.floor(sourceRevision) !== sourceRevision) {
       throw new Error('Comic text translation source revision is invalid')
     }
+  }
+
+  private static filteredTranslation(
+    kind: ComicTextKind,
+    sourceText: string,
+    translatedText: string,
+    targetLanguage: string,
+  ): string {
+    if (kind === ComicTextKind.SFX) {
+      return sourceText
+    }
+    const language: string = targetLanguage.trim().toLowerCase()
+    if (!(language === 'zh' || language.startsWith('zh-'))) {
+      return translatedText
+    }
+    const filtered: string =
+      ComicResponsesTextTranslationProtocol.stripChineseVocalizations(translatedText).trim()
+    // A provider output that consists only of translated vocalizations is not useful reading
+    // text. Returning the exact source makes the renderer preserve the artwork through its
+    // existing identity fence instead of drawing an empty or invented cue.
+    return filtered.length > 0 ? filtered : sourceText
+  }
+
+  private static stripChineseVocalizations(value: string): string {
+    const vocalizationCharacters: string = '嗯呼哼啊哈唔呜哦噢呀嘶嘿喘'
+    const boundaries: string =
+      ' \t\r\n「」『』（）()【】[]♡♥❤☆★♪…⋯!！?？~～、，,。；;：:'
+    let output: string = ''
+    let index: number = 0
+    while (index < value.length) {
+      if (vocalizationCharacters.indexOf(value[index]) < 0) {
+        output += value[index]
+        index++
+        continue
+      }
+      let end: number = index + 1
+      while (end < value.length &&
+        vocalizationCharacters.indexOf(value[end]) >= 0) {
+        end++
+      }
+      const previousIsBoundary: boolean =
+        index <= 0 || boundaries.indexOf(value[index - 1]) >= 0
+      const nextIsBoundary: boolean =
+        end >= value.length || boundaries.indexOf(value[end]) >= 0
+      const runLength: number = end - index
+      const removable: boolean =
+        (runLength >= 2 && (previousIsBoundary || nextIsBoundary)) ||
+          (runLength === 1 && previousIsBoundary && nextIsBoundary)
+      if (!removable) {
+        output += value.slice(index, end)
+        index = end
+        continue
+      }
+      // Consume only decoration immediately following the removed cue. Punctuation before a
+      // cue belongs to the semantic sentence and remains intact.
+      while (end < value.length &&
+        ' \t\r\n♡♥❤☆★♪…⋯~～'.indexOf(value[end]) >= 0) {
+        end++
+      }
+      index = end
+    }
+    return output
+      .replace(/「[\s♡♥❤☆★♪…⋯!！?？~～、，,。]*」/g, '')
+      .replace(/『[\s♡♥❤☆★♪…⋯!！?？~～、，,。]*』/g, '')
   }
 
   private static exactRequiredString(value: string, field: string, maxChars: number): string {

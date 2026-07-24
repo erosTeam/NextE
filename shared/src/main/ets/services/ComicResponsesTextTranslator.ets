@@ -29,7 +29,7 @@ import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 export const COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION: string =
-  'comic-text-responses-v5'
+  'comic-text-responses-v8'
 
 class ComicResponsesTextTranslatorCore {
   private readonly providerCore: ComicResponsesProviderCore

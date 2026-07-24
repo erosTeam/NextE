@@ -13,6 +13,7 @@ import {
   ComicTextBlock,
   ComicTextKind,
   ComicTextTranslationRequest,
+  ComicTextTranslationResult,
   ComicVisualPageSource,
   OpenAiApiComicTextTranslator,
 } from 'shared'
@@ -285,9 +286,61 @@ export default function comicResponsesTextTranslatorTest(): void {
         expect(prompt.includes('labeled enlarged region crops')).assertEqual(true)
         expect(prompt.includes('Never invent parenthetical narration')).assertEqual(true)
         expect(prompt.includes('blocks marked kind="sfx"')).assertEqual(true)
-        expect(prompt.includes('copy its sourceText exactly')).assertEqual(true)
+        expect(prompt.includes('copy sourceText exactly')).assertEqual(true)
+        expect(prompt.includes('omit every non-semantic vocalization')).assertEqual(true)
+        expect(prompt.includes('Do not output a translated sound cue')).assertEqual(true)
+        expect(prompt.includes('Never expand OCR noise')).assertEqual(true)
         expect(prompt.includes('"polygon":[[10,10],[200,10]')).assertEqual(true)
         expect(prompt.includes('Every supplied blockId must appear exactly once')).assertEqual(true)
+        done()
+      })
+
+    it('enforces source artwork for sound effects even when provider output translates it', 0,
+      (done: Function) => {
+        const request: ComicTextTranslationRequest = translationRequest(
+          '/cache/page.jpg',
+          'd'.repeat(64),
+        )
+        request.document.blocks[0].kind = ComicTextKind.SFX
+        request.document.blocks[0].sourceText = 'ドキドキ'
+        const payload: TranslationOutputPayload = outputPayload(request)
+        payload.blocks[0].translatedText = '怦怦'
+        const result: ComicTextTranslationResult =
+          ComicResponsesTextTranslationProtocol.parse(
+            request,
+            JSON.stringify(payload),
+            'source-fixture',
+            1,
+            'model-fixture',
+            'prompt-fixture-v1',
+          )
+        expect(result.batch.blocks[0].translatedText).assertEqual('ドキドキ')
+        expect(result.batch.blocks[1].translatedText).assertEqual('等等！')
+        done()
+      })
+
+    it('removes translated vocalizations without deleting semantic Chinese', 0,
+      (done: Function) => {
+        const request: ComicTextTranslationRequest = translationRequest(
+          '/cache/page.jpg',
+          'e'.repeat(64),
+        )
+        request.document.blocks[0].sourceText = 'んほお、ありがとうございます'
+        request.document.blocks[1].sourceText = '呼びかけてください'
+        const payload: TranslationOutputPayload = outputPayload(request)
+        payload.blocks[0].translatedText = '「嗯呼♡谢谢您！……啊啊啊♡」'
+        payload.blocks[1].translatedText = '请呼叫我'
+        const result: ComicTextTranslationResult =
+          ComicResponsesTextTranslationProtocol.parse(
+            request,
+            JSON.stringify(payload),
+            'source-fixture',
+            1,
+            'model-fixture',
+            'prompt-fixture-v1',
+          )
+        expect(result.batch.blocks[0].translatedText).assertEqual('「谢谢您！……」')
+        expect(result.batch.blocks[1].translatedText).assertEqual('请呼叫我')
         done()
       })
 

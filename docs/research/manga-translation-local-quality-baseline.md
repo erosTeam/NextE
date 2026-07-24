@@ -2,9 +2,9 @@
 
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
-- **current production analyzer**: `core-vision-ocr-bubble-group-v39`
-- **current production render profile**: `reader-local-bubble-layout-v43` /
-  `local-ctd-aot-inpaint-v29` / `local-bubble-typography-v37`
+- **current production analyzer**: `core-vision-ocr-bubble-group-v50`
+- **current production render profile**: `reader-local-bubble-layout-v44` /
+  `local-ctd-aot-inpaint-v29` / `local-bubble-typography-v38`
 - **measured**: 2026-07-24
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -580,7 +580,8 @@ mask 覆盖的源像素选择字色：高饱和彩色簇达到最小占比时保
 同页的错误拟声翻译可拆成两段根因：OCR 能读出首组假名喘息，但后续重复组发生假名错位，装饰符又变成
 孤立拉丁残片；LLM 随后把污染后的转录解释成笑声。因此不能把问题简单归为“模型翻错”，也不能只靠提示词
 要求谨慎。v43 将低多样度、重复型假名块分类为 `sfx`，并在 render plan 对假名拟声为主、同时混入孤立
-字母或数字的转录失败关闭，保留原画。干净拟声词仍可翻译，普通假名对白不受影响。
+字母或数字的转录失败关闭，保留原画。后续 v50 将分类边界收敛为：所有已分类 `sfx` 均保留原画；常见
+敬称、礼貌句式和动词标记阻止受损短对白被误归类；普通假名对白不受影响。
 
 设备 `237` 的新鲜 cache miss 结果确认：目标喘息保持原有彩色日文字样，错误中文不再覆盖；同页普通纵排
 对白继续完成中文回填，先前的纯符号与短混合脚本伪译也没有回归。完整 Hypium 为 296/296。页面、文字、
@@ -615,6 +616,38 @@ LLM，AOT/编码随实际 render plan 数波动；它不是跨设备 P50/P95。
 只是让既有容器问题更明显：当前 detector/OCR 提供的是文字条或段落矩形，不是可靠的对白气泡容器。后续
 不得再用全局放宽相邻/包含阈值替代容器语义；下一条质量路线应建立气泡边界或碰撞安全的容器拟合，并用
 本批真实页同时约束漏译、重叠、overflow 和原画保留。
+
+## 彩色真实画廊 P21–P28 拟声与自动前瞻回归（2026-07-24）
+
+同一用户授权彩色画廊继续覆盖八张连续真实页；持久材料不记录页面文字、URL、画廊标识、哈希、数据库或
+截图。八页最新文档共 71 个 block，其中 9 个被确定分类为 `sfx`。高拟声压力页中，v50 将四个受污染
+拟声块保留为原艺术字；同块混有语义对白和重复喘声时，文本协议 v8 在 provider 返回后只删除非语义声音，
+不删除普通中文。带敬称和动词标记的受损短对白仍按对白处理，修复了上一候选的误归类。
+
+八张 cache miss 页的生产阶段如下：
+
+| 页面 | 分析 | LLM 翻译 | 修复/排版/编码 | 总计 |
+|---|---:|---:|---:|---:|
+| P21 | 2.830 s | 15.293 s | 4.551 s | 22.746 s |
+| P22 | 2.067 s | 11.857 s | 3.789 s | 17.765 s |
+| P23 | 2.243 s | 9.925 s | 2.965 s | 15.178 s |
+| P24 | 2.426 s | 12.141 s | 5.065 s | 19.699 s |
+| P25 | 2.394 s | 12.737 s | 3.707 s | 18.902 s |
+| P26 | 2.354 s | 11.913 s | 5.598 s | 19.918 s |
+| P27 | 2.631 s | 11.896 s | 2.728 s | 17.278 s |
+| P28 | 2.197 s | 9.688 s | 3.374 s | 15.306 s |
+
+中位数为：分析 2.374 秒、LLM 11.905 秒、渲染 3.748 秒、总计 18.334 秒。LLM 仍是首要耗时，AOT
+随实际 render plan 数波动。重新安装后，Reader 会话开关按设计恢复为关闭；显式开启后，P27 在 P26
+仍可见时以 `visible=0 prefetch=1` 完成，翻入 P27 的首帧直接显示译图并立即串行准备 P28。P28 同样以
+`visible=0 prefetch=1` 完成，证明当前“一页前瞻、翻页后再补一页”的策略有效。
+
+本轮视觉结果仍未过门。拟声污染明显减少，规整短对白页可读；但多列长段仍会把 OCR 残片带入 provider，
+部分中文输出保留孤立拉丁/数字/假名，长译文在窄区域内阅读压力较高。缓存 geometry 表明这些长块通常是
+同一连续多列段落，不能仅凭结果拥挤就拆成独立列，否则会破坏日文阅读顺序和上下文。下一阶段应分别建立
+OCR 残片率、目标脚本纯度和长段译文精炼门，再以同批失败页复测；不得用更宽分组阈值、提示词自报置信度
+或删除所有混合脚本内容代替证据。最终目标回归为文本协议 5/5、端侧视觉 37/37，signed app 与 signed
+`entry@ohosTest` 均构建通过。
 
 ## 当前缺口与后续门槛
 

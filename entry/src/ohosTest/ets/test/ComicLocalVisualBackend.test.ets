@@ -1851,29 +1851,85 @@ export default function comicLocalVisualBackendTest(): void {
       )).assertEqual(true)
     })
 
-    it('classifies only repeated kana vocalizations as sound effects', 0, () => {
+    it('classifies repeated vocalizations and contaminated short OCR as sound effects', 0, () => {
       expect(ComicLocalVisualBackend.localTextKind('「はあ……はあ……♡」'))
         .assertEqual(ComicTextKind.SFX)
       expect(ComicLocalVisualBackend.localTextKind('「はあ……あはは…R「'))
         .assertEqual(ComicTextKind.SFX)
       expect(ComicLocalVisualBackend.localTextKind('ドキドキ'))
         .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('オイルッア十ル'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('デ4ムッ2リかい'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('はらvي>ふしふし'))
+        .assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind('Cお6nバコーフン02イキ潮もれるっおおお'))
+        .assertEqual(ComicTextKind.SFX)
       expect(ComicLocalVisualBackend.localTextKind('ここ'))
         .assertEqual(ComicTextKind.OTHER)
       expect(ComicLocalVisualBackend.localTextKind('いいですよ'))
         .assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind('ありがとう'))
+        .assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind('Tヤナハさますきくなれv'))
+        .assertEqual(ComicTextKind.OTHER)
       expect(ComicLocalVisualBackend.localTextKind('学校へ行く'))
         .assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind(
+        '右側の縦書き列です左側の縦書き列です',
+      )).assertEqual(ComicTextKind.OTHER)
     })
 
-    it('preserves kana-dominant sound effects with isolated OCR residue', 0, () => {
-      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('「はあ……あはは…R「'))
-        .assertEqual(true)
-      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('ドキドキ'))
-        .assertEqual(false)
-      expect(ComicLocalVisualBackend.ambiguousSoundEffectTranscript('いいですよ'))
-        .assertEqual(false)
-    })
+    it('preserves classified sound-effect artwork while rendering dialogue', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/sfx-preservation-source.png`
+        let renderedPath: string = ''
+        await writeAdjacentBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const inpainter: CountingSourceInpainter = new CountingSourceInpainter()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            null,
+            null,
+            inpainter,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          analysis.document.blocks[1].kind = ComicTextKind.SFX
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          request.translations.blocks[0].translatedText = '对白'
+          request.translations.blocks[1].translatedText = '拟声'
+          request.translations.translationRevision = 25
+          request.identity.translationRevision = 25
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(page.byteLength > 0).assertEqual(true)
+          expect(inpainter.callCount).assertEqual(1)
+          expect(diagnostics.includes(
+            'comic-translation.local_render_plan_source_preserved ' +
+              `block=${analysis.document.blocks[1].blockId} reason=source_sfx_artwork`,
+          )).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
 
     it('keeps adjacent translated balloons as separate render plans', 0,
       async (done: Function) => {
@@ -2580,7 +2636,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(48)
+          expect(backend.protocolRevision()).assertEqual(51)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2839,7 +2895,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(49)
+          expect(backend.protocolRevision()).assertEqual(52)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>
