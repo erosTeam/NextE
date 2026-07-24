@@ -670,7 +670,9 @@ export struct GalleryCommentsPage {
         state.scoreDetails = scoreDetails.slice()
       }
     }
-    this.rebuildCommentList()
+    // Voting does not change comment ordering or the regular list membership. Reloading the whole
+    // LazyForEach here can race the row-level change notification and leave the card with its old score;
+    // the stable render state above is already the reactive source of truth for this row.
     this.notifyCommentRowChanged(commentId)
   }
 

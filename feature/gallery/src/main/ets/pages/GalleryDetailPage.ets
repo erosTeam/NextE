@@ -2061,9 +2061,12 @@ export struct GalleryDetailPage {
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
           }
+          // Keep the rating control centered in the space left after the hint and any error message,
+          // rather than pinning it to a fixed offset below the sheet top.
           .width('100%')
           .alignItems(HorizontalAlign.Center)
-          .padding({ top: ThemeConstants.SPACE_MD, bottom: ThemeConstants.SPACE_MD })
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
           .enabled(!this.ratingSubmitting)
           if (this.ratingError.length > 0) {
             Text(this.ratingError)
@@ -2071,8 +2074,12 @@ export struct GalleryDetailPage {
               .fontColor(Color.Red)
               .width('100%')
           }
-        }.width('100%')
+        }
+        .width('100%')
+        .height('100%')
+        .alignItems(HorizontalAlign.Start)
       }
+      .height('100%')
     }
   }
 
