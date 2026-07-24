@@ -3,6 +3,10 @@ import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
+import {
+  EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+  EH_THUMBNAIL_READ_TIMEOUT_MS,
+} from '../services/ImagePipelineTypes'
 import { ImageBlockDecision } from '../model/ImageBlockRule'
 import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
 import {
@@ -37,6 +41,9 @@ class SpriteLoadEvent {
 
 const IMAGE_BLOCK_COMPUTE_DELAY_MS: number = 120
 const SPRITE_THUMB_ERROR_ICON_SIZE: number = 22
+const SPRITE_THUMB_MAX_RETRIES: number = 1
+const SPRITE_THUMB_RETRY_DELAY_MS: number = 200
+const SPRITE_THUMB_SETTLE_TIMEOUT_MS: number = 8000
 
 @ComponentV2
 export struct EhSpriteThumbnail {
@@ -52,6 +59,9 @@ export struct EhSpriteThumbnail {
   @Param enableImageBlock: boolean = false;
   @Param forceImageBlocked: boolean = false;
   @Param imageBlockRevision: number = 0;
+  // A page refresh increments this token so failed/recycled tiles rebuild their ImageKnife request even
+  // when the sprite URL and stable LazyForEach key are unchanged.
+  @Param reloadToken: number = 0;
   @Event onImageBlockStateChange: (blocked: boolean) => void = () => {};
   @Event onImageBlockDecisionChange: (decision: ImageBlockDecision) => void = () => {};
   // When true the thumb is sized by displayHeight (row-height layout) and its width follows the true
@@ -93,6 +103,14 @@ export struct EhSpriteThumbnail {
   @Monitor('imageBlockRevision')
   onImageBlockRevisionChange() {
     this.checkImageBlock()
+  }
+
+  @Monitor('reloadToken')
+  onReloadRequested(): void {
+    this.sheetRealW = 0
+    this.sheetRealH = 0
+    this.loaded = false
+    this.failed = false
   }
 
   @Monitor('imageBlockRuntime.signal')
@@ -269,6 +287,12 @@ export struct EhSpriteThumbnail {
             heightValue: this.sheetRenderHeight(),
             objectFit: ImageFit.Fill,
             priority: EH_IMAGE_PRIORITY_LOW,
+            maxRetries: SPRITE_THUMB_MAX_RETRIES,
+            retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+            settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+            connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+            readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+            reloadToken: this.reloadToken,
             onImageInfo: (width: number, height: number) => {
               this.sheetRealW = width
               this.sheetRealH = height
@@ -287,6 +311,12 @@ export struct EhSpriteThumbnail {
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
           priority: EH_IMAGE_PRIORITY_LOW,
+          maxRetries: SPRITE_THUMB_MAX_RETRIES,
+          retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+          settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
         })
           .blur(18)
           .opacity(0.9)
@@ -297,6 +327,12 @@ export struct EhSpriteThumbnail {
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
           priority: EH_IMAGE_PRIORITY_LOW,
+          maxRetries: SPRITE_THUMB_MAX_RETRIES,
+          retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+          settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
         })
           .blur(18)
           .opacity(0.9)
@@ -334,6 +370,12 @@ export struct EhSpriteThumbnail {
           heightValue: this.sheetRenderHeight(),
           objectFit: ImageFit.Fill,
           contentTransition: ContentTransitionType.OPACITY,
+          maxRetries: SPRITE_THUMB_MAX_RETRIES,
+          retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+          settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -362,6 +404,12 @@ export struct EhSpriteThumbnail {
           objectFit: ImageFit.Cover,
           radius: this.radius,
           contentTransition: ContentTransitionType.OPACITY,
+          maxRetries: SPRITE_THUMB_MAX_RETRIES,
+          retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+          settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -388,6 +436,12 @@ export struct EhSpriteThumbnail {
           objectFit: ImageFit.Cover,
           radius: this.radius,
           contentTransition: ContentTransitionType.OPACITY,
+          maxRetries: SPRITE_THUMB_MAX_RETRIES,
+          retryDelayMs: SPRITE_THUMB_RETRY_DELAY_MS,
+          settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },

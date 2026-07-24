@@ -36,6 +36,7 @@ export struct GalleryPreviewGrid {
   @Param hasMore: boolean = false;
   @Param horizontal: boolean = false;
   @Param hidden: boolean = false;
+  @Param thumbnailReloadToken: number = 0;
   @Local listMode: ListModeState = connectListMode();
   @Local measuredWidth: number = 0;
   @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
@@ -127,6 +128,7 @@ export struct GalleryPreviewGrid {
                 fitHeight: true,
                 displayHeight: PREVIEW_H,
                 enableImageBlock: true,
+                reloadToken: this.thumbnailReloadToken,
               })
               Text(`${img.page}`)
                 .fontSize(ThemeConstants.FONT_SIZE_TINY)
@@ -206,6 +208,7 @@ export struct GalleryPreviewGrid {
           GridItem() {
             PreviewThumbTile({
               image: img,
+              reloadToken: this.thumbnailReloadToken,
               onTap: () => {
                 this.onOpen(img.page - 1)
               },

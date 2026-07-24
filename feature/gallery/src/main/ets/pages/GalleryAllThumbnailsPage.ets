@@ -32,6 +32,7 @@ export struct GalleryAllThumbnailsContent {
   @Param backToTop: boolean = true;
   @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
   @Event onUserScroll?: () => void;
+  @Local thumbnailReloadToken: number = 0;
 
   private loadNextIfTailAppeared(index: number): void {
     if (index < this.vm.itemCount - 1) {
@@ -56,6 +57,11 @@ export struct GalleryAllThumbnailsContent {
     }, 50)
   }
 
+  private async refreshThumbnailLoads(): Promise<void> {
+    this.thumbnailReloadToken += 1
+    await this.loadPreviousPreviewPage()
+  }
+
   build() {
     PullRefreshGridScaffold({
       scroller: this.scroller,
@@ -68,7 +74,7 @@ export struct GalleryAllThumbnailsContent {
       bottomPadding: ThemeConstants.SPACE_XL,
       controller: this.controller,
       onRefresh: async () => {
-        await this.loadPreviousPreviewPage()
+        await this.refreshThumbnailLoads()
       },
       onBottomRefresh: async () => {
         await this.vm.loadNext()
@@ -96,6 +102,7 @@ export struct GalleryAllThumbnailsContent {
           GridItem() {
             PreviewThumbTile({
               image: img,
+              reloadToken: this.thumbnailReloadToken,
               onTap: () => {
                 this.onOpen(img)
               },

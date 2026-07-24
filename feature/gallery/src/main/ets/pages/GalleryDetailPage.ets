@@ -210,6 +210,7 @@ export struct GalleryDetailPage {
     connectNavStack().isSplitMode,
   );
   @Local detailMetadataWidth: number = 0;
+  @Local compactPreviewReloadToken: number = 0;
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
   @Local readFabShouldAnimate: boolean = false;
@@ -2424,6 +2425,7 @@ export struct GalleryDetailPage {
         bottomPadding: ThemeConstants.SPACE_XXL + ThemeConstants.BUTTON_HEIGHT,
         controller: this.refreshController,
         onRefresh: async () => {
+          this.compactPreviewReloadToken += 1
           await this.vm.refresh()
         },
         onUserScroll: () => {
@@ -2515,6 +2517,7 @@ export struct GalleryDetailPage {
                 hasMore: this.vm.hasMorePreviews(),
                 horizontal: this.thumbMode.horizontalThumbnails,
                 hidden: this.thumbMode.hideGalleryThumbnails,
+                thumbnailReloadToken: this.compactPreviewReloadToken,
                 onOpen: (page0: number) => {
                   this.openReader(page0)
                 },

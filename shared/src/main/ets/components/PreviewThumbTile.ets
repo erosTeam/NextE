@@ -29,6 +29,7 @@ const FRAME_ASPECT: number = 1.4
 @ComponentV2
 export struct PreviewThumbTile {
   @Require @Param image: EhGalleryImage;
+  @Param reloadToken: number = 0;
   @Event onTap: () => void = () => {};
   @Local measuredWidth: number = 0;
   @Local menuShown: boolean = false;
@@ -181,6 +182,7 @@ export struct PreviewThumbTile {
             enableImageBlock: true,
             forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
+            reloadToken: this.reloadToken,
             onImageBlockStateChange: (blocked: boolean) => {
               this.imageBlocked = blocked
             },
@@ -205,6 +207,7 @@ export struct PreviewThumbTile {
             enableImageBlock: true,
             forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
+            reloadToken: this.reloadToken,
             onImageBlockStateChange: (blocked: boolean) => {
               this.imageBlocked = blocked
             },
