@@ -55,8 +55,8 @@ import {
 } from './ComicNativeTextMasker'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
-const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v43'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 43
+const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v47'
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 47
 const LOCAL_PRESERVE_SOURCE_SIGNAL: string = 'local_source_geometry_not_supported'
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
@@ -2329,8 +2329,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     const normalized: string = label.trim().toLowerCase()
     const compactChars: number = text.replace(/\s+/g, '').length
-    if (normalized === 'ctd-text' &&
-      ComicLocalVisualBackend.isAmbiguousShortVisualTranscript(text)) {
+    if (normalized === 'ctd-text' && (
+      compactChars <= 4 ||
+      ComicLocalVisualBackend.ctdRegionLooksLikeSoundEffectTranscript(text) ||
+      ComicLocalVisualBackend.isAmbiguousShortVisualTranscript(text)
+    )) {
       return true
     }
     // CTD proposes axis-aligned boxes from its text mask. On real pages, a large stylized or
@@ -2340,6 +2343,23 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return normalized === 'ctd-text' &&
       compactChars <= 4 &&
       regionAreaRatio >= 0.02
+  }
+
+  static ctdRegionLooksLikeSoundEffectTranscript(text: string): boolean {
+    const compact: string = text.replace(
+      /[\s\u3000。、，,.!！?？…⋯・･~〜～―—「」『』（）()\[\]【】♡♥❤♪]+/g,
+      '',
+    )
+    if (compact.length < 5 || compact.length > 16) {
+      return false
+    }
+    const kana: string = compact.replace(/[^\u3040-\u30ff]/g, '')
+    const kanji: string = compact.replace(/[^\u3400-\u9fff]/g, '')
+    const latinDigits: string = compact.replace(/[^A-Za-z0-9]/g, '')
+    return kana.length >= 5 &&
+      kana.length * 2 >= compact.length &&
+      kanji.length <= 1 &&
+      latinDigits.length <= 1
   }
 
   static detectorLabelNeedsOriginalGeometry(label: string): boolean {
@@ -2401,8 +2421,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const containerRect: LocalRenderRect = ComicLocalVisualBackend.bounds(container.polygon)
     const candidateArea: number = Math.max(1, candidateRect.width() * candidateRect.height())
     const containerArea: number = Math.max(1, containerRect.width() * containerRect.height())
-    if (containerArea < candidateArea * 3 ||
-      containerRect.width() < candidateRect.width() * 2.4) {
+    // Real detector output often contains one paragraph-sized region plus a nested OCR
+    // fragment whose box is only about half the parent area. Keeping both reaches translation
+    // and rendering as two overlapping blocks. Require strong geometric containment below,
+    // but do not require the synthetic 3x-area/2.4x-width separation used by early fixtures.
+    if (containerArea < candidateArea * 1.6 ||
+      (containerRect.width() < candidateRect.width() * 1.3 &&
+        containerRect.height() < candidateRect.height() * 1.3)) {
       return false
     }
     const overlapWidth: number = Math.max(
@@ -2560,10 +2585,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     // Keep spacing tied to an original OCR column rather than the accumulated paragraph width.
     // The latter grows after every merge and can eventually absorb the next balloon.
     const maximumGap: number = Math.max(first.lineWidthScale, second.lineWidthScale) * 0.55
-    // Detector boxes for neighbouring Japanese columns can overlap by roughly one-third of a
-    // glyph width because punctuation and antialiasing extend into the next box. Treat that as
-    // one paragraph; larger overlap remains a likely duplicate/nested detection.
-    if (horizontalGap < -Math.min(first.lineWidthScale, second.lineWidthScale) * 0.36 ||
+    // Detector boxes for neighbouring Japanese columns can overlap by roughly half a glyph
+    // width because punctuation, antialiasing, and CTD masks extend into the next box. Nested
+    // duplicates are removed separately by collapseContainedVerticalSourceBlocks.
+    if (horizontalGap < -Math.min(first.lineWidthScale, second.lineWidthScale) * 0.58 ||
       horizontalGap > maximumGap) {
       return false
     }
@@ -3689,6 +3714,19 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return true
     }
     const language: string = targetLanguage.trim().toLowerCase()
+    if (language === 'zh' || language.startsWith('zh-')) {
+      const kanaCount: number = compact.replace(/[^\u3040-\u30ff]/g, '').length
+      if (kanaCount > 0) {
+        const hanCount: number = compact.replace(/[^\u3400-\u9fff]/g, '').length
+        // Providers can retain a Japanese proper name or a small OCR fragment inside an
+        // otherwise valid Chinese translation. Reject the whole block only when Japanese
+        // still dominates the returned text; preserving a mostly translated block is more
+        // useful than falling back to the complete source paragraph.
+        if (kanaCount > hanCount) {
+          return true
+        }
+      }
+    }
     if (!(language === 'zh' || language.startsWith('zh-') ||
       language === 'ja' || language.startsWith('ja-') ||
       language === 'ko' || language.startsWith('ko-'))) {

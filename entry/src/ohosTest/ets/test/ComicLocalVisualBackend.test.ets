@@ -318,12 +318,12 @@ class ContainedRenderOcrEngine implements ComicLocalOcrEngine {
     result.lines.push(this.line(
       'これは十分に長い親領域の文章で重複した認識結果を含みます',
       0,
-      40,
+      100,
       180,
-      380,
-      900,
+      340,
+      780,
     ))
-    result.lines.push(this.line('補足の文章です', 1, 80, 260, 120, 420))
+    result.lines.push(this.line('補足の文章です', 1, 145, 210, 300, 700))
     return Promise.resolve(result)
   }
 
@@ -722,8 +722,8 @@ class AdjacentColumnRegionDetector implements ComicLocalRegionDetector {
   detect(_pixelMap: image.PixelMap): Promise<ComicNativeRegionDetectionResult> {
     const result: ComicNativeRegionDetectionResult = new ComicNativeRegionDetectionResult()
     result.backend = 'fixture'
-    result.regions.push(this.region(292, 200, 350, 440))
-    result.regions.push(this.region(232, 205, 300, 435))
+    result.regions.push(this.region(280, 200, 350, 440))
+    result.regions.push(this.region(232, 205, 302, 435))
     return Promise.resolve(result)
   }
 
@@ -1747,7 +1747,7 @@ export default function comicLocalVisualBackendTest(): void {
           .assertEqual(false)
       })
 
-    it('preserves large CTD regions when OCR recovers too little source text', 0, () => {
+    it('preserves short or sound-effect-like CTD artwork transcripts', 0, () => {
       expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
         'ctd-text',
         '呼!啊?',
@@ -1762,10 +1762,25 @@ export default function comicLocalVisualBackendTest(): void {
         'ctd-text',
         '!?',
         0.01,
+      )).assertEqual(true)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '「はぁ…はぁ…ほうR#%」',
+        0.004,
+      )).assertEqual(true)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'ctd-text',
+        '今日は学校へ行きます',
+        0.004,
       )).assertEqual(false)
       expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
         'ctd-text',
         '这是完整识别的普通对话',
+        0.104,
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
+        'qipao',
+        '「はぁ…はぁ…ほうR#%」',
         0.104,
       )).assertEqual(false)
       expect(ComicLocalVisualBackend.detectorRegionNeedsSourcePreservation(
@@ -1807,6 +1822,26 @@ export default function comicLocalVisualBackendTest(): void {
         .assertEqual(false)
       expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('哇', 'zh-CN'))
         .assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        'どうしたんだ',
+        'zh-CN',
+        'どうしたの',
+      )).assertEqual(true)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        'どうしたんだ',
+        'ja',
+        'どうしたの',
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        '请让ヒスイ继续拍摄',
+        'zh-CN',
+        'ヒスイは撮影を続けます',
+      )).assertEqual(false)
+      expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
+        '嗯♡いけぇ♡やっべ♡',
+        'zh-CN',
+        'いけぇ♡やっべ♡',
+      )).assertEqual(true)
       expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation('%', 'en'))
         .assertEqual(false)
       expect(ComicLocalVisualBackend.translatedTextNeedsSourcePreservation(
@@ -2545,7 +2580,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('fixture-region-detector')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(44)
+          expect(backend.protocolRevision()).assertEqual(48)
           expect(analysis.document.blocks.length).assertEqual(2)
           expect(analysis.document.blocks[0].polygon[0].x).assertEqual(96)
           expect(analysis.document.blocks[0].polygon[0].y).assertEqual(210)
@@ -2804,7 +2839,7 @@ export default function comicLocalVisualBackendTest(): void {
           request.requestedDocumentRevision = 2
           const analysis: ComicRegionAnalysisResult = await backend.analyze(request)
           expect(backend.profileId().includes('text-recognizer-fixture')).assertEqual(true)
-          expect(backend.protocolRevision()).assertEqual(45)
+          expect(backend.protocolRevision()).assertEqual(49)
           expect(analysis.document.blocks.length).assertEqual(1)
           expect(analysis.document.blocks[0].sourceText).assertEqual('月影駅東口')
           expect(analysis.document.qualitySignals.some((signal) =>

@@ -388,7 +388,7 @@ export class ComicTranslationRuntimeService {
     profile.sourceTreatmentProfileId = COMIC_READER_SOURCE_TREATMENT_PROFILE_ID
     profile.layoutProfileId = COMIC_READER_LAYOUT_PROFILE_ID
     profile.targetMimeType = 'image/png'
-    profile.revision = 29
+    profile.revision = 33
     return profile
   }
 
