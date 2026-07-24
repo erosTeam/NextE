@@ -4454,18 +4454,24 @@ struct ReaderSuperResolutionStatusIcon {
   @Require @Param applied: boolean
 
   build() {
-    if (this.processing) {
-      LoadingProgress()
-        .width(ThemeConstants.FONT_SIZE_BODY)
-        .height(ThemeConstants.FONT_SIZE_BODY)
-        .color(Color.White)
-        .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
-    } else {
-      SymbolGlyph($r('sys.symbol.AI_hd_rectangle'))
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor([this.applied ? ThemeConstants.BRAND_PRIMARY : Color.White])
-        .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.processing) {
+        LoadingProgress()
+          .width(ThemeConstants.FONT_SIZE_BODY)
+          .height(ThemeConstants.FONT_SIZE_BODY)
+          .color(Color.White)
+          .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
+      } else {
+        SymbolGlyph($r('sys.symbol.AI_hd_rectangle'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor([this.applied ? ThemeConstants.BRAND_PRIMARY : Color.White])
+          .opacity(ThemeConstants.READER_ENHANCEMENT_STATUS_OPACITY)
+      }
     }
+    .width(ThemeConstants.READER_ENHANCEMENT_STATUS_CONTAINER_SIZE)
+    .height(ThemeConstants.READER_ENHANCEMENT_STATUS_CONTAINER_SIZE)
+    .borderRadius(ThemeConstants.READER_ENHANCEMENT_STATUS_CONTAINER_SIZE / 2)
+    .backgroundColor(ThemeConstants.READER_ENHANCEMENT_STATUS_BACKGROUND)
   }
 }
 

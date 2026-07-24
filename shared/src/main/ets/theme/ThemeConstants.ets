@@ -61,6 +61,9 @@ export class ThemeConstants {
   static readonly READER_PAGE_NUMBER_STROKE_WIDTH: number = 2.5
   static readonly READER_PAGE_NUMBER_BOTTOM_GAP: number = 8
   static readonly READER_ENHANCEMENT_STATUS_OPACITY: number = 0.72
+  // A subtle over-image scrim improves contrast without covering the small enhancement glyph.
+  static readonly READER_ENHANCEMENT_STATUS_BACKGROUND: ResourceColor = '#26000000'
+  static readonly READER_ENHANCEMENT_STATUS_CONTAINER_SIZE: number = 24
   // Lock screen overlay: blur the app itself instead of replacing it with an opaque page.
   static readonly LOCK_OVERLAY_TINT: ResourceColor = '#4D808080'
   static readonly LOCK_OVERLAY_BLUR_RADIUS: number = 60
