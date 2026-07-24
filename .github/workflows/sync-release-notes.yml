@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate release notes and releases
+      - name: Update and verify release bodies
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -28,6 +28,9 @@ jobs:
           notes=(changelog/v*.md)
           test "${#notes[@]}" -gt 0
           api_root="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          missing=()
+          failed=()
+          updated=()
 
           for file in "${notes[@]}"; do
             tag="${file##*/}"
@@ -37,37 +40,46 @@ jobs:
               *) echo "Invalid release notes filename: $file" >&2; exit 1 ;;
             esac
             test -s "$file"
-            curl --fail-with-body --silent --show-error \
+
+            if ! release_json=$(curl --fail-with-body --silent --show-error \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "$api_root/releases/tags/$tag" \
-              | jq -e --arg tag "$tag" '.tag_name == $tag and (.id | type == "number")' >/dev/null
-          done
+              "$api_root/releases/tags/$tag"); then
+              missing+=("$tag")
+              continue
+            fi
 
-      - name: Update release bodies
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          api_root="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+            if ! release_id=$(jq -er --arg tag "$tag" 'select(.tag_name == $tag) | .id' <<< "$release_json"); then
+              failed+=("$tag")
+              continue
+            fi
 
-          for file in changelog/v*.md; do
-            tag="${file##*/}"
-            tag="${tag%.md}"
-            release_id=$(curl --fail-with-body --silent --show-error \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "$api_root/releases/tags/$tag" \
-              | jq -er '.id')
-            jq -n --rawfile body "$file" '{body: $body}' \
-              | curl --fail-with-body --silent --show-error \
+            request_body=$(jq -n --rawfile body "$file" '{body: $body}')
+            if ! updated_json=$(curl --fail-with-body --silent --show-error \
                 -X PATCH \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                 -H "Content-Type: application/json" \
-                --data-binary @- \
-                "$api_root/releases/$release_id" \
-                | jq -e --arg tag "$tag" '.tag_name == $tag' >/dev/null
+                --data "$request_body" \
+                "$api_root/releases/$release_id"); then
+              failed+=("$tag")
+              continue
+            fi
+
+            if [[ "$(jq -er '.body' <<< "$updated_json")" != "$(<"$file")" ]]; then
+              failed+=("$tag")
+              continue
+            fi
+            updated+=("$tag")
           done
+
+          echo "Updated releases: ${#updated[@]}"
+          if ((${#missing[@]} > 0)); then
+            printf 'Missing releases: %s\n' "${missing[*]}"
+          fi
+          if ((${#failed[@]} > 0)); then
+            printf 'Failed releases: %s\n' "${failed[*]}"
+          fi
+          if ((${#missing[@]} > 0 || ${#failed[@]} > 0)); then
+            exit 1
+          fi
