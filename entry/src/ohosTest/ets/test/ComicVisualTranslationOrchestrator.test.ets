@@ -100,6 +100,7 @@ class FixtureTextTranslator implements ComicTextTranslator {
   translateCalls: number = 0
   lastPreviousTranslation: string = ''
   returnWrongModel: boolean = false
+  activePromptVersion: string = FIXTURE_PROMPT
 
   sourceProfileId(): string {
     return FIXTURE_TRANSLATOR_PROFILE
@@ -114,7 +115,7 @@ class FixtureTextTranslator implements ComicTextTranslator {
   }
 
   promptVersion(): string {
-    return FIXTURE_PROMPT
+    return this.activePromptVersion
   }
 
   contextFingerprint(_request: ComicTextTranslationRequest): string {
@@ -339,6 +340,34 @@ export default function comicVisualTranslationOrchestratorTest(): void {
         expect(backend.renderCalls).assertEqual(2)
         expect(rerendered.renderedPage.identity.layoutProfileId)
           .assertEqual('fixture-layout-v2')
+        done()
+      })
+
+    it('does not reuse a translated document after the translation prompt changes', 0,
+      async (done: Function) => {
+        const documents: InMemoryComicTranslationRepository =
+          new InMemoryComicTranslationRepository()
+        const rendered: InMemoryComicRenderedPageRepository =
+          new InMemoryComicRenderedPageRepository()
+        const firstBackend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        const firstTranslator: FixtureTextTranslator = new FixtureTextTranslator()
+        const firstOrchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(firstBackend, firstTranslator, documents, rendered)
+        await firstOrchestrator.run(fixtureRequest(0, 'a'))
+
+        const changedBackend: FixtureRegionRenderBackend = new FixtureRegionRenderBackend()
+        const changedTranslator: FixtureTextTranslator = new FixtureTextTranslator()
+        changedTranslator.activePromptVersion = 'fixture-block-translation-v2'
+        const changedOrchestrator: ComicVisualTranslationOrchestrator =
+          orchestratorFixture(changedBackend, changedTranslator, documents, rendered)
+        const rerun = await changedOrchestrator.run(fixtureRequest(0, 'a'))
+
+        expect(rerun.cacheHit).assertEqual(false)
+        expect(changedBackend.analyzeCalls).assertEqual(1)
+        expect(changedTranslator.translateCalls).assertEqual(1)
+        expect(changedBackend.renderCalls).assertEqual(1)
+        expect(rerun.renderedPage.identity.translationPromptVersion)
+          .assertEqual('fixture-block-translation-v2')
         done()
       })
 

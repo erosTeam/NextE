@@ -357,6 +357,7 @@ export class ComicVisualTranslationOrchestrator {
         `${request.requestedRegionRevision}`,
         this.translator.sourceProfileId(),
         `${this.translator.sourceRevision()}`,
+        this.translator.promptVersion(),
       ]),
     )
     identity.modelId = this.translator.modelId()

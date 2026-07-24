@@ -98,6 +98,8 @@
   [ComicTranslationOrchestrator.ets](../shared/src/main/ets/services/ComicTranslationOrchestrator.ets) 已建立
   provider/model/prompt/language/image/revision 分键、并发去重、前两页上下文和成功后写入边界。当前实现是
   有界内存前置加 RDB 生成文档缓存；应用进程重启后可以按完整请求身份恢复，但缓存仍不进入备份或同步。
+  分阶段视觉链路的译文文档身份同样包含 `ComicTextTranslator.promptVersion()`：提示词版本变化必须重新
+  分析和翻译，只有渲染配置变化时才允许复用既有译文文档。
 - [ComicTranslationRuntimeService.ets](../shared/src/main/ets/services/ComicTranslationRuntimeService.ets) 已把
   Reader 的稳定本地文件转换为带 SHA-256、尺寸、MIME 与上下文 revision 的请求。Reader 只在用户点击
   `翻译当前页`，或显式开启本次 Reader 会话的自动翻译后调用它，并以路由/画廊/页/文件/UI epoch 围住
