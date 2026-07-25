@@ -15,7 +15,12 @@ import {
   ComicLocalSourceInpainter,
   ComicLocalTextMasker,
   ComicLocalTextRecognizer,
+  ComicLocalVisualAnalysisRecording,
   ComicLocalVisualBackend,
+  ComicLocalVisualRecordedLayout,
+  ComicLocalVisualRecordedRect,
+  ComicLocalVisualRecordingSink,
+  ComicLocalVisualRenderRecording,
   ComicNcnnLocalSourceInpainter,
   ComicNativeDetectedRegion,
   ComicNativeRegionDetectionResult,
@@ -140,6 +145,19 @@ class LocalChangedPixelBounds {
   top: number = 0
   right: number = 0
   bottom: number = 0
+}
+
+class CollectingComicLocalVisualRecordingSink implements ComicLocalVisualRecordingSink {
+  analysis: ComicLocalVisualAnalysisRecording | null = null
+  render: ComicLocalVisualRenderRecording | null = null
+
+  recordAnalysis(recording: ComicLocalVisualAnalysisRecording): void {
+    this.analysis = recording.copy()
+  }
+
+  recordRender(recording: ComicLocalVisualRenderRecording): void {
+    this.render = recording.copy()
+  }
 }
 
 class BubbleGroupingOcrEngine implements ComicLocalOcrEngine {
@@ -1302,6 +1320,57 @@ async function writeClosedBubbleImage(
   }
 }
 
+async function writeTransparentRectangularCaptionImage(
+  path: string,
+  width: number,
+  height: number,
+): Promise<void> {
+  let pixelMap: image.PixelMap | undefined = undefined
+  let packer: image.ImagePacker | undefined = undefined
+  let outputFile: fileIo.File | null = null
+  try {
+    const buffer: ArrayBuffer = new ArrayBuffer(width * height * 4)
+    const pixels: Uint8Array = new Uint8Array(buffer)
+    pixels.fill(255)
+    for (let y: number = 0; y < height; y++) {
+      for (let x: number = 0; x < width; x++) {
+        const offset: number = (y * width + x) * 4
+        const insideCaption: boolean = x >= 540 && x < 760 && y >= 350 && y < 550
+        const onBorder: boolean = insideCaption &&
+          (x < 548 || x >= 752 || y < 358 || y >= 542)
+        const value: number = onBorder ? 0 :
+          (insideCaption ? (((Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0) ? 110 : 230) :
+            180)
+        pixels[offset] = value
+        pixels[offset + 1] = value
+        pixels[offset + 2] = value
+      }
+    }
+    pixelMap = await image.createPixelMap(buffer, {
+      size: { width: width, height: height },
+      srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false,
+    })
+    outputFile = fileIo.openSync(
+      path,
+      fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+    )
+    packer = image.createImagePacker()
+    await packer.packToFile(pixelMap, outputFile.fd, { format: 'image/png', quality: 100 })
+  } finally {
+    if (outputFile !== null) {
+      fileIo.closeSync(outputFile)
+    }
+    if (packer !== undefined) {
+      await packer.release()
+    }
+    if (pixelMap !== undefined) {
+      await pixelMap.release()
+    }
+  }
+}
+
 async function writeObstacleImage(path: string, width: number, height: number): Promise<void> {
   let pixelMap: image.PixelMap | undefined = undefined
   let packer: image.ImagePacker | undefined = undefined
@@ -1702,6 +1771,211 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(10)
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(24)
     })
+
+    it('records analysis, layout, and render stages only through an injected sink', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/recording-sink-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const sink: CollectingComicLocalVisualRecordingSink =
+            new CollectingComicLocalVisualRecordingSink()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            sink,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The recorded translated line stays inside this speech balloon.',
+            '',
+            35,
+          )
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          expect(sink.analysis !== null).assertEqual(true)
+          expect(sink.render !== null).assertEqual(true)
+          const analysisRecording: ComicLocalVisualAnalysisRecording =
+            sink.analysis as ComicLocalVisualAnalysisRecording
+          const renderRecording: ComicLocalVisualRenderRecording =
+            sink.render as ComicLocalVisualRenderRecording
+          expect(analysisRecording.source.imageFilePath).assertEqual(sourcePath)
+          expect(analysisRecording.document.blocks.length)
+            .assertEqual(analysis.document.blocks.length)
+          expect(analysisRecording.timings.blockCount)
+            .assertEqual(analysis.document.blocks.length)
+          expect(analysisRecording.adapterTemplate.payload.byteLength > 0).assertEqual(true)
+          expect(renderRecording.renderedPage.localFilePath).assertEqual(page.localFilePath)
+          expect(renderRecording.layouts.length > 0).assertEqual(true)
+          expect(renderRecording.timings.drawableGroupCount)
+            .assertEqual(renderRecording.layouts.length)
+          expect(renderRecording.containerMask !== null).assertEqual(true)
+          expect((renderRecording.containerMask as Uint8Array).byteLength)
+            .assertEqual(request.source.imageWidth * request.source.imageHeight)
+          expect(renderRecording.containerLabels !== null).assertEqual(true)
+          expect((renderRecording.containerLabels as Uint8Array).byteLength)
+            .assertEqual(request.source.imageWidth * request.source.imageHeight)
+          const layout: ComicLocalVisualRecordedLayout = renderRecording.layouts[0]
+          expect(layout.blockIds.length > 0).assertEqual(true)
+          expect(layout.sourceRects.length).assertEqual(layout.blockIds.length)
+          expect(layout.treatmentRects.length).assertEqual(layout.blockIds.length)
+          expect(layout.textRect.shapeConstrained).assertEqual(true)
+          expect(layout.textRect.containerConfidence > 0).assertEqual(true)
+          expect(layout.textRect.containerConfidence <= 1).assertEqual(true)
+          expect(layout.textRect.containerRawCoverage > 0).assertEqual(true)
+          expect(layout.textRect.containerRawCoverage <= 1).assertEqual(true)
+          expect(layout.textRect.containerSolidity > 0).assertEqual(true)
+          expect(layout.textRect.containerSolidity <= 1).assertEqual(true)
+          expect(layout.textRect.containerAreaRatio > 0).assertEqual(true)
+          expect(layout.textRect.containerAreaRatio <= 1).assertEqual(true)
+          expect(layout.textRect.containerLuminanceStd >= 0).assertEqual(true)
+          expect(layout.textRect.containerProbeOutcome).assertEqual('accepted')
+          expect(layout.containerLabel > 0).assertEqual(true)
+          expect(layout.fontSize > 0).assertEqual(true)
+          expect(layout.outlineWidth > 0).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('records a closed-balloon container for vertical CJK without constraining its layout', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/vertical-container-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const sink: CollectingComicLocalVisualRecordingSink =
+            new CollectingComicLocalVisualRecordingSink()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            sink,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          analysis.document.blocks[0].styleHint = 'vertical-rl'
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          for (let index: number = 0; index < request.translations.blocks.length; index++) {
+            request.translations.blocks[index].translatedText = '译文'
+          }
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const renderRecording: ComicLocalVisualRenderRecording =
+            sink.render as ComicLocalVisualRenderRecording
+          expect(renderRecording.containerMask !== null).assertEqual(true)
+          expect(renderRecording.containerLabels !== null).assertEqual(true)
+          expect(renderRecording.layouts.length > 0).assertEqual(true)
+          const textRect: ComicLocalVisualRecordedRect = renderRecording.layouts[0].textRect
+          expect(textRect.shapeConstrained).assertEqual(false)
+          expect(textRect.containerConfidence > 0).assertEqual(true)
+          expect(textRect.containerConfidence <= 1).assertEqual(true)
+          expect(textRect.containerRawCoverage > 0).assertEqual(true)
+          expect(textRect.containerSolidity > 0).assertEqual(true)
+          expect(textRect.containerAreaRatio > 0).assertEqual(true)
+          expect(textRect.containerLuminanceStd >= 0).assertEqual(true)
+          expect(textRect.containerProbeOutcome).assertEqual('accepted')
+          expect(renderRecording.layouts[0].containerLabel > 0).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('records an outlined rectangular caption whose interior is not a flat fill', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string =
+          `${ability.context.cacheDir}/outlined-rectangular-caption-source.png`
+        let renderedPath: string = ''
+        await writeTransparentRectangularCaptionImage(sourcePath, 1024, 1536)
+        try {
+          const sink: CollectingComicLocalVisualRecordingSink =
+            new CollectingComicLocalVisualRecordingSink()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            sink,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(request, 'Outlined caption', '', 35)
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const renderRecording: ComicLocalVisualRenderRecording =
+            sink.render as ComicLocalVisualRenderRecording
+          expect(renderRecording.layouts.length > 0).assertEqual(true)
+          const layout: ComicLocalVisualRecordedLayout = renderRecording.layouts[0]
+          expect(layout.textRect.shapeConstrained).assertEqual(true)
+          expect(layout.textRect.containerProbeOutcome).assertEqual('accepted_rect_border')
+          expect(layout.textRect.rectBorderProbeOutcome).assertEqual('accepted')
+          expect(layout.textRect.rectBorderLeftScore >= 0.9).assertEqual(true)
+          expect(layout.textRect.rectBorderRightScore >= 0.9).assertEqual(true)
+          expect(layout.textRect.rectBorderTopScore >= 0.9).assertEqual(true)
+          expect(layout.textRect.rectBorderBottomScore >= 0.9).assertEqual(true)
+          expect(layout.textRect.rectBorderTopLeftCornerScore >= 0.35).assertEqual(true)
+          expect(layout.textRect.rectBorderTopRightCornerScore >= 0.35).assertEqual(true)
+          expect(layout.textRect.rectBorderBottomLeftCornerScore >= 0.35).assertEqual(true)
+          expect(layout.textRect.rectBorderBottomRightCornerScore >= 0.35).assertEqual(true)
+          expect(layout.textRect.containerConfidence >= 0.9).assertEqual(true)
+          expect(layout.containerLabel > 0).assertEqual(true)
+          expect(renderRecording.containerMask !== null).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
 
     it('preserves dominant coloured source ink instead of inverting from the background', 0, () => {
       const red: number[] = ComicLocalVisualBackend.dominantSourceTextColor([

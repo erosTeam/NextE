@@ -309,6 +309,17 @@ export {
 } from './services/ComicHarmonyOcrService'
 export { ComicLocalVisualBackend } from './services/ComicLocalVisualBackend'
 export {
+  ComicLocalVisualAnalysisRecording,
+  ComicLocalVisualAnalysisTimings,
+  ComicLocalVisualFileRecorder,
+  ComicLocalVisualRecordedColor,
+  ComicLocalVisualRecordedLayout,
+  ComicLocalVisualRecordedRect,
+  ComicLocalVisualRecordingSink,
+  ComicLocalVisualRenderRecording,
+  ComicLocalVisualRenderTimings,
+} from './services/ComicLocalVisualRecording'
+export {
   ComicLocalRegionDetector,
   ComicNcnnLocalRegionDetector,
   ComicNativeDetectedRegion,

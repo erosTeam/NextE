@@ -28,6 +28,7 @@ import {
   ComicTextMaskModelPaths,
   ComicTextRecognitionModelPaths,
   ComicLocalVisualBackend,
+  ComicLocalVisualFileRecorder,
   ComicVisualPageSource,
   ComicVisualTranslationContract,
   ComicVisualTranslationRoute,
@@ -452,6 +453,11 @@ export default function comicLocalProductionQualityTest(): void {
           return
         }
         const ocr: HarmonyComicLocalOcrEngine = new HarmonyComicLocalOcrEngine()
+        const requestedRecordingId: string = parameter('comicProductionRecordingId').trim()
+        const recorder: ComicLocalVisualFileRecorder | null =
+          requestedRecordingId.length > 0
+            ? new ComicLocalVisualFileRecorder(mainContext, requestedRecordingId)
+            : null
         const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
           mainContext,
           ocr,
@@ -479,7 +485,11 @@ export default function comicLocalProductionQualityTest(): void {
             heavyModelThreads(),
             0.3,
           ),
+          recorder,
         )
+        if (recorder !== null) {
+          console.info(`ComicProductionRecording directory=${recorder.recordingDirectory()}`)
+        }
         const fixtures: ProductionQualityFixture[] = [page01Fixture(), page02Fixture()]
         let totalExpected: number = 0
         let totalMatched: number = 0

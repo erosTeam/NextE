@@ -53,6 +53,16 @@ import {
   ComicLocalTextMasker,
   ComicNativeTextMaskResult,
 } from './ComicNativeTextMasker'
+import {
+  ComicLocalVisualAnalysisRecording,
+  ComicLocalVisualAnalysisTimings,
+  ComicLocalVisualRecordedColor,
+  ComicLocalVisualRecordedLayout,
+  ComicLocalVisualRecordedRect,
+  ComicLocalVisualRecordingSink,
+  ComicLocalVisualRenderRecording,
+  ComicLocalVisualRenderTimings,
+} from './ComicLocalVisualRecording'
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
 const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v50'
@@ -192,6 +202,26 @@ class LocalRenderRect {
   right: number = 0
   bottom: number = 0
   shapeConstrained: boolean = false
+  containerConfidence: number = 0
+  containerRawCoverage: number = 0
+  containerSolidity: number = 0
+  containerAreaRatio: number = 0
+  containerLuminanceStd: number = 0
+  containerProbeOutcome: string = ''
+  rectBorderLeftScore: number = 0
+  rectBorderRightScore: number = 0
+  rectBorderTopScore: number = 0
+  rectBorderBottomScore: number = 0
+  rectBorderTopLeftCornerScore: number = 0
+  rectBorderTopRightCornerScore: number = 0
+  rectBorderBottomLeftCornerScore: number = 0
+  rectBorderBottomRightCornerScore: number = 0
+  rectBorderProbeOutcome: string = ''
+  containerMask: Uint8Array | null = null
+  containerMaskLeft: number = 0
+  containerMaskTop: number = 0
+  containerMaskWidth: number = 0
+  containerMaskHeight: number = 0
 
   width(): number {
     return this.right - this.left
@@ -244,6 +274,13 @@ class LocalFillStyle {
   textBlue: number = 24
 }
 
+class LocalDrawMeasurement {
+  writingMode: string = ''
+  fontSize: number = 0
+  outlineWidth: number = 0
+  rotationDegrees: number = 0
+}
+
 class LocalBubbleRenderGroup {
   plan: LocalRenderPlanBlock = new LocalRenderPlanBlock()
   textRect: LocalRenderRect = new LocalRenderRect()
@@ -281,6 +318,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private readonly sourceInpainter: ComicLocalSourceInpainter | null
   private readonly sourceMasker: ComicLocalTextMasker | null
   private readonly proposalMasker: ComicLocalTextMasker | null
+  private readonly recordingSink: ComicLocalVisualRecordingSink | null
   private readonly resolvedProfileId: string
   private readonly treatmentMaskCache: Map<string, Uint8Array> = new Map<string, Uint8Array>()
   private treatmentMaskCacheBytes: number = 0
@@ -293,6 +331,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     sourceInpainter: ComicLocalSourceInpainter | null = null,
     sourceMasker: ComicLocalTextMasker | null = null,
     proposalMasker: ComicLocalTextMasker | null = null,
+    recordingSink: ComicLocalVisualRecordingSink | null = null,
   ) {
     this.context = context
     this.ocr = ocr
@@ -301,6 +340,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     this.sourceInpainter = sourceInpainter
     this.sourceMasker = sourceMasker
     this.proposalMasker = proposalMasker === null ? sourceMasker : proposalMasker
+    this.recordingSink = recordingSink
     this.resolvedProfileId = LOCAL_VISUAL_PROFILE_ID +
       (detector === null ? '' : `-${detector.profileId()}`) +
       (supplementalRecognizer === null ? '' : `-${supplementalRecognizer.profileId()}`) +
@@ -475,14 +515,38 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         result.document,
         result.adapterTemplate,
       )
+      const analysisLayoutMs: number = Date.now() - layoutStartedAt
+      const analysisTotalMs: number = Date.now() - analysisStartedAt
       DiagnosticLogger.info(
         'comic-translation',
         'local_analysis_stage_timings',
         `detector=${detectorMs}ms systemOcr=${systemOcrMs}ms ` +
           `proposalMask=${proposalMaskMs}ms supplementalOcr=${supplementalOcrMs}ms ` +
-          `layout=${Date.now() - layoutStartedAt}ms total=${Date.now() - analysisStartedAt}ms ` +
+          `layout=${analysisLayoutMs}ms total=${analysisTotalMs}ms ` +
           `tiles=${tiles.length} blocks=${result.document.blocks.length}`,
       )
+      if (this.recordingSink !== null) {
+        const timings: ComicLocalVisualAnalysisTimings =
+          new ComicLocalVisualAnalysisTimings()
+        timings.detectorMs = detectorMs
+        timings.systemOcrMs = systemOcrMs
+        timings.proposalMaskMs = proposalMaskMs
+        timings.supplementalOcrMs = supplementalOcrMs
+        timings.layoutMs = analysisLayoutMs
+        timings.totalMs = analysisTotalMs
+        timings.tileCount = tiles.length
+        timings.blockCount = result.document.blocks.length
+        const recording: ComicLocalVisualAnalysisRecording =
+          new ComicLocalVisualAnalysisRecording()
+        recording.source = request.source.copy()
+        recording.backendId = result.backendId
+        recording.profileId = result.profileId
+        recording.regionRevision = result.regionRevision
+        recording.document = result.document.copy()
+        recording.adapterTemplate = result.adapterTemplate.copy()
+        recording.timings = timings
+        this.recordingSink.recordAnalysis(recording)
+      }
       return result
     } finally {
       if (source !== undefined) {
@@ -595,6 +659,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.source.imageHeight,
           fillStyles[index],
           request.translations.targetLanguage,
+          this.recordingSink !== null,
         ))
       }
       const renderGroups: LocalBubbleRenderGroup[] = ComicLocalVisualBackend.bubbleRenderGroups(
@@ -649,6 +714,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       // only regions that have a drawable replacement so one pathological translation cannot
       // blank its source text or abort otherwise valid regions on the page.
       const inpaintStartedAt: number = Date.now()
+      let inpaintCallCount: number = 0
       for (let index: number = 0; index < drawableGroups.length; index++) {
         const targets: LocalSourceTreatmentTarget[] = []
         for (let memberIndex: number = 0;
@@ -667,21 +733,23 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           target.styleHint = block.styleHint
           targets.push(target)
         }
-        await ComicLocalVisualBackend.eraseSourceRegions(
+        inpaintCallCount = inpaintCallCount +
+          await ComicLocalVisualBackend.eraseSourceRegions(
           pixelMap,
           request.source.imageWidth,
           request.source.imageHeight,
           targets,
           this.sourceInpainter,
           pageTextMask,
-        )
+          )
       }
       inpaintMs = Date.now() - inpaintStartedAt
       const drawStartedAt: number = Date.now()
       const canvas: drawing.Canvas = new drawing.Canvas(pixelMap)
+      const recordedLayouts: ComicLocalVisualRecordedLayout[] = []
       for (let index: number = 0; index < drawableGroups.length; index++) {
         const block: ComicTextBlock = drawableGroups[index].plan.block
-        ComicLocalVisualBackend.drawBlock(
+        const measurement: LocalDrawMeasurement = ComicLocalVisualBackend.drawBlock(
           canvas,
           block,
           drawableGroups[index].plan.translatedText,
@@ -692,6 +760,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.translations.targetLanguage,
           horizontalOffsets[index],
         )
+        recordedLayouts.push(ComicLocalVisualBackend.recordedLayout(
+          drawableGroups[index],
+          index,
+          renderPlans,
+          fillStyles,
+          measurement,
+          request.source.imageWidth,
+          request.source.imageHeight,
+        ))
       }
       drawMs = Date.now() - drawStartedAt
       const encodeStartedAt: number = Date.now()
@@ -724,15 +801,51 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       page.createdAt = now
       page.lastAccessAt = now
       ComicVisualTranslationContract.validateRenderedPage(request.identity, page)
+      const finalizeMs: number = Date.now() - encodeStartedAt - encodeMs
+      const renderTotalMs: number = Date.now() - renderStartedAt
       DiagnosticLogger.info(
         'comic-translation',
         'local_render_stage_timings',
         `decode=${decodeMs}ms mask=${maskMs}ms layout=${layoutMs}ms ` +
           `inpaint=${inpaintMs}ms draw=${drawMs}ms encode=${encodeMs}ms ` +
-          `finalize=${Date.now() - encodeStartedAt - encodeMs}ms ` +
-          `total=${Date.now() - renderStartedAt}ms groups=${drawableGroups.length} ` +
-          `bytes=${page.byteLength}`,
+          `finalize=${finalizeMs}ms total=${renderTotalMs}ms groups=${drawableGroups.length} ` +
+          `inpaintCalls=${inpaintCallCount} bytes=${page.byteLength}`,
       )
+      if (this.recordingSink !== null) {
+        const timings: ComicLocalVisualRenderTimings = new ComicLocalVisualRenderTimings()
+        timings.decodeMs = decodeMs
+        timings.maskMs = maskMs
+        timings.layoutMs = layoutMs
+        timings.inpaintMs = inpaintMs
+        timings.drawMs = drawMs
+        timings.encodeMs = encodeMs
+        timings.finalizeMs = finalizeMs
+        timings.totalMs = renderTotalMs
+        timings.inpaintCallCount = inpaintCallCount
+        timings.drawableGroupCount = drawableGroups.length
+        timings.skippedGroupCount = renderGroups.length - drawableGroups.length
+        const recording: ComicLocalVisualRenderRecording =
+          new ComicLocalVisualRenderRecording()
+        recording.source = request.source.copy()
+        recording.document = request.document.copy()
+        recording.translations = request.translations.copy()
+        recording.identity = request.identity.copy()
+        recording.renderedPage = page.copy()
+        recording.textMask = pageTextMask === null ? null : new Uint8Array(pageTextMask)
+        recording.containerMask = ComicLocalVisualBackend.recordedContainerMask(
+          drawableGroups,
+          request.source.imageWidth,
+          request.source.imageHeight,
+        )
+        recording.containerLabels = ComicLocalVisualBackend.recordedContainerLabels(
+          drawableGroups,
+          request.source.imageWidth,
+          request.source.imageHeight,
+        )
+        recording.layouts = recordedLayouts
+        recording.timings = timings
+        this.recordingSink.recordRender(recording)
+      }
       return page
     } catch (error) {
       ComicLocalVisualBackend.removeFile(partial)
@@ -2914,7 +3027,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     horizontalFontCap: number,
     targetLanguage: string,
     horizontalVerticalOffset: number,
-  ): void {
+  ): LocalDrawMeasurement {
     const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
       block.styleHint,
       targetLanguage,
@@ -2930,6 +3043,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const textPen: drawing.Pen = new drawing.Pen()
     textPen.setColor(255, 255, 255, 255)
     textPen.setAntiAlias(true)
+    const measurement: LocalDrawMeasurement = new LocalDrawMeasurement()
+    measurement.writingMode = renderStyleHint
     if (renderStyleHint === LOCAL_VERTICAL_STYLE_HINT) {
       const layout: LocalVerticalTextLayout = ComicLocalVisualBackend.verticalLayout(
         translatedText,
@@ -2938,7 +3053,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         font,
         verticalFontCap,
       )
-      textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
+      measurement.fontSize = layout.fontSize
+      measurement.outlineWidth = ComicLocalVisualBackend.outlineWidth(layout.fontSize)
+      textPen.setStrokeWidth(measurement.outlineWidth)
       canvas.attachPen(textPen)
       ComicLocalVisualBackend.drawVerticalLayout(
         canvas,
@@ -2963,7 +3080,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         font,
       )
       canvas.detachBrush()
-      return
+      return measurement
     }
     const horizontal: LocalHorizontalRenderLayout =
       ComicLocalVisualBackend.horizontalRenderLayout(
@@ -2973,7 +3090,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         horizontalFontCap,
       )
     const layout: LocalTextLayout = horizontal.layout
-    textPen.setStrokeWidth(ComicLocalVisualBackend.outlineWidth(layout.fontSize))
+    measurement.fontSize = layout.fontSize
+    measurement.outlineWidth = ComicLocalVisualBackend.outlineWidth(layout.fontSize)
+    measurement.rotationDegrees = horizontal.rotationDegrees
+    textPen.setStrokeWidth(measurement.outlineWidth)
     canvas.attachPen(textPen)
     ComicLocalVisualBackend.drawPreparedHorizontalLayout(
       canvas,
@@ -2990,6 +3110,168 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       horizontalVerticalOffset,
     )
     canvas.detachBrush()
+    return measurement
+  }
+
+  private static recordedLayout(
+    group: LocalBubbleRenderGroup,
+    groupIndex: number,
+    renderPlans: LocalRenderPlanBlock[],
+    fillStyles: LocalFillStyle[],
+    measurement: LocalDrawMeasurement,
+    imageWidth: number,
+    imageHeight: number,
+  ): ComicLocalVisualRecordedLayout {
+    const value: ComicLocalVisualRecordedLayout = new ComicLocalVisualRecordedLayout()
+    value.textRect = ComicLocalVisualBackend.recordedRect(group.textRect)
+    if (group.textRect.containerMask !== null && groupIndex >= 0 && groupIndex < 254) {
+      value.containerLabel = groupIndex + 1
+    }
+    value.writingMode = measurement.writingMode
+    value.fontSize = measurement.fontSize
+    value.outlineWidth = measurement.outlineWidth
+    value.rotationDegrees = measurement.rotationDegrees
+    value.translatedTextLength = group.plan.translatedText.length
+    value.fillColor = ComicLocalVisualBackend.recordedColor(
+      group.fill.red,
+      group.fill.green,
+      group.fill.blue,
+    )
+    value.textColor = ComicLocalVisualBackend.recordedColor(
+      group.fill.textRed,
+      group.fill.textGreen,
+      group.fill.textBlue,
+    )
+    for (let index: number = 0; index < group.memberIndexes.length; index++) {
+      const planIndex: number = group.memberIndexes[index]
+      const block: ComicTextBlock = renderPlans[planIndex].block
+      const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+      value.blockIds.push(block.blockId)
+      value.sourceRects.push(ComicLocalVisualBackend.recordedRect(raw))
+      value.treatmentRects.push(ComicLocalVisualBackend.recordedRect(
+        ComicLocalVisualBackend.sourceTreatmentRect(
+          raw,
+          imageWidth,
+          imageHeight,
+          block.styleHint,
+        ),
+      ))
+    }
+    return value
+  }
+
+  private static recordedContainerMask(
+    groups: LocalBubbleRenderGroup[],
+    imageWidth: number,
+    imageHeight: number,
+  ): Uint8Array | null {
+    let pageMask: Uint8Array | null = null
+    for (let groupIndex: number = 0; groupIndex < groups.length; groupIndex++) {
+      const rect: LocalRenderRect = groups[groupIndex].textRect
+      if (rect.containerMask === null ||
+        rect.containerMaskWidth <= 0 || rect.containerMaskHeight <= 0 ||
+        rect.containerMask.byteLength !==
+          rect.containerMaskWidth * rect.containerMaskHeight) {
+        continue
+      }
+      if (pageMask === null) {
+        pageMask = new Uint8Array(imageWidth * imageHeight)
+      }
+      for (let localY: number = 0; localY < rect.containerMaskHeight; localY++) {
+        const pageY: number = rect.containerMaskTop + localY
+        if (pageY < 0 || pageY >= imageHeight) {
+          continue
+        }
+        for (let localX: number = 0; localX < rect.containerMaskWidth; localX++) {
+          const localIndex: number = localY * rect.containerMaskWidth + localX
+          if (rect.containerMask[localIndex] === 0) {
+            continue
+          }
+          const pageX: number = rect.containerMaskLeft + localX
+          if (pageX >= 0 && pageX < imageWidth) {
+            pageMask[pageY * imageWidth + pageX] = 1
+          }
+        }
+      }
+    }
+    return pageMask
+  }
+
+  private static recordedContainerLabels(
+    groups: LocalBubbleRenderGroup[],
+    imageWidth: number,
+    imageHeight: number,
+  ): Uint8Array | null {
+    let pageLabels: Uint8Array | null = null
+    const maximumGroups: number = Math.min(groups.length, 254)
+    for (let groupIndex: number = 0; groupIndex < maximumGroups; groupIndex++) {
+      const rect: LocalRenderRect = groups[groupIndex].textRect
+      if (rect.containerMask === null ||
+        rect.containerMaskWidth <= 0 || rect.containerMaskHeight <= 0 ||
+        rect.containerMask.byteLength !==
+          rect.containerMaskWidth * rect.containerMaskHeight) {
+        continue
+      }
+      if (pageLabels === null) {
+        pageLabels = new Uint8Array(imageWidth * imageHeight)
+      }
+      const label: number = groupIndex + 1
+      for (let localY: number = 0; localY < rect.containerMaskHeight; localY++) {
+        const pageY: number = rect.containerMaskTop + localY
+        if (pageY < 0 || pageY >= imageHeight) {
+          continue
+        }
+        for (let localX: number = 0; localX < rect.containerMaskWidth; localX++) {
+          const localIndex: number = localY * rect.containerMaskWidth + localX
+          if (rect.containerMask[localIndex] === 0) {
+            continue
+          }
+          const pageX: number = rect.containerMaskLeft + localX
+          const pageIndex: number = pageY * imageWidth + pageX
+          if (pageX >= 0 && pageX < imageWidth && pageLabels[pageIndex] === 0) {
+            pageLabels[pageIndex] = label
+          }
+        }
+      }
+    }
+    return pageLabels
+  }
+
+  private static recordedRect(rect: LocalRenderRect): ComicLocalVisualRecordedRect {
+    const value: ComicLocalVisualRecordedRect = new ComicLocalVisualRecordedRect()
+    value.left = rect.left
+    value.top = rect.top
+    value.right = rect.right
+    value.bottom = rect.bottom
+    value.shapeConstrained = rect.shapeConstrained
+    value.containerConfidence = rect.containerConfidence
+    value.containerRawCoverage = rect.containerRawCoverage
+    value.containerSolidity = rect.containerSolidity
+    value.containerAreaRatio = rect.containerAreaRatio
+    value.containerLuminanceStd = rect.containerLuminanceStd
+    value.containerProbeOutcome = rect.containerProbeOutcome
+    value.rectBorderLeftScore = rect.rectBorderLeftScore
+    value.rectBorderRightScore = rect.rectBorderRightScore
+    value.rectBorderTopScore = rect.rectBorderTopScore
+    value.rectBorderBottomScore = rect.rectBorderBottomScore
+    value.rectBorderTopLeftCornerScore = rect.rectBorderTopLeftCornerScore
+    value.rectBorderTopRightCornerScore = rect.rectBorderTopRightCornerScore
+    value.rectBorderBottomLeftCornerScore = rect.rectBorderBottomLeftCornerScore
+    value.rectBorderBottomRightCornerScore = rect.rectBorderBottomRightCornerScore
+    value.rectBorderProbeOutcome = rect.rectBorderProbeOutcome
+    return value
+  }
+
+  private static recordedColor(
+    red: number,
+    green: number,
+    blue: number,
+  ): ComicLocalVisualRecordedColor {
+    const value: ComicLocalVisualRecordedColor = new ComicLocalVisualRecordedColor()
+    value.red = red
+    value.green = green
+    value.blue = blue
+    return value
   }
 
   private static validateBlockLayout(
@@ -4051,6 +4333,27 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     rect.right = source.right
     rect.bottom = source.bottom
     rect.shapeConstrained = source.shapeConstrained
+    rect.containerConfidence = source.containerConfidence
+    rect.containerRawCoverage = source.containerRawCoverage
+    rect.containerSolidity = source.containerSolidity
+    rect.containerAreaRatio = source.containerAreaRatio
+    rect.containerLuminanceStd = source.containerLuminanceStd
+    rect.containerProbeOutcome = source.containerProbeOutcome
+    rect.rectBorderLeftScore = source.rectBorderLeftScore
+    rect.rectBorderRightScore = source.rectBorderRightScore
+    rect.rectBorderTopScore = source.rectBorderTopScore
+    rect.rectBorderBottomScore = source.rectBorderBottomScore
+    rect.rectBorderTopLeftCornerScore = source.rectBorderTopLeftCornerScore
+    rect.rectBorderTopRightCornerScore = source.rectBorderTopRightCornerScore
+    rect.rectBorderBottomLeftCornerScore = source.rectBorderBottomLeftCornerScore
+    rect.rectBorderBottomRightCornerScore = source.rectBorderBottomRightCornerScore
+    rect.rectBorderProbeOutcome = source.rectBorderProbeOutcome
+    rect.containerMask =
+      source.containerMask === null ? null : new Uint8Array(source.containerMask)
+    rect.containerMaskLeft = source.containerMaskLeft
+    rect.containerMaskTop = source.containerMaskTop
+    rect.containerMaskWidth = source.containerMaskWidth
+    rect.containerMaskHeight = source.containerMaskHeight
     return rect
   }
 
@@ -4123,6 +4426,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     imageHeight: number,
     fill: LocalFillStyle,
     targetLanguage: string,
+    captureContainerMask: boolean,
   ): Promise<LocalRenderRect> {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
@@ -4136,20 +4440,59 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       block.styleHint,
       renderStyleHint,
     )
-    if (renderStyleHint !== LOCAL_HORIZONTAL_STYLE_HINT) {
+    if (renderStyleHint !== LOCAL_HORIZONTAL_STYLE_HINT && !captureContainerMask) {
       return fallback
     }
     try {
-      return await ComicLocalVisualBackend.bubbleSafeTextRect(
+      const containerProbeRect: LocalRenderRect =
+        renderStyleHint === LOCAL_HORIZONTAL_STYLE_HINT ? fallback :
+          ComicLocalVisualBackend.renderTextRect(
+            raw,
+            imageWidth,
+            imageHeight,
+            block.styleHint,
+            LOCAL_HORIZONTAL_STYLE_HINT,
+          )
+      const detected: LocalRenderRect = await ComicLocalVisualBackend.bubbleSafeTextRect(
         pixelMap,
         raw,
-        fallback,
+        containerProbeRect,
         imageWidth,
         imageHeight,
         fill,
         block.blockId,
+        captureContainerMask,
       )
+      if (renderStyleHint === LOCAL_HORIZONTAL_STYLE_HINT) {
+        return detected
+      }
+      // Vertical CJK layout keeps its existing rectangle and grouping semantics. Recording may
+      // still retain the detected closed-balloon pixels so container coverage can be measured
+      // before that signal is allowed to affect production rendering.
+      fallback.containerConfidence = detected.containerConfidence
+      fallback.containerRawCoverage = detected.containerRawCoverage
+      fallback.containerSolidity = detected.containerSolidity
+      fallback.containerAreaRatio = detected.containerAreaRatio
+      fallback.containerLuminanceStd = detected.containerLuminanceStd
+      fallback.containerProbeOutcome = detected.containerProbeOutcome
+      fallback.rectBorderLeftScore = detected.rectBorderLeftScore
+      fallback.rectBorderRightScore = detected.rectBorderRightScore
+      fallback.rectBorderTopScore = detected.rectBorderTopScore
+      fallback.rectBorderBottomScore = detected.rectBorderBottomScore
+      fallback.rectBorderTopLeftCornerScore = detected.rectBorderTopLeftCornerScore
+      fallback.rectBorderTopRightCornerScore = detected.rectBorderTopRightCornerScore
+      fallback.rectBorderBottomLeftCornerScore = detected.rectBorderBottomLeftCornerScore
+      fallback.rectBorderBottomRightCornerScore = detected.rectBorderBottomRightCornerScore
+      fallback.rectBorderProbeOutcome = detected.rectBorderProbeOutcome
+      fallback.containerMask =
+        detected.containerMask === null ? null : new Uint8Array(detected.containerMask)
+      fallback.containerMaskLeft = detected.containerMaskLeft
+      fallback.containerMaskTop = detected.containerMaskTop
+      fallback.containerMaskWidth = detected.containerMaskWidth
+      fallback.containerMaskHeight = detected.containerMaskHeight
+      return fallback
     } catch (error) {
+      fallback.containerProbeOutcome = 'probe_error'
       DiagnosticLogger.warn(
         'comic-translation',
         'local_bubble_safe_rect_fallback',
@@ -4167,9 +4510,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     imageHeight: number,
     fill: LocalFillStyle,
     blockId: string,
+    captureContainerMask: boolean,
   ): Promise<LocalRenderRect> {
-    // The fallback rectangle is intentionally generous for Latin wrapping. Read a bounded
-    // neighbourhood around it so a closed balloon outline can constrain that expansion.
+    // Read a bounded neighbourhood around the proposed text rectangle so a closed balloon
+    // outline can be observed. Horizontal rendering may use the safe rectangle; vertical
+    // recording currently retains only the detected container pixels.
     const expansionX: number = Math.min(
       128,
       Math.max(56, fallback.width() * 0.45),
@@ -4182,6 +4527,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const width: number = right - left
     const height: number = bottom - top
     if (width <= 4 || height <= 4) {
+      fallback.containerProbeOutcome = 'probe_too_small'
       return fallback
     }
     const rowBytes: number = width * 4
@@ -4223,6 +4569,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     if (seed < 0) {
+      fallback.containerProbeOutcome = 'no_seed'
       return fallback
     }
     const pixelCount: number = width * height
@@ -4233,6 +4580,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     let readIndex: number = 0
     let writeIndex: number = 1
     let area: number = 0
+    let rawInteriorArea: number = 0
+    let componentMinimumX: number = width
+    let componentMinimumY: number = height
+    let componentMaximumX: number = -1
+    let componentMaximumY: number = -1
+    let luminanceSum: number = 0
+    let luminanceSquareSum: number = 0
     let touchesCandidateEdge: boolean = false
     queue[0] = seed
     visited[seed] = 1
@@ -4241,7 +4595,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       readIndex = readIndex + 1
       const x: number = current % width
       const y: number = Math.floor(current / width)
+      const pixelOffset: number = y * rowBytes + x * 4
+      const luminance: number =
+        pixels[pixelOffset] * 0.299 +
+          pixels[pixelOffset + 1] * 0.587 +
+          pixels[pixelOffset + 2] * 0.114
       area = area + 1
+      luminanceSum = luminanceSum + luminance
+      luminanceSquareSum = luminanceSquareSum + luminance * luminance
+      componentMinimumX = Math.min(componentMinimumX, x)
+      componentMinimumY = Math.min(componentMinimumY, y)
+      componentMaximumX = Math.max(componentMaximumX, x)
+      componentMaximumY = Math.max(componentMaximumY, y)
+      if (x >= rawLeft && x < rawRight && y >= rawTop && y < rawBottom) {
+        rawInteriorArea = rawInteriorArea + 1
+      }
       xCounts[x] = xCounts[x] + 1
       yCounts[y] = yCounts[y] + 1
       if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
@@ -4269,7 +4637,32 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     const minimumArea: number = Math.max(64, raw.width() * raw.height() * 0.72)
-    if (touchesCandidateEdge || area < minimumArea) {
+    if (touchesCandidateEdge) {
+      fallback.containerProbeOutcome = 'touches_probe_edge'
+      return fallback
+    }
+    if (area < minimumArea) {
+      fallback.containerProbeOutcome = 'area_too_small'
+      if (captureContainerMask) {
+        const rectangular: LocalRenderRect | null =
+          ComicLocalVisualBackend.rectangularBorderTextRect(
+            pixels,
+            width,
+            height,
+            rowBytes,
+            rawLeft,
+            rawTop,
+            rawRight,
+            rawBottom,
+            left,
+            top,
+            blockId,
+            fallback,
+          )
+        if (rectangular !== null) {
+          return rectangular
+        }
+      }
       return fallback
     }
     // A balloon tail occupies only a small fraction of the connected component. Trim the
@@ -4304,6 +4697,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const componentWidth: number = componentRight - componentLeft + 1
     const componentHeight: number = componentBottom - componentTop + 1
     if (componentWidth < raw.width() * 0.75 || componentHeight < raw.height() * 0.75) {
+      fallback.containerProbeOutcome = 'component_too_small'
       return fallback
     }
     const insetX: number = Math.max(4, Math.min(14, componentWidth * 0.035))
@@ -4314,18 +4708,319 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     safe.right = left + componentRight + 1 - insetX
     safe.bottom = top + componentBottom + 1 - insetY
     if (safe.width() < 24 || safe.height() < 24) {
+      fallback.containerProbeOutcome = 'safe_rect_too_small'
       return fallback
     }
     safe.shapeConstrained = true
+    const rawArea: number = Math.max(1, (rawRight - rawLeft) * (rawBottom - rawTop))
+    const componentBoundsArea: number = Math.max(
+      1,
+      (componentMaximumX - componentMinimumX + 1) *
+        (componentMaximumY - componentMinimumY + 1),
+    )
+    const rawCoverage: number = Math.min(1, rawInteriorArea / rawArea)
+    const componentSolidity: number = Math.min(1, area / componentBoundsArea)
+    const componentAreaRatio: number = Math.min(1, area / pixelCount)
+    const luminanceMean: number = luminanceSum / Math.max(1, area)
+    const luminanceVariance: number = Math.max(
+      0,
+      luminanceSquareSum / Math.max(1, area) - luminanceMean * luminanceMean,
+    )
+    const luminanceStd: number = Math.sqrt(luminanceVariance)
+    safe.containerRawCoverage = rawCoverage
+    safe.containerSolidity = componentSolidity
+    safe.containerAreaRatio = componentAreaRatio
+    safe.containerLuminanceStd = luminanceStd
+    safe.containerProbeOutcome = 'accepted'
+    safe.containerConfidence = Math.max(
+      0,
+      Math.min(1, rawCoverage * 0.55 + componentSolidity * 0.45),
+    )
+    if (captureContainerMask) {
+      const containerMask: Uint8Array = new Uint8Array(pixelCount)
+      for (let index: number = 0; index < writeIndex; index++) {
+        containerMask[queue[index]] = 1
+      }
+      safe.containerMask = containerMask
+      safe.containerMaskLeft = left
+      safe.containerMaskTop = top
+      safe.containerMaskWidth = width
+      safe.containerMaskHeight = height
+    }
     DiagnosticLogger.info(
       'comic-translation',
       'local_bubble_safe_rect',
       `block=${blockId} fallback=${Math.round(fallback.left)},${Math.round(fallback.top)},` +
         `${Math.round(fallback.right)},${Math.round(fallback.bottom)} ` +
         `safe=${Math.round(safe.left)},${Math.round(safe.top)},` +
-        `${Math.round(safe.right)},${Math.round(safe.bottom)} area=${area}`,
+        `${Math.round(safe.right)},${Math.round(safe.bottom)} area=${area} ` +
+        `confidence=${safe.containerConfidence.toFixed(3)} ` +
+        `rawCoverage=${rawCoverage.toFixed(3)} solidity=${componentSolidity.toFixed(3)} ` +
+        `areaRatio=${componentAreaRatio.toFixed(3)} luminanceStd=${luminanceStd.toFixed(3)}`,
     )
     return safe
+  }
+
+  private static rectangularBorderTextRect(
+    pixels: Uint8Array,
+    width: number,
+    height: number,
+    rowBytes: number,
+    rawLeft: number,
+    rawTop: number,
+    rawRight: number,
+    rawBottom: number,
+    pageLeft: number,
+    pageTop: number,
+    blockId: string,
+    diagnostics: LocalRenderRect,
+  ): LocalRenderRect | null {
+    const rawWidth: number = rawRight - rawLeft
+    const rawHeight: number = rawBottom - rawTop
+    if (rawWidth < 24 || rawHeight < 24) {
+      diagnostics.rectBorderProbeOutcome = 'raw_rect_too_small'
+      return null
+    }
+    let borderLeft: number = -1
+    let borderRight: number = -1
+    let borderTop: number = -1
+    let borderBottom: number = -1
+    let leftScore: number = 0
+    let rightScore: number = 0
+    let topScore: number = 0
+    let bottomScore: number = 0
+    for (let distance: number = 3; distance <= 64; distance++) {
+      const candidateLeft: number = rawLeft - distance
+      if (candidateLeft > 0) {
+        const score: number = ComicLocalVisualBackend.verticalBorderScore(
+          pixels,
+          rowBytes,
+          candidateLeft,
+          rawTop,
+          rawBottom,
+        )
+        if (score > leftScore) {
+          leftScore = score
+          borderLeft = candidateLeft
+        }
+      }
+      const candidateRight: number = rawRight + distance
+      if (candidateRight < width - 1) {
+        const score: number = ComicLocalVisualBackend.verticalBorderScore(
+          pixels,
+          rowBytes,
+          candidateRight,
+          rawTop,
+          rawBottom,
+        )
+        if (score > rightScore) {
+          rightScore = score
+          borderRight = candidateRight
+        }
+      }
+      const candidateTop: number = rawTop - distance
+      if (candidateTop > 0) {
+        const score: number = ComicLocalVisualBackend.horizontalBorderScore(
+          pixels,
+          rowBytes,
+          candidateTop,
+          rawLeft,
+          rawRight,
+        )
+        if (score > topScore) {
+          topScore = score
+          borderTop = candidateTop
+        }
+      }
+      const candidateBottom: number = rawBottom + distance
+      if (candidateBottom < height - 1) {
+        const score: number = ComicLocalVisualBackend.horizontalBorderScore(
+          pixels,
+          rowBytes,
+          candidateBottom,
+          rawLeft,
+          rawRight,
+        )
+        if (score > bottomScore) {
+          bottomScore = score
+          borderBottom = candidateBottom
+        }
+      }
+    }
+    const minimumBorderScore: number = Math.min(
+      leftScore,
+      rightScore,
+      topScore,
+      bottomScore,
+    )
+    diagnostics.rectBorderLeftScore = leftScore
+    diagnostics.rectBorderRightScore = rightScore
+    diagnostics.rectBorderTopScore = topScore
+    diagnostics.rectBorderBottomScore = bottomScore
+    // This branch is reachable only while explicit container recording is active. Scores
+    // below 0.3 cannot be distinguished from the hard-negative family. Corner scores remain
+    // diagnostics: old scans often share panel edges or have broken corners, so they are not
+    // an acceptance gate.
+    const recordingDiagnosticBorderScore: number = 0.3
+    if (minimumBorderScore < recordingDiagnosticBorderScore ||
+      borderLeft < 0 || borderRight < 0 || borderTop < 0 || borderBottom < 0) {
+      diagnostics.rectBorderProbeOutcome = 'score_too_low'
+      return null
+    }
+    const cornerSpan: number = Math.max(
+      8,
+      Math.min(24, Math.floor(Math.min(rawWidth, rawHeight) * 0.3)),
+    )
+    const topLeftCornerScore: number = Math.min(
+      ComicLocalVisualBackend.verticalBorderScore(
+        pixels, rowBytes, borderLeft, borderTop, Math.min(borderBottom, borderTop + cornerSpan),
+      ),
+      ComicLocalVisualBackend.horizontalBorderScore(
+        pixels, rowBytes, borderTop, borderLeft, Math.min(borderRight, borderLeft + cornerSpan),
+      ),
+    )
+    const topRightCornerScore: number = Math.min(
+      ComicLocalVisualBackend.verticalBorderScore(
+        pixels, rowBytes, borderRight, borderTop, Math.min(borderBottom, borderTop + cornerSpan),
+      ),
+      ComicLocalVisualBackend.horizontalBorderScore(
+        pixels, rowBytes, borderTop, Math.max(borderLeft, borderRight - cornerSpan), borderRight,
+      ),
+    )
+    const bottomLeftCornerScore: number = Math.min(
+      ComicLocalVisualBackend.verticalBorderScore(
+        pixels, rowBytes, borderLeft, Math.max(borderTop, borderBottom - cornerSpan), borderBottom,
+      ),
+      ComicLocalVisualBackend.horizontalBorderScore(
+        pixels, rowBytes, borderBottom, borderLeft, Math.min(borderRight, borderLeft + cornerSpan),
+      ),
+    )
+    const bottomRightCornerScore: number = Math.min(
+      ComicLocalVisualBackend.verticalBorderScore(
+        pixels, rowBytes, borderRight,
+        Math.max(borderTop, borderBottom - cornerSpan), borderBottom,
+      ),
+      ComicLocalVisualBackend.horizontalBorderScore(
+        pixels, rowBytes, borderBottom,
+        Math.max(borderLeft, borderRight - cornerSpan), borderRight,
+      ),
+    )
+    diagnostics.rectBorderTopLeftCornerScore = topLeftCornerScore
+    diagnostics.rectBorderTopRightCornerScore = topRightCornerScore
+    diagnostics.rectBorderBottomLeftCornerScore = bottomLeftCornerScore
+    diagnostics.rectBorderBottomRightCornerScore = bottomRightCornerScore
+    const recordingAcceptanceBorderScore: number = 0.5
+    if (minimumBorderScore < recordingAcceptanceBorderScore) {
+      diagnostics.rectBorderProbeOutcome = 'score_too_low'
+      return null
+    }
+    const interiorWidth: number = borderRight - borderLeft - 1
+    const interiorHeight: number = borderBottom - borderTop - 1
+    if (interiorWidth < rawWidth || interiorHeight < rawHeight) {
+      diagnostics.rectBorderProbeOutcome = 'interior_too_small'
+      return null
+    }
+    const safe: LocalRenderRect = new LocalRenderRect()
+    safe.left = pageLeft + borderLeft + 3
+    safe.top = pageTop + borderTop + 3
+    safe.right = pageLeft + borderRight - 2
+    safe.bottom = pageTop + borderBottom - 2
+    if (safe.left > pageLeft + rawLeft || safe.top > pageTop + rawTop ||
+      safe.right < pageLeft + rawRight || safe.bottom < pageTop + rawBottom ||
+      safe.width() < 24 || safe.height() < 24) {
+      diagnostics.rectBorderProbeOutcome = 'safe_rect_invalid'
+      return null
+    }
+    const averageBorderScore: number =
+      (leftScore + rightScore + topScore + bottomScore) / 4
+    const interiorArea: number = Math.max(1, interiorWidth * interiorHeight)
+    const rawArea: number = Math.max(1, rawWidth * rawHeight)
+    safe.shapeConstrained = true
+    safe.containerRawCoverage = Math.min(1, rawArea / interiorArea)
+    safe.containerSolidity = minimumBorderScore
+    safe.containerAreaRatio = Math.min(1, interiorArea / Math.max(1, width * height))
+    safe.containerLuminanceStd = 0
+    safe.containerProbeOutcome = 'accepted_rect_border'
+    safe.rectBorderLeftScore = leftScore
+    safe.rectBorderRightScore = rightScore
+    safe.rectBorderTopScore = topScore
+    safe.rectBorderBottomScore = bottomScore
+    safe.rectBorderTopLeftCornerScore = topLeftCornerScore
+    safe.rectBorderTopRightCornerScore = topRightCornerScore
+    safe.rectBorderBottomLeftCornerScore = bottomLeftCornerScore
+    safe.rectBorderBottomRightCornerScore = bottomRightCornerScore
+    safe.rectBorderProbeOutcome = 'accepted'
+    safe.containerConfidence = Math.max(
+      0,
+      Math.min(1, minimumBorderScore * 0.7 + averageBorderScore * 0.3),
+    )
+    const containerMask: Uint8Array = new Uint8Array(width * height)
+    for (let y: number = borderTop + 1; y < borderBottom; y++) {
+      for (let x: number = borderLeft + 1; x < borderRight; x++) {
+        containerMask[y * width + x] = 1
+      }
+    }
+    safe.containerMask = containerMask
+    safe.containerMaskLeft = pageLeft
+    safe.containerMaskTop = pageTop
+    safe.containerMaskWidth = width
+    safe.containerMaskHeight = height
+    DiagnosticLogger.info(
+      'comic-translation',
+      'local_rectangular_border',
+      `block=${blockId} safe=${Math.round(safe.left)},${Math.round(safe.top)},` +
+        `${Math.round(safe.right)},${Math.round(safe.bottom)} ` +
+        `scores=${leftScore.toFixed(3)},${rightScore.toFixed(3)},` +
+        `${topScore.toFixed(3)},${bottomScore.toFixed(3)} ` +
+        `corners=${topLeftCornerScore.toFixed(3)},${topRightCornerScore.toFixed(3)},` +
+        `${bottomLeftCornerScore.toFixed(3)},${bottomRightCornerScore.toFixed(3)} ` +
+        `confidence=${safe.containerConfidence.toFixed(3)}`,
+    )
+    return safe
+  }
+
+  private static verticalBorderScore(
+    pixels: Uint8Array,
+    rowBytes: number,
+    x: number,
+    top: number,
+    bottom: number,
+  ): number {
+    let hits: number = 0
+    const count: number = Math.max(1, bottom - top)
+    for (let y: number = top; y < bottom; y++) {
+      const leftOffset: number = y * rowBytes + (x - 1) * 4
+      const rightOffset: number = y * rowBytes + (x + 1) * 4
+      if (Math.abs(
+        ComicLocalVisualBackend.pixelLuminance(pixels, leftOffset) -
+          ComicLocalVisualBackend.pixelLuminance(pixels, rightOffset),
+      ) >= 45) {
+        hits = hits + 1
+      }
+    }
+    return hits / count
+  }
+
+  private static horizontalBorderScore(
+    pixels: Uint8Array,
+    rowBytes: number,
+    y: number,
+    left: number,
+    right: number,
+  ): number {
+    let hits: number = 0
+    const count: number = Math.max(1, right - left)
+    for (let x: number = left; x < right; x++) {
+      const topOffset: number = (y - 1) * rowBytes + x * 4
+      const bottomOffset: number = (y + 1) * rowBytes + x * 4
+      if (Math.abs(
+        ComicLocalVisualBackend.pixelLuminance(pixels, topOffset) -
+          ComicLocalVisualBackend.pixelLuminance(pixels, bottomOffset),
+      ) >= 45) {
+        hits = hits + 1
+      }
+    }
+    return hits / count
   }
 
   private static enqueueBubbleInterior(
@@ -4619,9 +5314,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     targets: LocalSourceTreatmentTarget[],
     sourceInpainter: ComicLocalSourceInpainter | null,
     pageTextMask: Uint8Array | null,
-  ): Promise<void> {
+  ): Promise<number> {
     if (targets.length <= 0) {
-      return
+      return 0
     }
     // AOT needs enough known artwork around the glyph mask. A six-pixel crop leaves narrow
     // vertical text regions almost entirely masked and produces unstable colour hallucinations.
@@ -4681,20 +5376,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       )
     }
     if (treatmentLefts.length <= 0) {
-      return
+      return 0
     }
     const width: number = outerRight - outerLeft
     const height: number = outerBottom - outerTop
     if (width <= 1 || height <= 1) {
-      return
+      return 0
     }
     // One AOT call is useful only while combining neighbouring columns does not materially
     // reduce the model's effective resolution. Widely spread members keep their old
     // independent treatment even if layout can safely share one large balloon.
     if (activeTargets.length > 1 &&
       Math.max(width, height) > largestIndividualEdge * 1.35) {
+      let calls: number = 0
       for (let index: number = 0; index < activeTargets.length; index++) {
-        await ComicLocalVisualBackend.eraseSourceRegions(
+        calls = calls + await ComicLocalVisualBackend.eraseSourceRegions(
           pixelMap,
           imageWidth,
           imageHeight,
@@ -4703,7 +5399,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           pageTextMask,
         )
       }
-      return
+      return calls
     }
     const rowBytes: number = width * 4
     const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * height)
@@ -4790,7 +5486,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     if (masked <= 0) {
-      return
+      return 0
     }
     // Keep each dilation round isolated: collect only the new frontier, then merge it after
     // scanning. This is byte-equivalent to cloning the full mask every round without four
@@ -4868,7 +5564,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms ` +
             `write=${writeMs}ms`,
         )
-        return
+        return 1
       } catch (error) {
         DiagnosticLogger.warn(
           'comic-translation',
@@ -4944,6 +5640,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     await pixelMap.writePixels(area)
+    return 0
   }
 
   private static drawVerticalLayout(
