@@ -76,6 +76,15 @@ class SourceLayout:
 
 
 @dataclass(frozen=True)
+class DocumentSourceBlock:
+    index: int
+    block_id: str
+    rect: tuple[int, int, int, int]
+    kind: str
+    preserved: bool
+
+
+@dataclass(frozen=True)
 class RenderStageTimings:
     decode_ms: int
     mask_ms: int
@@ -106,6 +115,7 @@ class PageInput:
     container_probe_outcomes: tuple[str, ...]
     rectangular_border_probes: tuple[RectangularBorderProbe, ...]
     source_layouts: tuple[SourceLayout, ...]
+    document_source_blocks: tuple[DocumentSourceBlock, ...]
     layout_count: int | None
     analysis_ms: int | None
     render_ms: int | None
@@ -393,6 +403,7 @@ def load_manifest(path: Path) -> tuple[str, str, Thresholds, list[PageInput]]:
                 container_probe_outcomes=(),
                 rectangular_border_probes=(),
                 source_layouts=(),
+                document_source_blocks=(),
                 layout_count=None,
                 analysis_ms=None,
                 render_ms=None,
@@ -804,6 +815,102 @@ def recording_source_layouts(render: dict[str, Any]) -> tuple[SourceLayout, ...]
     return tuple(values)
 
 
+def recording_document_source_blocks(
+    analysis: dict[str, Any],
+) -> tuple[DocumentSourceBlock, ...]:
+    document = require_dict(analysis.get("document"), "recording analysis.document")
+    signals = require_list(
+        document.get("qualitySignals", []),
+        "recording analysis.document.qualitySignals",
+    )
+    preserved_ids: set[str] = set()
+    for signal_index, signal_value in enumerate(signals):
+        signal = require_dict(
+            signal_value,
+            f"recording analysis.document.qualitySignals[{signal_index}]",
+        )
+        block_id = str(signal.get("blockId", "")).strip()
+        if block_id:
+            preserved_ids.add(block_id)
+    blocks = require_list(
+        document.get("blocks"),
+        "recording analysis.document.blocks",
+    )
+    values: list[DocumentSourceBlock] = []
+    for index, block_value in enumerate(blocks):
+        block = require_dict(
+            block_value,
+            f"recording analysis.document.blocks[{index}]",
+        )
+        block_id = require_string(
+            block.get("blockId"),
+            f"recording analysis.document.blocks[{index}].blockId",
+        )
+        polygon = require_list(
+            block.get("polygon"),
+            f"recording analysis.document.blocks[{index}].polygon",
+        )
+        if len(polygon) < 3:
+            raise ValueError(
+                f"recording analysis document block polygon is invalid: {block_id}"
+            )
+        xs: list[float] = []
+        ys: list[float] = []
+        for point_index, point_value in enumerate(polygon):
+            point = require_dict(
+                point_value,
+                (
+                    f"recording analysis.document.blocks[{index}]."
+                    f"polygon[{point_index}]"
+                ),
+            )
+            xs.append(
+                bounded_float(
+                    point.get("x"),
+                    0.0,
+                    0.0,
+                    100000.0,
+                    (
+                        f"recording analysis.document.blocks[{index}]."
+                        f"polygon[{point_index}].x"
+                    ),
+                )
+            )
+            ys.append(
+                bounded_float(
+                    point.get("y"),
+                    0.0,
+                    0.0,
+                    100000.0,
+                    (
+                        f"recording analysis.document.blocks[{index}]."
+                        f"polygon[{point_index}].y"
+                    ),
+                )
+            )
+        resolved = (
+            int(math.floor(min(xs))),
+            int(math.floor(min(ys))),
+            int(math.ceil(max(xs))),
+            int(math.ceil(max(ys))),
+        )
+        if resolved[2] <= resolved[0] or resolved[3] <= resolved[1]:
+            raise ValueError(
+                f"recording analysis document block rect is empty: {block_id}"
+            )
+        kind = str(block.get("kind", "")).strip()
+        values.append(
+            DocumentSourceBlock(
+                index=index + 1,
+                block_id=block_id,
+                rect=resolved,
+                kind=kind,
+                preserved=block_id in preserved_ids or kind == "sfx",
+            )
+        )
+    return tuple(values)
+
+
 def recording_render_stage_timings(
     render: dict[str, Any],
 ) -> RenderStageTimings | None:
@@ -966,7 +1073,8 @@ def load_recording_dir(
             )
         rendered_name = raw.get("renderedImage")
         render_name = raw.get("render")
-        if not rendered_name or not render_name:
+        analysis_name = raw.get("analysis")
+        if not rendered_name or not render_name or not analysis_name:
             continue
         page_dir = manifest_path.parent.resolve()
         source_path = safe_recording_file(
@@ -984,9 +1092,18 @@ def load_recording_dir(
             render_name,
             f"{manifest_path}.render",
         )
+        analysis_path = safe_recording_file(
+            page_dir,
+            analysis_name,
+            f"{manifest_path}.analysis",
+        )
         render = require_dict(
             json.loads(render_path.read_text(encoding="utf-8")),
             f"recording render {render_path}",
+        )
+        analysis = require_dict(
+            json.loads(analysis_path.read_text(encoding="utf-8")),
+            f"recording analysis {analysis_path}",
         )
         source = require_dict(render.get("source"), f"{render_path}.source")
         source_page_index = bounded_int(
@@ -1060,6 +1177,7 @@ def load_recording_dir(
                 container_probe_outcomes=recording_container_probe_outcomes(render),
                 rectangular_border_probes=recording_rectangular_border_probes(render),
                 source_layouts=recording_source_layouts(render),
+                document_source_blocks=recording_document_source_blocks(analysis),
                 layout_count=len(
                     require_list(render.get("layouts", []), "recording render.layouts")
                 ),
@@ -1608,6 +1726,16 @@ def score_page(
             }
             for layout in page.source_layouts
         ],
+        "documentSourceBlocks": [
+            {
+                "index": block.index,
+                "blockId": block.block_id,
+                "rect": list(block.rect),
+                "kind": block.kind,
+                "preserved": block.preserved,
+            }
+            for block in page.document_source_blocks
+        ],
         "changedPixels": changed_pixels,
         "changedPercent": percent(changed_pixels, total_pixels),
         "introducedWhitePixels": introduced_white_pixels,
@@ -2106,6 +2234,10 @@ def apply_container_review(
     high_rejected = 0
     eligible_target_total = 0
     merged_source_target_total = 0
+    preserved_source_target_total = 0
+    preserved_merged_source_target_total = 0
+    unrendered_source_target_total = 0
+    unrendered_merged_source_target_total = 0
     missing_source_target_total = 0
     eligible_target_matched = 0
     review_by_probe_outcome: dict[str, dict[str, int]] = {}
@@ -2210,6 +2342,46 @@ def apply_container_review(
                         contained_layouts.append(int(source_layout["index"]))
                     elif target_coverage >= 0.5:
                         merged_layouts.append(int(source_layout["index"]))
+                contained_document_blocks: list[int] = []
+                merged_document_blocks: list[int] = []
+                preserved_document_blocks: set[int] = set()
+                for document_block in result["documentSourceBlocks"]:
+                    source_rect = document_block["rect"]
+                    source_left = int(source_rect[0])
+                    source_top = int(source_rect[1])
+                    source_right = int(source_rect[2])
+                    source_bottom = int(source_rect[3])
+                    intersection_width = max(
+                        0,
+                        min(source_right, target_right) -
+                        max(source_left, target_left),
+                    )
+                    intersection_height = max(
+                        0,
+                        min(source_bottom, target_bottom) -
+                        max(source_top, target_top),
+                    )
+                    intersection = intersection_width * intersection_height
+                    source_area = max(
+                        1,
+                        (source_right - source_left) *
+                        (source_bottom - source_top),
+                    )
+                    source_coverage = intersection / source_area
+                    target_coverage = intersection / target_area
+                    source_center_x = (source_left + source_right) / 2
+                    source_center_y = (source_top + source_bottom) / 2
+                    center_inside = (
+                        target_left <= source_center_x <= target_right and
+                        target_top <= source_center_y <= target_bottom
+                    )
+                    document_index = int(document_block["index"])
+                    if bool(document_block["preserved"]):
+                        preserved_document_blocks.add(document_index)
+                    if center_inside and source_coverage >= 0.75:
+                        contained_document_blocks.append(document_index)
+                    elif target_coverage >= 0.5:
+                        merged_document_blocks.append(document_index)
                 if contained_layouts:
                     source_status = "eligible"
                     eligible_target_ids.add(str(target["id"]))
@@ -2217,6 +2389,24 @@ def apply_container_review(
                 elif merged_layouts:
                     source_status = "merged_source"
                     merged_source_target_total += 1
+                elif any(
+                    index in preserved_document_blocks
+                    for index in contained_document_blocks
+                ):
+                    source_status = "preserved_source"
+                    preserved_source_target_total += 1
+                elif any(
+                    index in preserved_document_blocks
+                    for index in merged_document_blocks
+                ):
+                    source_status = "preserved_merged_source"
+                    preserved_merged_source_target_total += 1
+                elif contained_document_blocks:
+                    source_status = "unrendered_source"
+                    unrendered_source_target_total += 1
+                elif merged_document_blocks:
+                    source_status = "unrendered_merged_source"
+                    unrendered_merged_source_target_total += 1
                 else:
                     source_status = "missing_source"
                     missing_source_target_total += 1
@@ -2226,6 +2416,15 @@ def apply_container_review(
                         "status": source_status,
                         "containedLayoutIndices": contained_layouts,
                         "mergedLayoutIndices": merged_layouts,
+                        "containedDocumentBlockIndices":
+                            contained_document_blocks,
+                        "mergedDocumentBlockIndices":
+                            merged_document_blocks,
+                        "preservedDocumentBlockIndices": sorted(
+                            preserved_document_blocks.intersection(
+                                contained_document_blocks + merged_document_blocks
+                            )
+                        ),
                     }
                 )
             matched_labels: set[int] = set()
@@ -2427,6 +2626,18 @@ def apply_container_review(
     if review_schema_version == 2:
         summary["containerReview"]["eligibleTargets"] = eligible_target_total
         summary["containerReview"]["mergedSourceTargets"] = merged_source_target_total
+        summary["containerReview"]["preservedSourceTargets"] = (
+            preserved_source_target_total
+        )
+        summary["containerReview"]["preservedMergedSourceTargets"] = (
+            preserved_merged_source_target_total
+        )
+        summary["containerReview"]["unrenderedSourceTargets"] = (
+            unrendered_source_target_total
+        )
+        summary["containerReview"]["unrenderedMergedSourceTargets"] = (
+            unrendered_merged_source_target_total
+        )
         summary["containerReview"]["missingSourceTargets"] = missing_source_target_total
         summary["containerReview"]["eligibleMatchedTargets"] = eligible_target_matched
         summary["containerReview"]["eligibleRecallPercent"] = (
@@ -2678,21 +2889,18 @@ def page_section(result: dict[str, Any]) -> str:
         source_status_suffix = ""
         target_source_status = container_review.get("targetSourceStatus")
         if isinstance(target_source_status, list):
-            eligible_count = sum(
-                1 for value in target_source_status
-                if isinstance(value, dict) and value.get("status") == "eligible"
-            )
-            merged_count = sum(
-                1 for value in target_source_status
-                if isinstance(value, dict) and value.get("status") == "merged_source"
-            )
-            missing_count = sum(
-                1 for value in target_source_status
-                if isinstance(value, dict) and value.get("status") == "missing_source"
-            )
+            status_counts: dict[str, int] = {}
+            for value in target_source_status:
+                if not isinstance(value, dict):
+                    continue
+                status = str(value.get("status", "unknown"))
+                status_counts[status] = status_counts.get(status, 0) + 1
             source_status_suffix = (
-                f" / source eligible {eligible_count}, merged {merged_count}, "
-                f"missing {missing_count}"
+                " / source " +
+                ", ".join(
+                    f"{status} {count}"
+                    for status, count in sorted(status_counts.items())
+                )
             )
         rows.append(
             metric_row(
@@ -2871,8 +3079,10 @@ def write_html(
             source_breakdown = (
                 f" Source-grounded split: {container_review['eligibleTargets']} "
                 f"eligible targets, {container_review['mergedSourceTargets']} merged "
-                f"with another OCR region, {container_review['missingSourceTargets']} "
-                f"without a source region; eligible-target recall "
+                f"render sources, "
+                f"{container_review['preservedMergedSourceTargets']} preserved merged "
+                f"sources, {container_review['missingSourceTargets']} without a document "
+                f"source; eligible-target recall "
                 f"{format_percent(container_review['eligibleRecallPercent'])}."
             )
         review_paragraph = (
