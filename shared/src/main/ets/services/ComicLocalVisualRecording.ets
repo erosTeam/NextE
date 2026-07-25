@@ -130,6 +130,63 @@ export class ComicLocalVisualRecordedColor {
   }
 }
 
+export class ComicLocalVisualRecordedSourceBlock {
+  left: number = 0
+  top: number = 0
+  right: number = 0
+  bottom: number = 0
+  styleHint: string = ''
+  textLength: number = 0
+  tileIndex: number = 0
+  detectorRegionIndexes: number[] = []
+  detectorLabels: string[] = []
+  preserveSource: boolean = false
+  lineWidthScale: number = 0
+  lineHeightScale: number = 0
+
+  copy(): ComicLocalVisualRecordedSourceBlock {
+    const value: ComicLocalVisualRecordedSourceBlock =
+      new ComicLocalVisualRecordedSourceBlock()
+    value.left = this.left
+    value.top = this.top
+    value.right = this.right
+    value.bottom = this.bottom
+    value.styleHint = this.styleHint
+    value.textLength = this.textLength
+    value.tileIndex = this.tileIndex
+    value.detectorRegionIndexes = this.detectorRegionIndexes.slice()
+    value.detectorLabels = this.detectorLabels.slice()
+    value.preserveSource = this.preserveSource
+    value.lineWidthScale = this.lineWidthScale
+    value.lineHeightScale = this.lineHeightScale
+    return value
+  }
+}
+
+export class ComicLocalVisualGroupingStages {
+  grouped: ComicLocalVisualRecordedSourceBlock[] = []
+  verticalMerged: ComicLocalVisualRecordedSourceBlock[] = []
+  horizontalMerged: ComicLocalVisualRecordedSourceBlock[] = []
+  output: ComicLocalVisualRecordedSourceBlock[] = []
+
+  copy(): ComicLocalVisualGroupingStages {
+    const value: ComicLocalVisualGroupingStages = new ComicLocalVisualGroupingStages()
+    for (let index: number = 0; index < this.grouped.length; index++) {
+      value.grouped.push(this.grouped[index].copy())
+    }
+    for (let index: number = 0; index < this.verticalMerged.length; index++) {
+      value.verticalMerged.push(this.verticalMerged[index].copy())
+    }
+    for (let index: number = 0; index < this.horizontalMerged.length; index++) {
+      value.horizontalMerged.push(this.horizontalMerged[index].copy())
+    }
+    for (let index: number = 0; index < this.output.length; index++) {
+      value.output.push(this.output[index].copy())
+    }
+    return value
+  }
+}
+
 export class ComicLocalVisualRecordedLayout {
   blockIds: string[] = []
   sourceRects: ComicLocalVisualRecordedRect[] = []
@@ -176,6 +233,7 @@ export class ComicLocalVisualAnalysisRecording {
   document: ComicPageDocument = new ComicPageDocument()
   adapterTemplate: ComicBackendTemplate = new ComicBackendTemplate()
   timings: ComicLocalVisualAnalysisTimings = new ComicLocalVisualAnalysisTimings()
+  groupingStages: ComicLocalVisualGroupingStages = new ComicLocalVisualGroupingStages()
 
   copy(): ComicLocalVisualAnalysisRecording {
     const value: ComicLocalVisualAnalysisRecording = new ComicLocalVisualAnalysisRecording()
@@ -186,6 +244,7 @@ export class ComicLocalVisualAnalysisRecording {
     value.document = this.document.copy()
     value.adapterTemplate = this.adapterTemplate.copy()
     value.timings = this.timings.copy()
+    value.groupingStages = this.groupingStages.copy()
     return value
   }
 }
@@ -266,6 +325,7 @@ class ComicLocalVisualAnalysisFile {
   document: ComicPageDocument = new ComicPageDocument()
   adapterTemplate: ComicLocalVisualRecordedTemplate = new ComicLocalVisualRecordedTemplate()
   timings: ComicLocalVisualAnalysisTimings = new ComicLocalVisualAnalysisTimings()
+  groupingStages: ComicLocalVisualGroupingStages = new ComicLocalVisualGroupingStages()
 }
 
 class ComicLocalVisualRenderFile {
@@ -353,6 +413,7 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     file.adapterTemplate.fileName = templateFile
     file.adapterTemplate.byteLength = recording.adapterTemplate.payload.byteLength
     file.timings = recording.timings.copy()
+    file.groupingStages = recording.groupingStages.copy()
     ComicLocalVisualFileRecorder.writeJson(`${pageDir}/analysis.json`, file)
     this.writeManifest(pageDir, recording.source.pageIndex, sourceFile, false, false, false, false)
   }

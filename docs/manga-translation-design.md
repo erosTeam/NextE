@@ -956,6 +956,11 @@ layout 的比例只能说明观测覆盖，不能代替 recall；覆盖率、连
 漏检；必须分别进入分组边界与低对比文字召回工作项，禁止通过容器阈值扩张、接受画格边框或扩大擦除范围
 补数。
 
+显式 developer recording 必须保留分组前后的来源链，至少包括 detector 分组、纵向合并、横向合并和
+最终输出四个阶段，以及每个块参与的 detector region ids/labels。该诊断只写入 opt-in recording，不进入
+持久 ComicPageDocument，也不改变 Reader 结果。上游分割策略必须先用该来源链在真实正向和硬负向留出
+比较；没有来源链时，禁止仅凭最终大框或单页截图修改统一合并阈值。
+
 设备 recording 应同时落盘逐页 analysis/render 时间；性能决策优先处理在真实页上占比更高且随 block
 数量增长的阶段，不得只凭单张合成页或总任务时间判断瓶颈。
 

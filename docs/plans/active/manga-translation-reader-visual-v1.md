@@ -1167,3 +1167,11 @@ YSGYolo/CTD proposal 覆盖；两个 render-source 合并目标原本存在逐�
 轮廓。下一质量阶段不再继续调统一阈值，拆为两个工作项：容器侧增加同轮廓/成对平行线证据以降低误检；
 上游侧分别处理 2 个渲染源跨区合并、1 个安全保留的合并文档块和 2 个真正漏检。不得用统一横向间距
 阈值强拆正常多行对白，任何整格画面边框也不得为了提高 recall 进入擦除范围。
+
+2026-07-26 下一阶段先补齐真实分组来源链，而没有直接改生产阈值。显式 developer recording 现保存
+`grouped`、`verticalMerged`、`horizontalMerged`、`output` 四个阶段，并为每个块记录完整 detector
+region ids/labels、矩形、字符数、原始行尺度和保留标记；生产 ComicPageDocument 与 Reader 结果不变。
+设备 `237` 的目标后端回归 40/40，四页公版重放 1/1。P12 右侧错误大块由 10 个
+`changfangtiao` 行区横向合并而成，左侧由 8 个行区合并而成，已把后续工作精确定位到视觉分隔边界。
+下一项是在同一正向/硬负向真实页上自动评分边界线证据，不得只凭 P12 写页面位置或 detector label
+特例。

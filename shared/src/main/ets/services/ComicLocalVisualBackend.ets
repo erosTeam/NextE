@@ -56,9 +56,11 @@ import {
 import {
   ComicLocalVisualAnalysisRecording,
   ComicLocalVisualAnalysisTimings,
+  ComicLocalVisualGroupingStages,
   ComicLocalVisualRecordedColor,
   ComicLocalVisualRecordedLayout,
   ComicLocalVisualRecordedRect,
+  ComicLocalVisualRecordedSourceBlock,
   ComicLocalVisualRecordingSink,
   ComicLocalVisualRenderRecording,
   ComicLocalVisualRenderTimings,
@@ -133,6 +135,7 @@ class LocalMappedBlock {
   styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
   tileIndex: number = 0
   detectorRegionIndex: number = -1
+  detectorRegionIndexes: number[] = []
   preserveSource: boolean = false
   lineWidthScale: number = 1
   lineHeightScale: number = 1
@@ -478,11 +481,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         lines,
         detection,
       )
+      const groupingStages: ComicLocalVisualGroupingStages | null =
+        this.recordingSink === null ? null : new ComicLocalVisualGroupingStages()
       const groupedBlocks: LocalMappedBlock[] = ComicLocalVisualBackend.groupLines(
         layoutLines,
         detection,
         request.source.imageWidth,
         request.source.imageHeight,
+        groupingStages,
       )
       const blocks: LocalMappedBlock[] = ComicLocalVisualBackend.filterFooterArtifacts(
         groupedBlocks,
@@ -545,6 +551,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         recording.document = result.document.copy()
         recording.adapterTemplate = result.adapterTemplate.copy()
         recording.timings = timings
+        recording.groupingStages =
+          groupingStages === null ? new ComicLocalVisualGroupingStages() : groupingStages.copy()
         this.recordingSink.recordAnalysis(recording)
       }
       return result
@@ -2266,6 +2274,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     detection: ComicNativeRegionDetectionResult | null,
     sourceWidth: number,
     sourceHeight: number,
+    recordingStages: ComicLocalVisualGroupingStages | null = null,
   ): LocalMappedBlock[] {
     const groups: LocalMappedLine[][] = []
     const tileIndexes: number[] = []
@@ -2317,12 +2326,36 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       sourceWidth,
       sourceHeight,
     )
+    if (recordingStages !== null) {
+      recordingStages.grouped = ComicLocalVisualBackend.recordedSourceBlocks(
+        grouped,
+        detection,
+      )
+    }
     const verticalMerged: LocalMappedBlock[] =
       ComicLocalVisualBackend.mergeAdjacentVerticalBlocks(grouped)
+    if (recordingStages !== null) {
+      recordingStages.verticalMerged = ComicLocalVisualBackend.recordedSourceBlocks(
+        verticalMerged,
+        detection,
+      )
+    }
     const horizontalMerged: LocalMappedBlock[] =
       ComicLocalVisualBackend.mergeAdjacentHorizontalBlocks(verticalMerged)
+    if (recordingStages !== null) {
+      recordingStages.horizontalMerged = ComicLocalVisualBackend.recordedSourceBlocks(
+        horizontalMerged,
+        detection,
+      )
+    }
     const output: LocalMappedBlock[] =
       ComicLocalVisualBackend.collapseContainedVerticalSourceBlocks(horizontalMerged)
+    if (recordingStages !== null) {
+      recordingStages.output = ComicLocalVisualBackend.recordedSourceBlocks(
+        output,
+        detection,
+      )
+    }
     ComicLocalVisualBackend.logDetectorRenderPolicy(
       output,
       detection,
@@ -2397,6 +2430,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       values[ownerIndex].text = combined
       values[ownerIndex].preserveSource =
         values[ownerIndex].preserveSource || values[candidateIndex].preserveSource
+      values[ownerIndex].detectorRegionIndexes =
+        ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+          values[ownerIndex].detectorRegionIndexes,
+          values[candidateIndex].detectorRegionIndexes,
+        )
       suppressed[candidateIndex] = true
     }
     const output: LocalMappedBlock[] = []
@@ -2411,6 +2449,55 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   private static mappedBlockArea(block: LocalMappedBlock): number {
     const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     return Math.max(1, rect.width() * rect.height())
+  }
+
+  private static recordedSourceBlocks(
+    blocks: LocalMappedBlock[],
+    detection: ComicNativeRegionDetectionResult | null,
+  ): ComicLocalVisualRecordedSourceBlock[] {
+    const values: ComicLocalVisualRecordedSourceBlock[] = []
+    for (let index: number = 0; index < blocks.length; index++) {
+      const block: LocalMappedBlock = blocks[index]
+      const rect: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+      const value: ComicLocalVisualRecordedSourceBlock =
+        new ComicLocalVisualRecordedSourceBlock()
+      value.left = Math.floor(rect.left)
+      value.top = Math.floor(rect.top)
+      value.right = Math.ceil(rect.right)
+      value.bottom = Math.ceil(rect.bottom)
+      value.styleHint = block.styleHint
+      value.textLength = block.text.replace(/\s+/g, '').length
+      value.tileIndex = block.tileIndex
+      value.detectorRegionIndexes = block.detectorRegionIndexes.slice()
+      value.preserveSource = block.preserveSource
+      value.lineWidthScale = block.lineWidthScale
+      value.lineHeightScale = block.lineHeightScale
+      for (let regionOffset: number = 0;
+        regionOffset < block.detectorRegionIndexes.length; regionOffset++) {
+        const regionIndex: number = block.detectorRegionIndexes[regionOffset]
+        if (detection === null || regionIndex < 0 || regionIndex >= detection.regions.length) {
+          value.detectorLabels.push('')
+        } else {
+          value.detectorLabels.push(detection.regions[regionIndex].label.trim().toLowerCase())
+        }
+      }
+      values.push(value)
+    }
+    return values
+  }
+
+  private static combinedDetectorRegionIndexes(
+    first: number[],
+    second: number[],
+  ): number[] {
+    const values: number[] = first.slice()
+    for (let index: number = 0; index < second.length; index++) {
+      if (!values.includes(second[index])) {
+        values.push(second[index])
+      }
+    }
+    values.sort((left: number, right: number): number => left - right)
+    return values
   }
 
   private static applyDetectorRenderPolicy(
@@ -2643,6 +2730,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.styleHint = vertical ? LOCAL_VERTICAL_STYLE_HINT : LOCAL_HORIZONTAL_STYLE_HINT
     block.tileIndex = lines[0].tileIndex
     block.detectorRegionIndex = lines[0].detectorRegionIndex
+    if (lines[0].detectorRegionIndex >= 0) {
+      block.detectorRegionIndexes.push(lines[0].detectorRegionIndex)
+    }
     const textParts: string[] = []
     let left: number = Number.POSITIVE_INFINITY
     let top: number = Number.POSITIVE_INFINITY
@@ -2749,6 +2839,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.tileIndex = first.tileIndex
     block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
       first.detectorRegionIndex : -1
+    block.detectorRegionIndexes = ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+      first.detectorRegionIndexes,
+      second.detectorRegionIndexes,
+    )
     block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)
     block.lineHeightScale = Math.max(first.lineHeightScale, second.lineHeightScale)
@@ -2840,6 +2934,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.tileIndex = first.tileIndex
     block.detectorRegionIndex = first.detectorRegionIndex === second.detectorRegionIndex ?
       first.detectorRegionIndex : -1
+    block.detectorRegionIndexes = ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+      first.detectorRegionIndexes,
+      second.detectorRegionIndexes,
+    )
     block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)
     block.lineHeightScale = Math.max(first.lineHeightScale, second.lineHeightScale)
