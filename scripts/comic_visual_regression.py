@@ -85,6 +85,17 @@ class DocumentSourceBlock:
 
 
 @dataclass(frozen=True)
+class GroupingSourceBlock:
+    rect: tuple[int, int, int, int]
+    style_hint: str
+    text_length: int
+    detector_region_indexes: tuple[int, ...]
+    detector_labels: tuple[str, ...]
+    line_width_scale: float
+    line_height_scale: float
+
+
+@dataclass(frozen=True)
 class RenderStageTimings:
     decode_ms: int
     mask_ms: int
@@ -116,6 +127,8 @@ class PageInput:
     rectangular_border_probes: tuple[RectangularBorderProbe, ...]
     source_layouts: tuple[SourceLayout, ...]
     document_source_blocks: tuple[DocumentSourceBlock, ...]
+    grouped_source_blocks: tuple[GroupingSourceBlock, ...]
+    horizontal_merged_source_blocks: tuple[GroupingSourceBlock, ...]
     layout_count: int | None
     analysis_ms: int | None
     render_ms: int | None
@@ -404,6 +417,8 @@ def load_manifest(path: Path) -> tuple[str, str, Thresholds, list[PageInput]]:
                 rectangular_border_probes=(),
                 source_layouts=(),
                 document_source_blocks=(),
+                grouped_source_blocks=(),
+                horizontal_merged_source_blocks=(),
                 layout_count=None,
                 analysis_ms=None,
                 render_ms=None,
@@ -911,6 +926,121 @@ def recording_document_source_blocks(
     return tuple(values)
 
 
+def recording_grouping_source_blocks(
+    analysis: dict[str, Any],
+    stage: str,
+) -> tuple[GroupingSourceBlock, ...]:
+    raw_stages = analysis.get("groupingStages")
+    if raw_stages is None:
+        return ()
+    stages = require_dict(raw_stages, "recording analysis.groupingStages")
+    raw_blocks = require_list(
+        stages.get(stage, []),
+        f"recording analysis.groupingStages.{stage}",
+    )
+    values: list[GroupingSourceBlock] = []
+    for index, block_value in enumerate(raw_blocks):
+        block = require_dict(
+            block_value,
+            f"recording analysis.groupingStages.{stage}[{index}]",
+        )
+
+        def coordinate(name: str) -> int:
+            return bounded_int(
+                block.get(name),
+                0,
+                0,
+                100000,
+                f"recording analysis.groupingStages.{stage}[{index}].{name}",
+            )
+
+        rect = (
+            coordinate("left"),
+            coordinate("top"),
+            coordinate("right"),
+            coordinate("bottom"),
+        )
+        if rect[2] <= rect[0] or rect[3] <= rect[1]:
+            raise ValueError(
+                f"recording analysis grouping block is empty: {stage}[{index}]"
+            )
+        region_values = require_list(
+            block.get("detectorRegionIndexes", []),
+            (
+                f"recording analysis.groupingStages.{stage}[{index}]."
+                "detectorRegionIndexes"
+            ),
+        )
+        label_values = require_list(
+            block.get("detectorLabels", []),
+            (
+                f"recording analysis.groupingStages.{stage}[{index}]."
+                "detectorLabels"
+            ),
+        )
+        if len(region_values) != len(label_values):
+            raise ValueError(
+                f"recording analysis grouping provenance is inconsistent: "
+                f"{stage}[{index}]"
+            )
+        region_indexes = tuple(
+            bounded_int(
+                value,
+                0,
+                0,
+                100000,
+                (
+                    f"recording analysis.groupingStages.{stage}[{index}]."
+                    f"detectorRegionIndexes[{offset}]"
+                ),
+            )
+            for offset, value in enumerate(region_values)
+        )
+        labels = tuple(
+            str(value).strip().lower()
+            for value in label_values
+        )
+        values.append(
+            GroupingSourceBlock(
+                rect=rect,
+                style_hint=str(block.get("styleHint", "")).strip(),
+                text_length=bounded_int(
+                    block.get("textLength"),
+                    0,
+                    0,
+                    100000,
+                    (
+                        f"recording analysis.groupingStages.{stage}[{index}]."
+                        "textLength"
+                    ),
+                ),
+                detector_region_indexes=region_indexes,
+                detector_labels=labels,
+                line_width_scale=bounded_float(
+                    block.get("lineWidthScale"),
+                    0.0,
+                    0.0,
+                    100000.0,
+                    (
+                        f"recording analysis.groupingStages.{stage}[{index}]."
+                        "lineWidthScale"
+                    ),
+                ),
+                line_height_scale=bounded_float(
+                    block.get("lineHeightScale"),
+                    0.0,
+                    0.0,
+                    100000.0,
+                    (
+                        f"recording analysis.groupingStages.{stage}[{index}]."
+                        "lineHeightScale"
+                    ),
+                ),
+            )
+        )
+    return tuple(values)
+
+
 def recording_render_stage_timings(
     render: dict[str, Any],
 ) -> RenderStageTimings | None:
@@ -1178,6 +1308,14 @@ def load_recording_dir(
                 rectangular_border_probes=recording_rectangular_border_probes(render),
                 source_layouts=recording_source_layouts(render),
                 document_source_blocks=recording_document_source_blocks(analysis),
+                grouped_source_blocks=recording_grouping_source_blocks(
+                    analysis,
+                    "grouped",
+                ),
+                horizontal_merged_source_blocks=recording_grouping_source_blocks(
+                    analysis,
+                    "horizontalMerged",
+                ),
                 layout_count=len(
                     require_list(render.get("layouts", []), "recording render.layouts")
                 ),
@@ -1208,6 +1346,174 @@ def load_recording_dir(
 def load_rgb(path: Path) -> tuple[Image.Image, np.ndarray]:
     image = Image.open(path).convert("RGB")
     return image, np.asarray(image, dtype=np.uint8)
+
+
+def longest_expanded_dark_run(row: np.ndarray) -> int:
+    if row.size <= 0:
+        return 0
+    expanded = row.copy()
+    expanded[1:] |= row[:-1]
+    expanded[:-1] |= row[1:]
+    longest = 0
+    current = 0
+    for value in expanded:
+        if bool(value):
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return longest
+
+
+def horizontal_separator_probes(
+    source: np.ndarray,
+    grouped: tuple[GroupingSourceBlock, ...],
+    merged: tuple[GroupingSourceBlock, ...],
+) -> list[dict[str, Any]]:
+    if not grouped or not merged:
+        return []
+    height, width = source.shape[:2]
+    grayscale = (
+        source[:, :, 0].astype(np.float32) * 0.299
+        + source[:, :, 1].astype(np.float32) * 0.587
+        + source[:, :, 2].astype(np.float32) * 0.114
+    )
+    probes: list[dict[str, Any]] = []
+    for merged_index, merged_block in enumerate(merged):
+        merged_regions = set(merged_block.detector_region_indexes)
+        if (
+            merged_block.style_hint != "horizontal-ltr"
+            or len(merged_regions) < 2
+        ):
+            continue
+        members = [
+            block
+            for block in grouped
+            if block.style_hint == "horizontal-ltr"
+            and block.detector_region_indexes
+            and set(block.detector_region_indexes).issubset(merged_regions)
+        ]
+        members.sort(
+            key=lambda block: (
+                (block.rect[1] + block.rect[3]) / 2,
+                block.rect[0],
+            )
+        )
+        for boundary_index in range(len(members) - 1):
+            upper = members[boundary_index]
+            lower = members[boundary_index + 1]
+            left = max(0, upper.rect[0], lower.rect[0])
+            right = min(width, upper.rect[2], lower.rect[2])
+            if right - left < 24:
+                continue
+            overlap = right - left
+            overlap_ratio = overlap / max(
+                1,
+                min(
+                    upper.rect[2] - upper.rect[0],
+                    lower.rect[2] - lower.rect[0],
+                ),
+            )
+            vertical_gap = lower.rect[1] - upper.rect[3]
+            merged_width = max(1, merged_block.rect[2] - merged_block.rect[0])
+            span_of_merged_width = overlap / merged_width
+            if overlap_ratio < 0.5:
+                continue
+            boundary_center = int(round((upper.rect[3] + lower.rect[1]) / 2))
+            search_radius = max(
+                3,
+                min(
+                    12,
+                    int(round(max(
+                        upper.line_height_scale,
+                        lower.line_height_scale,
+                    ) * 0.28)),
+                ),
+            )
+            top = max(0, boundary_center - search_radius)
+            bottom = min(height, boundary_center + search_radius + 1)
+            if bottom <= top:
+                continue
+            crop = grayscale[top:bottom, left:right]
+            median = float(np.median(crop))
+            dark_threshold = max(20.0, min(170.0, median - 32.0))
+            dark = crop <= dark_threshold
+            edge_top = max(1, top)
+            edge_bottom = min(height - 1, bottom)
+            edge = np.abs(
+                grayscale[edge_top + 1:edge_bottom + 1, left:right]
+                - grayscale[edge_top - 1:edge_bottom - 1, left:right]
+            ) >= 36.0
+            best_run = 0
+            best_coverage = 0.0
+            best_y = top
+            for row_offset in range(dark.shape[0]):
+                row = dark[row_offset]
+                run = longest_expanded_dark_run(row)
+                coverage = float(np.count_nonzero(row)) / max(1, row.size)
+                if run > best_run or (run == best_run and coverage > best_coverage):
+                    best_run = run
+                    best_coverage = coverage
+                    best_y = top + row_offset
+            run_ratio = best_run / max(1, right - left)
+            best_edge_run = 0
+            best_edge_coverage = 0.0
+            best_edge_y = edge_top
+            for row_offset in range(edge.shape[0]):
+                row = edge[row_offset]
+                run = longest_expanded_dark_run(row)
+                coverage = float(np.count_nonzero(row)) / max(1, row.size)
+                if (
+                    run > best_edge_run
+                    or (
+                        run == best_edge_run
+                        and coverage > best_edge_coverage
+                    )
+                ):
+                    best_edge_run = run
+                    best_edge_coverage = coverage
+                    best_edge_y = edge_top + row_offset
+            edge_run_ratio = best_edge_run / max(1, right - left)
+            probes.append(
+                {
+                    "mergedIndex": merged_index + 1,
+                    "boundaryIndex": boundary_index + 1,
+                    "upperRect": list(upper.rect),
+                    "lowerRect": list(lower.rect),
+                    "xRange": [left, right],
+                    "searchYRange": [top, bottom],
+                    "bestY": best_y,
+                    "overlapRatio": round(overlap_ratio, 4),
+                    "verticalGap": vertical_gap,
+                    "spanOfMergedWidthRatio": round(span_of_merged_width, 4),
+                    "localMedianLuminance": round(median, 2),
+                    "darkThreshold": round(dark_threshold, 2),
+                    "darkRunRatio": round(run_ratio, 4),
+                    "darkCoverageRatio": round(best_coverage, 4),
+                    "bestEdgeY": best_edge_y,
+                    "edgeRunRatio": round(edge_run_ratio, 4),
+                    "edgeCoverageRatio": round(best_edge_coverage, 4),
+                    "strongSeparatorCandidate": (
+                        vertical_gap >= 3
+                        and span_of_merged_width >= 0.5
+                        and (
+                            (
+                                run_ratio >= 0.55
+                                and best_coverage >= 0.28
+                            )
+                            or (
+                                edge_run_ratio >= 0.55
+                                and best_edge_coverage >= 0.28
+                            )
+                        )
+                    ),
+                    "upperDetectorRegionIndexes":
+                        list(upper.detector_region_indexes),
+                    "lowerDetectorRegionIndexes":
+                        list(lower.detector_region_indexes),
+                }
+            )
+    return probes
 
 
 def load_allowed_mask(path: Path, size: tuple[int, int]) -> np.ndarray:
@@ -1471,6 +1777,11 @@ def score_page(
         baseline_image, baseline = load_rgb(page.baseline_path)
     ensure_same_size(page.page_id, source_image, candidate_image, baseline_image)
     original_size = source_image.size
+    separator_probes = horizontal_separator_probes(
+        source,
+        page.grouped_source_blocks,
+        page.horizontal_merged_source_blocks,
+    )
     allowed: np.ndarray | None = None
     if page.allowed_mask_path is not None:
         allowed = load_allowed_mask(page.allowed_mask_path, original_size)
@@ -1736,6 +2047,23 @@ def score_page(
             }
             for block in page.document_source_blocks
         ],
+        "groupingStages": {
+            "groupedBlocks": len(page.grouped_source_blocks),
+            "horizontalMergedBlocks":
+                len(page.horizontal_merged_source_blocks),
+            "multiRegionHorizontalMergedBlocks": sum(
+                1
+                for block in page.horizontal_merged_source_blocks
+                if block.style_hint == "horizontal-ltr"
+                and len(block.detector_region_indexes) >= 2
+            ),
+            "horizontalSeparatorProbes": separator_probes,
+            "strongSeparatorCandidates": sum(
+                1
+                for probe in separator_probes
+                if probe["strongSeparatorCandidate"]
+            ),
+        },
         "changedPixels": changed_pixels,
         "changedPercent": percent(changed_pixels, total_pixels),
         "introducedWhitePixels": introduced_white_pixels,
@@ -1895,6 +2223,11 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         "skippedGroups": 0,
         "inpaintCalls": 0,
         "inpaintCallPages": 0,
+        "groupedSourceBlocks": 0,
+        "horizontalMergedSourceBlocks": 0,
+        "multiRegionHorizontalMergedBlocks": 0,
+        "horizontalSeparatorProbes": 0,
+        "strongSeparatorCandidates": 0,
     }
     container_confidences: list[float] = []
     container_probe_outcomes: dict[str, int] = {}
@@ -1927,6 +2260,20 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         if result["layoutCount"] is not None:
             totals["layouts"] += int(result["layoutCount"])
             totals["layoutPages"] += 1
+        grouping_stages = result["groupingStages"]
+        totals["groupedSourceBlocks"] += int(grouping_stages["groupedBlocks"])
+        totals["horizontalMergedSourceBlocks"] += int(
+            grouping_stages["horizontalMergedBlocks"]
+        )
+        totals["multiRegionHorizontalMergedBlocks"] += int(
+            grouping_stages["multiRegionHorizontalMergedBlocks"]
+        )
+        totals["horizontalSeparatorProbes"] += len(
+            grouping_stages["horizontalSeparatorProbes"]
+        )
+        totals["strongSeparatorCandidates"] += int(
+            grouping_stages["strongSeparatorCandidates"]
+        )
         if result["totalMs"] is not None:
             totals["analysisMs"] += int(result["analysisMs"])
             totals["renderMs"] += int(result["renderMs"])
@@ -2034,6 +2381,15 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
             "highConfidenceContainerDetections"
         ],
         "layoutCount": totals["layouts"] if totals["layoutPages"] > 0 else None,
+        "groupedSourceBlocks": totals["groupedSourceBlocks"],
+        "horizontalMergedSourceBlocks": totals[
+            "horizontalMergedSourceBlocks"
+        ],
+        "multiRegionHorizontalMergedBlocks": totals[
+            "multiRegionHorizontalMergedBlocks"
+        ],
+        "horizontalSeparatorProbes": totals["horizontalSeparatorProbes"],
+        "strongSeparatorCandidates": totals["strongSeparatorCandidates"],
         "containerCandidateLayoutPercent": (
             percent(totals["containerDetections"], totals["layouts"])
             if totals["layoutPages"] > 0
@@ -2850,6 +3206,18 @@ def page_section(result: dict[str, Any]) -> str:
                     f"{probe['bottomRightCornerScore']:.4f}",
                 )
             )
+    grouping_stages = result["groupingStages"]
+    if grouping_stages["groupedBlocks"] > 0:
+        rows.append(
+            metric_row(
+                "Horizontal grouping probes",
+                f"{grouping_stages['groupedBlocks']} grouped blocks / "
+                f"{grouping_stages['multiRegionHorizontalMergedBlocks']} "
+                "multi-region merged blocks / "
+                f"{len(grouping_stages['horizontalSeparatorProbes'])} boundaries / "
+                f"{grouping_stages['strongSeparatorCandidates']} strong candidates",
+            )
+        )
     if result["containerCandidates"]:
         for candidate in result["containerCandidates"]:
             feature_parts = [
@@ -3097,6 +3465,16 @@ def write_html(
             f"{format_percent(container_review['highConfidenceRecallPercent'])}."
             f"{html.escape(source_breakdown)}</p>"
         )
+    grouping_paragraph = ""
+    if summary["groupedSourceBlocks"] > 0:
+        grouping_paragraph = (
+            f"<p>Horizontal grouping diagnostics: "
+            f"{summary['groupedSourceBlocks']} grouped source blocks · "
+            f"{summary['multiRegionHorizontalMergedBlocks']} multi-region merged "
+            f"blocks · {summary['horizontalSeparatorProbes']} tested boundaries · "
+            f"{summary['strongSeparatorCandidates']} strong separator candidates. "
+            "These are recording-only observations, not production split decisions.</p>"
+        )
     document = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -3136,6 +3514,7 @@ def write_html(
     {container_paragraph}
     {probe_paragraph}
     {timing_paragraph}
+    {grouping_paragraph}
     {review_paragraph}
     {baseline_paragraph}
     <p class="legend"><span class="yellow">■ changed</span>
