@@ -4639,6 +4639,26 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const minimumArea: number = Math.max(64, raw.width() * raw.height() * 0.72)
     if (touchesCandidateEdge) {
       fallback.containerProbeOutcome = 'touches_probe_edge'
+      if (captureContainerMask) {
+        const rectangular: LocalRenderRect | null =
+          ComicLocalVisualBackend.rectangularBorderTextRect(
+            pixels,
+            width,
+            height,
+            rowBytes,
+            rawLeft,
+            rawTop,
+            rawRight,
+            rawBottom,
+            left,
+            top,
+            blockId,
+            fallback,
+          )
+        if (rectangular !== null) {
+          return rectangular
+        }
+      }
       return fallback
     }
     if (area < minimumArea) {
@@ -4777,7 +4797,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   ): LocalRenderRect | null {
     const rawWidth: number = rawRight - rawLeft
     const rawHeight: number = rawBottom - rawTop
-    if (rawWidth < 24 || rawHeight < 24) {
+    // OCR may retain only one short line from a wider caption. Keep the width floor,
+    // but allow a 12 px-high source line while recording so the surrounding border can
+    // still be measured against real-page target boxes.
+    if (rawWidth < 24 || rawHeight < 12) {
       diagnostics.rectBorderProbeOutcome = 'raw_rect_too_small'
       return null
     }
@@ -4789,6 +4812,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     let rightScore: number = 0
     let topScore: number = 0
     let bottomScore: number = 0
+    // Preserve the proven 3–64 px search first. Searching from the raw boundary can mistake
+    // OCR/text edges for the container, so the wider recording-only pass is allowed only
+    // when this existing rule cannot form a candidate.
     for (let distance: number = 3; distance <= 64; distance++) {
       const candidateLeft: number = rawLeft - distance
       if (candidateLeft > 0) {
@@ -4844,6 +4870,75 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         if (score > bottomScore) {
           bottomScore = score
           borderBottom = candidateBottom
+        }
+      }
+    }
+    const initialMinimumBorderScore: number = Math.min(
+      leftScore,
+      rightScore,
+      topScore,
+      bottomScore,
+    )
+    if (initialMinimumBorderScore < 0.5) {
+      for (let distance: number = 0; distance <= 96; distance++) {
+        const candidateLeft: number = rawLeft - distance
+        if (candidateLeft > 0) {
+          const score: number = ComicLocalVisualBackend.verticalBorderScore(
+            pixels,
+            rowBytes,
+            candidateLeft,
+            rawTop,
+            rawBottom,
+          )
+          if (score > leftScore) {
+            leftScore = score
+            borderLeft = candidateLeft
+          }
+        }
+        const candidateRight: number = rawRight + distance
+        if (candidateRight < width - 1) {
+          const score: number = ComicLocalVisualBackend.verticalBorderScore(
+            pixels,
+            rowBytes,
+            candidateRight,
+            rawTop,
+            rawBottom,
+          )
+          if (score > rightScore) {
+            rightScore = score
+            borderRight = candidateRight
+          }
+        }
+        if (distance > 64) {
+          continue
+        }
+        const candidateTop: number = rawTop - distance
+        if (candidateTop > 0) {
+          const score: number = ComicLocalVisualBackend.horizontalBorderScore(
+            pixels,
+            rowBytes,
+            candidateTop,
+            rawLeft,
+            rawRight,
+          )
+          if (score > topScore) {
+            topScore = score
+            borderTop = candidateTop
+          }
+        }
+        const candidateBottom: number = rawBottom + distance
+        if (candidateBottom < height - 1) {
+          const score: number = ComicLocalVisualBackend.horizontalBorderScore(
+            pixels,
+            rowBytes,
+            candidateBottom,
+            rawLeft,
+            rawRight,
+          )
+          if (score > bottomScore) {
+            bottomScore = score
+            borderBottom = candidateBottom
+          }
         }
       }
     }

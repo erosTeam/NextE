@@ -68,6 +68,14 @@ class RectangularBorderProbe:
 
 
 @dataclass(frozen=True)
+class SourceLayout:
+    index: int
+    rect: tuple[int, int, int, int]
+    container_probe_outcome: str
+    rectangular_border_probe_outcome: str
+
+
+@dataclass(frozen=True)
 class RenderStageTimings:
     decode_ms: int
     mask_ms: int
@@ -97,6 +105,7 @@ class PageInput:
     container_candidates: tuple[ContainerCandidate, ...]
     container_probe_outcomes: tuple[str, ...]
     rectangular_border_probes: tuple[RectangularBorderProbe, ...]
+    source_layouts: tuple[SourceLayout, ...]
     layout_count: int | None
     analysis_ms: int | None
     render_ms: int | None
@@ -147,8 +156,8 @@ def parse_args() -> argparse.Namespace:
         "--container-review",
         type=Path,
         help=(
-            "Optional local JSON with candidate acceptance labels and expected "
-            "container counts for manually reviewed pages."
+            "Optional local JSON with either v1 candidate labels/counts or v2 "
+            "target rectangles for spatially matched container review."
         ),
     )
     return parser.parse_args()
@@ -383,6 +392,7 @@ def load_manifest(path: Path) -> tuple[str, str, Thresholds, list[PageInput]]:
                 container_candidates=(),
                 container_probe_outcomes=(),
                 rectangular_border_probes=(),
+                source_layouts=(),
                 layout_count=None,
                 analysis_ms=None,
                 render_ms=None,
@@ -728,6 +738,72 @@ def recording_rectangular_border_probes(
     return tuple(values)
 
 
+def recording_source_layouts(render: dict[str, Any]) -> tuple[SourceLayout, ...]:
+    layouts = require_list(render.get("layouts", []), "recording render.layouts")
+    values: list[SourceLayout] = []
+    for index, layout_value in enumerate(layouts):
+        layout = require_dict(layout_value, f"recording render.layouts[{index}]")
+        source_rect_values = require_list(
+            layout.get("sourceRects"),
+            f"recording render.layouts[{index}].sourceRects",
+        )
+        if not source_rect_values:
+            continue
+        left = math.inf
+        top = math.inf
+        right = -math.inf
+        bottom = -math.inf
+        for rect_index, rect_value in enumerate(source_rect_values):
+            rect = require_dict(
+                rect_value,
+                f"recording render.layouts[{index}].sourceRects[{rect_index}]",
+            )
+
+            def coordinate(name: str) -> float:
+                return bounded_float(
+                    rect.get(name),
+                    0.0,
+                    0.0,
+                    100000.0,
+                    (
+                        f"recording render.layouts[{index}]."
+                        f"sourceRects[{rect_index}].{name}"
+                    ),
+                )
+
+            left = min(left, coordinate("left"))
+            top = min(top, coordinate("top"))
+            right = max(right, coordinate("right"))
+            bottom = max(bottom, coordinate("bottom"))
+        resolved = (
+            int(math.floor(left)),
+            int(math.floor(top)),
+            int(math.ceil(right)),
+            int(math.ceil(bottom)),
+        )
+        if resolved[2] <= resolved[0] or resolved[3] <= resolved[1]:
+            raise ValueError(
+                f"recording render.layouts[{index}] source rect is empty"
+            )
+        text_rect = require_dict(
+            layout.get("textRect"),
+            f"recording render.layouts[{index}].textRect",
+        )
+        values.append(
+            SourceLayout(
+                index=index + 1,
+                rect=resolved,
+                container_probe_outcome=str(
+                    text_rect.get("containerProbeOutcome", "")
+                ),
+                rectangular_border_probe_outcome=str(
+                    text_rect.get("rectBorderProbeOutcome", "")
+                ),
+            )
+        )
+    return tuple(values)
+
+
 def recording_render_stage_timings(
     render: dict[str, Any],
 ) -> RenderStageTimings | None:
@@ -983,6 +1059,7 @@ def load_recording_dir(
                 container_candidates=recording_container_candidates(render),
                 container_probe_outcomes=recording_container_probe_outcomes(render),
                 rectangular_border_probes=recording_rectangular_border_probes(render),
+                source_layouts=recording_source_layouts(render),
                 layout_count=len(
                     require_list(render.get("layouts", []), "recording render.layouts")
                 ),
@@ -1354,11 +1431,17 @@ def score_page(
     container_candidate_results: list[dict[str, Any]] = []
     if container_labels is not None:
         for container_candidate in page.container_candidates:
-            candidate_pixels = int(
-                np.count_nonzero(container_labels == container_candidate.label)
-            )
+            candidate_mask = container_labels == container_candidate.label
+            candidate_pixels = int(np.count_nonzero(candidate_mask))
             if candidate_pixels <= 0:
                 continue
+            candidate_y, candidate_x = np.nonzero(candidate_mask)
+            candidate_rect = [
+                int(np.min(candidate_x)),
+                int(np.min(candidate_y)),
+                int(np.max(candidate_x)) + 1,
+                int(np.max(candidate_y)) + 1,
+            ]
             container_candidate_results.append(
                 {
                     "label": container_candidate.label,
@@ -1386,6 +1469,7 @@ def score_page(
                     ),
                     "pixels": candidate_pixels,
                     "percent": percent(candidate_pixels, total_pixels),
+                    "rect": candidate_rect,
                     "highConfidence":
                         container_candidate.confidence >= HIGH_CONTAINER_CONFIDENCE,
                 }
@@ -1514,6 +1598,16 @@ def score_page(
             if page.render_stages is not None
             else None
         ),
+        "sourceLayouts": [
+            {
+                "index": layout.index,
+                "rect": list(layout.rect),
+                "containerProbeOutcome": layout.container_probe_outcome,
+                "rectangularBorderProbeOutcome":
+                    layout.rectangular_border_probe_outcome,
+            }
+            for layout in page.source_layouts
+        ],
         "changedPixels": changed_pixels,
         "changedPercent": percent(changed_pixels, total_pixels),
         "introducedWhitePixels": introduced_white_pixels,
@@ -1997,7 +2091,8 @@ def apply_container_review(
         json.loads(review_path.read_text(encoding="utf-8")),
         "container review",
     )
-    if raw.get("schemaVersion") != SCHEMA_VERSION:
+    review_schema_version = raw.get("schemaVersion")
+    if review_schema_version not in (SCHEMA_VERSION, 2):
         raise ValueError("container review schemaVersion is unsupported")
     if require_string(raw.get("fixtureSetId"), "container review.fixtureSetId") != fixture_set_id:
         raise ValueError("container review fixtureSetId does not match")
@@ -2009,6 +2104,10 @@ def apply_container_review(
     rejected_total = 0
     high_accepted = 0
     high_rejected = 0
+    eligible_target_total = 0
+    merged_source_target_total = 0
+    missing_source_target_total = 0
+    eligible_target_matched = 0
     review_by_probe_outcome: dict[str, dict[str, int]] = {}
     for page_index, page_value in enumerate(review_pages):
         page_review = require_dict(
@@ -2022,6 +2121,207 @@ def apply_container_review(
         if page_id in reviewed_ids or page_id not in result_by_id:
             raise ValueError(f"container review page is unknown or duplicated: {page_id}")
         reviewed_ids.add(page_id)
+        result = result_by_id[page_id]
+        observed_candidates = {
+            int(candidate["label"]): candidate
+            for candidate in result["containerCandidates"]
+        }
+        if review_schema_version == 2:
+            target_values = require_list(
+                page_review.get("targets"),
+                f"container review.pages[{page_index}].targets",
+            )
+            targets: list[dict[str, Any]] = []
+            target_ids: set[str] = set()
+            for target_index, target_value in enumerate(target_values):
+                target = require_dict(
+                    target_value,
+                    (
+                        f"container review.pages[{page_index}]."
+                        f"targets[{target_index}]"
+                    ),
+                )
+                target_id = require_string(
+                    target.get("id"),
+                    (
+                        f"container review.pages[{page_index}]."
+                        f"targets[{target_index}].id"
+                    ),
+                )
+                target_rect = optional_rect(
+                    target.get("rect"),
+                    (
+                        f"container review.pages[{page_index}]."
+                        f"targets[{target_index}].rect"
+                    ),
+                )
+                if target_id in target_ids or target_rect is None:
+                    raise ValueError(
+                        f"container review target is invalid: {page_id}#{target_id}"
+                    )
+                target_ids.add(target_id)
+                targets.append({"id": target_id, "rect": list(target_rect)})
+            expected_count = len(targets)
+            target_source_status: list[dict[str, Any]] = []
+            eligible_target_ids: set[str] = set()
+            for target in targets:
+                target_rect = target["rect"]
+                target_left = int(target_rect[0])
+                target_top = int(target_rect[1])
+                target_right = int(target_rect[2])
+                target_bottom = int(target_rect[3])
+                target_area = max(
+                    1,
+                    (target_right - target_left) * (target_bottom - target_top),
+                )
+                contained_layouts: list[int] = []
+                merged_layouts: list[int] = []
+                for source_layout in result["sourceLayouts"]:
+                    source_rect = source_layout["rect"]
+                    source_left = int(source_rect[0])
+                    source_top = int(source_rect[1])
+                    source_right = int(source_rect[2])
+                    source_bottom = int(source_rect[3])
+                    intersection_width = max(
+                        0,
+                        min(source_right, target_right) -
+                        max(source_left, target_left),
+                    )
+                    intersection_height = max(
+                        0,
+                        min(source_bottom, target_bottom) -
+                        max(source_top, target_top),
+                    )
+                    intersection = intersection_width * intersection_height
+                    source_area = max(
+                        1,
+                        (source_right - source_left) *
+                        (source_bottom - source_top),
+                    )
+                    source_coverage = intersection / source_area
+                    target_coverage = intersection / target_area
+                    source_center_x = (source_left + source_right) / 2
+                    source_center_y = (source_top + source_bottom) / 2
+                    center_inside = (
+                        target_left <= source_center_x <= target_right and
+                        target_top <= source_center_y <= target_bottom
+                    )
+                    if center_inside and source_coverage >= 0.75:
+                        contained_layouts.append(int(source_layout["index"]))
+                    elif target_coverage >= 0.5:
+                        merged_layouts.append(int(source_layout["index"]))
+                if contained_layouts:
+                    source_status = "eligible"
+                    eligible_target_ids.add(str(target["id"]))
+                    eligible_target_total += 1
+                elif merged_layouts:
+                    source_status = "merged_source"
+                    merged_source_target_total += 1
+                else:
+                    source_status = "missing_source"
+                    missing_source_target_total += 1
+                target_source_status.append(
+                    {
+                        "targetId": target["id"],
+                        "status": source_status,
+                        "containedLayoutIndices": contained_layouts,
+                        "mergedLayoutIndices": merged_layouts,
+                    }
+                )
+            matched_labels: set[int] = set()
+            matched_targets: set[str] = set()
+            matches: list[dict[str, Any]] = []
+            match_options: list[tuple[float, int, str]] = []
+            for label, candidate in observed_candidates.items():
+                candidate_rect = candidate.get("rect")
+                if not isinstance(candidate_rect, list) or len(candidate_rect) != 4:
+                    raise ValueError(
+                        f"container candidate rect is unavailable: {page_id}#{label}"
+                    )
+                candidate_left = int(candidate_rect[0])
+                candidate_top = int(candidate_rect[1])
+                candidate_right = int(candidate_rect[2])
+                candidate_bottom = int(candidate_rect[3])
+                candidate_area = max(
+                    1,
+                    (candidate_right - candidate_left) *
+                    (candidate_bottom - candidate_top),
+                )
+                for target in targets:
+                    target_rect = target["rect"]
+                    target_left = int(target_rect[0])
+                    target_top = int(target_rect[1])
+                    target_right = int(target_rect[2])
+                    target_bottom = int(target_rect[3])
+                    intersection_width = max(
+                        0,
+                        min(candidate_right, target_right) -
+                        max(candidate_left, target_left),
+                    )
+                    intersection_height = max(
+                        0,
+                        min(candidate_bottom, target_bottom) -
+                        max(candidate_top, target_top),
+                    )
+                    intersection = intersection_width * intersection_height
+                    target_area = max(
+                        1,
+                        (target_right - target_left) * (target_bottom - target_top),
+                    )
+                    overlap = intersection / min(candidate_area, target_area)
+                    if overlap >= 0.5:
+                        match_options.append(
+                            (overlap, label, str(target["id"]))
+                        )
+            match_options.sort(reverse=True)
+            for overlap, label, target_id in match_options:
+                if label in matched_labels or target_id in matched_targets:
+                    continue
+                matched_labels.add(label)
+                matched_targets.add(target_id)
+                observed_candidates[label]["accepted"] = True
+                observed_candidates[label]["matchedTargetId"] = target_id
+                observed_candidates[label]["targetOverlapPercent"] = percent(overlap, 1)
+                matches.append(
+                    {
+                        "label": label,
+                        "targetId": target_id,
+                        "overlapPercent": percent(overlap, 1),
+                    }
+                )
+            for label, candidate in observed_candidates.items():
+                if label not in matched_labels:
+                    candidate["accepted"] = False
+            accepted_count = len(matched_labels)
+            rejected_count = len(observed_candidates) - accepted_count
+            for label, candidate in observed_candidates.items():
+                probe_outcome = str(candidate["probeOutcome"])
+                probe_review = review_by_probe_outcome.setdefault(
+                    probe_outcome,
+                    {"accepted": 0, "rejected": 0},
+                )
+                if label in matched_labels:
+                    probe_review["accepted"] += 1
+                    if candidate["highConfidence"]:
+                        high_accepted += 1
+                else:
+                    probe_review["rejected"] += 1
+                    if candidate["highConfidence"]:
+                        high_rejected += 1
+            result["containerReview"] = {
+                "expectedContainers": expected_count,
+                "acceptedCandidates": accepted_count,
+                "rejectedCandidates": rejected_count,
+                "missedContainers": expected_count - accepted_count,
+                "matches": matches,
+                "missedTargetIds": sorted(target_ids - matched_targets),
+                "targetSourceStatus": target_source_status,
+            }
+            eligible_target_matched += len(eligible_target_ids & matched_targets)
+            expected_total += expected_count
+            accepted_total += accepted_count
+            rejected_total += rejected_count
+            continue
         expected_count = bounded_int(
             page_review.get("expectedContainers"),
             0,
@@ -2033,11 +2333,6 @@ def apply_container_review(
             page_review.get("candidates"),
             f"container review.pages[{page_index}].candidates",
         )
-        result = result_by_id[page_id]
-        observed_candidates = {
-            int(candidate["label"]): candidate
-            for candidate in result["containerCandidates"]
-        }
         reviewed_labels: set[int] = set()
         accepted_count = 0
         rejected_count = 0
@@ -2129,6 +2424,16 @@ def apply_container_review(
         ),
         "byProbeOutcome": review_by_probe_outcome,
     }
+    if review_schema_version == 2:
+        summary["containerReview"]["eligibleTargets"] = eligible_target_total
+        summary["containerReview"]["mergedSourceTargets"] = merged_source_target_total
+        summary["containerReview"]["missingSourceTargets"] = missing_source_target_total
+        summary["containerReview"]["eligibleMatchedTargets"] = eligible_target_matched
+        summary["containerReview"]["eligibleRecallPercent"] = (
+            percent(eligible_target_matched, eligible_target_total)
+            if eligible_target_total > 0
+            else None
+        )
 
 
 def metric_delta(candidate: Any, baseline: Any) -> float | None:
@@ -2370,13 +2675,33 @@ def page_section(result: dict[str, Any]) -> str:
         )
     container_review = result.get("containerReview")
     if isinstance(container_review, dict):
+        source_status_suffix = ""
+        target_source_status = container_review.get("targetSourceStatus")
+        if isinstance(target_source_status, list):
+            eligible_count = sum(
+                1 for value in target_source_status
+                if isinstance(value, dict) and value.get("status") == "eligible"
+            )
+            merged_count = sum(
+                1 for value in target_source_status
+                if isinstance(value, dict) and value.get("status") == "merged_source"
+            )
+            missing_count = sum(
+                1 for value in target_source_status
+                if isinstance(value, dict) and value.get("status") == "missing_source"
+            )
+            source_status_suffix = (
+                f" / source eligible {eligible_count}, merged {merged_count}, "
+                f"missing {missing_count}"
+            )
         rows.append(
             metric_row(
                 "Container review",
                 f"expected {container_review['expectedContainers']} / "
                 f"accepted {container_review['acceptedCandidates']} / "
                 f"rejected {container_review['rejectedCandidates']} / "
-                f"missed {container_review['missedContainers']}",
+                f"missed {container_review['missedContainers']}"
+                f"{source_status_suffix}",
             )
         )
     if result["candidateVsBaselinePercent"] is not None:
@@ -2541,6 +2866,15 @@ def write_html(
     review_paragraph = ""
     container_review = summary.get("containerReview")
     if isinstance(container_review, dict):
+        source_breakdown = ""
+        if "eligibleTargets" in container_review:
+            source_breakdown = (
+                f" Source-grounded split: {container_review['eligibleTargets']} "
+                f"eligible targets, {container_review['mergedSourceTargets']} merged "
+                f"with another OCR region, {container_review['missingSourceTargets']} "
+                f"without a source region; eligible-target recall "
+                f"{format_percent(container_review['eligibleRecallPercent'])}."
+            )
         review_paragraph = (
             f"<p>Manual container review ({container_review['reviewedPages']} pages): "
             f"{container_review['acceptedCandidates']} accepted / "
@@ -2550,7 +2884,8 @@ def write_html(
             f"{format_percent(container_review['candidateRecallPercent'])} · ≥ "
             f"{HIGH_CONTAINER_CONFIDENCE:.2f} precision "
             f"{format_percent(container_review['highConfidencePrecisionPercent'])} · recall "
-            f"{format_percent(container_review['highConfidenceRecallPercent'])}.</p>"
+            f"{format_percent(container_review['highConfidenceRecallPercent'])}."
+            f"{html.escape(source_breakdown)}</p>"
         )
     document = f"""<!doctype html>
 <html lang="en">

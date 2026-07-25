@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 2,
+  "fixtureSetId": "public-domain-rect-holdout-v1",
+  "source": {
+    "title": "Daredevil Battles Hitler",
+    "pages": [10, 11, 12, 13],
+    "url": "https://commons.wikimedia.org/wiki/File:Daredevil_Battles_Hitler.djvu"
+  },
+  "pages": [
+    {
+      "id": "page-0000-run-0001",
+      "targets": [
+        { "id": "p10-top-left", "kind": "rectangular-caption", "rect": [75, 70, 344, 132] },
+        { "id": "p10-top-middle", "kind": "rectangular-caption", "rect": [353, 69, 623, 132] },
+        { "id": "p10-top-right", "kind": "rectangular-caption", "rect": [627, 68, 911, 133] },
+        { "id": "p10-middle-left", "kind": "rectangular-caption", "rect": [74, 486, 385, 533] },
+        { "id": "p10-bottom-left", "kind": "rectangular-caption", "rect": [74, 891, 345, 968] },
+        { "id": "p10-bottom-right", "kind": "rectangular-caption", "rect": [634, 896, 912, 973] }
+      ]
+    },
+    {
+      "id": "page-0001-run-0001",
+      "targets": [
+        { "id": "p11-top-left", "kind": "rectangular-caption", "rect": [52, 42, 376, 80] },
+        { "id": "p11-middle", "kind": "rectangular-caption", "rect": [388, 365, 887, 415] },
+        { "id": "p11-bottom-left", "kind": "rectangular-caption", "rect": [52, 770, 330, 835] },
+        { "id": "p11-bottom-right", "kind": "rectangular-caption", "rect": [648, 771, 880, 881] }
+      ]
+    },
+    {
+      "id": "page-0002-run-0001",
+      "targets": [
+        { "id": "p12-top-left", "kind": "rectangular-caption", "rect": [78, 49, 549, 81] },
+        { "id": "p12-top-right", "kind": "rectangular-caption", "rect": [563, 52, 903, 84] },
+        { "id": "p12-middle", "kind": "rectangular-caption", "rect": [386, 465, 674, 606] },
+        { "id": "p12-bottom-right", "kind": "rectangular-caption", "rect": [676, 872, 897, 979] }
+      ]
+    },
+    {
+      "id": "page-0003-run-0001",
+      "targets": [
+        { "id": "p13-top-right", "kind": "rectangular-caption", "rect": [413, 52, 771, 93] },
+        { "id": "p13-middle-left", "kind": "rectangular-caption", "rect": [90, 365, 482, 440] },
+        { "id": "p13-middle-right", "kind": "rectangular-caption", "rect": [590, 353, 828, 427] }
+      ]
+    }
+  ]
+}
