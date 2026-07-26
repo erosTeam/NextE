@@ -888,7 +888,7 @@ Reader 或切换画廊后自动关闭，不写入全局设置。开启前提示�
 - 在新规划确认前不修改功能实现、不调用模型、不操作设备。
 
 已完成审计见 [漫画翻译产品重置计划](plans/completed/manga-translation-product-reset.md)，当前实施见
-[视觉 Reader V1 计划](plans/active/manga-translation-reader-visual-v1.md)。历史 Phase 0
+[Reader 端侧验收收口计划](plans/active/manga-translation-reader-acceptance.md)。历史 Phase 0
 两页评测只证明整页多模态能返回有界结构文档；历史 Reader 测试只证明请求身份、缓存与切页隔离，
 均不证明存在翻译漫画页。
 

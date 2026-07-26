@@ -149,5 +149,5 @@ device. Parser tests, document dumps, source/translation lists, builds and provi
 
 The product contract, mature sidecar route, source disposition, first accepted slice and legacy-plan authority cleanup
 are complete. Implementation continues under the active
-[Visual Reader V1 Plan](../active/manga-translation-reader-visual-v1.md). No later plan may silently change the visual
+[Visual Reader V1 Plan](../archive/manga-translation-reader-visual-v1-2026-07-27.md). No later plan may silently change the visual
 page result to a text panel when a technical stage is difficult.
