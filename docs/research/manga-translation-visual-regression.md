@@ -626,3 +626,20 @@ transcript 至少有三个污染/拟声 token、它们覆盖至少三分之二�
 该门不是 OCR 纠错或语义翻译策略，当前证据只授权把这个已证明污染的 SFX 块失败关闭。下一阶段应把这类
 source/translation/visual trace 收入固定真实数据集，并以独立 holdout 统计 OCR、SFX、翻译和视觉质量，
 避免继续依赖逐页人工截图判断。
+
+## 真实 Provider 彩页回放门
+
+`comicContainerCalibration` 只允许固定占位译文驱动视觉 recording，绝不能被列为翻译质量结果。为避免
+再次混淆，`ComicLocalExternalReplay` 的显式 live 模式将清单指定的外部页复制进主应用 cache，再由主应用
+进程使用当前已选 LLM 源执行请求；测试进程只导入已校验的响应并回放。请求、响应和录制都留在应用或忽略的
+本地产物目录，仓库不包含真实页或凭据。`comicExternalReplayManifest` 允许该临时清单使用专名，避免覆盖
+其他测试的 `manifest.tsv`。
+
+在设备 `237` 的一张授权真实彩页上，导出分析和导入渲染均通过（各 2/2）；实际 provider 用时
+10.569 秒，页面的 local analysis/render 为 2.396/4.076 秒。该次产物确认真实译文、目标语言、模型
+身份和 prompt 版本都能随渲染 identity 追溯，因而可作为端到端通路证据；但不是质量签收。
+
+人工对照原图后，当前端侧竖排的剩余问题被拆分为三项：竖排生产渲染仍保守采用 OCR 文本矩形，闭合气泡
+候选仅记录而尚未取得跨画廊标签授权；同一合并文本块只保留一种采样文字颜色；OCR 噪声会原样进入 LLM。
+后续真实页验收必须同时报告 OCR/翻译文本、layout、source/render 图与耗时，并将“校准占位”与“live
+provider”录制分开统计。不得根据占位录制的图像或单张目测宣布端侧漫画翻译可交付。

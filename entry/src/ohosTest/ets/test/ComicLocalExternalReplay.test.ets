@@ -155,6 +155,17 @@ function liveTranslationMode(): string {
   return mode
 }
 
+function externalReplayManifestName(): string {
+  const name: string = parameter('comicExternalReplayManifest').trim()
+  if (name.length <= 0) {
+    return 'manifest.tsv'
+  }
+  if (!safeFileName(name)) {
+    throw new Error('External replay manifest name is invalid')
+  }
+  return name
+}
+
 function safeFileName(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)
 }
@@ -376,8 +387,45 @@ async function stageRawCalibrationPages(
   return root
 }
 
-function loadReplayPages(root: string, calibrationOnly: boolean): ExternalReplayPage[] {
-  const manifestPath: string = `${root}/manifest.tsv`
+/**
+ * The live-translation debug probe is deliberately limited to the main application's cache so
+ * that a request cannot make the app read arbitrary device files. External replay pages are
+ * explicitly staged in the app sandbox, therefore copy only the selected, manifest-named page
+ * into the probe-owned cache before exporting a provider request. This is test-only staging;
+ * Reader never uses it.
+ */
+function stageLiveTranslationPage(
+  context: common.UIAbilityContext,
+  page: ExternalReplayPage,
+): void {
+  const sourceName: string = page.sourcePath.slice(page.sourcePath.lastIndexOf('/') + 1)
+  if (!safeFileName(sourceName) || !fileIo.accessSync(page.sourcePath)) {
+    throw new Error('Live translation replay source is unsafe')
+  }
+  const sourceSize: number = fileIo.statSync(page.sourcePath).size
+  if (!Number.isFinite(sourceSize) || sourceSize <= 0 || sourceSize > 32 * 1024 * 1024) {
+    throw new Error('Live translation replay source size is invalid')
+  }
+  const root: string = `${context.getApplicationContext().cacheDir}/comic-live-translation-staged`
+  if (!fileIo.accessSync(root)) {
+    fileIo.mkdirSync(root, true)
+  }
+  const target: string = `${root}/${page.imageHash}-${sourceName}`
+  if (!fileIo.accessSync(target) || fileIo.statSync(target).size !== sourceSize) {
+    fileIo.copyFileSync(page.sourcePath, target)
+  }
+  if (!fileIo.accessSync(target) || fileIo.statSync(target).size !== sourceSize) {
+    throw new Error('Live translation replay source staging was incomplete')
+  }
+  page.sourcePath = target
+}
+
+function loadReplayPages(
+  root: string,
+  calibrationOnly: boolean,
+  manifestName: string,
+): ExternalReplayPage[] {
+  const manifestPath: string = `${root}/${manifestName}`
   const lines: string[] = fileIo.readTextSync(manifestPath).split('\n')
   const pages: ExternalReplayPage[] = []
   const ids: Set<string> = new Set<string>()
@@ -1126,7 +1174,11 @@ export default function comicLocalExternalReplayTest(): void {
           inpaintingPaths === null) {
           return
         }
-        const pages: ExternalReplayPage[] = loadReplayPages(root, calibrationOnly)
+        const pages: ExternalReplayPage[] = loadReplayPages(
+          root,
+          calibrationOnly,
+          externalReplayManifestName(),
+        )
         const selectedPageIndex: number = optionalPageIndex(
           'comicExternalReplayPageNumber',
           'External replay page number',
@@ -1241,6 +1293,9 @@ export default function comicLocalExternalReplayTest(): void {
             }
             replayedPages = replayedPages + 1
             const page: ExternalReplayPage = pages[pageIndex]
+            if (liveTranslation && pageIndex === liveTranslationPageIndex) {
+              stageLiveTranslationPage(mainContext, page)
+            }
             const source: ComicVisualPageSource = pageSource(page, pageIndex, calibrationOnly)
             const analysisRequest: ComicRegionAnalysisRequest =
               new ComicRegionAnalysisRequest()
