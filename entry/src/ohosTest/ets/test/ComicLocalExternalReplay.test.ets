@@ -96,6 +96,13 @@ class CandidateGroupingPlan {
   pages: CandidateGroupingPage[] = []
 }
 
+class CandidateContinuationAttachment {
+  splitIndex: number = -1
+  segmentIndex: number = -1
+  blockIndex: number = -1
+  mergedSourceText: string = ''
+}
+
 class CandidateTemplateBlock {
   blockId: string = ''
   polygon: ComicPoint[] = []
@@ -126,6 +133,14 @@ function containerCalibrationEnabled(): boolean {
 
 function candidateGroupingEnabled(): boolean {
   return parameter('comicCandidateGrouping') === 'true'
+}
+
+function candidateParentRenderEnabled(): boolean {
+  return parameter('comicCandidateParentRender') === 'true'
+}
+
+function candidateContinuationMergeEnabled(): boolean {
+  return parameter('comicCandidateContinuationMerge') === 'true'
 }
 
 function liveTranslationMode(): string {
@@ -440,11 +455,14 @@ function candidateBlock(
   source: ComicTextBlock,
   segment: CandidateGroupingSegment,
   segmentIndex: number,
+  sourceText: string = '',
 ): ComicTextBlock {
   const block: ComicTextBlock = source.copy()
+  const resolvedSourceText: string =
+    sourceText.trim().length > 0 ? sourceText.trim() : segment.sourceText
   block.blockId = `${source.blockId}-s${segmentIndex + 1}`
-  block.sourceText = segment.sourceText
-  block.normalizedSourceText = segment.sourceText.replace(/\s+/g, ' ').trim()
+  block.sourceText = resolvedSourceText
+  block.normalizedSourceText = resolvedSourceText.replace(/\s+/g, ' ').trim()
   block.polygon = [
     new ComicPoint(segment.rect[0], segment.rect[1]),
     new ComicPoint(segment.rect[2], segment.rect[1]),
@@ -452,6 +470,97 @@ function candidateBlock(
     new ComicPoint(segment.rect[0], segment.rect[3]),
   ]
   return block
+}
+
+function continuationSourceText(
+  sourceText: string,
+  continuationText: string,
+): string {
+  return `${sourceText.trim()} ${continuationText.trim()}`
+    .replace(/\s+/g, ' ')
+    .replace(/([A-Za-z])-\s+([A-Za-z])/g, '$1$2')
+    .trim()
+}
+
+function candidateContinuationAttachments(
+  analysis: ComicRegionAnalysisResult,
+  page: CandidateGroupingPage,
+): CandidateContinuationAttachment[] {
+  const attachments: CandidateContinuationAttachment[] = []
+  const consumedBlocks: Set<number> = new Set<number>()
+  for (let splitIndex: number = 0; splitIndex < page.plans.length; splitIndex++) {
+    const split: CandidateGroupingSplit = page.plans[splitIndex]
+    const hyphenSegments: number[] = []
+    for (let segmentIndex: number = 0;
+      segmentIndex < split.segments.length; segmentIndex++) {
+      if (/[A-Za-z]-\s*$/.test(split.segments[segmentIndex].sourceText)) {
+        hyphenSegments.push(segmentIndex)
+      }
+    }
+    if (hyphenSegments.length !== 1) {
+      continue
+    }
+    const segmentIndex: number = hyphenSegments[0]
+    const segment: CandidateGroupingSegment = split.segments[segmentIndex]
+    const parentWidth: number = split.originalRect[2] - split.originalRect[0]
+    const parentHeight: number = split.originalRect[3] - split.originalRect[1]
+    const parentArea: number = parentWidth * parentHeight
+    const candidates: number[] = []
+    for (let blockIndex: number = 0;
+      blockIndex < analysis.document.blocks.length; blockIndex++) {
+      const block: ComicTextBlock = analysis.document.blocks[blockIndex]
+      if (sameRect(block, split.originalRect) || consumedBlocks.has(blockIndex)) {
+        continue
+      }
+      const text: string = block.sourceText.replace(/\s+/g, ' ').trim()
+      if (!/^[A-Za-z]/.test(text) || text.length > 40) {
+        continue
+      }
+      const rect: ReplayRect = blockRect(block)
+      const centerX: number = (rect.left + rect.right) / 2
+      const centerY: number = (rect.top + rect.bottom) / 2
+      const area: number = (rect.right - rect.left) * (rect.bottom - rect.top)
+      if (centerX <= split.originalRect[0] || centerX >= split.originalRect[2] ||
+        centerY <= split.originalRect[1] || centerY >= split.originalRect[3] ||
+        area <= 0 || area > parentArea * 0.2 ||
+        centerX < segment.rect[0] - parentWidth * 0.1 ||
+        centerX > segment.rect[2] + parentWidth * 0.1 ||
+        rect.top > segment.rect[3] + parentHeight * 0.35 ||
+        rect.bottom < segment.rect[1] - parentHeight * 0.1) {
+        continue
+      }
+      candidates.push(blockIndex)
+    }
+    if (candidates.length !== 1) {
+      continue
+    }
+    const attachment: CandidateContinuationAttachment =
+      new CandidateContinuationAttachment()
+    attachment.splitIndex = splitIndex
+    attachment.segmentIndex = segmentIndex
+    attachment.blockIndex = candidates[0]
+    attachment.mergedSourceText = continuationSourceText(
+      segment.sourceText,
+      analysis.document.blocks[candidates[0]].sourceText,
+    )
+    consumedBlocks.add(candidates[0])
+    attachments.push(attachment)
+  }
+  return attachments
+}
+
+function continuationAttachment(
+  attachments: CandidateContinuationAttachment[],
+  splitIndex: number,
+  segmentIndex: number,
+): CandidateContinuationAttachment | null {
+  for (let index: number = 0; index < attachments.length; index++) {
+    if (attachments[index].splitIndex === splitIndex &&
+      attachments[index].segmentIndex === segmentIndex) {
+      return attachments[index]
+    }
+  }
+  return null
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -517,9 +626,9 @@ function candidateGroupingAnalysis(
   source: ComicVisualPageSource,
   analysis: ComicRegionAnalysisResult,
   page: CandidateGroupingPage,
+  attachments: CandidateContinuationAttachment[] = [],
 ): ComicRegionAnalysisResult {
-  const replacements: Map<number, CandidateGroupingSplit> =
-    new Map<number, CandidateGroupingSplit>()
+  const replacements: Map<number, number> = new Map<number, number>()
   for (let planIndex: number = 0; planIndex < page.plans.length; planIndex++) {
     const split: CandidateGroupingSplit = page.plans[planIndex]
     let match: number = -1
@@ -535,23 +644,72 @@ function candidateGroupingAnalysis(
     if (match < 0 || replacements.has(match)) {
       throw new Error('Candidate grouping split source block is unavailable')
     }
-    replacements.set(match, split)
+    replacements.set(match, planIndex)
+  }
+  const excludedBlocks: Set<number> = new Set<number>()
+  for (let index: number = 0; index < attachments.length; index++) {
+    excludedBlocks.add(attachments[index].blockIndex)
   }
   const document: ComicPageDocument = analysis.document.copy()
   document.blocks = []
   for (let blockIndex: number = 0;
     blockIndex < analysis.document.blocks.length; blockIndex++) {
+    if (excludedBlocks.has(blockIndex)) {
+      continue
+    }
     const sourceBlock: ComicTextBlock = analysis.document.blocks[blockIndex]
-    const split: CandidateGroupingSplit | undefined = replacements.get(blockIndex)
-    if (split === undefined) {
+    const splitIndex: number | undefined = replacements.get(blockIndex)
+    if (splitIndex === undefined) {
       document.blocks.push(sourceBlock.copy())
       continue
     }
+    const split: CandidateGroupingSplit = page.plans[splitIndex]
     for (let segmentIndex: number = 0;
       segmentIndex < split.segments.length; segmentIndex++) {
+      const attachment: CandidateContinuationAttachment | null =
+        continuationAttachment(attachments, splitIndex, segmentIndex)
       document.blocks.push(
-        candidateBlock(sourceBlock, split.segments[segmentIndex], segmentIndex),
+        candidateBlock(
+          sourceBlock,
+          split.segments[segmentIndex],
+          segmentIndex,
+          attachment === null ? '' : attachment.mergedSourceText,
+        ),
       )
+    }
+  }
+  document.analysisRevision = analysis.document.analysisRevision + 1
+  for (let index: number = 0; index < document.blocks.length; index++) {
+    document.blocks[index].readingOrder = index
+    document.blocks[index].sourceRevision = document.analysisRevision
+  }
+  const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
+  result.backendId = analysis.backendId
+  result.profileId = analysis.profileId
+  result.regionRevision = analysis.regionRevision
+  result.document = document
+  result.adapterTemplate = candidateTemplate(source, analysis, document)
+  return result
+}
+
+function candidateParentRenderAnalysis(
+  source: ComicVisualPageSource,
+  analysis: ComicRegionAnalysisResult,
+  attachments: CandidateContinuationAttachment[],
+): ComicRegionAnalysisResult {
+  if (attachments.length <= 0) {
+    return analysis
+  }
+  const excludedBlocks: Set<number> = new Set<number>()
+  for (let index: number = 0; index < attachments.length; index++) {
+    excludedBlocks.add(attachments[index].blockIndex)
+  }
+  const document: ComicPageDocument = analysis.document.copy()
+  document.blocks = []
+  for (let blockIndex: number = 0;
+    blockIndex < analysis.document.blocks.length; blockIndex++) {
+    if (!excludedBlocks.has(blockIndex)) {
+      document.blocks.push(analysis.document.blocks[blockIndex].copy())
     }
   }
   document.analysisRevision = analysis.document.analysisRevision + 1
@@ -679,6 +837,80 @@ function replayTranslations(
   return result
 }
 
+function batchTranslation(
+  batch: ComicTranslationBatch,
+  blockId: string,
+  consumed: Set<string>,
+): string {
+  let translatedText: string = ''
+  let matches: number = 0
+  for (let index: number = 0; index < batch.blocks.length; index++) {
+    if (batch.blocks[index].blockId !== blockId) {
+      continue
+    }
+    translatedText = batch.blocks[index].translatedText.trim()
+    matches = matches + 1
+  }
+  if (matches !== 1 || translatedText.length <= 0 || consumed.has(blockId)) {
+    throw new Error(`Candidate parent render translation is invalid for ${blockId}`)
+  }
+  consumed.add(blockId)
+  return translatedText
+}
+
+function candidateParentRenderTranslations(
+  analysis: ComicRegionAnalysisResult,
+  page: CandidateGroupingPage,
+  candidateBatch: ComicTranslationBatch,
+): ReplayTranslationResult {
+  const result: ReplayTranslationResult = new ReplayTranslationResult()
+  result.batch = candidateBatch.copy()
+  result.batch.sourceRevision = analysis.document.analysisRevision
+  result.batch.blocks = []
+  const consumed: Set<string> = new Set<string>()
+  for (let blockIndex: number = 0;
+    blockIndex < analysis.document.blocks.length; blockIndex++) {
+    const sourceBlock: ComicTextBlock = analysis.document.blocks[blockIndex]
+    let split: CandidateGroupingSplit | null = null
+    for (let planIndex: number = 0; planIndex < page.plans.length; planIndex++) {
+      if (!sameRect(sourceBlock, page.plans[planIndex].originalRect)) {
+        continue
+      }
+      if (split !== null) {
+        throw new Error('Candidate parent render split is ambiguous')
+      }
+      split = page.plans[planIndex]
+    }
+    const translation: ComicBlockTranslation = new ComicBlockTranslation()
+    translation.blockId = sourceBlock.blockId
+    if (split === null) {
+      translation.translatedText =
+        batchTranslation(candidateBatch, sourceBlock.blockId, consumed)
+    } else {
+      const segments: string[] = []
+      for (let segmentIndex: number = 0;
+        segmentIndex < split.segments.length; segmentIndex++) {
+        segments.push(batchTranslation(
+          candidateBatch,
+          `${sourceBlock.blockId}-s${segmentIndex + 1}`,
+          consumed,
+        ))
+      }
+      translation.translatedText = segments.join('\n')
+    }
+    result.batch.blocks.push(translation)
+  }
+  if (consumed.size !== candidateBatch.blocks.length) {
+    throw new Error('Candidate parent render left translations unconsumed')
+  }
+  ComicVisualTranslationContract.validateTranslationBatch(
+    analysis.document,
+    result.batch,
+  )
+  result.matchedBlocks = result.batch.blocks.length
+  return result
+}
+
 function containerCalibrationTranslations(
   source: ComicVisualPageSource,
   analysis: ComicRegionAnalysisResult,
@@ -774,6 +1006,64 @@ function renderRequest(
 
 export default function comicLocalExternalReplayTest(): void {
   describe('ComicLocalExternalReplay', (): void => {
+    it('merges only an unambiguous clipped hyphen continuation', 0, (): void => {
+      const analysis: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
+      analysis.document = new ComicPageDocument()
+      const parent: ComicTextBlock = new ComicTextBlock()
+      parent.blockId = 'parent'
+      parent.sourceText = 'ANY SUGGES- OTHER DIALOGUE'
+      parent.polygon = [
+        new ComicPoint(80, 50),
+        new ComicPoint(540, 50),
+        new ComicPoint(540, 245),
+        new ComicPoint(80, 245),
+      ]
+      const continuation: ComicTextBlock = new ComicTextBlock()
+      continuation.blockId = 'continuation'
+      continuation.sourceText = 'TIONS, GENTLE-\nMEN?'
+      continuation.polygon = [
+        new ComicPoint(76, 119),
+        new ComicPoint(146, 119),
+        new ComicPoint(146, 171),
+        new ComicPoint(76, 171),
+      ]
+      analysis.document.blocks = [parent, continuation]
+      const page: CandidateGroupingPage = new CandidateGroupingPage()
+      const split: CandidateGroupingSplit = new CandidateGroupingSplit()
+      split.originalRect = [80, 50, 540, 245]
+      const segment: CandidateGroupingSegment = new CandidateGroupingSegment()
+      segment.rect = [80, 84, 540, 125]
+      segment.sourceText = 'ANY SUGGES-'
+      const remaining: CandidateGroupingSegment = new CandidateGroupingSegment()
+      remaining.rect = [99, 136, 505, 245]
+      remaining.sourceText = 'OTHER DIALOGUE'
+      split.segments = [segment, remaining]
+      page.plans = [split]
+
+      const matched: CandidateContinuationAttachment[] =
+        candidateContinuationAttachments(analysis, page)
+      expect(matched.length).assertEqual(1)
+      expect(matched[0].blockIndex).assertEqual(1)
+      expect(matched[0].mergedSourceText).assertEqual(
+        'ANY SUGGESTIONS, GENTLEMEN?',
+      )
+
+      const ambiguous: ComicTextBlock = continuation.copy()
+      ambiguous.blockId = 'ambiguous'
+      ambiguous.sourceText = 'TIVES?'
+      ambiguous.polygon = [
+        new ComicPoint(150, 119),
+        new ComicPoint(205, 119),
+        new ComicPoint(205, 151),
+        new ComicPoint(150, 151),
+      ]
+      analysis.document.blocks.push(ambiguous)
+      expect(candidateContinuationAttachments(analysis, page).length).assertEqual(0)
+      analysis.document.blocks.pop()
+      segment.sourceText = 'ANY SUGGESTIONS?'
+      expect(candidateContinuationAttachments(analysis, page).length).assertEqual(0)
+    })
+
     it('records current local rendering on explicitly staged real page pairs', 0,
       async (): Promise<void> => {
         const calibrationOnly: boolean = containerCalibrationEnabled()
@@ -825,6 +1115,20 @@ export default function comicLocalExternalReplayTest(): void {
         const pages: ExternalReplayPage[] = loadReplayPages(root, calibrationOnly)
         const translationMode: string = liveTranslationMode()
         const liveTranslation: boolean = translationMode.length > 0
+        const candidateParentRender: boolean = candidateParentRenderEnabled()
+        const candidateContinuationMerge: boolean =
+          candidateContinuationMergeEnabled()
+        if (candidateParentRender &&
+          (!candidateGroupingEnabled() || translationMode !== 'import')) {
+          throw new Error(
+            'Candidate parent render requires candidate grouping and imported live translation',
+          )
+        }
+        if (candidateContinuationMerge && !candidateGroupingEnabled()) {
+          throw new Error(
+            'Candidate continuation merge requires candidate grouping',
+          )
+        }
         let liveTranslationPageIndex: number = -1
         let liveTranslationProbeId: string = ''
         if (liveTranslation) {
@@ -915,14 +1219,23 @@ export default function comicLocalExternalReplayTest(): void {
             const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
             const analysisMs: number = Date.now() - analysisStartedAt
             let renderAnalysis: ComicRegionAnalysisResult = analysis
+            let candidatePage: CandidateGroupingPage | null = null
+            let continuationAttachments: CandidateContinuationAttachment[] = []
             if (candidatePlan !== null) {
-              const candidatePage: CandidateGroupingPage | null =
+              candidatePage =
                 candidateGroupingPage(candidatePlan, source)
               if (candidatePage !== null) {
+                if (candidateContinuationMerge) {
+                  continuationAttachments = candidateContinuationAttachments(
+                    analysis,
+                    candidatePage,
+                  )
+                }
                 renderAnalysis = candidateGroupingAnalysis(
                   source,
                   analysis,
                   candidatePage,
+                  continuationAttachments,
                 )
                 candidatePages = candidatePages + 1
               }
@@ -957,6 +1270,23 @@ export default function comicLocalExternalReplayTest(): void {
                 replay.batch = imported.result.batch
                 replay.matchedBlocks = imported.result.batch.blocks.length
                 translationMs = imported.elapsedMs
+                if (candidateParentRender) {
+                  if (candidatePage === null) {
+                    throw new Error('Candidate parent render page is unavailable')
+                  }
+                  const parentAnalysis: ComicRegionAnalysisResult =
+                    candidateParentRenderAnalysis(
+                      source,
+                      analysis,
+                      continuationAttachments,
+                    )
+                  replay = candidateParentRenderTranslations(
+                    parentAnalysis,
+                    candidatePage,
+                    replay.batch,
+                  )
+                  renderAnalysis = parentAnalysis
+                }
               }
               liveTranslationPages = liveTranslationPages + 1
               if (translationMode === 'import') {

@@ -3582,17 +3582,35 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     font: drawing.Font,
   ): boolean {
     font.setSize(fontSize)
-    const words: string[] = text.replace(/[\r\n]+/g, ' ').trim().split(/\s+/)
-    for (let index: number = 0; index < words.length; index++) {
-      const word: string = words[index]
-      if (!/[A-Za-z0-9]/.test(word)) {
-        continue
-      }
-      if (font.measureText(word, drawing.TextEncoding.TEXT_ENCODING_UTF8) > width) {
+    const tokens: string[] = ComicLocalVisualBackend.latinTokens(text)
+    for (let index: number = 0; index < tokens.length; index++) {
+      if (font.measureText(tokens[index], drawing.TextEncoding.TEXT_ENCODING_UTF8) > width) {
         return false
       }
     }
     return true
+  }
+
+  private static latinTokens(text: string): string[] {
+    const tokens: string[] = []
+    let token: string = ''
+    const joiners: string = '\'’._,:/-'
+    for (let index: number = 0; index < text.length; index++) {
+      const character: string = text.charAt(index)
+      if (/[A-Za-z0-9]/.test(character) ||
+        (token.length > 0 && joiners.includes(character))) {
+        token = token + character
+        continue
+      }
+      if (token.length > 0) {
+        tokens.push(token)
+        token = ''
+      }
+    }
+    if (token.length > 0) {
+      tokens.push(token)
+    }
+    return tokens
   }
 
   private static compactFallbackTextRect(

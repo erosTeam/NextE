@@ -2588,6 +2588,53 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
+    it('wraps CJK prose with an embedded numeric token instead of treating it as one Latin word',
+      0, async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string =
+          `${ability.context.cacheDir}/cjk-numeric-token-render-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          request.translations.translationRevision = 41
+          request.identity.translationRevision = 41
+          request.translations.blocks[0].translatedText =
+            '按丘吉尔的命令，英国地中海舰队的一部分正驶向希腊……34,000吨级超无畏舰纳尔逊号冒着浓烟，率领一支由六艘舰船组成的分舰队。'
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 470).assertEqual(true)
+          expect(bounds.right <= 740).assertEqual(true)
+          expect(bounds.top >= 350).assertEqual(true)
+          expect(bounds.bottom <= 560).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('rotates an intact Latin word through a narrow vertical balloon', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
