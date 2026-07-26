@@ -4,7 +4,7 @@
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v50`
 - **current production render profile**: `reader-local-bubble-layout-v44` /
-  `local-ctd-aot-inpaint-v29` / `local-bubble-typography-v38`
+  `local-ctd-aot-inpaint-v30` / `local-bubble-typography-v38`
 - **measured**: 2026-07-24
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages

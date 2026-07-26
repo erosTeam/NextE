@@ -2698,11 +2698,10 @@ ncnn::Net *PrepareComicInpainter(ComicInpaintingTask &task)
     ResetCachedComicInpainter();
     auto net = std::make_unique<ncnn::Net>();
     net->opt.use_vulkan_compute = false;
-    net->opt.use_fp16_storage = false;
-    net->opt.use_fp16_packed = false;
-    net->opt.use_fp16_arithmetic = false;
-    // Keep AOT arithmetic on the parity-tested FP32 path, while allowing ncnn to pack
-    // channels internally; packing has no output-pixel change in the real-page A/B.
+    net->opt.use_fp16_storage = true;
+    net->opt.use_fp16_packed = true;
+    net->opt.use_fp16_arithmetic = true;
+    // FP16 AOT passed the real-page FP32-packing visual A/B; keep packing enabled for both paths.
     net->opt.use_packing_layout = true;
     net->opt.num_threads = task.threads;
     const SteadyClock::time_point startedAt = SteadyClock::now();

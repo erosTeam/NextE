@@ -163,11 +163,11 @@ export class ComicNcnnLocalSourceInpainter implements ComicLocalSourceInpainter 
   }
 
   profileId(): string {
-    return 'aot-manga-256-ncnn-fp32-v4'
+    return 'aot-manga-256-ncnn-fp16-v5'
   }
 
   revision(): number {
-    return 4
+    return 5
   }
 
   async inpaint(
