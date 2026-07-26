@@ -75,6 +75,16 @@ struct GalleryCommentInlineImage {
     )
   }
 
+  private imageHeight(): number {
+    if (this.loadedAspectRatio <= 0) {
+      return ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT
+    }
+    return Math.min(
+      ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT,
+      Math.max(1, ThemeConstants.COMMENT_INLINE_IMAGE_MAX_WIDTH / this.loadedAspectRatio),
+    )
+  }
+
   private updateAspectRatio(width: number, height: number): void {
     if (width > 0 && height > 0) {
       this.loadedAspectRatio = width / height
@@ -85,7 +95,7 @@ struct GalleryCommentInlineImage {
     EhImageKnifeImage({
       src: this.image.src,
       widthValue: this.imageWidth(),
-      heightValue: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT,
+      heightValue: this.imageHeight(),
       objectFit: ImageFit.Fill,
       desiredWidth: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_WIDTH,
       desiredHeight: ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT,
@@ -94,7 +104,7 @@ struct GalleryCommentInlineImage {
       },
     })
       .width(this.imageWidth())
-      .height(ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT)
+      .height(this.imageHeight())
       .onClick(() => {
         if (this.image.href.length > 0) {
           this.onOpenLink(this.image.href)
@@ -1994,7 +2004,6 @@ export struct GalleryCommentsCard {
     .scrollBar(BarState.Off)
     .align(Alignment.Start)
     .width('100%')
-    .height(ThemeConstants.COMMENT_INLINE_IMAGE_MAX_HEIGHT)
   }
 
   @Builder

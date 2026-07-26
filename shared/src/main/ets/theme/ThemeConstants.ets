@@ -120,8 +120,7 @@ export class ThemeConstants {
   static readonly COMMENT_BADGE_PADDING_H: number = 7
   static readonly COMMENT_BADGE_RADIUS: number = 9
   static readonly COMMENT_QUOTE_RADIUS: number = 8
-  // Full-comment inline references use a fixed visual height so consecutive image slices preserve their
-  // original edge-to-edge geometry inside one horizontal strip.
+  // Full-comment inline references preserve their source aspect ratio inside this compact bounding box.
   static readonly COMMENT_INLINE_IMAGE_MAX_HEIGHT: number = 160
   static readonly COMMENT_INLINE_IMAGE_MAX_WIDTH: number = 120
 
