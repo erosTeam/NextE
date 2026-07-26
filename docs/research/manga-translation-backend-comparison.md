@@ -109,6 +109,8 @@ box detector 被排除。
 |---|---|---:|---|
 | kitsumed YOLOv8m-seg | GPL-3.0 / instance mask | 52 MB ncnn bin，104.697 GFLOPs（640） | 淘汰：相对当前 79 MB 整包和端侧延迟预算过重 |
 | Manga109 YOLO11n-seg | Apache-2.0 / instance mask | 原 `best.pt` 12,003,405 bytes；固定 640 ncnn param/bin 约 25 KiB / 5.5 MB，9.777 GFLOPs | 淘汰为独立容器方案：真实彩页 P20 只命中 2 个传统封闭气泡，漏掉主导的细长矩形对白框 |
+| Kiuyha Manga-Bubble-YOLO YOLO26n | 模型卡 Apache-2.0；实际 ONNX 元数据 AGPL-3.0 / 仅 `text` box | 5.8 MiB ONNX，`[1,300,6]` | 静态淘汰：许可链自相矛盾，且没有 bubble/container 类；不进入转换或真页测试 |
+| ogkalu comic-text-and-bubble-detector int8 | Apache-2.0 / `bubble`、`text_bubble`、`text_free` boxes | 11.1 MiB ONNX；桌面 CPU 七页为 163.5–173.7 ms/page | 不作为容器候选：P20 的细长矩形文字区正确归为 `text_free`，但只给文字框，不给可验证的边界 mask；留作将来独立的 source-recall 研究线索 |
 
 YOLO11n 候选的上游模型卡声称使用 MangaSegmentation 与 Manga109 训练，输出一类 balloon 的实例 mask；其
 自报准确率不可作为本项目验收。已固定上游 revision `f9a4108c4955136a810e5e92207972f3fb3a65fd`，下载
@@ -123,6 +125,12 @@ prototype `160 × 160 × 32`；新 NAPI 以此生成 raster union mask，且明�
 `3.8575%` 页面。原页复核确认它们正好是两个传统封闭气泡；该页主体的多个细长矩形对白框均未命中。
 因此速度不是当前阻碍，但模型形状覆盖不足，**不得**把它作为 `containerMask` 唯一来源、不得据此放宽
 原文擦除或排版边界。研究 NAPI 仅保留作后续多信号比较的隔离能力，不进入 model pack、设置或默认 Reader。
+
+2026-07-26 的第二轮筛选也排除了“以 box detector 替代容器语义”的捷径。`comic-text-and-bubble-detector`
+的三类确实能在同一 P20 将封闭气泡与细长矩形文字区分开；后者属于 `text_free`，而不是气泡。这一结果与
+原页一致，却不产生 `containerMask`：直接用 box 扩大擦除会重演白色大块和跨画面覆盖。它最多可在未来单列
+的 source-recall 评测中比较，不能混入本容器路线。另一个自称 Apache-2.0 的 YOLO26n 下载文件本身标记为
+AGPL-3.0，且只声明 `text` 类；模型卡与实际资产不一致时，以资产为准并直接淘汰。
 
 ### 首个模型移植结果
 
