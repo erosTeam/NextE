@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "The page and context are uploaded only when you translate. With BYOK, Torii also receives the selected LLM endpoint, model, and API key."
+      "value": "The current manga page and context are uploaded to Torii only when you explicitly translate it. Torii returns a finished translated image and does not join the on-device processing pipeline."
     },
     {
       "name": "comic_local_detector_model",

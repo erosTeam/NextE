@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "只有主动翻译时才会上传图片和上下文；使用 BYOK 时，Torii 还会收到所选 LLM 源的地址、模型和 API Key。"
+      "value": "只有主动翻译时才会向 Torii 上传当前漫画页和上下文。Torii 返回完整译图，不参与端侧处理管线。"
     },
     {
       "name": "comic_local_detector_model",

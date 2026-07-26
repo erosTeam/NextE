@@ -4830,7 +4830,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "翻訳を実行した場合のみ画像とコンテキストを送信します。BYOK では、選択した LLM の URL、モデル、API Key も Torii に送信します。"
+      "value": "明示的に翻訳した場合のみ、現在の漫画ページとコンテキストを Torii に送信します。Torii は完成した翻訳画像を返し、端末側の処理パイプラインには参加しません。"
     },
     {
       "name": "comic_local_detector_model",
