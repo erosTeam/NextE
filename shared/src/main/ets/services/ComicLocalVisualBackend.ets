@@ -3935,13 +3935,16 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   static outlineWidth(fontSize: number): number {
-    // The fill pass covers the inner half of the pen stroke. A 50% pen therefore leaves
-    // about 25% of the font size outside the glyph: at least one normal glyph stroke,
-    // rather than the thin UI-style halo produced by the former 20% pen.
-    return Math.max(4.0, Math.min(24.0, fontSize * 0.50))
+    // The fill pass covers the inner half of the pen stroke. Keep the visible outer half near
+    // one normal CJK stem (about 16% of the em), rather than treating half the character height
+    // as a stroke width and joining neighbouring glyph outlines into solid white bars.
+    return Math.max(4.0, Math.min(16.0, Math.round(fontSize * 0.64) / 2))
   }
 
-  static dominantSourceTextColor(channels: number[]): number[] {
+  static dominantSourceTextColor(
+    channels: number[],
+    backgroundChannels: number[] = [],
+  ): number[] {
     const fallback: number[] = [24, 24, 24]
     if (channels.length < 3 || channels.length % 3 !== 0) {
       return fallback
@@ -3984,11 +3987,15 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const dominantBucket: LocalColorBucket | undefined =
       saturatedBuckets.get(dominantBucketKey)
     if (dominantBucket !== undefined && dominantBucket.count >= saturatedMinimum) {
-      return [
+      const candidate: number[] = [
         Math.round(dominantBucket.red / dominantBucket.count),
         Math.round(dominantBucket.green / dominantBucket.count),
         Math.round(dominantBucket.blue / dominantBucket.count),
       ]
+      if (backgroundChannels.length !== 3 ||
+        ComicLocalVisualBackend.colorContrast(candidate, backgroundChannels) >= 48) {
+        return candidate
+      }
     }
     samples.sort((leftValue: LocalColorSample, rightValue: LocalColorSample): number =>
       leftValue.luminance - rightValue.luminance)
@@ -4005,6 +4012,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return fallback
     }
     return [body.red, body.green, body.blue]
+  }
+
+  private static colorContrast(left: number[], right: number[]): number {
+    if (left.length !== 3 || right.length !== 3) {
+      return 0
+    }
+    const leftLuminance: number = left[0] * 0.299 + left[1] * 0.587 + left[2] * 0.114
+    const rightLuminance: number =
+      right[0] * 0.299 + right[1] * 0.587 + right[2] * 0.114
+    return Math.max(
+      Math.abs(left[0] - right[0]),
+      Math.abs(left[1] - right[1]),
+      Math.abs(left[2] - right[2]),
+      Math.abs(leftLuminance - rightLuminance),
+    )
   }
 
   private static verticalPageFontCap(
@@ -5613,7 +5635,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     style.green = samples[backgroundIndex].green
     style.blue = samples[backgroundIndex].blue
     const sourceTextColor: number[] =
-      ComicLocalVisualBackend.dominantSourceTextColor(sourceTextChannels)
+      ComicLocalVisualBackend.dominantSourceTextColor(
+        sourceTextChannels,
+        [style.red, style.green, style.blue],
+      )
     style.textRed = sourceTextColor[0]
     style.textGreen = sourceTextColor[1]
     style.textBlue = sourceTextColor[2]

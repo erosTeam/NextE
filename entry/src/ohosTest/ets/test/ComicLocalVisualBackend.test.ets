@@ -1798,8 +1798,8 @@ export default function comicLocalVisualBackendTest(): void {
 
     it('keeps the visible comic outline at least as thick as a normal glyph stroke', 0, () => {
       expect(ComicLocalVisualBackend.outlineWidth(8)).assertEqual(4)
-      expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(10)
-      expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(24)
+      expect(ComicLocalVisualBackend.outlineWidth(20)).assertEqual(6.5)
+      expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(16)
     })
 
     it('caps only page-level horizontal font outliers', 0, (): void => {
@@ -2058,6 +2058,18 @@ export default function comicLocalVisualBackendTest(): void {
       expect(emptyMask[0]).assertEqual(24)
       expect(emptyMask[1]).assertEqual(24)
       expect(emptyMask[2]).assertEqual(24)
+      const agedPaperMask: number[] =
+        ComicLocalVisualBackend.dominantSourceTextColor([
+          18, 18, 18,
+          24, 24, 24,
+          186, 157, 139,
+          184, 155, 136,
+          190, 160, 141,
+          181, 153, 134,
+        ], [186, 157, 139])
+      expect(agedPaperMask[0]).assertEqual(18)
+      expect(agedPaperMask[1]).assertEqual(18)
+      expect(agedPaperMask[2]).assertEqual(18)
     })
 
     it('preserves oblique detector classes that the axis-aligned renderer cannot replace', 0,
