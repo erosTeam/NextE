@@ -90,6 +90,7 @@ class GroupingSourceBlock:
     style_hint: str
     text_length: int
     detector_region_indexes: tuple[int, ...]
+    source_group_indexes: tuple[int, ...]
     detector_labels: tuple[str, ...]
     line_width_scale: float
     line_height_scale: float
@@ -971,6 +972,13 @@ def recording_grouping_source_blocks(
                 "detectorRegionIndexes"
             ),
         )
+        source_group_values = require_list(
+            block.get("sourceGroupIndexes", []),
+            (
+                f"recording analysis.groupingStages.{stage}[{index}]."
+                "sourceGroupIndexes"
+            ),
+        )
         label_values = require_list(
             block.get("detectorLabels", []),
             (
@@ -996,6 +1004,19 @@ def recording_grouping_source_blocks(
             )
             for offset, value in enumerate(region_values)
         )
+        source_group_indexes = tuple(
+            bounded_int(
+                value,
+                0,
+                0,
+                100000,
+                (
+                    f"recording analysis.groupingStages.{stage}[{index}]."
+                    f"sourceGroupIndexes[{offset}]"
+                ),
+            )
+            for offset, value in enumerate(source_group_values)
+        )
         labels = tuple(
             str(value).strip().lower()
             for value in label_values
@@ -1015,6 +1036,7 @@ def recording_grouping_source_blocks(
                     ),
                 ),
                 detector_region_indexes=region_indexes,
+                source_group_indexes=source_group_indexes,
                 detector_labels=labels,
                 line_width_scale=bounded_float(
                     block.get("lineWidthScale"),
@@ -1369,14 +1391,24 @@ def horizontal_merge_members(
     grouped: tuple[GroupingSourceBlock, ...],
     merged_block: GroupingSourceBlock,
 ) -> list[GroupingSourceBlock]:
-    merged_regions = set(merged_block.detector_region_indexes)
-    members = [
-        block
-        for block in grouped
-        if block.style_hint == "horizontal-ltr"
-        and block.detector_region_indexes
-        and set(block.detector_region_indexes).issubset(merged_regions)
-    ]
+    merged_source_groups = set(merged_block.source_group_indexes)
+    if merged_source_groups:
+        members = [
+            block
+            for block in grouped
+            if block.style_hint == "horizontal-ltr"
+            and block.source_group_indexes
+            and set(block.source_group_indexes).issubset(merged_source_groups)
+        ]
+    else:
+        merged_regions = set(merged_block.detector_region_indexes)
+        members = [
+            block
+            for block in grouped
+            if block.style_hint == "horizontal-ltr"
+            and block.detector_region_indexes
+            and set(block.detector_region_indexes).issubset(merged_regions)
+        ]
     members.sort(
         key=lambda block: (
             (block.rect[1] + block.rect[3]) / 2,
@@ -1401,10 +1433,13 @@ def horizontal_separator_probes(
     )
     probes: list[dict[str, Any]] = []
     for merged_index, merged_block in enumerate(merged):
-        merged_regions = set(merged_block.detector_region_indexes)
+        merged_provenance_count = len(
+            merged_block.source_group_indexes
+            or merged_block.detector_region_indexes
+        )
         if (
             merged_block.style_hint != "horizontal-ltr"
-            or len(merged_regions) < 2
+            or merged_provenance_count < 2
         ):
             continue
         members = horizontal_merge_members(grouped, merged_block)
@@ -1520,6 +1555,10 @@ def horizontal_separator_probes(
                         list(upper.detector_region_indexes),
                     "lowerDetectorRegionIndexes":
                         list(lower.detector_region_indexes),
+                    "upperSourceGroupIndexes":
+                        list(upper.source_group_indexes),
+                    "lowerSourceGroupIndexes":
+                        list(lower.source_group_indexes),
                 }
             )
     return probes
@@ -1577,6 +1616,7 @@ def horizontal_separator_split_plans(
             )
         merged_block = merged[merged_index - 1]
         proven_members = horizontal_merge_members(grouped, merged_block)
+        exact_membership = bool(merged_block.source_group_indexes)
         valid_boundaries = sorted(
             {
                 int(probe["boundaryIndex"])
@@ -1597,28 +1637,33 @@ def horizontal_separator_split_plans(
             for probe in merged_probes
             if int(probe["boundaryIndex"]) in valid_boundaries
         })
-        proven_text_length = sum(
-            member.text_length
-            for member in proven_members
-        )
-        missing_text_length = merged_block.text_length - proven_text_length
-        unattributed_candidates = [
-            block
-            for block in grouped
-            if block.style_hint == "horizontal-ltr"
-            and not block.detector_region_indexes
-            and merged_block.rect[0]
-            <= (block.rect[0] + block.rect[2]) / 2
-            <= merged_block.rect[2]
-            and merged_block.rect[1]
-            <= (block.rect[1] + block.rect[3]) / 2
-            <= merged_block.rect[3]
-        ]
-        unattributed_members = unique_text_length_subset(
-            unattributed_candidates,
-            missing_text_length,
-        )
-        attribution_resolved = unattributed_members is not None
+        if exact_membership:
+            unattributed_candidates: list[GroupingSourceBlock] = []
+            unattributed_members: list[GroupingSourceBlock] | None = []
+            attribution_resolved = True
+        else:
+            proven_text_length = sum(
+                member.text_length
+                for member in proven_members
+            )
+            missing_text_length = merged_block.text_length - proven_text_length
+            unattributed_candidates = [
+                block
+                for block in grouped
+                if block.style_hint == "horizontal-ltr"
+                and not block.detector_region_indexes
+                and merged_block.rect[0]
+                <= (block.rect[0] + block.rect[2]) / 2
+                <= merged_block.rect[2]
+                and merged_block.rect[1]
+                <= (block.rect[1] + block.rect[3]) / 2
+                <= merged_block.rect[3]
+            ]
+            unattributed_members = unique_text_length_subset(
+                unattributed_candidates,
+                missing_text_length,
+            )
+            attribution_resolved = unattributed_members is not None
         members = list(proven_members)
         if unattributed_members is not None:
             members.extend(unattributed_members)
@@ -1654,6 +1699,11 @@ def horizontal_separator_split_plans(
                 for label in member.detector_labels
                 if label
             })
+            source_group_indexes = sorted({
+                source_group
+                for member in segment
+                for source_group in member.source_group_indexes
+            })
             serialized_segments.append(
                 {
                     "rect": [
@@ -1668,6 +1718,7 @@ def horizontal_separator_split_plans(
                         for member in segment
                     ),
                     "detectorRegionIndexes": detector_indexes,
+                    "sourceGroupIndexes": source_group_indexes,
                     "detectorLabels": detector_labels,
                 }
             )
@@ -1682,10 +1733,20 @@ def horizontal_separator_split_plans(
             for segment in serialized_segments
             for region in segment["detectorRegionIndexes"]
         }
+        segment_source_group_indexes = {
+            int(source_group)
+            for segment in serialized_segments
+            for source_group in segment["sourceGroupIndexes"]
+        }
         text_length_preserved = segment_text_length == merged_block.text_length
         detector_provenance_preserved = (
             segment_detector_indexes
             == set(merged_block.detector_region_indexes)
+        )
+        source_group_provenance_preserved = (
+            not exact_membership
+            or segment_source_group_indexes
+            == set(merged_block.source_group_indexes)
         )
         plans.append(
             {
@@ -1693,6 +1754,13 @@ def horizontal_separator_split_plans(
                 "originalRect": list(merged_block.rect),
                 "originalDetectorRegionIndexes":
                     list(merged_block.detector_region_indexes),
+                "originalSourceGroupIndexes":
+                    list(merged_block.source_group_indexes),
+                "membershipSource": (
+                    "source_group_indexes"
+                    if exact_membership
+                    else "detector_regions_with_text_length_fallback"
+                ),
                 "separatorBoundaryIndexes": valid_boundaries,
                 "separatorYs": separator_ys,
                 "segments": serialized_segments,
@@ -1708,11 +1776,14 @@ def horizontal_separator_split_plans(
                 "segmentTextLength": segment_text_length,
                 "textLengthPreserved": text_length_preserved,
                 "detectorProvenancePreserved": detector_provenance_preserved,
+                "sourceGroupProvenancePreserved":
+                    source_group_provenance_preserved,
                 "safeForCandidateGrouping": (
                     attribution_resolved
                     and len(serialized_segments) == len(separator_ys) + 1
                     and text_length_preserved
                     and detector_provenance_preserved
+                    and source_group_provenance_preserved
                 ),
             }
         )

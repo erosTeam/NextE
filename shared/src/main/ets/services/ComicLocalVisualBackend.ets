@@ -136,6 +136,7 @@ class LocalMappedBlock {
   tileIndex: number = 0
   detectorRegionIndex: number = -1
   detectorRegionIndexes: number[] = []
+  sourceGroupIndexes: number[] = []
   preserveSource: boolean = false
   lineWidthScale: number = 1
   lineHeightScale: number = 1
@@ -2324,7 +2325,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       if (groups[index].length <= 0) {
         continue
       }
-      grouped.push(ComicLocalVisualBackend.group(groups[index]))
+      const groupedBlock: LocalMappedBlock = ComicLocalVisualBackend.group(groups[index])
+      groupedBlock.sourceGroupIndexes.push(grouped.length)
+      grouped.push(groupedBlock)
     }
     ComicLocalVisualBackend.applyDetectorRenderPolicy(
       grouped,
@@ -2450,6 +2453,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           values[ownerIndex].detectorRegionIndexes,
           values[candidateIndex].detectorRegionIndexes,
         )
+      values[ownerIndex].sourceGroupIndexes =
+        ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+          values[ownerIndex].sourceGroupIndexes,
+          values[candidateIndex].sourceGroupIndexes,
+        )
       suppressed[candidateIndex] = true
     }
     const output: LocalMappedBlock[] = []
@@ -2484,6 +2492,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       value.textLength = block.text.replace(/\s+/g, '').length
       value.tileIndex = block.tileIndex
       value.detectorRegionIndexes = block.detectorRegionIndexes.slice()
+      value.sourceGroupIndexes = block.sourceGroupIndexes.slice()
       value.preserveSource = block.preserveSource
       value.lineWidthScale = block.lineWidthScale
       value.lineHeightScale = block.lineHeightScale
@@ -2858,6 +2867,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       first.detectorRegionIndexes,
       second.detectorRegionIndexes,
     )
+    block.sourceGroupIndexes = ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+      first.sourceGroupIndexes,
+      second.sourceGroupIndexes,
+    )
     block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)
     block.lineHeightScale = Math.max(first.lineHeightScale, second.lineHeightScale)
@@ -2952,6 +2965,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     block.detectorRegionIndexes = ComicLocalVisualBackend.combinedDetectorRegionIndexes(
       first.detectorRegionIndexes,
       second.detectorRegionIndexes,
+    )
+    block.sourceGroupIndexes = ComicLocalVisualBackend.combinedDetectorRegionIndexes(
+      first.sourceGroupIndexes,
+      second.sourceGroupIndexes,
     )
     block.preserveSource = first.preserveSource || second.preserveSource
     block.lineWidthScale = Math.max(first.lineWidthScale, second.lineWidthScale)

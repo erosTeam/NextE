@@ -1051,6 +1051,12 @@ production-model 基准完成 3 组 recording，mask 尺寸与页面严格一致
 `comic_visual_regression.py --recording-dir` 直接生成带实现决策边界的报告。新增 sink 回归在目标测试组
 通过，signed app 与 signed `entry@ohosTest` 均构建通过。
 
+2026-07-26 的下一阶段把 developer recording 的分组来源从 detector 索引扩展为稳定
+`sourceGroupIndexes`。索引在初始 OCR 分组后分配，并随纵向、横向和包含关系合并传播；它不进入
+持久文档或 Reader 运行时协议。237 上四页公版回放的每个初始组均有且只有一个唯一索引，P12 两个
+误合并大块分别精确追踪 10 和 9 个来源组，后者包含原先只能由文本长度反推的 detectorless 行。
+可视回归报告优先消费精确索引，同时保留旧 recording 的兼容解析；候选分割仍只记录，不改生产分组。
+
 该阶段关闭的是“真实运行产物无法稳定导出和离线评分”的工具缺口，不关闭视觉门。当前导出的
 treatment/text rect 只能生成实现自身的 allowed mask，仍不是 `containerMask`。下一步先把用户授权真实
 页面录成 Core-12 候选集并做一次性容器标注，再比较容器候选；不得继续凭单页截图追加渲染阈值。

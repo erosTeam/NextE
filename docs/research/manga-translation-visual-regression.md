@@ -100,6 +100,10 @@ python3 scripts/comic_visual_regression.py \
 - `report.html`：source/glyph mask/container mask/baseline/candidate/overlay 对照；
 - `assets/`：有界缩略图。黄色表示变化，红色表示新增近白像素，紫色表示源纹理在候选中塌缩为平块。
 
+新 recording 会为分组前后的块记录稳定 `sourceGroupIndexes`。分割计划优先使用这条精确来源链，
+因此 detectorless OCR 行不再依赖文本长度猜测；旧 recording 仍保留 detector 来源加唯一文本长度
+子集的兼容路径。只有精确来源集合、detector 来源和文本长度全部守恒，候选分割才标记为安全。
+
 ## 指标解释
 
 - `changedPercent`：超过颜色差阈值的像素比例，只表示改动范围，不表示质量；

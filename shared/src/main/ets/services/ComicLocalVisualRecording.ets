@@ -139,6 +139,7 @@ export class ComicLocalVisualRecordedSourceBlock {
   textLength: number = 0
   tileIndex: number = 0
   detectorRegionIndexes: number[] = []
+  sourceGroupIndexes: number[] = []
   detectorLabels: string[] = []
   preserveSource: boolean = false
   lineWidthScale: number = 0
@@ -155,6 +156,7 @@ export class ComicLocalVisualRecordedSourceBlock {
     value.textLength = this.textLength
     value.tileIndex = this.tileIndex
     value.detectorRegionIndexes = this.detectorRegionIndexes.slice()
+    value.sourceGroupIndexes = this.sourceGroupIndexes.slice()
     value.detectorLabels = this.detectorLabels.slice()
     value.preserveSource = this.preserveSource
     value.lineWidthScale = this.lineWidthScale
