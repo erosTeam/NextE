@@ -625,6 +625,36 @@ class SourceOnlyTextMasker implements ComicLocalTextMasker {
   }
 }
 
+class PartialBubbleTextMasker implements ComicLocalTextMasker {
+  profileId(): string {
+    return 'partial-bubble-mask-fixture'
+  }
+
+  revision(): number {
+    return 1
+  }
+
+  async mask(pixelMap: image.PixelMap): Promise<ComicNativeTextMaskResult> {
+    const info: image.ImageInfo = await pixelMap.getImageInfo()
+    const width: number = Math.floor(info.size.width)
+    const height: number = Math.floor(info.size.height)
+    const maskBuffer: ArrayBuffer = new ArrayBuffer(width * height)
+    const mask: Uint8Array = new Uint8Array(maskBuffer)
+    let maskedPixels: number = 0
+    for (let y: number = 280; y < 510; y++) {
+      for (let x: number = 350; x < 370; x++) {
+        mask[y * width + x] = 1
+        maskedPixels = maskedPixels + 1
+      }
+    }
+    const result: ComicNativeTextMaskResult = new ComicNativeTextMaskResult()
+    result.mask = maskBuffer
+    result.backend = 'partial-bubble-mask-fixture'
+    result.maskedPixels = maskedPixels
+    return result
+  }
+}
+
 class SharedBubbleColumnsTextMasker implements ComicLocalTextMasker {
   profileId(): string {
     return 'shared-bubble-columns-mask-fixture'
@@ -2327,6 +2357,80 @@ export default function comicLocalVisualBackendTest(): void {
           expect(inpainter.callCount).assertEqual(1)
           expect(diagnostics.includes(
             'comic-translation.local_render_group_skipped members=1',
+          )).assertEqual(true)
+          expect(diagnostics.includes(
+            'comic-translation.local_render_groups_ready drawable=1 skipped=1',
+          )).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
+    it('preserves a mask-missed source region while rendering the rest of the page', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/partial-mask-source.png`
+        let renderedPath: string = ''
+        await writeAdjacentBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const inpainter: CountingSourceInpainter = new CountingSourceInpainter()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new BubbleGroupingOcrEngine(),
+            null,
+            null,
+            inpainter,
+            new PartialBubbleTextMasker(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          expect(analysis.document.blocks.length).assertEqual(2)
+          const covered = analysis.document.blocks[0]
+          covered.styleHint = 'vertical-rl'
+          covered.polygon[0].x = 320
+          covered.polygon[0].y = 240
+          covered.polygon[1].x = 400
+          covered.polygon[1].y = 240
+          covered.polygon[2].x = 400
+          covered.polygon[2].y = 560
+          covered.polygon[3].x = 320
+          covered.polygon[3].y = 560
+          const missed = analysis.document.blocks[1]
+          missed.styleHint = 'vertical-rl'
+          missed.polygon[0].x = 220
+          missed.polygon[0].y = 250
+          missed.polygon[1].x = 300
+          missed.polygon[1].y = 250
+          missed.polygon[2].x = 300
+          missed.polygon[2].y = 570
+          missed.polygon[3].x = 220
+          missed.polygon[3].y = 570
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          setEnglishRenderText(
+            request,
+            'The covered message renders normally.',
+            'The missed message keeps its original source pixels.',
+            22,
+          )
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(page.byteLength > 0).assertEqual(true)
+          expect(inpainter.callCount).assertEqual(1)
+          expect(diagnostics.includes(
+            `reason=source text mask missed block ${missed.blockId}`,
           )).assertEqual(true)
           expect(diagnostics.includes(
             'comic-translation.local_render_groups_ready drawable=1 skipped=1',

@@ -681,6 +681,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       for (let index: number = 0; index < renderGroups.length; index++) {
         const group: LocalBubbleRenderGroup = renderGroups[index]
         try {
+          if (pageTextMask !== null) {
+            for (let memberIndex: number = 0;
+              memberIndex < group.memberIndexes.length; memberIndex++) {
+              const planIndex: number = group.memberIndexes[memberIndex]
+              const block: ComicTextBlock = renderPlans[planIndex].block
+              if (!ComicLocalVisualBackend.textMaskCoversBlock(
+                pageTextMask,
+                request.source.imageWidth,
+                request.source.imageHeight,
+                block,
+              )) {
+                throw new Error(`source text mask missed block ${block.blockId}`)
+              }
+            }
+          }
           ComicLocalVisualBackend.validateBlockLayout(
             group.plan.block,
             group.plan.translatedText,
@@ -5498,6 +5513,27 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     style.textGreen = sourceTextColor[1]
     style.textBlue = sourceTextColor[2]
     return style
+  }
+
+  private static textMaskCoversBlock(
+    pageTextMask: Uint8Array,
+    imageWidth: number,
+    imageHeight: number,
+    block: ComicTextBlock,
+  ): boolean {
+    const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
+    const left: number = Math.max(0, Math.floor(raw.left))
+    const top: number = Math.max(0, Math.floor(raw.top))
+    const right: number = Math.min(imageWidth, Math.ceil(raw.right))
+    const bottom: number = Math.min(imageHeight, Math.ceil(raw.bottom))
+    for (let y: number = top; y < bottom; y++) {
+      for (let x: number = left; x < right; x++) {
+        if (pageTextMask[y * imageWidth + x] !== 0) {
+          return true
+        }
+      }
+    }
+    return false
   }
 
   private static async eraseSourceRegions(
