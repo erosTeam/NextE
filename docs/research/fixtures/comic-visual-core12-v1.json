@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "kind": "comic-visual-core-set",
+  "purpose": "Freeze real Reader pages for one-time container and source-preservation review; this manifest contains no OCR, translation, or generated image data.",
+  "development": [
+    {"familyId": "public-horizontal-negative", "recordingId": "real237-20260726-public-horizontal-negative-v2", "pageIndex": 0, "imageHash": "d557435a017bcf6b55f408138667cf493dcaa67ee0751d35d32548e2fb4b3680"},
+    {"familyId": "public-horizontal-negative", "recordingId": "real237-20260726-public-horizontal-negative-v2", "pageIndex": 1, "imageHash": "16dc9d99e1408b8311815bc416329289a14728dc5a5ff5f091b24db4b30d0d4e"},
+    {"familyId": "public-horizontal-negative", "recordingId": "real237-20260726-public-horizontal-negative-v2", "pageIndex": 2, "imageHash": "845c06fb972fc897b06f708529eea2a2bef6b18d565e61c1f866a5c1ba988f76"},
+    {"familyId": "public-horizontal-negative", "recordingId": "real237-20260726-public-horizontal-negative-v2", "pageIndex": 3, "imageHash": "5584fb23c47374d761179bd3b4d8dca7800f6a04ca15a7211614bdf8c59674ed"},
+    {"familyId": "public-horizontal-negative", "recordingId": "real237-20260726-public-horizontal-negative-v2", "pageIndex": 4, "imageHash": "c366890d8f78dad12f5470c66c83e45734e0b0e1b8687a679cbd9d56f7c45e36"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 0, "imageHash": "6d1888feede6aa502c702da8ee0c9b9ce937a6cc5c3ce751c2466f849a2599b5"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 1, "imageHash": "c968bf5843861e1e10e53fb801dfd590f4fdc77a720ed272448e6f1e04fd77a5"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 2, "imageHash": "41a3dc5b897198687a4b6d10e66db07cca44dbd4f841cf692376db96fb06d34f"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 3, "imageHash": "2fc0e8b6b41e97d21f42e133354f94b1375eb023b6ff1d65e0500ed920762eff"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 4, "imageHash": "70dd6bda21b31548704f1a25260bc3558704062a51e43752e7ae01bbce6472e3"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 5, "imageHash": "9b3d79ff6455f49771bdd26e5b19273dc2496ddd0e2f20a1e32d5da16bcadf39"},
+    {"familyId": "authorized-color-gallery-a", "recordingId": "real237-20260726-color-core-rect-border-v1", "pageIndex": 6, "imageHash": "d211983a9201d79fb641f382595bdea045c48010dd10680f34c497c9c348ad10"}
+  ],
+  "holdout": [
+    {"familyId": "authorized-color-gallery-b", "recordingId": "real237-20260726-color-holdout-p18-p24-v1", "imageHashes": ["159765495bef7a5578e868772c853e51d8a38940027568107e215ba805ec46b1", "3bf2790e3f958c31891ad2e8e72ca04dd5aeb67efa6a7fcd47426415537aa64b", "40c9447feca032553d3314e529ec577c210e3e8996f973906b0ae42e6f1a1760", "6c8d937c0d6281dd0e8b11e9d900ecfc8ffc0fddaa4a44319b2d3b6386a2e68b", "a63470de536dd80fcf2a963ca9ced6bfdc4c96ec87150058d68926a4a0532f8b", "b13cfa5605a76e17243eb3ea7aa3effd768e7d21e5a870b8552306fd02a00a2e", "eebc25ffe44b81f6ff09635022ff66a3f0f465c108dd3a764831595c4de18391"]},
+    {"familyId": "turok-596", "recordingId": "real237-20260726-turok596-baseline-v2", "imageHashes": ["cc7234272b0d0a862a30f5956cf5de7cd8d15431aaeb58a769e4f4af75d924d5", "39e1aa25a86fd4627c0dd0bfb408ed38afc518204468b4230bfd0f575d5d4aad", "2c6031d2238e3859cbc12c829a6c24d54aafdc4833d8aa13e75cac0cdd3db5c0"]}
+  ],
+  "reviewRequirement": "Before G2, independently mark every Core-12 source container and every holdout page selected for the final decision. Candidate boxes and recorded layouts are review aids only."
+}
