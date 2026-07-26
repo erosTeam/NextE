@@ -15,7 +15,8 @@ The old milestone snapshot is archived at
   candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
   [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); the local Reader boundary is
   archived as [Manga Translation Reader Acceptance](plans/archive/manga-translation-reader-acceptance-2026-07-27.md),
-  and current execution is [Manga Whole-page Qualification](plans/active/manga-translation-whole-page-qualification.md).
+  current Torii qualification is archived, and current execution is
+  [Manga Provider Feasibility](plans/active/manga-translation-provider-feasibility.md).
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.
