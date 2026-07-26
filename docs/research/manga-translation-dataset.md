@@ -156,6 +156,17 @@ python3 scripts/comic_dataset_validate_labels.py \
 split：`train` 只允许训练集、`dev` 只允许开发集、`evaluation` 只允许开发或 holdout。它是数据边界，不会
 把模板内容转换或写回任何训练数据。
 
+为避免审核人员在原图、rendered 输出和 JSON 坐标之间反复切换，可在填写模板前生成只读本地评审包：
+
+```bash
+python3 scripts/comic_ground_truth_review_packet.py \
+  --template .hvigor/outputs/comic-dataset/<review-template>.json \
+  --output .hvigor/outputs/comic-dataset/<review-packet>
+```
+
+评审包在同页展示原图、记录的 candidate polygon（青色）与最终 layout（琥珀色）以及 rendered 输出。它只复制
+本地评审资产，绝不修改模板、自动填充 truth 或进入评分；审核仍必须独立填写 truth 和 `additionalRegions`。
+
 ## 训练与评测的边界
 
 第一轮不训练“端到端漫画翻译模型”。数据按能力拆分：detector 用区域/类别标签，OCR 用图块与逐字真值，
