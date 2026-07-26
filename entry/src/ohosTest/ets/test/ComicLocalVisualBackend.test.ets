@@ -3601,6 +3601,58 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
+    it('keeps a continuous Latin word intact inside a vertical CJK translation', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/mixed-vertical-latin-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536, 430, 320, 590, 740)
+        try {
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new NarrowVerticalBubbleOcrEngine(),
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          request.translations.targetLanguage = 'zh-CN'
+          request.identity.targetLanguage = 'zh-CN'
+          request.translations.translationRevision = 22
+          request.identity.translationRevision = 22
+          request.translations.blocks[0].translatedText = '请在Checkpoint等我'
+          DiagnosticLogger.clear()
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          const diagnostics: string = DiagnosticLogger.exportBufferedText()
+          expect(diagnostics.includes(
+            'comic-translation.local_vertical_layout_rotated_latin block=p0-local-1 runs=1',
+          )).assertEqual(true)
+          const bounds: LocalChangedPixelBounds = await changedPixelBounds(
+            sourcePath,
+            renderedPath,
+            1024,
+          )
+          expect(bounds.changed > 0).assertEqual(true)
+          expect(bounds.left >= 445).assertEqual(true)
+          expect(bounds.right <= 575).assertEqual(true)
+          expect(bounds.top >= 335).assertEqual(true)
+          expect(bounds.bottom <= 725).assertEqual(true)
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('measures endpoint-free OCR accuracy, direction, coverage, and latency', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()

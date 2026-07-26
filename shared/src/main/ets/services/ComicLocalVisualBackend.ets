@@ -250,7 +250,19 @@ class LocalTextMaskCandidate {
 
 class LocalVerticalTextLayout {
   fontSize: number = 0
-  columns: string[] = []
+  columns: LocalVerticalTextColumn[] = []
+  rotatedLatinRunCount: number = 0
+}
+
+class LocalVerticalTextUnit {
+  text: string = ''
+  advance: number = 0
+  rotatedLatin: boolean = false
+}
+
+class LocalVerticalTextColumn {
+  units: LocalVerticalTextUnit[] = []
+  occupiedHeight: number = 0
 }
 
 class LocalHorizontalRenderLayout {
@@ -3225,6 +3237,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       )
       measurement.fontSize = layout.fontSize
       measurement.outlineWidth = ComicLocalVisualBackend.outlineWidth(layout.fontSize)
+      if (layout.rotatedLatinRunCount > 0) {
+        DiagnosticLogger.info(
+          'comic-translation',
+          'local_vertical_layout_rotated_latin',
+          `block=${block.blockId} runs=${layout.rotatedLatinRunCount} font=${layout.fontSize}`,
+        )
+      }
       textPen.setStrokeWidth(measurement.outlineWidth)
       canvas.attachPen(textPen)
       ComicLocalVisualBackend.drawVerticalLayout(
@@ -6106,17 +6125,42 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       Math.max(0, (contentWidth - totalWidth) / 2)
     const metrics: drawing.FontMetrics = font.getMetrics()
     for (let columnIndex: number = 0; columnIndex < layout.columns.length; columnIndex++) {
-      const column: string = layout.columns[columnIndex]
-      const totalHeight: number = column.length * cellHeight
-      const top: number = rect.top + verticalPadding +
-        Math.max(0, (contentHeight - totalHeight) / 2)
+      const column: LocalVerticalTextColumn = layout.columns[columnIndex]
+      let cursor: number = rect.top + verticalPadding +
+        Math.max(0, (contentHeight - column.occupiedHeight) / 2)
       const centerX: number = right - columnWidth * (columnIndex + 0.5)
-      for (let rowIndex: number = 0; rowIndex < column.length; rowIndex++) {
-        const glyph: string = ComicLocalVisualBackend.verticalGlyph(column.charAt(rowIndex))
+      for (let rowIndex: number = 0; rowIndex < column.units.length; rowIndex++) {
+        const unit: LocalVerticalTextUnit = column.units[rowIndex]
+        if (unit.rotatedLatin) {
+          const wordWidth: number = font.measureText(
+            unit.text,
+            drawing.TextEncoding.TEXT_ENCODING_UTF8,
+          )
+          const centerY: number = cursor + unit.advance / 2
+          canvas.save()
+          try {
+            // A horizontal Latin run is one typographic unit in CJK vertical writing. Rotate the
+            // complete word through the column instead of rendering each ASCII character in its
+            // own cell; this is the only layout path used for mixed CJK/Latin translations.
+            canvas.rotate(90, centerX, centerY)
+            const baseline: number = centerY - (metrics.ascent + metrics.descent) / 2
+            canvas.drawTextBlob(
+              drawing.TextBlob.makeFromString(unit.text, font),
+              centerX - wordWidth / 2,
+              baseline,
+            )
+          } finally {
+            canvas.restore()
+          }
+          cursor += unit.advance
+          continue
+        }
+        const glyph: string = ComicLocalVisualBackend.verticalGlyph(unit.text)
         const glyphWidth: number = font.measureText(glyph, drawing.TextEncoding.TEXT_ENCODING_UTF8)
         const x: number = centerX - glyphWidth / 2
-        const baseline: number = top + rowIndex * cellHeight - metrics.ascent
+        const baseline: number = cursor - metrics.ascent
         canvas.drawTextBlob(drawing.TextBlob.makeFromString(glyph, font), x, baseline)
+        cursor += cellHeight
       }
     }
   }
@@ -6135,33 +6179,108 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     )
     for (let size: number = initialSize; size >= LOCAL_MIN_FONT_SIZE; size--) {
       font.setSize(size)
-      const cellHeight: number = size * 1.12
       const columnWidth: number = size * 1.16
-      const charsPerColumn: number = Math.max(1, Math.floor(height / cellHeight))
-      const columnCount: number = Math.ceil(normalized.length / charsPerColumn)
-      if (columnCount * columnWidth > width ||
-        ComicLocalVisualBackend.hasInvalidVerticalBreak(normalized, charsPerColumn)) {
+      const columns: LocalVerticalTextColumn[] =
+        ComicLocalVisualBackend.verticalColumns(normalized, height, size, font)
+      if (columns.length === 0 || columns.length * columnWidth > width) {
         continue
       }
       const result: LocalVerticalTextLayout = new LocalVerticalTextLayout()
       result.fontSize = size
-      for (let start: number = 0; start < normalized.length; start += charsPerColumn) {
-        result.columns.push(normalized.slice(start, start + charsPerColumn))
+      result.columns = columns
+      for (let columnIndex: number = 0; columnIndex < columns.length; columnIndex++) {
+        for (let unitIndex: number = 0; unitIndex < columns[columnIndex].units.length; unitIndex++) {
+          if (columns[columnIndex].units[unitIndex].rotatedLatin) {
+            result.rotatedLatinRunCount = result.rotatedLatinRunCount + 1
+          }
+        }
       }
-      if (result.columns.length > 0) {
-        return result
-      }
+      return result
     }
     throw new Error('Local vertical comic translation does not fit its detected region')
   }
 
-  private static hasInvalidVerticalBreak(text: string, charsPerColumn: number): boolean {
-    for (let start: number = charsPerColumn; start < text.length; start += charsPerColumn) {
-      if ('，。！？、,.!?；：）】》」』…'.includes(text.charAt(start))) {
-        return true
-      }
+  private static verticalColumns(
+    text: string,
+    height: number,
+    fontSize: number,
+    font: drawing.Font,
+  ): LocalVerticalTextColumn[] {
+    const units: LocalVerticalTextUnit[] =
+      ComicLocalVisualBackend.verticalTextUnits(text, fontSize, font)
+    if (units.length === 0) {
+      return []
     }
-    return false
+    const columns: LocalVerticalTextColumn[] = []
+    let column: LocalVerticalTextColumn = new LocalVerticalTextColumn()
+    for (let index: number = 0; index < units.length; index++) {
+      const unit: LocalVerticalTextUnit = units[index]
+      if (unit.advance > height) {
+        return []
+      }
+      if (column.units.length > 0 && column.occupiedHeight + unit.advance > height) {
+        // Do not strand punctuation at the top of the next right-to-left column. A smaller
+        // font is preferable to a visually broken sentence.
+        if (ComicLocalVisualBackend.verticalBreakProhibited(unit.text)) {
+          return []
+        }
+        columns.push(column)
+        column = new LocalVerticalTextColumn()
+      }
+      column.units.push(unit)
+      column.occupiedHeight += unit.advance
+    }
+    if (column.units.length > 0) {
+      columns.push(column)
+    }
+    return columns
+  }
+
+  private static verticalTextUnits(
+    text: string,
+    fontSize: number,
+    font: drawing.Font,
+  ): LocalVerticalTextUnit[] {
+    const units: LocalVerticalTextUnit[] = []
+    const cellHeight: number = fontSize * 1.12
+    const joiners: string = "'’._,:/-"
+    let index: number = 0
+    while (index < text.length) {
+      let end: number = index
+      if (/[A-Za-z0-9]/.test(text.charAt(index))) {
+        end = index + 1
+        while (end < text.length &&
+          (/[A-Za-z0-9]/.test(text.charAt(end)) || joiners.includes(text.charAt(end)))) {
+          end = end + 1
+        }
+        while (end > index && joiners.includes(text.charAt(end - 1))) {
+          end = end - 1
+        }
+        if (end > index) {
+          const unit: LocalVerticalTextUnit = new LocalVerticalTextUnit()
+          unit.text = text.slice(index, end)
+          unit.rotatedLatin = true
+          unit.advance = Math.max(
+            cellHeight,
+            Math.ceil(font.measureText(unit.text, drawing.TextEncoding.TEXT_ENCODING_UTF8) /
+              cellHeight) * cellHeight,
+          )
+          units.push(unit)
+          index = end
+          continue
+        }
+      }
+      const unit: LocalVerticalTextUnit = new LocalVerticalTextUnit()
+      unit.text = text.charAt(index)
+      unit.advance = cellHeight
+      units.push(unit)
+      index = index + 1
+    }
+    return units
+  }
+
+  private static verticalBreakProhibited(text: string): boolean {
+    return '，。！？、,.!?；：）】》」』…'.includes(text.charAt(0))
   }
 
   private static normalizeVerticalText(text: string): string {

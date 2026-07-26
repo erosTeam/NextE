@@ -3,8 +3,8 @@
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v50`
-- **current production render profile**: `reader-local-bubble-layout-v44` /
-  `local-ctd-aot-inpaint-v30` / `local-bubble-typography-v38`
+- **current production render profile**: `reader-local-bubble-layout-v45` /
+  `local-ctd-aot-inpaint-v30` / `local-bubble-typography-v39`
 - **measured**: 2026-07-24
 - **device**: user-selected device `237`
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 PNG pages
@@ -701,6 +701,13 @@ P20 的视觉结果仍未过门。彩色源字和部分艺术字原稿得以保�
 形成难读的单字母列；3 个几何风险块仍保留原文。下一阶段应把“目标文本中的连续拉丁词如何参与纵排”
 作为排版策略单独处理，并继续用同一类多列彩页约束残留、重叠和 overflow，不能通过重新放开不安全区域
 替换来消除原文。
+
+2026-07-26 的 v45 关闭了其中明确的排版根因：中文/日文目标此前绕过了横排路径的 Latin token 保护，
+因此连续 Latin run 会逐字符入列。现在它作为一个旋转的完整词组参与纵排高度分配，CJK 字符与既有
+标点换列规则不变；reader cache 升至 `reader-local-bubble-layout-v45` / `local-bubble-typography-v39`。
+设备 `237` 的生产后端目标回归为 44/44，新增混合 CJK/Latin 用例确认完整词组走该分支。一次同页真实
+provider 重放只成功导出请求，远端任务在五分钟内未返回 response，已停止并清理；它不构成该规则的
+真实译文质量或性能证据，仍须在 provider 返回成功的真实彩页上补做回放。
 
 ## 当前缺口与后续门槛
 
