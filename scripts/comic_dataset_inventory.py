@@ -122,6 +122,17 @@ def observe(
     layouts = render.get("layouts")
     if not isinstance(blocks, list) or not isinstance(layouts, list):
         fail(f"{run_dir} blocks or layouts are invalid")
+    translation_map: dict[str, str] = {}
+    translations = render.get("translations")
+    if isinstance(translations, dict) and isinstance(translations.get("blocks"), list):
+        for translation in translations["blocks"]:
+            if not isinstance(translation, dict):
+                fail(f"{render_path} translation block is invalid")
+            block_id = required_text(translation.get("blockId"), f"{render_path} translation blockId")
+            translated_text = translation.get("translatedText")
+            if not isinstance(translated_text, str) or block_id in translation_map:
+                fail(f"{render_path} translation block is invalid")
+            translation_map[block_id] = translated_text
     family_id, split = assignment(recording_id, image_hash, catalog)
     kinds = Counter()
     source_origins = Counter()
@@ -134,12 +145,13 @@ def observe(
         kinds[kind] += 1
         source_origins[origin] += 1
         if include_text:
+            block_id = str(block.get("blockId", ""))
             block_values.append({
-                "blockId": str(block.get("blockId", "")),
+                "blockId": block_id,
                 "kind": kind,
                 "sourceText": str(block.get("sourceText", "")),
                 "normalizedSourceText": str(block.get("normalizedSourceText", "")),
-                "translatedText": str(block.get("translatedText", "")),
+                "translatedText": str(block.get("translatedText", "")) or translation_map.get(block_id, ""),
                 "sourceOrigin": origin,
                 "translationOrigin": str(block.get("translationOrigin", "unknown")),
             })
