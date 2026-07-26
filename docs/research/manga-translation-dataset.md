@@ -40,11 +40,26 @@ python3 scripts/comic_dataset_score.py \
 评分器逐 recording 输出 source recall/precision、漏检、误检、阅读顺序错误和必需术语错误。它不会将
 像素变化、provider confidence 或同一页的候选重跑伪装成翻译准确率。
 
+性能同样从同一 inventory 生成，按每个 recording 分组，不将基线和候选重跑混为一个平均数：
+
+```bash
+python3 scripts/comic_dataset_performance.py \
+  --inventory .hvigor/outputs/comic-dataset/inventory-v1.json \
+  --output .hvigor/outputs/comic-dataset/performance-v1.json
+```
+
+报告对每个 recording 分别给出页面数、block/layout 数，以及 analysis、render、AOT inpaint 的中位数和 P90。
+耗时直接读取 recording 的 `totalMs` / `inpaintMs` 字段；中位数对偶数样本取中间两项的算术平均。
+
 2026-07-26 首次真实盘点得到 34 个唯一页面、250 次 recording observation；其中 catalog 已分配
 4 个公版训练页、5 个公版开发页、3 个独立 Turok holdout 页，余下 22 页在来源或真值整理完成前保持
 `unassigned`。同一图片的基线/候选重跑按 SHA-256 合并，未被计为额外训练样本。原创两页的严格自动基线为
 source recall 81.82%（9/11）、source precision 100%（9/9）、阅读顺序错误 0、必需术语错误 0；两个漏检
 均为已知融入画面的拟声词。该数字只代表已审核的原创 fixture，不外推成真实漫画总体 OCR 或翻译准确率。
+
+同日 Turok 三页真实设备基线的中位数为：analysis 2.213 秒、render 4.900 秒、其中 AOT inpaint 4.071 秒
+（P90 分别为 2.360、5.503、4.570 秒）。因此当前可量化的端侧瓶颈是修复阶段，而不是检测或 OCR；后续优化
+应以同一 recording 的页面级分位数比较，不把单页候选重跑与该基线混合。
 
 ## 必须人工补充的真值
 

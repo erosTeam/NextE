@@ -171,9 +171,9 @@ def observe(
         "blockKinds": dict(sorted(kinds.items())),
         "sourceOrigins": dict(sorted(source_origins.items())),
         "timingsMs": {
-            "analysis": timing_value(timings.get("total")),
-            "render": timing_value(render_timings.get("total")),
-            "inpaint": timing_value(render_timings.get("inpaint")),
+            "analysis": timing_value(timings.get("totalMs")),
+            "render": timing_value(render_timings.get("totalMs")),
+            "inpaint": timing_value(render_timings.get("inpaintMs")),
         },
         "assets": {
             "source": str(manifest.get("sourceImage", "source.jpg")),
