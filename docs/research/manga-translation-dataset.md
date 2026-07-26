@@ -85,6 +85,19 @@ python3 scripts/comic_dataset_label_template.py \
 模板同时保留原始 artifact 路径、候选区域 polygon、OCR/译文观察值，并为漏检保留 `additionalRegions`。它不能
 自动标注，也不能把 holdout 写回训练集；其作用是让后续审核成为一次有明确输入输出的标注任务，而非临时看图。
 
+审核完成后必须先通过标签校验器，才可作为训练或评测输入：
+
+```bash
+python3 scripts/comic_dataset_validate_labels.py \
+  --labels path/to/reviewed-labels.json \
+  --usage evaluation \
+  --require-complete
+```
+
+校验器会拒绝未审核/部分填写的 truth、缺少逐字原文或参考译文的可翻译区域、重复区域 ID，以及不符合用途的
+split：`train` 只允许训练集、`dev` 只允许开发集、`evaluation` 只允许开发或 holdout。它是数据边界，不会
+把模板内容转换或写回任何训练数据。
+
 ## 训练与评测的边界
 
 第一轮不训练“端到端漫画翻译模型”。数据按能力拆分：detector 用区域/类别标签，OCR 用图块与逐字真值，
