@@ -18,6 +18,22 @@
       "imageHashes": []
     },
     {
+      "familyId": "authorized-color-gallery-a",
+      "split": "dev",
+      "recordingIdPrefixes": [
+        "real237-20260726-color-core-"
+      ],
+      "imageHashes": []
+    },
+    {
+      "familyId": "authorized-color-gallery-b",
+      "split": "holdout",
+      "recordingIdPrefixes": [
+        "real237-20260726-color-holdout-"
+      ],
+      "imageHashes": []
+    },
+    {
       "familyId": "turok-596",
       "split": "holdout",
       "recordingIdPrefixes": [
