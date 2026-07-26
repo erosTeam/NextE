@@ -2216,6 +2216,18 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.localTextKind(
         '右側の縦書き列です左側の縦書き列です',
       )).assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind(
+        "---AND G000' MMMMMM--- SZZZIP!",
+      )).assertEqual(ComicTextKind.SFX)
+      expect(ComicLocalVisualBackend.localTextKind(
+        'YOW! UH--. MMMMH!-- SOMETHING BIT ME!',
+      )).assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind(
+        'NOOO! NOOO! STOP!',
+      )).assertEqual(ComicTextKind.OTHER)
+      expect(ComicLocalVisualBackend.localTextKind(
+        'THE WATER IS POISONOUS! WE WILL LO0K FOR ANOTHER SPRING.',
+      )).assertEqual(ComicTextKind.OTHER)
     })
 
     it('preserves classified sound-effect artwork while rendering dialogue', 0,

@@ -4277,6 +4277,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
   }
 
   static localTextKind(sourceText: string): ComicTextKind {
+    if (ComicLocalVisualBackend.latinTranscriptIsDominatedByNoise(sourceText)) {
+      return ComicTextKind.SFX
+    }
     const compact: string = sourceText.replace(
       /[\s\u3000。、，,.!！?？…⋯・･~〜～―—「」『』（）()\[\]【】♡♥❤♪]+/g,
       '',
@@ -4340,6 +4343,56 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       return ComicTextKind.SFX
     }
     return ComicTextKind.OTHER
+  }
+
+  private static latinTranscriptIsDominatedByNoise(sourceText: string): boolean {
+    const compact: string = sourceText.replace(/\s+/g, '')
+    const latinChars: number = sourceText.replace(/[^A-Za-z]/g, '').length
+    if (compact.length < 8 || compact.length > 64 ||
+      latinChars * 2 < compact.length) {
+      return false
+    }
+    const rawTokens: string[] = sourceText.toUpperCase().split(/[^A-Z0-9']+/)
+    let tokenCount: number = 0
+    let noisyTokenCount: number = 0
+    let noisyChars: number = 0
+    let totalChars: number = 0
+    let repeatedLatinTokenCount: number = 0
+    for (let tokenIndex: number = 0; tokenIndex < rawTokens.length; tokenIndex++) {
+      const token: string = rawTokens[tokenIndex].replace(/'/g, '')
+      if (token.length < 2) {
+        continue
+      }
+      tokenCount++
+      totalChars += token.length
+      const letters: number = token.replace(/[^A-Z]/g, '').length
+      const digits: number = token.replace(/[^0-9]/g, '').length
+      let repeatedLatin: boolean = false
+      for (let charIndex: number = 2; charIndex < token.length; charIndex++) {
+        const value: string = token.charAt(charIndex)
+        if (value >= 'A' && value <= 'Z' &&
+          value === token.charAt(charIndex - 1) &&
+          value === token.charAt(charIndex - 2)) {
+          repeatedLatin = true
+          break
+        }
+      }
+      const noisy: boolean = repeatedLatin || (letters > 0 && digits > 0)
+      if (noisy) {
+        noisyTokenCount++
+        noisyChars += token.length
+      }
+      if (repeatedLatin) {
+        repeatedLatinTokenCount++
+      }
+    }
+    // This is deliberately narrower than generic OCR correction. It catches a short Latin
+    // transcript dominated by several damaged/vocalized tokens, while a normal sentence with
+    // one elongated cry or one digit-confused word remains translatable.
+    return tokenCount >= 3 &&
+      noisyTokenCount >= 3 &&
+      repeatedLatinTokenCount >= 1 &&
+      noisyChars * 3 >= totalChars * 2
   }
 
   private static documentPreservesSource(
