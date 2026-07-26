@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "families": [
+    {
+      "familyId": "public-domain-rect",
+      "split": "train",
+      "recordingIdPrefixes": [
+        "real237-20260726-public-domain-rect"
+      ],
+      "imageHashes": []
+    },
+    {
+      "familyId": "public-horizontal-negative",
+      "split": "dev",
+      "recordingIdPrefixes": [
+        "real237-20260726-public-horizontal-negative"
+      ],
+      "imageHashes": []
+    },
+    {
+      "familyId": "turok-596",
+      "split": "holdout",
+      "recordingIdPrefixes": [
+        "real237-20260726-turok596-"
+      ],
+      "imageHashes": []
+    }
+  ]
+}
