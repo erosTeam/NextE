@@ -1,11 +1,13 @@
 import { application, common } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   ComicBlockTranslation,
+  ComicBackendTemplate,
   ComicLocalOcrLine,
   ComicLocalOcrResult,
   ComicLocalVisualBackend,
@@ -14,6 +16,8 @@ import {
   ComicNcnnLocalSourceInpainter,
   ComicNcnnLocalTextMasker,
   ComicNcnnLocalTextRecognizer,
+  ComicPageDocument,
+  ComicPoint,
   ComicRegionAnalysisRequest,
   ComicRegionAnalysisResult,
   ComicRegionRenderRequest,
@@ -62,6 +66,47 @@ class ReplayTranslationResult {
   candidateLines: number = 0
 }
 
+class CandidateGroupingSegment {
+  rect: number[] = []
+  sourceGroupIndexes: number[] = []
+  textLength: number = 0
+}
+
+class CandidateGroupingSplit {
+  originalRect: number[] = []
+  originalSourceGroupIndexes: number[] = []
+  segments: CandidateGroupingSegment[] = []
+}
+
+class CandidateGroupingPage {
+  pageId: string = ''
+  pageIndex: number = -1
+  sourceImageHash: string = ''
+  plans: CandidateGroupingSplit[] = []
+}
+
+class CandidateGroupingPlan {
+  schemaVersion: number = 0
+  fixtureSetId: string = ''
+  candidateId: string = ''
+  pages: CandidateGroupingPage[] = []
+}
+
+class CandidateTemplateBlock {
+  blockId: string = ''
+  polygon: ComicPoint[] = []
+}
+
+class CandidateTemplateEnvelope {
+  schemaVersion: number = 1
+  backendId: string = ''
+  profileId: string = ''
+  sourceImageHash: string = ''
+  width: number = 0
+  height: number = 0
+  blocks: CandidateTemplateBlock[] = []
+}
+
 function parameter(name: string): string {
   const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
   return parameters[`-s ${name}`] ?? ''
@@ -75,6 +120,10 @@ function containerCalibrationEnabled(): boolean {
   return parameter('comicContainerCalibration') === 'true'
 }
 
+function candidateGroupingEnabled(): boolean {
+  return parameter('comicCandidateGrouping') === 'true'
+}
+
 function safeFileName(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)
 }
@@ -85,6 +134,118 @@ function parsePositiveInteger(value: string, label: string): number {
     throw new Error(`${label} is invalid`)
   }
   return parsed
+}
+
+function validateIntegerArray(
+  values: number[],
+  expectedLength: number,
+  label: string,
+): void {
+  if (!Array.isArray(values) || (expectedLength >= 0 && values.length !== expectedLength)) {
+    throw new Error(`${label} length is invalid`)
+  }
+  for (let index: number = 0; index < values.length; index++) {
+    if (!Number.isFinite(values[index]) || values[index] < 0 ||
+      Math.floor(values[index]) !== values[index]) {
+      throw new Error(`${label}[${index}] is invalid`)
+    }
+  }
+}
+
+function loadCandidateGroupingPlan(
+  root: string,
+  encodedPlan: string,
+): CandidateGroupingPlan {
+  let plan: CandidateGroupingPlan
+  try {
+    const text: string = encodedPlan.trim().length > 0
+      ? new util.TextDecoder().decodeToString(
+        new util.Base64Helper().decodeSync(encodedPlan.trim()),
+      )
+      : fileIo.readTextSync(`${root}/candidate-grouping-plan.json`)
+    plan = JSON.parse(
+      text,
+    ) as CandidateGroupingPlan
+  } catch (_error) {
+    throw new Error('Candidate grouping plan is invalid JSON')
+  }
+  if (plan.schemaVersion !== 1 || plan.fixtureSetId.trim().length <= 0 ||
+    plan.candidateId.trim().length <= 0 || !Array.isArray(plan.pages) ||
+    plan.pages.length <= 0 || plan.pages.length > MAX_REPLAY_PAGES) {
+    throw new Error('Candidate grouping plan identity is invalid')
+  }
+  const pageIndexes: Set<number> = new Set<number>()
+  for (let pageOffset: number = 0; pageOffset < plan.pages.length; pageOffset++) {
+    const page: CandidateGroupingPage = plan.pages[pageOffset]
+    if (!safeFileName(page.pageId) || page.pageIndex < 0 ||
+      Math.floor(page.pageIndex) !== page.pageIndex ||
+      !/^[0-9a-f]{64}$/.test(page.sourceImageHash) ||
+      pageIndexes.has(page.pageIndex) || !Array.isArray(page.plans) ||
+      page.plans.length <= 0 || page.plans.length > 16) {
+      throw new Error(`Candidate grouping page ${pageOffset} is invalid`)
+    }
+    pageIndexes.add(page.pageIndex)
+    for (let planOffset: number = 0; planOffset < page.plans.length; planOffset++) {
+      const split: CandidateGroupingSplit = page.plans[planOffset]
+      validateIntegerArray(
+        split.originalRect,
+        4,
+        `candidate page ${pageOffset} plan ${planOffset} originalRect`,
+      )
+      validateIntegerArray(
+        split.originalSourceGroupIndexes,
+        -1,
+        `candidate page ${pageOffset} plan ${planOffset} sourceGroupIndexes`,
+      )
+      if (split.originalRect[2] <= split.originalRect[0] ||
+        split.originalRect[3] <= split.originalRect[1] ||
+        split.originalSourceGroupIndexes.length < 2 ||
+        !Array.isArray(split.segments) || split.segments.length < 2 ||
+        split.segments.length > 8) {
+        throw new Error(`Candidate grouping split ${pageOffset}:${planOffset} is invalid`)
+      }
+      const sourceGroups: Set<number> =
+        new Set<number>(split.originalSourceGroupIndexes)
+      const segmentGroups: Set<number> = new Set<number>()
+      for (let segmentOffset: number = 0;
+        segmentOffset < split.segments.length; segmentOffset++) {
+        const segment: CandidateGroupingSegment = split.segments[segmentOffset]
+        validateIntegerArray(
+          segment.rect,
+          4,
+          `candidate segment ${pageOffset}:${planOffset}:${segmentOffset} rect`,
+        )
+        validateIntegerArray(
+          segment.sourceGroupIndexes,
+          -1,
+          `candidate segment ${pageOffset}:${planOffset}:${segmentOffset} groups`,
+        )
+        if (segment.rect[0] < split.originalRect[0] ||
+          segment.rect[1] < split.originalRect[1] ||
+          segment.rect[2] > split.originalRect[2] ||
+          segment.rect[3] > split.originalRect[3] ||
+          segment.rect[2] <= segment.rect[0] ||
+          segment.rect[3] <= segment.rect[1] ||
+          segment.sourceGroupIndexes.length <= 0 ||
+          !Number.isFinite(segment.textLength) || segment.textLength <= 0 ||
+          Math.floor(segment.textLength) !== segment.textLength) {
+          throw new Error(`Candidate grouping segment ${pageOffset}:${planOffset}:${segmentOffset} is invalid`)
+        }
+        for (let sourceOffset: number = 0;
+          sourceOffset < segment.sourceGroupIndexes.length; sourceOffset++) {
+          const sourceGroup: number = segment.sourceGroupIndexes[sourceOffset]
+          if (!sourceGroups.has(sourceGroup) || segmentGroups.has(sourceGroup)) {
+            throw new Error('Candidate grouping source membership is inconsistent')
+          }
+          segmentGroups.add(sourceGroup)
+        }
+      }
+      if (segmentGroups.size !== sourceGroups.size) {
+        throw new Error('Candidate grouping source membership is incomplete')
+      }
+    }
+  }
+  return plan
 }
 
 function writeFixtureFile(path: string, bytes: Uint8Array): void {
@@ -252,6 +413,144 @@ function blockRect(block: ComicTextBlock): ReplayRect {
     rect.bottom = Math.max(rect.bottom, block.polygon[index].y)
   }
   return rect
+}
+
+function sameRect(block: ComicTextBlock, values: number[]): boolean {
+  const rect: ReplayRect = blockRect(block)
+  return Math.floor(rect.left) === values[0] &&
+    Math.floor(rect.top) === values[1] &&
+    Math.ceil(rect.right) === values[2] &&
+    Math.ceil(rect.bottom) === values[3]
+}
+
+function candidateBlock(
+  source: ComicTextBlock,
+  segment: CandidateGroupingSegment,
+  segmentIndex: number,
+): ComicTextBlock {
+  const block: ComicTextBlock = source.copy()
+  block.blockId = `${source.blockId}-s${segmentIndex + 1}`
+  block.polygon = [
+    new ComicPoint(segment.rect[0], segment.rect[1]),
+    new ComicPoint(segment.rect[2], segment.rect[1]),
+    new ComicPoint(segment.rect[2], segment.rect[3]),
+    new ComicPoint(segment.rect[0], segment.rect[3]),
+  ]
+  return block
+}
+
+function sha256(bytes: Uint8Array): string {
+  const md = cryptoFramework.createMd('SHA256')
+  md.updateSync({ data: bytes })
+  const digest: Uint8Array = md.digestSync().data
+  let value: string = ''
+  for (let index: number = 0; index < digest.length; index++) {
+    value = value + digest[index].toString(16).padStart(2, '0')
+  }
+  return value
+}
+
+function candidateTemplate(
+  source: ComicVisualPageSource,
+  analysis: ComicRegionAnalysisResult,
+  document: ComicPageDocument,
+): ComicBackendTemplate {
+  const envelope: CandidateTemplateEnvelope = new CandidateTemplateEnvelope()
+  envelope.backendId = analysis.backendId
+  envelope.profileId = analysis.profileId
+  envelope.sourceImageHash = source.imageHash
+  envelope.width = source.imageWidth
+  envelope.height = source.imageHeight
+  for (let index: number = 0; index < document.blocks.length; index++) {
+    const sourceBlock: ComicTextBlock = document.blocks[index]
+    const block: CandidateTemplateBlock = new CandidateTemplateBlock()
+    block.blockId = sourceBlock.blockId
+    for (let pointIndex: number = 0;
+      pointIndex < sourceBlock.polygon.length; pointIndex++) {
+      block.polygon.push(sourceBlock.polygon[pointIndex].copy())
+    }
+    envelope.blocks.push(block)
+  }
+  const payload: Uint8Array =
+    new util.TextEncoder().encodeInto(JSON.stringify(envelope))
+  const template: ComicBackendTemplate = new ComicBackendTemplate()
+  template.backendId = analysis.adapterTemplate.backendId
+  template.profileId = analysis.adapterTemplate.profileId
+  template.protocolRevision = analysis.adapterTemplate.protocolRevision
+  template.contentHash = sha256(payload)
+  template.mimeType = analysis.adapterTemplate.mimeType
+  template.payload = payload
+  return template
+}
+
+function candidateGroupingPage(
+  plan: CandidateGroupingPlan,
+  source: ComicVisualPageSource,
+): CandidateGroupingPage | null {
+  for (let index: number = 0; index < plan.pages.length; index++) {
+    if (plan.pages[index].pageIndex === source.pageIndex) {
+      if (plan.pages[index].sourceImageHash !== source.imageHash) {
+        throw new Error('Candidate grouping plan source image no longer matches')
+      }
+      return plan.pages[index]
+    }
+  }
+  return null
+}
+
+function candidateGroupingAnalysis(
+  source: ComicVisualPageSource,
+  analysis: ComicRegionAnalysisResult,
+  page: CandidateGroupingPage,
+): ComicRegionAnalysisResult {
+  const replacements: Map<number, CandidateGroupingSplit> =
+    new Map<number, CandidateGroupingSplit>()
+  for (let planIndex: number = 0; planIndex < page.plans.length; planIndex++) {
+    const split: CandidateGroupingSplit = page.plans[planIndex]
+    let match: number = -1
+    for (let blockIndex: number = 0;
+      blockIndex < analysis.document.blocks.length; blockIndex++) {
+      if (sameRect(analysis.document.blocks[blockIndex], split.originalRect)) {
+        if (match >= 0) {
+          throw new Error('Candidate grouping split matches multiple source blocks')
+        }
+        match = blockIndex
+      }
+    }
+    if (match < 0 || replacements.has(match)) {
+      throw new Error('Candidate grouping split source block is unavailable')
+    }
+    replacements.set(match, split)
+  }
+  const document: ComicPageDocument = analysis.document.copy()
+  document.blocks = []
+  for (let blockIndex: number = 0;
+    blockIndex < analysis.document.blocks.length; blockIndex++) {
+    const sourceBlock: ComicTextBlock = analysis.document.blocks[blockIndex]
+    const split: CandidateGroupingSplit | undefined = replacements.get(blockIndex)
+    if (split === undefined) {
+      document.blocks.push(sourceBlock.copy())
+      continue
+    }
+    for (let segmentIndex: number = 0;
+      segmentIndex < split.segments.length; segmentIndex++) {
+      document.blocks.push(
+        candidateBlock(sourceBlock, split.segments[segmentIndex], segmentIndex),
+      )
+    }
+  }
+  document.analysisRevision = analysis.document.analysisRevision + 1
+  for (let index: number = 0; index < document.blocks.length; index++) {
+    document.blocks[index].readingOrder = index
+    document.blocks[index].sourceRevision = document.analysisRevision
+  }
+  const result: ComicRegionAnalysisResult = new ComicRegionAnalysisResult()
+  result.backendId = analysis.backendId
+  result.profileId = analysis.profileId
+  result.regionRevision = analysis.regionRevision
+  result.document = document
+  result.adapterTemplate = candidateTemplate(source, analysis, document)
+  return result
 }
 
 function lineCenter(line: ComicLocalOcrLine): number[] {
@@ -490,6 +789,16 @@ export default function comicLocalExternalReplayTest(): void {
           return
         }
         const pages: ExternalReplayPage[] = loadReplayPages(root, calibrationOnly)
+        let candidatePlan: CandidateGroupingPlan | null = null
+        if (candidateGroupingEnabled()) {
+          if (!calibrationOnly) {
+            throw new Error('Candidate grouping replay requires calibration-only input')
+          }
+          candidatePlan = loadCandidateGroupingPlan(
+            root,
+            parameter('comicCandidateGroupingPlanBase64'),
+          )
+        }
         const ocr: HarmonyComicLocalOcrEngine = new HarmonyComicLocalOcrEngine()
         const recorder: ComicLocalVisualFileRecorder =
           new ComicLocalVisualFileRecorder(mainContext, recordingId)
@@ -529,6 +838,7 @@ export default function comicLocalExternalReplayTest(): void {
         )
         let totalBlocks: number = 0
         let totalMatched: number = 0
+        let candidatePages: number = 0
         try {
           for (let pageIndex: number = 0; pageIndex < pages.length; pageIndex++) {
             const page: ExternalReplayPage = pages[pageIndex]
@@ -541,11 +851,24 @@ export default function comicLocalExternalReplayTest(): void {
             const analysisStartedAt: number = Date.now()
             const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
             const analysisMs: number = Date.now() - analysisStartedAt
+            let renderAnalysis: ComicRegionAnalysisResult = analysis
+            if (candidatePlan !== null) {
+              const candidatePage: CandidateGroupingPage | null =
+                candidateGroupingPage(candidatePlan, source)
+              if (candidatePage !== null) {
+                renderAnalysis = candidateGroupingAnalysis(
+                  source,
+                  analysis,
+                  candidatePage,
+                )
+                candidatePages = candidatePages + 1
+              }
+            }
             let replay: ReplayTranslationResult
             if (calibrationOnly) {
               replay = containerCalibrationTranslations(
                 source,
-                analysis,
+                renderAnalysis,
                 pageIndex + 1,
               )
             } else {
@@ -560,14 +883,14 @@ export default function comicLocalExternalReplayTest(): void {
                 pageIndex + 1,
               )
             }
-            totalBlocks = totalBlocks + analysis.document.blocks.length
+            totalBlocks = totalBlocks + renderAnalysis.document.blocks.length
             totalMatched = totalMatched + replay.matchedBlocks
-            expect(analysis.document.blocks.length > 0).assertEqual(true)
+            expect(renderAnalysis.document.blocks.length > 0).assertEqual(true)
             expect(replay.matchedBlocks > 0).assertEqual(true)
             const request: ComicRegionRenderRequest = renderRequest(
               backend,
               source,
-              analysis,
+              renderAnalysis,
               replay.batch,
             )
             const renderStartedAt: number = Date.now()
@@ -575,7 +898,7 @@ export default function comicLocalExternalReplayTest(): void {
             const renderMs: number = Date.now() - renderStartedAt
             appendTextFile(
               timingPath,
-              `${pageIndex}\t${page.category}\t${analysis.document.blocks.length}\t` +
+              `${pageIndex}\t${page.category}\t${renderAnalysis.document.blocks.length}\t` +
                 `${replay.matchedBlocks}\t${analysisMs}\t${renderMs}\t` +
                 `${analysisMs + renderMs}\n`,
             )
@@ -585,7 +908,7 @@ export default function comicLocalExternalReplayTest(): void {
             console.info(
               `ComicExternalReplay page=${pageIndex + 1}/${pages.length} ` +
                 `mode=${calibrationOnly ? 'container-calibration' : 'translated-replay'} ` +
-                `category=${page.category} blocks=${analysis.document.blocks.length} ` +
+                `category=${page.category} blocks=${renderAnalysis.document.blocks.length} ` +
                 `matched=${replay.matchedBlocks} candidateLines=${replay.candidateLines} ` +
                 `analysisMs=${analysisMs} renderMs=${renderMs} artifact=${rendered.localFilePath}`,
             )
@@ -595,6 +918,9 @@ export default function comicLocalExternalReplayTest(): void {
               `matched=${totalMatched} recording=${recorder.recordingDirectory()}`,
           )
           expect(totalMatched > 0).assertEqual(true)
+          if (candidatePlan !== null) {
+            expect(candidatePages).assertEqual(candidatePlan.pages.length)
+          }
         } finally {
           await ocr.release()
         }

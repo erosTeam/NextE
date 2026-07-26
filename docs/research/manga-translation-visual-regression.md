@@ -98,11 +98,14 @@ python3 scripts/comic_visual_regression.py \
 
 - `report.json`：逐页、分类和总体指标，可供后续门禁消费；
 - `report.html`：source/glyph mask/container mask/baseline/candidate/overlay 对照；
+- `candidate-grouping-plan.json`：仅包含精确来源链已守恒的分割计划，可作为显式设备 A/B 输入；
 - `assets/`：有界缩略图。黄色表示变化，红色表示新增近白像素，紫色表示源纹理在候选中塌缩为平块。
 
 新 recording 会为分组前后的块记录稳定 `sourceGroupIndexes`。分割计划优先使用这条精确来源链，
 因此 detectorless OCR 行不再依赖文本长度猜测；旧 recording 仍保留 detector 来源加唯一文本长度
 子集的兼容路径。只有精确来源集合、detector 来源和文本长度全部守恒，候选分割才标记为安全。
+设备 A/B 入口只在 `comicContainerCalibration=true` 与显式 `comicCandidateGrouping=true` 时读取该
+计划；可通过 `comicCandidateGroupingPlanBase64` 传入，不写生产存储，也不改变 Reader 分组。
 
 ## 指标解释
 

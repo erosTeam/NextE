@@ -136,6 +136,8 @@ class PageInput:
     total_ms: int | None
     render_stages: RenderStageTimings | None
     comparison_rect: tuple[int, int, int, int] | None
+    source_page_index: int | None = None
+    source_image_hash: str = ""
 
 
 @dataclass(frozen=True)
@@ -1358,6 +1360,11 @@ def load_recording_dir(
                 ),
                 render_stages=recording_render_stage_timings(render),
                 comparison_rect=None,
+                source_page_index=source_page_index,
+                source_image_hash=require_string(
+                    source.get("imageHash"),
+                    f"{render_path}.source.imageHash",
+                ),
             )
         )
     if not pages:
@@ -2331,6 +2338,8 @@ def score_page(
         "height": height,
         "sourceWidth": original_size[0],
         "sourceHeight": original_size[1],
+        "sourcePageIndex": page.source_page_index,
+        "sourceImageHash": page.source_image_hash,
         "comparisonRect": list(page.comparison_rect) if page.comparison_rect is not None else None,
         "analysisMs": page.analysis_ms,
         "renderMs": page.render_ms,
@@ -3931,6 +3940,72 @@ def reset_output(path: Path) -> Path:
     return output
 
 
+def write_candidate_grouping_plan(
+    output_dir: Path,
+    fixture_set_id: str,
+    candidate_id: str,
+    results: list[dict[str, Any]],
+) -> None:
+    pages: list[dict[str, Any]] = []
+    for result in results:
+        grouping = require_dict(
+            result.get("groupingStages"),
+            f"result {result.get('id', '')}.groupingStages",
+        )
+        safe_plans = [
+            plan
+            for plan in require_list(
+                grouping.get("separatorSplitPlans", []),
+                f"result {result.get('id', '')}.separatorSplitPlans",
+            )
+            if plan.get("safeForCandidateGrouping") is True
+            and plan.get("membershipSource") == "source_group_indexes"
+            and plan.get("sourceGroupProvenancePreserved") is True
+        ]
+        if not safe_plans:
+            continue
+        page_index = result.get("sourcePageIndex")
+        image_hash = result.get("sourceImageHash")
+        if not isinstance(page_index, int) or page_index < 0:
+            raise ValueError("candidate grouping plan page index is unavailable")
+        if not isinstance(image_hash, str) or not image_hash.strip():
+            raise ValueError("candidate grouping plan image hash is unavailable")
+        pages.append(
+            {
+                "pageId": require_string(result.get("id"), "result.id"),
+                "pageIndex": page_index,
+                "sourceImageHash": image_hash,
+                "plans": [
+                    {
+                        "originalRect": plan["originalRect"],
+                        "originalSourceGroupIndexes":
+                            plan["originalSourceGroupIndexes"],
+                        "segments": [
+                            {
+                                "rect": segment["rect"],
+                                "sourceGroupIndexes":
+                                    segment["sourceGroupIndexes"],
+                                "textLength": segment["textLength"],
+                            }
+                            for segment in plan["segments"]
+                        ],
+                    }
+                    for plan in safe_plans
+                ],
+            }
+        )
+    plan_file = {
+        "schemaVersion": 1,
+        "fixtureSetId": fixture_set_id,
+        "candidateId": candidate_id,
+        "pages": pages,
+    }
+    (output_dir / "candidate-grouping-plan.json").write_text(
+        json.dumps(plan_file, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -3985,6 +4060,12 @@ def main() -> int:
         (output_dir / "report.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
+        )
+        write_candidate_grouping_plan(
+            output_dir,
+            fixture_set_id,
+            candidate_id,
+            results,
         )
         write_html(output_dir, fixture_set_id, candidate_id, summary, results)
         print(
