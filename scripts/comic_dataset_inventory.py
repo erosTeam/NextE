@@ -133,6 +133,22 @@ def recorded_rect(value: Any, label: str) -> dict[str, float]:
     return {"left": left, "top": top, "right": right, "bottom": bottom}
 
 
+def optional_bool(value: Any, fallback: bool, label: str) -> bool:
+    if value is None:
+        return fallback
+    if not isinstance(value, bool):
+        fail(f"{label} is invalid")
+    return value
+
+
+def optional_text(value: Any, label: str) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        fail(f"{label} is invalid")
+    return value
+
+
 def recorded_layouts(render: dict[str, Any]) -> list[dict[str, Any]]:
     values = render.get("layouts")
     if not isinstance(values, list):
@@ -165,6 +181,10 @@ def recorded_layouts(render: dict[str, Any]) -> list[dict[str, Any]]:
             value.get("translatedTextLength"),
             f"render layout {index}.translatedTextLength",
         )
+        text_rect_value = value.get("textRect")
+        text_rect = recorded_rect(text_rect_value, f"render layout {index}.textRect")
+        if not isinstance(text_rect_value, dict):
+            fail(f"render layout {index}.textRect is invalid")
         output.append({
             "layoutIndex": index,
             "blockIds": list(block_ids),
@@ -176,7 +196,16 @@ def recorded_layouts(render: dict[str, Any]) -> list[dict[str, Any]]:
                 recorded_rect(rect, f"render layout {index}.treatmentRects[{rect_index}]")
                 for rect_index, rect in enumerate(treatment_rects)
             ],
-            "textRect": recorded_rect(value.get("textRect"), f"render layout {index}.textRect"),
+            "textRect": text_rect,
+            "shapeConstrained": optional_bool(
+                text_rect_value.get("shapeConstrained"),
+                False,
+                f"render layout {index}.textRect.shapeConstrained",
+            ),
+            "containerProbeOutcome": optional_text(
+                text_rect_value.get("containerProbeOutcome"),
+                f"render layout {index}.textRect.containerProbeOutcome",
+            ),
             "writingMode": writing_mode,
             "fontSize": font_size,
             "outlineWidth": outline_width,

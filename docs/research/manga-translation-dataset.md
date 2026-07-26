@@ -32,6 +32,16 @@ catalog 必须按画廊或视觉家族分配 `train`、`dev`、`holdout`；禁�
 它们仍全是候选观察：标签模板只把对应 layout 附在 candidate 下供审核，不会把 OCR、译文、字体或矩形
 静默写进 truth。这样一次真实页评审可以明确定位到“上游转录、某次翻译请求或最终回填”的哪一层。
 
+在标签尚未完成前，可用下面的本地 triage 只按可观察风险排序真实录制：先看已经跳过的组、实际 text
+rect 相交、没有闭合容器证据和异常小字号。它按源页 identity 去重，只保留该页风险最高的一次观测和相关
+录制数，避免基线/候选重放反复占用审核时间。它不输出“质量分”、不决定训练集，也不替代人工视觉真值：
+
+```bash
+python3 scripts/comic_dataset_triage.py \
+  --inventory .hvigor/outputs/comic-dataset/inventory-v1.json \
+  --output .hvigor/outputs/comic-dataset/triage-v1.json
+```
+
 已有原创两页 fixture 的严格 transcript/术语真值可直接评分：
 
 ```bash
