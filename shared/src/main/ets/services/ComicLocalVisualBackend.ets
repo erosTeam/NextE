@@ -102,8 +102,8 @@ const LOCAL_TEXT_MASK_CACHE_MAX_BYTES: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE: number = 10
-const LOCAL_PAGE_MEDIAN_LAYOUT_PROFILE_ID: string =
-  'local-bubble-typography-page-median-v1'
+const LOCAL_PAGE_OUTLIER_LAYOUT_PROFILE_ID: string =
+  'local-bubble-typography-page-outlier-v2'
 const LOCAL_NARROW_UPRIGHT_MIN_ROTATED_RATIO: number = 0.75
 const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
 const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
@@ -674,7 +674,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         ))
       }
       if (request.renderProfile.layoutProfileId ===
-        LOCAL_PAGE_MEDIAN_LAYOUT_PROFILE_ID) {
+        LOCAL_PAGE_OUTLIER_LAYOUT_PROFILE_ID) {
         horizontalFontCap = ComicLocalVisualBackend.resolvedHorizontalPageFontCap(
           renderPlans,
           textRects,
@@ -4147,14 +4147,21 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         )
       }
     }
+    // Negative marks a recording candidate that caps every horizontal source block near the
+    // page median. Positive production caps continue to affect only vertical-source blocks
+    // converted to horizontal Latin layout.
+    return -ComicLocalVisualBackend.pageOutlierFontCap(fittedSizes)
+  }
+
+  static pageOutlierFontCap(fittedSizes: number[]): number {
     if (fittedSizes.length <= 0) {
       return LOCAL_MAX_FONT_SIZE
     }
-    fittedSizes.sort((left: number, right: number): number => left - right)
-    // Negative marks a recording candidate that applies the median to every horizontal source
-    // block. Positive production caps continue to affect only vertical-source blocks converted
-    // to horizontal Latin layout.
-    return -fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
+    const sortedSizes: number[] = fittedSizes.slice()
+    sortedSizes.sort((left: number, right: number): number => left - right)
+    const median: number = sortedSizes[Math.floor((sortedSizes.length - 1) / 2)]
+    const outlierTolerance: number = Math.max(2, Math.round(median * 0.2))
+    return Math.min(LOCAL_MAX_FONT_SIZE, median + outlierTolerance)
   }
 
   private static renderPlans(

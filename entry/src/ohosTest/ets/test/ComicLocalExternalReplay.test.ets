@@ -982,7 +982,7 @@ function renderRequest(
   profile.profileId = 'reader-local-bubble-layout-v30'
   profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v30'
   profile.layoutProfileId = pageFontNormalization ?
-    'local-bubble-typography-page-median-v1' :
+    'local-bubble-typography-page-outlier-v2' :
     'local-bubble-typography-v30'
   profile.targetMimeType = 'image/png'
   profile.revision = 8
@@ -1074,6 +1074,8 @@ export default function comicLocalExternalReplayTest(): void {
       analysis.document.blocks.pop()
       segment.sourceText = 'ANY SUGGESTIONS?'
       expect(candidateContinuationAttachments(analysis, page).length).assertEqual(0)
+      segment.sourceText = 'WHO..00-'
+      expect(candidateContinuationAttachments(analysis, page).length).assertEqual(0)
     })
 
     it('records current local rendering on explicitly staged real page pairs', 0,
@@ -1149,9 +1151,6 @@ export default function comicLocalExternalReplayTest(): void {
           throw new Error(
             'Candidate continuation merge requires candidate grouping',
           )
-        }
-        if (candidatePageFontNormalization && !calibrationOnly) {
-          throw new Error('Candidate page font normalization requires calibration input')
         }
         let liveTranslationPageIndex: number = -1
         let liveTranslationProbeId: string = ''

@@ -1802,6 +1802,17 @@ export default function comicLocalVisualBackendTest(): void {
       expect(ComicLocalVisualBackend.outlineWidth(60)).assertEqual(24)
     })
 
+    it('caps only page-level horizontal font outliers', 0, (): void => {
+      expect(ComicLocalVisualBackend.pageOutlierFontCap([
+        13, 26, 18, 21, 14, 16, 16, 12, 12, 8,
+        22, 16, 30, 8, 30, 29, 9, 24, 11, 19,
+      ])).assertEqual(19)
+      expect(ComicLocalVisualBackend.pageOutlierFontCap([
+        19, 16, 17, 13, 22, 25, 18,
+      ])).assertEqual(22)
+      expect(ComicLocalVisualBackend.pageOutlierFontCap([])).assertEqual(42)
+    })
+
     it('records analysis, layout, and render stages only through an injected sink', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
