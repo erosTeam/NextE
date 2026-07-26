@@ -2489,6 +2489,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       value.right = Math.ceil(rect.right)
       value.bottom = Math.ceil(rect.bottom)
       value.styleHint = block.styleHint
+      value.sourceText = block.text
       value.textLength = block.text.replace(/\s+/g, '').length
       value.tileIndex = block.tileIndex
       value.detectorRegionIndexes = block.detectorRegionIndexes.slice()

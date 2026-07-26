@@ -1855,6 +1855,8 @@ export default function comicLocalVisualBackendTest(): void {
           expect(analysisRecording.groupingStages.grouped.length > 0).assertEqual(true)
           expect(analysisRecording.groupingStages.grouped[0].sourceGroupIndexes.length)
             .assertEqual(1)
+          expect(analysisRecording.groupingStages.grouped[0].sourceText.length > 0)
+            .assertEqual(true)
           expect(analysisRecording.groupingStages.output.length)
             .assertEqual(analysis.document.blocks.length)
           expect(analysisRecording.groupingStages.output[0].sourceGroupIndexes.length > 0)

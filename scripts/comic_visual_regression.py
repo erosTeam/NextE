@@ -88,6 +88,7 @@ class DocumentSourceBlock:
 class GroupingSourceBlock:
     rect: tuple[int, int, int, int]
     style_hint: str
+    source_text: str
     text_length: int
     detector_region_indexes: tuple[int, ...]
     source_group_indexes: tuple[int, ...]
@@ -1027,6 +1028,7 @@ def recording_grouping_source_blocks(
             GroupingSourceBlock(
                 rect=rect,
                 style_hint=str(block.get("styleHint", "")).strip(),
+                source_text=str(block.get("sourceText", "")),
                 text_length=bounded_int(
                     block.get("textLength"),
                     0,
@@ -1711,6 +1713,11 @@ def horizontal_separator_split_plans(
                 for member in segment
                 for source_group in member.source_group_indexes
             })
+            source_text = " ".join(
+                member.source_text.strip()
+                for member in segment
+                if member.source_text.strip()
+            )
             serialized_segments.append(
                 {
                     "rect": [
@@ -1726,6 +1733,7 @@ def horizontal_separator_split_plans(
                     ),
                     "detectorRegionIndexes": detector_indexes,
                     "sourceGroupIndexes": source_group_indexes,
+                    "sourceText": source_text,
                     "detectorLabels": detector_labels,
                 }
             )
@@ -1745,6 +1753,11 @@ def horizontal_separator_split_plans(
             for segment in serialized_segments
             for source_group in segment["sourceGroupIndexes"]
         }
+        source_text_preserved = all(
+            len("".join(str(segment["sourceText"]).split())) ==
+            int(segment["textLength"])
+            for segment in serialized_segments
+        )
         text_length_preserved = segment_text_length == merged_block.text_length
         detector_provenance_preserved = (
             segment_detector_indexes
@@ -1785,12 +1798,22 @@ def horizontal_separator_split_plans(
                 "detectorProvenancePreserved": detector_provenance_preserved,
                 "sourceGroupProvenancePreserved":
                     source_group_provenance_preserved,
+                "sourceTextPreserved": source_text_preserved,
                 "safeForCandidateGrouping": (
                     attribution_resolved
                     and len(serialized_segments) == len(separator_ys) + 1
                     and text_length_preserved
                     and detector_provenance_preserved
                     and source_group_provenance_preserved
+                ),
+                "safeForCandidateDocument": (
+                    exact_membership
+                    and attribution_resolved
+                    and len(serialized_segments) == len(separator_ys) + 1
+                    and text_length_preserved
+                    and detector_provenance_preserved
+                    and source_group_provenance_preserved
+                    and source_text_preserved
                 ),
             }
         )
@@ -3959,6 +3982,7 @@ def write_candidate_grouping_plan(
                 f"result {result.get('id', '')}.separatorSplitPlans",
             )
             if plan.get("safeForCandidateGrouping") is True
+            and plan.get("safeForCandidateDocument") is True
             and plan.get("membershipSource") == "source_group_indexes"
             and plan.get("sourceGroupProvenancePreserved") is True
         ]
@@ -3986,6 +4010,7 @@ def write_candidate_grouping_plan(
                                 "sourceGroupIndexes":
                                     segment["sourceGroupIndexes"],
                                 "textLength": segment["textLength"],
+                                "sourceText": segment["sourceText"],
                             }
                             for segment in plan["segments"]
                         ],

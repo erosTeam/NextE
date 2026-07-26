@@ -106,6 +106,9 @@ python3 scripts/comic_visual_regression.py \
 子集的兼容路径。只有精确来源集合、detector 来源和文本长度全部守恒，候选分割才标记为安全。
 设备 A/B 入口只在 `comicContainerCalibration=true` 与显式 `comicCandidateGrouping=true` 时读取该
 计划；可通过 `comicCandidateGroupingPlanBase64` 传入，不写生产存储，也不改变 Reader 分组。
+几何和来源守恒只产生 `safeForCandidateGrouping`；只有每个 segment 的逐段原文也与记录长度一致时，
+才产生 `safeForCandidateDocument` 并写入设备候选计划。旧 recording 可继续评估几何，但不会生成
+缺少逐段原文的候选文档。
 
 ## 指标解释
 

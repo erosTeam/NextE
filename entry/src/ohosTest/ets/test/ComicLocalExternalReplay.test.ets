@@ -70,6 +70,7 @@ class CandidateGroupingSegment {
   rect: number[] = []
   sourceGroupIndexes: number[] = []
   textLength: number = 0
+  sourceText: string = ''
 }
 
 class CandidateGroupingSplit {
@@ -228,7 +229,8 @@ function loadCandidateGroupingPlan(
           segment.rect[3] <= segment.rect[1] ||
           segment.sourceGroupIndexes.length <= 0 ||
           !Number.isFinite(segment.textLength) || segment.textLength <= 0 ||
-          Math.floor(segment.textLength) !== segment.textLength) {
+          Math.floor(segment.textLength) !== segment.textLength ||
+          segment.sourceText.replace(/\s+/g, '').length !== segment.textLength) {
           throw new Error(`Candidate grouping segment ${pageOffset}:${planOffset}:${segmentOffset} is invalid`)
         }
         for (let sourceOffset: number = 0;
@@ -430,6 +432,8 @@ function candidateBlock(
 ): ComicTextBlock {
   const block: ComicTextBlock = source.copy()
   block.blockId = `${source.blockId}-s${segmentIndex + 1}`
+  block.sourceText = segment.sourceText
+  block.normalizedSourceText = segment.sourceText.replace(/\s+/g, ' ').trim()
   block.polygon = [
     new ComicPoint(segment.rect[0], segment.rect[1]),
     new ComicPoint(segment.rect[2], segment.rect[1]),

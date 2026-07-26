@@ -1065,6 +1065,13 @@ production-model 基准完成 3 组 recording，mask 尺寸与页面严格一致
 候选文档，当前重复校准占位文本不能作为生产质量证据。下一步先让精确来源组携带逐段文本并生成对应
 translation block；在真实译文 A/B 通过前，Reader 继续使用现有生产分组。
 
+下一小步已补齐逐段原文：developer recording 的每个初始来源组携带 `sourceText`，报告器按精确
+`sourceGroupIndexes` 组合 segment，并分别区分几何安全与文档安全。237 新一轮四页回放中，P12
+两个父块的 174/214 个非空白字符分别按 25+99+50 和 33+69+112 守恒；40 个初始来源组均无记录长度
+不一致。候选回放的前六个 render block 在矩形和原文长度上与计划逐项一致，视觉后端 41/41、signed
+app、signed `entry@ohosTest` 和本地 CI preflight 均通过。该结果关闭“候选几何无法生成独立原文块”
+的缺口，但仍未提供每段真实译文；生产 Reader 分组保持不变。
+
 该阶段关闭的是“真实运行产物无法稳定导出和离线评分”的工具缺口，不关闭视觉门。当前导出的
 treatment/text rect 只能生成实现自身的 allowed mask，仍不是 `containerMask`。下一步先把用户授权真实
 页面录成 Core-12 候选集并做一次性容器标注，再比较容器候选；不得继续凭单页截图追加渲染阈值。

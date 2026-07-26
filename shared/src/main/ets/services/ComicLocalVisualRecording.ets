@@ -136,6 +136,7 @@ export class ComicLocalVisualRecordedSourceBlock {
   right: number = 0
   bottom: number = 0
   styleHint: string = ''
+  sourceText: string = ''
   textLength: number = 0
   tileIndex: number = 0
   detectorRegionIndexes: number[] = []
@@ -153,6 +154,7 @@ export class ComicLocalVisualRecordedSourceBlock {
     value.right = this.right
     value.bottom = this.bottom
     value.styleHint = this.styleHint
+    value.sourceText = this.sourceText
     value.textLength = this.textLength
     value.tileIndex = this.tileIndex
     value.detectorRegionIndexes = this.detectorRegionIndexes.slice()
