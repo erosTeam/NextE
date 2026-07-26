@@ -52,6 +52,9 @@ python3 scripts/comic_dataset_performance.py \
 并给出 AOT 调用数、drawable/skipped group 数和每调用的 inpaint 耗时。耗时直接读取 recording 的
 `totalMs` / `inpaintMs` 字段；中位数对偶数样本取中间两项的算术平均。
 
+新录制还会分解 AOT 的 native call、模型加载、预处理、推理和后处理累计耗时。旧 recording 不补造这些字段，
+报告会显示该项 `count: 0`；只有同一版本、同一页集的新旧 recording 才能用它归因性能变化。
+
 2026-07-26 首次真实盘点得到 34 个唯一页面、250 次 recording observation；其中 catalog 已分配
 4 个公版训练页、5 个公版开发页、3 个独立 Turok holdout 页，余下 22 页在来源或真值整理完成前保持
 `unassigned`。同一图片的基线/候选重跑按 SHA-256 合并，未被计为额外训练样本。原创两页的严格自动基线为

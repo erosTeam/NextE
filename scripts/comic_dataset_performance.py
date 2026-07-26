@@ -80,6 +80,11 @@ def main() -> int:
         timings: dict[str, list[int]] = {"analysis": [], "render": [], "inpaint": []}
         render_stats: dict[str, list[int]] = {
             "inpaintCalls": [],
+            "inpaintNativeCall": [],
+            "inpaintModelLoad": [],
+            "inpaintPreprocessing": [],
+            "inpaintInference": [],
+            "inpaintPostprocessing": [],
             "drawableGroups": [],
             "skippedGroups": [],
             "inpaintMsPerCall": [],
@@ -101,6 +106,11 @@ def main() -> int:
                     if isinstance(inpaint, int) and inpaint >= 0 and count > 0:
                         render_stats["inpaintMsPerCall"].append(round(inpaint / count))
                 for input_key, output_key in (
+                    ("inpaintNativeCallMs", "inpaintNativeCall"),
+                    ("inpaintModelLoadMs", "inpaintModelLoad"),
+                    ("inpaintPreprocessingMs", "inpaintPreprocessing"),
+                    ("inpaintInferenceMs", "inpaintInference"),
+                    ("inpaintPostprocessingMs", "inpaintPostprocessing"),
                     ("drawableGroupCount", "drawableGroups"),
                     ("skippedGroupCount", "skippedGroups"),
                 ):

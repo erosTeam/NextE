@@ -48,6 +48,11 @@ export class ComicLocalVisualRenderTimings {
   finalizeMs: number = 0
   totalMs: number = 0
   inpaintCallCount: number = 0
+  inpaintNativeCallMs: number = 0
+  inpaintModelLoadMs: number = 0
+  inpaintPreprocessingMs: number = 0
+  inpaintInferenceMs: number = 0
+  inpaintPostprocessingMs: number = 0
   drawableGroupCount: number = 0
   skippedGroupCount: number = 0
   horizontalFontCap: number = 0
@@ -64,6 +69,11 @@ export class ComicLocalVisualRenderTimings {
     value.finalizeMs = this.finalizeMs
     value.totalMs = this.totalMs
     value.inpaintCallCount = this.inpaintCallCount
+    value.inpaintNativeCallMs = this.inpaintNativeCallMs
+    value.inpaintModelLoadMs = this.inpaintModelLoadMs
+    value.inpaintPreprocessingMs = this.inpaintPreprocessingMs
+    value.inpaintInferenceMs = this.inpaintInferenceMs
+    value.inpaintPostprocessingMs = this.inpaintPostprocessingMs
     value.drawableGroupCount = this.drawableGroupCount
     value.skippedGroupCount = this.skippedGroupCount
     value.horizontalFontCap = this.horizontalFontCap

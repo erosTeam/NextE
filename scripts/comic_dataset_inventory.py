@@ -192,6 +192,11 @@ def observe(
         },
         "renderStats": {
             "inpaintCallCount": timing_value(render_timings.get("inpaintCallCount")),
+            "inpaintNativeCallMs": timing_value(render_timings.get("inpaintNativeCallMs")),
+            "inpaintModelLoadMs": timing_value(render_timings.get("inpaintModelLoadMs")),
+            "inpaintPreprocessingMs": timing_value(render_timings.get("inpaintPreprocessingMs")),
+            "inpaintInferenceMs": timing_value(render_timings.get("inpaintInferenceMs")),
+            "inpaintPostprocessingMs": timing_value(render_timings.get("inpaintPostprocessingMs")),
             "drawableGroupCount": timing_value(render_timings.get("drawableGroupCount")),
             "skippedGroupCount": timing_value(render_timings.get("skippedGroupCount")),
         },

@@ -301,6 +301,24 @@ class LocalSourceTreatmentTarget {
   styleHint: string = LOCAL_HORIZONTAL_STYLE_HINT
 }
 
+class LocalSourceTreatmentSummary {
+  callCount: number = 0
+  nativeCallMs: number = 0
+  modelLoadMs: number = 0
+  preprocessingMs: number = 0
+  inferenceMs: number = 0
+  postprocessingMs: number = 0
+
+  add(other: LocalSourceTreatmentSummary): void {
+    this.callCount += other.callCount
+    this.nativeCallMs += other.nativeCallMs
+    this.modelLoadMs += other.modelLoadMs
+    this.preprocessingMs += other.preprocessingMs
+    this.inferenceMs += other.inferenceMs
+    this.postprocessingMs += other.postprocessingMs
+  }
+}
+
 class LocalColorSample {
   red: number = 0
   green: number = 0
@@ -749,6 +767,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       // blank its source text or abort otherwise valid regions on the page.
       const inpaintStartedAt: number = Date.now()
       let inpaintCallCount: number = 0
+      const inpaintSummary: LocalSourceTreatmentSummary = new LocalSourceTreatmentSummary()
       for (let index: number = 0; index < drawableGroups.length; index++) {
         const targets: LocalSourceTreatmentTarget[] = []
         for (let memberIndex: number = 0;
@@ -767,7 +786,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           target.styleHint = block.styleHint
           targets.push(target)
         }
-        inpaintCallCount = inpaintCallCount +
+        const treatmentSummary: LocalSourceTreatmentSummary =
           await ComicLocalVisualBackend.eraseSourceRegions(
           pixelMap,
           request.source.imageWidth,
@@ -775,7 +794,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           targets,
           this.sourceInpainter,
           pageTextMask,
-          )
+        )
+        inpaintCallCount = inpaintCallCount + treatmentSummary.callCount
+        inpaintSummary.add(treatmentSummary)
       }
       inpaintMs = Date.now() - inpaintStartedAt
       const drawStartedAt: number = Date.now()
@@ -843,7 +864,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         `decode=${decodeMs}ms mask=${maskMs}ms layout=${layoutMs}ms ` +
           `inpaint=${inpaintMs}ms draw=${drawMs}ms encode=${encodeMs}ms ` +
           `finalize=${finalizeMs}ms total=${renderTotalMs}ms groups=${drawableGroups.length} ` +
-          `inpaintCalls=${inpaintCallCount} bytes=${page.byteLength}`,
+          `inpaintCalls=${inpaintCallCount} native=${inpaintSummary.nativeCallMs}ms ` +
+          `inference=${inpaintSummary.inferenceMs}ms bytes=${page.byteLength}`,
       )
       if (this.recordingSink !== null) {
         const timings: ComicLocalVisualRenderTimings = new ComicLocalVisualRenderTimings()
@@ -856,6 +878,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         timings.finalizeMs = finalizeMs
         timings.totalMs = renderTotalMs
         timings.inpaintCallCount = inpaintCallCount
+        timings.inpaintNativeCallMs = inpaintSummary.nativeCallMs
+        timings.inpaintModelLoadMs = inpaintSummary.modelLoadMs
+        timings.inpaintPreprocessingMs = inpaintSummary.preprocessingMs
+        timings.inpaintInferenceMs = inpaintSummary.inferenceMs
+        timings.inpaintPostprocessingMs = inpaintSummary.postprocessingMs
         timings.drawableGroupCount = drawableGroups.length
         timings.skippedGroupCount = renderGroups.length - drawableGroups.length
         timings.horizontalFontCap = horizontalFontCap
@@ -5726,9 +5753,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     targets: LocalSourceTreatmentTarget[],
     sourceInpainter: ComicLocalSourceInpainter | null,
     pageTextMask: Uint8Array | null,
-  ): Promise<number> {
+  ): Promise<LocalSourceTreatmentSummary> {
+    const summary: LocalSourceTreatmentSummary = new LocalSourceTreatmentSummary()
     if (targets.length <= 0) {
-      return 0
+      return summary
     }
     // AOT needs enough known artwork around the glyph mask. A six-pixel crop leaves narrow
     // vertical text regions almost entirely masked and produces unstable colour hallucinations.
@@ -5788,30 +5816,29 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       )
     }
     if (treatmentLefts.length <= 0) {
-      return 0
+      return summary
     }
     const width: number = outerRight - outerLeft
     const height: number = outerBottom - outerTop
     if (width <= 1 || height <= 1) {
-      return 0
+      return summary
     }
     // One AOT call is useful only while combining neighbouring columns does not materially
     // reduce the model's effective resolution. Widely spread members keep their old
     // independent treatment even if layout can safely share one large balloon.
     if (activeTargets.length > 1 &&
       Math.max(width, height) > largestIndividualEdge * 1.35) {
-      let calls: number = 0
       for (let index: number = 0; index < activeTargets.length; index++) {
-        calls = calls + await ComicLocalVisualBackend.eraseSourceRegions(
+        summary.add(await ComicLocalVisualBackend.eraseSourceRegions(
           pixelMap,
           imageWidth,
           imageHeight,
           [activeTargets[index]],
           sourceInpainter,
           pageTextMask,
-        )
+        ))
       }
-      return calls
+      return summary
     }
     const rowBytes: number = width * 4
     const buffer: ArrayBuffer = new ArrayBuffer(rowBytes * height)
@@ -5898,7 +5925,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     if (masked <= 0) {
-      return 0
+      return summary
     }
     // Keep each dilation round isolated: collect only the new frontier, then merge it after
     // scanning. This is byte-equivalent to cloning the full mask every round without four
@@ -5976,7 +6003,13 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
             `inference=${result.inferenceMs}ms postprocess=${result.postprocessingMs}ms ` +
             `write=${writeMs}ms`,
         )
-        return 1
+        summary.callCount = 1
+        summary.nativeCallMs = result.nativeCallMs
+        summary.modelLoadMs = result.modelLoadMs
+        summary.preprocessingMs = result.preprocessingMs
+        summary.inferenceMs = result.inferenceMs
+        summary.postprocessingMs = result.postprocessingMs
+        return summary
       } catch (error) {
         DiagnosticLogger.warn(
           'comic-translation',
@@ -6052,7 +6085,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
       }
     }
     await pixelMap.writePixels(area)
-    return 0
+    return summary
   }
 
   private static drawVerticalLayout(
