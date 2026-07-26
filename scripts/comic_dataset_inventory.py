@@ -99,6 +99,19 @@ def timing_value(value: Any) -> int | None:
     return value if isinstance(value, int) and value >= 0 else None
 
 
+def polygon_value(value: Any, label: str) -> list[dict[str, int]]:
+    if not isinstance(value, list) or len(value) < 3:
+        fail(f"{label} is invalid")
+    points: list[dict[str, int]] = []
+    for index, point in enumerate(value):
+        if not isinstance(point, dict):
+            fail(f"{label} point {index} is invalid")
+        x = required_int(point.get("x"), f"{label} point {index} x")
+        y = required_int(point.get("y"), f"{label} point {index} y")
+        points.append({"x": x, "y": y})
+    return points
+
+
 def observe(
     analysis_path: Path,
     recording_root: Path,
@@ -148,10 +161,12 @@ def observe(
             block_id = str(block.get("blockId", ""))
             block_values.append({
                 "blockId": block_id,
+                "readingOrder": required_int(block.get("readingOrder"), f"{analysis_path} block {index} readingOrder"),
                 "kind": kind,
                 "sourceText": str(block.get("sourceText", "")),
                 "normalizedSourceText": str(block.get("normalizedSourceText", "")),
                 "translatedText": str(block.get("translatedText", "")) or translation_map.get(block_id, ""),
+                "polygon": polygon_value(block.get("polygon"), f"{analysis_path} block {index} polygon"),
                 "sourceOrigin": origin,
                 "translationOrigin": str(block.get("translationOrigin", "unknown")),
             })

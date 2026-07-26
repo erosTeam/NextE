@@ -71,6 +71,20 @@ source recall 81.82%（9/11）、source precision 100%（9/9）、阅读顺序�
 - 原文残留、越界、重叠、平块修复等视觉标签；
 - 授权/来源和禁止导出的范围。
 
+先用下列命令从一个明确的 recording 生成模板；模板中的 candidate 字段只用于减少重复抄录，所有 `truth`
+字段初始为空，必须对照原图和渲染结果审核后才可进入评分或训练数据：
+
+```bash
+python3 scripts/comic_dataset_label_template.py \
+  --inventory .hvigor/outputs/comic-dataset/inventory-v1.json \
+  --family turok-596 \
+  --recording-id real237-20260726-turok596-baseline-v2 \
+  --output .hvigor/outputs/comic-dataset/turok-596-holdout-label-template-v1.json
+```
+
+模板同时保留原始 artifact 路径、候选区域 polygon、OCR/译文观察值，并为漏检保留 `additionalRegions`。它不能
+自动标注，也不能把 holdout 写回训练集；其作用是让后续审核成为一次有明确输入输出的标注任务，而非临时看图。
+
 ## 训练与评测的边界
 
 第一轮不训练“端到端漫画翻译模型”。数据按能力拆分：detector 用区域/类别标签，OCR 用图块与逐字真值，
