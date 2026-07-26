@@ -315,6 +315,21 @@ recall 83.3333%，0.65 分层 precision 100%、recall 83.3333%。
 recall、高置信分层和漏检数；未带 `timings.tsv` 或 review 的旧 recording 仍可读取。这使后续样本扩充
 变成“新增真实页 -> 一次标注 -> 自动聚合”，不再每轮靠临时目测重新统计。
 
+容器评审 v3 进一步把候选框与真值分开：从一份真实 recording 自动生成审核模板，模板会带候选框、对应
+text rect、置信度和 source 文件名，但每页初始为 `needs_review`，不能被评分器消费。审核只需在原图/叠图上
+新增独立目标框，包含漏检目标，并将页面改为 `reviewed`；评分器再自动做一对一匹配。这样不会出现逐候选
+手填真/假的漏项，也不会把模型候选改写成真值：
+
+```bash
+python3 scripts/comic_container_review_template.py \
+  --recording-dir .hvigor/outputs/comic-local-visual-recordings/<recording-id> \
+  --fixture-set-id <stable-local-fixture-set-id> \
+  --output .hvigor/outputs/comic-local-visual-recordings/<recording-id>-review-v3.json
+```
+
+`comic_visual_regression.py --container-review` 会明确拒绝任何 v3 的未审核页面；该失败是数据保护，不是
+测试通过。真实图、模板和审核结果继续只保存在本地输出目录。
+
 ## 矩形边框候选与独立负向留出
 
 同组七页的逐候选失败原因表明，两个漏检都不是搜索窗触边或种子点错误，而是 flood-fill 在透明/场景填充

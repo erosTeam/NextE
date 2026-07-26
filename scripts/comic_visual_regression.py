@@ -2974,7 +2974,7 @@ def apply_container_review(
         "container review",
     )
     review_schema_version = raw.get("schemaVersion")
-    if review_schema_version not in (SCHEMA_VERSION, 2):
+    if review_schema_version not in (SCHEMA_VERSION, 2, 3):
         raise ValueError("container review schemaVersion is unsupported")
     if require_string(raw.get("fixtureSetId"), "container review.fixtureSetId") != fixture_set_id:
         raise ValueError("container review fixtureSetId does not match")
@@ -3012,7 +3012,13 @@ def apply_container_review(
             int(candidate["label"]): candidate
             for candidate in result["containerCandidates"]
         }
-        if review_schema_version == 2:
+        if review_schema_version == 3:
+            review_state = page_review.get("reviewState")
+            if review_state != "reviewed":
+                raise ValueError(
+                    f"container review page remains unreviewed: {page_id}"
+                )
+        if review_schema_version in (2, 3):
             target_values = require_list(
                 page_review.get("targets"),
                 f"container review.pages[{page_index}].targets",
@@ -3377,7 +3383,7 @@ def apply_container_review(
         ),
         "byProbeOutcome": review_by_probe_outcome,
     }
-    if review_schema_version == 2:
+    if review_schema_version in (2, 3):
         summary["containerReview"]["eligibleTargets"] = eligible_target_total
         summary["containerReview"]["mergedSourceTargets"] = merged_source_target_total
         summary["containerReview"]["preservedSourceTargets"] = (
