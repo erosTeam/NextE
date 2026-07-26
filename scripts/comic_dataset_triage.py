@@ -88,6 +88,7 @@ def observation_row(page: dict[str, Any], observation: dict[str, Any]) -> dict[s
         "familyId": str(page.get("familyId", "unassigned")),
         "split": str(page.get("split", "unassigned")),
         "recordingId": str(observation.get("recordingId", "")),
+        "profileId": str(observation.get("profileId", "")),
         "path": str(observation.get("path", "")),
         "pageIndex": observation.get("pageIndex"),
         "layoutCount": len(layouts),
@@ -110,6 +111,28 @@ def priority_key(row: dict[str, Any]) -> tuple[int, int, int, int, str, int]:
         str(row["recordingId"]),
         int(row["pageIndex"]) if isinstance(row["pageIndex"], int) else -1,
     )
+
+
+def selected_rows(
+    rows: list[dict[str, Any]],
+    recording_prefixes: list[str],
+    profile_prefixes: list[str],
+) -> list[dict[str, Any]]:
+    if not recording_prefixes and not profile_prefixes:
+        return rows
+    output: list[dict[str, Any]] = []
+    for row in rows:
+        recording_id = str(row.get("recordingId", ""))
+        profile_id = str(row.get("profileId", ""))
+        recording_matches = not recording_prefixes or any(
+            recording_id.startswith(prefix) for prefix in recording_prefixes
+        )
+        profile_matches = not profile_prefixes or any(
+            profile_id.startswith(prefix) for prefix in profile_prefixes
+        )
+        if recording_matches and profile_matches:
+            output.append(row)
+    return output
 
 
 def unique_pages(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -135,6 +158,18 @@ def main() -> int:
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=30)
+    parser.add_argument(
+        "--recording-id-prefix",
+        action="append",
+        default=[],
+        help="Keep only observations whose recording id starts with this prefix; repeatable.",
+    )
+    parser.add_argument(
+        "--profile-id-prefix",
+        action="append",
+        default=[],
+        help="Keep only observations whose analysis profile id starts with this prefix; repeatable.",
+    )
     args = parser.parse_args()
     if args.limit <= 0:
         fail("limit must be positive")
@@ -154,14 +189,26 @@ def main() -> int:
         for observation in observations:
             if isinstance(observation, dict):
                 rows.append(observation_row(page, observation))
-    ranked = sorted(unique_pages(rows), key=priority_key)
+    selected = selected_rows(
+        rows,
+        args.recording_id_prefix,
+        args.profile_id_prefix,
+    )
+    if not selected:
+        fail("no observations match the requested recording/profile selection")
+    ranked = sorted(unique_pages(selected), key=priority_key)
     output = {
         "schemaVersion": 1,
         "kind": "comic-recording-triage",
         "inventory": str(args.inventory),
         "ranking": "one highest-risk observation per page: skipped groups, overlapping layout rectangles, unconfirmed containers, small fonts",
+        "selection": {
+            "recordingIdPrefixes": args.recording_id_prefix,
+            "profileIdPrefixes": args.profile_id_prefix,
+        },
         "summary": {
             "observations": len(rows),
+            "selectedObservations": len(selected),
             "uniquePages": len(ranked),
             "returned": min(args.limit, len(ranked)),
         },

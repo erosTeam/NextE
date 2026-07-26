@@ -42,6 +42,19 @@ python3 scripts/comic_dataset_triage.py \
   --output .hvigor/outputs/comic-dataset/triage-v1.json
 ```
 
+同一页的历史 baseline、开发候选和当前 profile 不能混入一次复核。需要只看某次新运行时，显式以 recording
+前缀筛选；同时给出 profile 前缀时两者都必须匹配：
+
+```bash
+python3 scripts/comic_dataset_triage.py \
+  --inventory .hvigor/outputs/comic-dataset/inventory-v1.json \
+  --recording-id-prefix real237-20260726-color-core- \
+  --output .hvigor/outputs/comic-dataset/color-core-triage-v1.json
+```
+
+输出会记录 selection 和 `selectedObservations`。未指定筛选时仍保留原来的全量盘点行为；筛选为空会失败，
+不能静默回退到别的历史输出。
+
 已有原创两页 fixture 的严格 transcript/术语真值可直接评分：
 
 ```bash
