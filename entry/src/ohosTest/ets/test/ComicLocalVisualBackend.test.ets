@@ -1968,6 +1968,58 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
+    it('uses a closed-balloon container for vertical CJK only in the candidate layout profile', 0,
+      async (done: Function) => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const ability = await delegator.getCurrentTopAbility()
+        const sourcePath: string = `${ability.context.cacheDir}/vertical-container-candidate-source.png`
+        let renderedPath: string = ''
+        await writeClosedBubbleImage(sourcePath, 1024, 1536)
+        try {
+          const sink: CollectingComicLocalVisualRecordingSink =
+            new CollectingComicLocalVisualRecordingSink()
+          const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
+            ability.context,
+            new ClosedBubbleOcrEngine(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            sink,
+          )
+          const analysisRequest: ComicRegionAnalysisRequest = new ComicRegionAnalysisRequest()
+          analysisRequest.source = source(sourcePath, page01Fixture())
+          analysisRequest.requestedRegionRevision = 2
+          analysisRequest.requestedDocumentRevision = 2
+          const analysis: ComicRegionAnalysisResult = await backend.analyze(analysisRequest)
+          analysis.document.blocks[0].styleHint = 'vertical-rl'
+          const request: ComicRegionRenderRequest = renderRequest(
+            backend,
+            sourcePath,
+            page01Fixture(),
+            analysis,
+          )
+          request.renderProfile.layoutProfileId =
+            'local-bubble-typography-vertical-container-candidate-v1'
+          request.identity.layoutProfileId = request.renderProfile.layoutProfileId
+          for (let index: number = 0; index < request.translations.blocks.length; index++) {
+            request.translations.blocks[index].translatedText = '译文'
+          }
+          const page: ComicRenderedPage = await backend.render(request)
+          renderedPath = page.localFilePath
+          expect(page.localFilePath.length > 0).assertEqual(true)
+          const recording: ComicLocalVisualRenderRecording =
+            sink.render as ComicLocalVisualRenderRecording
+          expect(recording.layouts[0].textRect.shapeConstrained).assertEqual(true)
+          expect(recording.layouts[0].textRect.containerProbeOutcome).assertEqual('accepted')
+        } finally {
+          removeFile(renderedPath)
+          removeFile(sourcePath)
+        }
+        done()
+      })
+
     it('records an outlined rectangular caption whose interior is not a flat fill', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()

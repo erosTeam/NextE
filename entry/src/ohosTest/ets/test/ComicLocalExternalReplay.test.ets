@@ -120,7 +120,10 @@ class CandidateTemplateEnvelope {
 
 function parameter(name: string): string {
   const parameters: Record<string, string> = abilityDelegatorRegistry.getArguments().parameters
-  return parameters[`-s ${name}`] ?? ''
+  // Device releases expose custom aa-test arguments either as `-s name` or as the bare
+  // name. Accept both shapes so a real-page replay cannot silently skip its requested mode.
+  const legacyValue: string = parameters[`-s ${name}`] ?? ''
+  return legacyValue.length > 0 ? legacyValue : parameters[name] ?? ''
 }
 
 function replayEnabled(): boolean {
@@ -145,6 +148,10 @@ function candidateContinuationMergeEnabled(): boolean {
 
 function candidatePageFontNormalizationEnabled(): boolean {
   return parameter('comicCandidatePageFontNormalization') === 'true'
+}
+
+function candidateVerticalContainerLayoutEnabled(): boolean {
+  return parameter('comicCandidateVerticalContainerLayout') === 'true'
 }
 
 function liveTranslationMode(): string {
@@ -1019,6 +1026,7 @@ function renderRequest(
   analysis: ComicRegionAnalysisResult,
   translations: ComicTranslationBatch,
   pageFontNormalization: boolean,
+  verticalContainerLayout: boolean,
 ): ComicRegionRenderRequest {
   const request: ComicRegionRenderRequest = new ComicRegionRenderRequest()
   request.source = source
@@ -1029,9 +1037,11 @@ function renderRequest(
   const profile: ComicRenderProfile = new ComicRenderProfile()
   profile.profileId = 'reader-local-bubble-layout-v30'
   profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v30'
-  profile.layoutProfileId = pageFontNormalization ?
-    'local-bubble-typography-page-outlier-v2' :
-    'local-bubble-typography-v30'
+  profile.layoutProfileId = verticalContainerLayout ?
+    'local-bubble-typography-vertical-container-candidate-v1' :
+    pageFontNormalization ?
+      'local-bubble-typography-page-outlier-v2' :
+      'local-bubble-typography-v30'
   profile.targetMimeType = 'image/png'
   profile.revision = 8
   request.renderProfile = profile
@@ -1193,6 +1203,11 @@ export default function comicLocalExternalReplayTest(): void {
           candidateContinuationMergeEnabled()
         const candidatePageFontNormalization: boolean =
           candidatePageFontNormalizationEnabled()
+        const candidateVerticalContainerLayout: boolean =
+          candidateVerticalContainerLayoutEnabled()
+        if (candidatePageFontNormalization && candidateVerticalContainerLayout) {
+          throw new Error('Page font and vertical container candidates cannot be combined')
+        }
         if (candidateParentRender &&
           (!candidateGroupingEnabled() || translationMode !== 'import')) {
           throw new Error(
@@ -1410,6 +1425,7 @@ export default function comicLocalExternalReplayTest(): void {
               renderAnalysis,
               replay.batch,
               candidatePageFontNormalization,
+              candidateVerticalContainerLayout,
             )
             const renderStartedAt: number = Date.now()
             const rendered: ComicRenderedPage = await backend.render(request)

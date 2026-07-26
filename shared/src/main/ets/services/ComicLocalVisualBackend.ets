@@ -104,6 +104,10 @@ const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE: number = 10
 const LOCAL_PAGE_OUTLIER_LAYOUT_PROFILE_ID: string =
   'local-bubble-typography-page-outlier-v2'
+// Candidate-only profile: vertical CJK can use a closed container only after the real-page
+// review gate validates it. The shipped Reader profile never matches this value.
+const LOCAL_VERTICAL_CONTAINER_CANDIDATE_LAYOUT_PROFILE_ID: string =
+  'local-bubble-typography-vertical-container-candidate-v1'
 const LOCAL_NARROW_UPRIGHT_MIN_ROTATED_RATIO: number = 0.75
 const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
 const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
@@ -692,6 +696,11 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.translations.targetLanguage,
       )
       const textRects: LocalRenderRect[] = []
+      const applyVerticalContainerLayout: boolean =
+        request.renderProfile.layoutProfileId ===
+        LOCAL_VERTICAL_CONTAINER_CANDIDATE_LAYOUT_PROFILE_ID
+      const captureContainerMask: boolean = this.recordingSink !== null ||
+        applyVerticalContainerLayout
       for (let index: number = 0; index < renderPlans.length; index++) {
         textRects.push(await ComicLocalVisualBackend.resolvedRenderTextRect(
           pixelMap,
@@ -700,7 +709,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.source.imageHeight,
           fillStyles[index],
           request.translations.targetLanguage,
-          this.recordingSink !== null,
+          captureContainerMask,
+          applyVerticalContainerLayout,
         ))
       }
       if (request.renderProfile.layoutProfileId ===
@@ -4766,6 +4776,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     fill: LocalFillStyle,
     targetLanguage: string,
     captureContainerMask: boolean,
+    applyVerticalContainerLayout: boolean,
   ): Promise<LocalRenderRect> {
     const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
     const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
@@ -4803,6 +4814,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         captureContainerMask,
       )
       if (renderStyleHint === LOCAL_HORIZONTAL_STYLE_HINT) {
+        return detected
+      }
+      if (applyVerticalContainerLayout && detected.shapeConstrained) {
         return detected
       }
       // Vertical CJK layout keeps its existing rectangle and grouping semantics. Recording may
