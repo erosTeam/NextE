@@ -1,6 +1,7 @@
 #include <napi/native_api.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -180,6 +181,38 @@ struct ComicRegionDetection {
     int classId = 0;
 };
 
+// A semantic speech-bubble detector intentionally has a separate contract from the
+// existing text-region OBB detector.  Its mask is a page-sized union of accepted
+// instance masks; consumers must not treat a detection rectangle as the boundary.
+struct ComicBubbleMaskDetection {
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+    float score = 0.0f;
+};
+
+struct ComicBubbleMaskTask {
+    napi_async_work work = nullptr;
+    napi_deferred deferred = nullptr;
+    std::vector<uint8_t> input;
+    std::vector<uint8_t> mask;
+    std::vector<ComicBubbleMaskDetection> detections;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    int threads = 2;
+    float confidenceThreshold = 0.5f;
+    float maskThreshold = 0.5f;
+    std::string paramPath;
+    std::string modelPath;
+    std::string error;
+    int64_t modelLoadMs = 0;
+    int64_t inferenceMs = 0;
+    int64_t postprocessingMs = 0;
+    int64_t maskedPixels = 0;
+};
+
 struct ComicRegionDetectionTask {
     napi_async_work work = nullptr;
     napi_deferred deferred = nullptr;
@@ -290,6 +323,9 @@ std::unordered_set<std::string> gRejectedMindSporeModelDevices;
 std::mutex gComicDetectorMutex;
 std::unique_ptr<ncnn::Net> gCachedComicDetectorNet;
 std::string gCachedComicDetectorKey;
+std::mutex gComicBubbleMaskMutex;
+std::unique_ptr<ncnn::Net> gCachedComicBubbleMaskNet;
+std::string gCachedComicBubbleMaskKey;
 std::mutex gComicRecognizerMutex;
 std::unique_ptr<ncnn::Net> gCachedComicRecognizerNet;
 std::string gCachedComicRecognizerKey;
@@ -2260,6 +2296,267 @@ bool RunComicRegionDetection(ComicRegionDetectionTask &task)
     return true;
 }
 
+constexpr int kComicBubbleMaskInputSize = 640;
+constexpr int kComicBubbleMaskPrototypeSize = 160;
+constexpr int kComicBubbleMaskPrototypeChannels = 32;
+constexpr size_t kComicBubbleMaskMaxDetections = 64;
+constexpr size_t kComicBubbleMaskMaxPixels = 16U * 1024U * 1024U;
+
+void ResetCachedComicBubbleMask()
+{
+    gCachedComicBubbleMaskNet.reset();
+    gCachedComicBubbleMaskKey.clear();
+}
+
+bool ValidateComicBubbleMaskTask(ComicBubbleMaskTask &task)
+{
+    if (task.width <= 1 || task.height <= 1 || task.width > 32768 || task.height > 32768 ||
+        task.stride < task.width * 4 || task.threads < 1 || task.threads > 8 ||
+        task.paramPath.empty() || task.modelPath.empty() ||
+        task.confidenceThreshold <= 0.0f || task.confidenceThreshold >= 1.0f ||
+        task.maskThreshold <= 0.0f || task.maskThreshold >= 1.0f) {
+        task.error = "invalid comic bubble mask configuration";
+        return false;
+    }
+    const size_t pixelCount = static_cast<size_t>(task.width) * static_cast<size_t>(task.height);
+    const size_t required = static_cast<size_t>(task.stride) * static_cast<size_t>(task.height);
+    if (pixelCount == 0 || pixelCount > kComicBubbleMaskMaxPixels || required == 0 ||
+        task.input.size() < required) {
+        task.error = "comic bubble mask input exceeds the on-device boundary";
+        return false;
+    }
+    return true;
+}
+
+ncnn::Net *PrepareComicBubbleMask(ComicBubbleMaskTask &task)
+{
+    const std::string key = task.paramPath + "\n" + task.modelPath + "\n" +
+        std::to_string(task.threads);
+    if (gCachedComicBubbleMaskNet != nullptr && gCachedComicBubbleMaskKey == key) {
+        return gCachedComicBubbleMaskNet.get();
+    }
+    ResetCachedComicBubbleMask();
+    auto net = std::make_unique<ncnn::Net>();
+    net->opt.use_vulkan_compute = false;
+    // The first qualification run keeps this new model on the same parity-first fp32 profile
+    // as the existing detector.  Quantization or fp16 is a later, separately measured decision.
+    net->opt.use_fp16_storage = false;
+    net->opt.use_fp16_packed = false;
+    net->opt.use_fp16_arithmetic = false;
+    net->opt.use_packing_layout = false;
+    net->opt.num_threads = task.threads;
+    const SteadyClock::time_point startedAt = SteadyClock::now();
+    if (net->load_param(task.paramPath.c_str()) != 0 ||
+        net->load_model(task.modelPath.c_str()) != 0) {
+        task.error = "failed to load comic bubble mask model";
+        return nullptr;
+    }
+    task.modelLoadMs = ElapsedMilliseconds(startedAt);
+    gCachedComicBubbleMaskKey = key;
+    gCachedComicBubbleMaskNet = std::move(net);
+    return gCachedComicBubbleMaskNet.get();
+}
+
+float ComicBubbleMaskIou(const ComicBubbleMaskDetection &left, const ComicBubbleMaskDetection &right)
+{
+    const float intersectionWidth = std::max(0.0f, std::min(left.right, right.right) -
+        std::max(left.left, right.left));
+    const float intersectionHeight = std::max(0.0f, std::min(left.bottom, right.bottom) -
+        std::max(left.top, right.top));
+    const float intersection = intersectionWidth * intersectionHeight;
+    const float leftArea = std::max(0.0f, left.right - left.left) *
+        std::max(0.0f, left.bottom - left.top);
+    const float rightArea = std::max(0.0f, right.right - right.left) *
+        std::max(0.0f, right.bottom - right.top);
+    const float unionArea = leftArea + rightArea - intersection;
+    return unionArea > 0.0f ? intersection / unionArea : 0.0f;
+}
+
+bool RunComicBubbleMask(ComicBubbleMaskTask &task)
+{
+    if (!ValidateComicBubbleMaskTask(task)) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(gComicBubbleMaskMutex);
+    ncnn::Net *net = PrepareComicBubbleMask(task);
+    if (net == nullptr) {
+        return false;
+    }
+    const float gain = std::min(
+        static_cast<float>(kComicBubbleMaskInputSize) / static_cast<float>(task.height),
+        static_cast<float>(kComicBubbleMaskInputSize) / static_cast<float>(task.width));
+    const int resizedWidth = std::max(1, static_cast<int>(std::round(task.width * gain)));
+    const int resizedHeight = std::max(1, static_cast<int>(std::round(task.height * gain)));
+    const int left = (kComicBubbleMaskInputSize - resizedWidth) / 2;
+    const int right = kComicBubbleMaskInputSize - resizedWidth - left;
+    const int top = (kComicBubbleMaskInputSize - resizedHeight) / 2;
+    const int bottom = kComicBubbleMaskInputSize - resizedHeight - top;
+    ncnn::Mat resized = ncnn::Mat::from_pixels_resize(
+        task.input.data(), ncnn::Mat::PIXEL_RGBA2RGB, task.width, task.height, task.stride,
+        resizedWidth, resizedHeight);
+    if (resized.empty()) {
+        task.error = "failed to resize comic bubble mask input";
+        return false;
+    }
+    ncnn::Mat input;
+    ncnn::copy_make_border(
+        resized, input, top, bottom, left, right, ncnn::BORDER_CONSTANT, 114.0f, net->opt);
+    if (input.empty() || input.w != kComicBubbleMaskInputSize ||
+        input.h != kComicBubbleMaskInputSize || input.c != 3) {
+        task.error = "comic bubble mask letterbox preprocessing failed";
+        return false;
+    }
+    const float normalize[3] = {1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f};
+    input.substract_mean_normalize(nullptr, normalize);
+    const SteadyClock::time_point inferenceStartedAt = SteadyClock::now();
+    MmapNcnnAllocator blobAllocator;
+    MmapNcnnAllocator workspaceAllocator;
+    ncnn::Extractor extractor = net->create_extractor();
+    extractor.set_light_mode(true);
+    extractor.set_blob_allocator(&blobAllocator);
+    extractor.set_workspace_allocator(&workspaceAllocator);
+    if (extractor.input("in0", input) != 0) {
+        task.error = "comic bubble mask model rejected the input tensor";
+        return false;
+    }
+    ncnn::Mat predictions;
+    ncnn::Mat prototypes;
+    if (extractor.extract("out0", predictions) != 0 || extractor.extract("out1", prototypes) != 0) {
+        task.error = "comic bubble mask model failed to infer outputs";
+        return false;
+    }
+    task.inferenceMs = ElapsedMilliseconds(inferenceStartedAt);
+    if (predictions.dims != 2 || predictions.w != 8400 || predictions.h != 37 ||
+        predictions.elempack != 1 || prototypes.dims != 3 ||
+        prototypes.w != kComicBubbleMaskPrototypeSize ||
+        prototypes.h != kComicBubbleMaskPrototypeSize ||
+        prototypes.c != kComicBubbleMaskPrototypeChannels || prototypes.elempack != 1) {
+        task.error = "comic bubble mask model returned an unexpected output shape";
+        ResetCachedComicBubbleMask();
+        return false;
+    }
+    struct Candidate {
+        ComicBubbleMaskDetection detection;
+        std::array<float, kComicBubbleMaskPrototypeChannels> coefficients = {0.0f};
+    };
+    std::vector<Candidate> candidates;
+    candidates.reserve(128);
+    const float *centerXs = predictions.row(0);
+    const float *centerYs = predictions.row(1);
+    const float *widths = predictions.row(2);
+    const float *heights = predictions.row(3);
+    const float *scores = predictions.row(4);
+    for (int index = 0; index < predictions.w; ++index) {
+        const float score = scores[index];
+        if (!std::isfinite(score) || score <= task.confidenceThreshold) {
+            continue;
+        }
+        Candidate candidate;
+        candidate.detection.left = std::clamp(
+            centerXs[index] - widths[index] * 0.5f, 0.0f,
+            static_cast<float>(kComicBubbleMaskInputSize));
+        candidate.detection.top = std::clamp(
+            centerYs[index] - heights[index] * 0.5f, 0.0f,
+            static_cast<float>(kComicBubbleMaskInputSize));
+        candidate.detection.right = std::clamp(
+            centerXs[index] + widths[index] * 0.5f, 0.0f,
+            static_cast<float>(kComicBubbleMaskInputSize));
+        candidate.detection.bottom = std::clamp(
+            centerYs[index] + heights[index] * 0.5f, 0.0f,
+            static_cast<float>(kComicBubbleMaskInputSize));
+        if (candidate.detection.right - candidate.detection.left < 2.0f ||
+            candidate.detection.bottom - candidate.detection.top < 2.0f) {
+            continue;
+        }
+        candidate.detection.score = score;
+        for (int channel = 0; channel < kComicBubbleMaskPrototypeChannels; ++channel) {
+            candidate.coefficients[static_cast<size_t>(channel)] = predictions.row(5 + channel)[index];
+        }
+        candidates.push_back(candidate);
+    }
+    std::sort(candidates.begin(), candidates.end(), [](const Candidate &leftCandidate,
+        const Candidate &rightCandidate) {
+        return leftCandidate.detection.score > rightCandidate.detection.score;
+    });
+    std::vector<Candidate> accepted;
+    accepted.reserve(kComicBubbleMaskMaxDetections);
+    for (const Candidate &candidate : candidates) {
+        bool duplicate = false;
+        for (const Candidate &existing : accepted) {
+            if (ComicBubbleMaskIou(candidate.detection, existing.detection) > 0.5f) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            accepted.push_back(candidate);
+            if (accepted.size() >= kComicBubbleMaskMaxDetections) {
+                break;
+            }
+        }
+    }
+    const SteadyClock::time_point postprocessingStartedAt = SteadyClock::now();
+    task.mask.assign(static_cast<size_t>(task.width) * static_cast<size_t>(task.height), 0);
+    task.detections.clear();
+    task.detections.reserve(accepted.size());
+    const float inverseGain = 1.0f / gain;
+    for (const Candidate &candidate : accepted) {
+        ComicBubbleMaskDetection detection = candidate.detection;
+        detection.left = std::clamp((detection.left - static_cast<float>(left)) * inverseGain,
+            0.0f, static_cast<float>(task.width));
+        detection.top = std::clamp((detection.top - static_cast<float>(top)) * inverseGain,
+            0.0f, static_cast<float>(task.height));
+        detection.right = std::clamp((detection.right - static_cast<float>(left)) * inverseGain,
+            0.0f, static_cast<float>(task.width));
+        detection.bottom = std::clamp((detection.bottom - static_cast<float>(top)) * inverseGain,
+            0.0f, static_cast<float>(task.height));
+        const int sourceLeft = std::max(0, static_cast<int>(std::floor(detection.left)));
+        const int sourceTop = std::max(0, static_cast<int>(std::floor(detection.top)));
+        const int sourceRight = std::min(task.width, static_cast<int>(std::ceil(detection.right)));
+        const int sourceBottom = std::min(task.height, static_cast<int>(std::ceil(detection.bottom)));
+        for (int y = sourceTop; y < sourceBottom; ++y) {
+            const int modelY = std::clamp(
+                static_cast<int>((static_cast<float>(y) * gain + static_cast<float>(top)) *
+                    static_cast<float>(kComicBubbleMaskPrototypeSize) /
+                    static_cast<float>(kComicBubbleMaskInputSize)),
+                0, kComicBubbleMaskPrototypeSize - 1);
+            for (int x = sourceLeft; x < sourceRight; ++x) {
+                const int modelX = std::clamp(
+                    static_cast<int>((static_cast<float>(x) * gain + static_cast<float>(left)) *
+                        static_cast<float>(kComicBubbleMaskPrototypeSize) /
+                        static_cast<float>(kComicBubbleMaskInputSize)),
+                    0, kComicBubbleMaskPrototypeSize - 1);
+                float logit = 0.0f;
+                for (int channel = 0; channel < kComicBubbleMaskPrototypeChannels; ++channel) {
+                    const float *prototype = prototypes.channel(channel);
+                    logit += candidate.coefficients[static_cast<size_t>(channel)]
+                        * prototype[modelY * kComicBubbleMaskPrototypeSize + modelX];
+                }
+                const float probability = 1.0f / (1.0f + std::exp(-logit));
+                if (probability >= task.maskThreshold) {
+                    const size_t maskIndex = static_cast<size_t>(y) * static_cast<size_t>(task.width) +
+                        static_cast<size_t>(x);
+                    if (task.mask[maskIndex] == 0) {
+                        task.mask[maskIndex] = 1;
+                        ++task.maskedPixels;
+                    }
+                }
+            }
+        }
+        task.detections.push_back(detection);
+    }
+    task.postprocessingMs = ElapsedMilliseconds(postprocessingStartedAt);
+    return true;
+}
+
+void ExecuteComicBubbleMask(napi_env env, void *data)
+{
+    (void)env;
+    auto *task = static_cast<ComicBubbleMaskTask *>(data);
+    RunComicBubbleMask(*task);
+    std::vector<uint8_t>().swap(task->input);
+}
+
 void ExecuteComicRegionDetection(napi_env env, void *data)
 {
     (void)env;
@@ -3147,6 +3444,56 @@ void CompleteComicRegionDetection(napi_env env, napi_status status, void *data)
     delete task;
 }
 
+void CompleteComicBubbleMask(napi_env env, napi_status status, void *data)
+{
+    auto *task = static_cast<ComicBubbleMaskTask *>(data);
+    if (status == napi_ok && task->error.empty()) {
+        napi_value result = nullptr;
+        napi_value detections = nullptr;
+        napi_value outputBuffer = nullptr;
+        auto *output = new std::vector<uint8_t>(std::move(task->mask));
+        if (napi_create_object(env, &result) == napi_ok &&
+            napi_create_array_with_length(env, task->detections.size(), &detections) == napi_ok &&
+            napi_create_external_arraybuffer(
+                env, output->data(), output->size(), FinalizeOutputBuffer, output, &outputBuffer) == napi_ok) {
+            for (size_t index = 0; index < task->detections.size(); ++index) {
+                const ComicBubbleMaskDetection &detection = task->detections[index];
+                napi_value item = nullptr;
+                napi_create_object(env, &item);
+                napi_set_named_property(env, item, "left", DoubleValue(env, detection.left));
+                napi_set_named_property(env, item, "top", DoubleValue(env, detection.top));
+                napi_set_named_property(env, item, "right", DoubleValue(env, detection.right));
+                napi_set_named_property(env, item, "bottom", DoubleValue(env, detection.bottom));
+                napi_set_named_property(env, item, "score", DoubleValue(env, detection.score));
+                napi_set_element(env, detections, index, item);
+            }
+            napi_set_named_property(env, result, "mask", outputBuffer);
+            napi_set_named_property(env, result, "detections", detections);
+            napi_set_named_property(env, result, "backend", StringValue(env, "ncnn-fp32-cpu"));
+            napi_set_named_property(env, result, "modelLoadMs", Int64Value(env, task->modelLoadMs));
+            napi_set_named_property(env, result, "inferenceMs", Int64Value(env, task->inferenceMs));
+            napi_set_named_property(env, result, "postprocessingMs", Int64Value(env, task->postprocessingMs));
+            napi_set_named_property(env, result, "maskedPixels", Int64Value(env, task->maskedPixels));
+            napi_resolve_deferred(env, task->deferred, result);
+        } else {
+            delete output;
+            task->error = "failed to allocate comic bubble mask result";
+        }
+    }
+    if (status != napi_ok || !task->error.empty()) {
+        const std::string message = task->error.empty()
+            ? "native comic bubble mask inference failed"
+            : task->error;
+        napi_value text = nullptr;
+        napi_value error = nullptr;
+        napi_create_string_utf8(env, message.c_str(), message.size(), &text);
+        napi_create_error(env, nullptr, text, &error);
+        napi_reject_deferred(env, task->deferred, error);
+    }
+    napi_delete_async_work(env, task->work);
+    delete task;
+}
+
 void CompleteComicTextRecognition(napi_env env, napi_status status, void *data)
 {
     auto *task = static_cast<ComicTextRecognitionTask *>(data);
@@ -3465,6 +3812,58 @@ napi_value DetectComicRegions(napi_env env, napi_callback_info info)
         napi_delete_async_work(env, task->work);
         delete task;
         napi_throw_error(env, nullptr, "failed to queue comic region detector task");
+        return nullptr;
+    }
+    return promise;
+}
+
+napi_value InferComicBubbleMask(napi_env env, napi_callback_info info)
+{
+    size_t argc = 9;
+    napi_value argv[9] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 9) {
+        napi_throw_type_error(env, nullptr, "inferComicBubbleMask expects 9 arguments");
+        return nullptr;
+    }
+    auto *task = new ComicBubbleMaskTask();
+    if (!GetBytes(env, argv[0], task->input) ||
+        !GetInt(env, argv[1], task->width) ||
+        !GetInt(env, argv[2], task->height) ||
+        !GetInt(env, argv[3], task->stride) ||
+        !GetFloat(env, argv[6], task->confidenceThreshold) ||
+        !GetFloat(env, argv[7], task->maskThreshold) ||
+        !GetInt(env, argv[8], task->threads)) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "invalid comic bubble mask argument type");
+        return nullptr;
+    }
+    task->paramPath = GetString(env, argv[4]);
+    task->modelPath = GetString(env, argv[5]);
+    if (task->paramPath.empty() || task->modelPath.empty()) {
+        delete task;
+        napi_throw_type_error(env, nullptr, "comic bubble mask model paths are required");
+        return nullptr;
+    }
+    napi_value promise = nullptr;
+    napi_create_promise(env, &task->deferred, &promise);
+    napi_value resourceName = nullptr;
+    napi_create_string_utf8(env, "NextEComicBubbleMask", NAPI_AUTO_LENGTH, &resourceName);
+    if (napi_create_async_work(
+            env,
+            nullptr,
+            resourceName,
+            ExecuteComicBubbleMask,
+            CompleteComicBubbleMask,
+            task,
+            &task->work) != napi_ok) {
+        delete task;
+        napi_throw_error(env, nullptr, "failed to create comic bubble mask task");
+        return nullptr;
+    }
+    if (napi_queue_async_work_with_qos(env, task->work, napi_qos_user_initiated) != napi_ok) {
+        napi_delete_async_work(env, task->work);
+        delete task;
+        napi_throw_error(env, nullptr, "failed to queue comic bubble mask task");
         return nullptr;
     }
     return promise;
@@ -3832,6 +4231,7 @@ static napi_value Init(napi_env env, napi_value exports)
         {"prepareMindSporeModel", nullptr, PrepareMindSporeModelNapi, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"upscaleMindSporeRgba", nullptr, UpscaleMindSporeRgba, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"detectComicRegions", nullptr, DetectComicRegions, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"inferComicBubbleMask", nullptr, InferComicBubbleMask, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"recognizeComicText", nullptr, RecognizeComicText, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"inferComicTextMask", nullptr, InferComicTextMask, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"inpaintComicRegion", nullptr, InpaintComicRegion, nullptr, nullptr, nullptr, napi_default, nullptr},

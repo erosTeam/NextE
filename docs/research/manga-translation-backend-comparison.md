@@ -99,6 +99,24 @@ Docker 中显示约 4.61 GB，首次混合 OCR/修复冷启动还下载约 591 M
 YSGYolo 只输出 4 点 OBB、score 和五类 region 标签，不输出 OCR 文本或文字像素 mask。因此它能改善系统 OCR
 漏掉整块、气泡空间估计和方向提示，但不能独立消除 `え?` 漏字、注音残留或完成 LaMa 级补背景。
 
+### 容器 mask 候选资格验证（未接入）
+
+对 P20 一类“文字框不相交、但没有可靠容器边界”的失败，继续扩大 OBB 或增加矩形碰撞阈值并不解决根因。
+本轮筛选要求候选直接输出 speech-bubble **instance mask**、可转 ncnn、权重许可明确且适合端侧；单纯
+box detector 被排除。
+
+| 候选 | 许可 / 输出 | 本地转换结果 | 判定 |
+|---|---|---:|---|
+| kitsumed YOLOv8m-seg | GPL-3.0 / instance mask | 52 MB ncnn bin，104.697 GFLOPs（640） | 淘汰：相对当前 79 MB 整包和端侧延迟预算过重 |
+| Manga109 YOLO11n-seg | Apache-2.0 / instance mask | 原 `best.pt` 12,003,405 bytes；固定 640 ncnn param/bin 约 25 KiB / 5.5 MB，9.777 GFLOPs | 进入隔离真机资格验证，尚未接入 |
+
+YOLO11n 候选的上游模型卡声称使用 MangaSegmentation 与 Manga109 训练，输出一类 balloon 的实例 mask；其
+自报准确率不可作为本项目验收。已固定上游 revision `f9a4108c4955136a810e5e92207972f3fb3a65fd`，下载
+checkpoint SHA-256 `4028152940f7c910f40192f46ede3b3f6c7129e5c76849c324d3564f8ac50198`。使用同代官方
+`pnnx 20260526` 从固定 640 TorchScript 转 ncnn，桌面 ncnn 实跑确认输出为 prediction `8400 × 37` 与
+prototype `160 × 160 × 32`；新 NAPI 以此生成 raster union mask，且明确不把预测框提升为边界。没有真实
+页 mask 比对、设备性能和内存记录前，不发布权重、不添加下载项、不改变 Reader 渲染。
+
 ### 首个模型移植结果
 
 从 [manga-translator-ui v1.7.1](https://github.com/hgmzhn/manga-translator-ui/releases/tag/v1.7.1) 使用的
