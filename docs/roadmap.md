@@ -13,8 +13,9 @@ The old milestone snapshot is archived at
   A later production/edit/export workflow may share the document and renderer but has separate scope and acceptance.
   Existing provider-neutral documents, provider adapters, context, cache and consistency code are infrastructure
   candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
-  [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); current execution is
-  [Manga Translation Reader Acceptance](plans/active/manga-translation-reader-acceptance.md).
+  [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); the local Reader boundary is
+  archived as [Manga Translation Reader Acceptance](plans/archive/manga-translation-reader-acceptance-2026-07-27.md),
+  and current execution is [Manga Whole-page Qualification](plans/active/manga-translation-whole-page-qualification.md).
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.
