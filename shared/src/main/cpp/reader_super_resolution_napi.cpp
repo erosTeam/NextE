@@ -2701,7 +2701,9 @@ ncnn::Net *PrepareComicInpainter(ComicInpaintingTask &task)
     net->opt.use_fp16_storage = false;
     net->opt.use_fp16_packed = false;
     net->opt.use_fp16_arithmetic = false;
-    net->opt.use_packing_layout = false;
+    // Keep AOT arithmetic on the parity-tested FP32 path, while allowing ncnn to pack
+    // channels internally; packing has no output-pixel change in the real-page A/B.
+    net->opt.use_packing_layout = true;
     net->opt.num_threads = task.threads;
     const SteadyClock::time_point startedAt = SteadyClock::now();
     if (net->load_param(task.paramPath.c_str()) != 0 ||
