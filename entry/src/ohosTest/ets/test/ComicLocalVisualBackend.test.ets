@@ -3653,9 +3653,7 @@ export default function comicLocalVisualBackendTest(): void {
         done()
       })
 
-    // The two-page fixture verifies end-to-end local OCR and render output, so it has an explicit
-    // framework deadline above the observed device cost instead of Hypium's unrelated 5 s default.
-    it('measures endpoint-free OCR accuracy, direction, coverage, and latency', 15000,
+    it('measures endpoint-free OCR accuracy, direction, coverage, and latency', 0,
       async (done: Function) => {
         const delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const ability = await delegator.getCurrentTopAbility()
