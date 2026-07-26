@@ -190,6 +190,11 @@ def observe(
             "render": timing_value(render_timings.get("totalMs")),
             "inpaint": timing_value(render_timings.get("inpaintMs")),
         },
+        "renderStats": {
+            "inpaintCallCount": timing_value(render_timings.get("inpaintCallCount")),
+            "drawableGroupCount": timing_value(render_timings.get("drawableGroupCount")),
+            "skippedGroupCount": timing_value(render_timings.get("skippedGroupCount")),
+        },
         "assets": {
             "source": str(manifest.get("sourceImage", "source.jpg")),
             "rendered": str(manifest.get("renderedImage", "rendered.png")),

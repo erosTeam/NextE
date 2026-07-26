@@ -78,6 +78,12 @@ def main() -> int:
         if len(families) != 1 or len(splits) != 1 or len(profiles) != 1 or len(backends) != 1:
             fail(f"recording {recording_id} has inconsistent identity metadata")
         timings: dict[str, list[int]] = {"analysis": [], "render": [], "inpaint": []}
+        render_stats: dict[str, list[int]] = {
+            "inpaintCalls": [],
+            "drawableGroups": [],
+            "skippedGroups": [],
+            "inpaintMsPerCall": [],
+        }
         for item in observations:
             raw = item.get("timingsMs")
             if not isinstance(raw, dict):
@@ -86,6 +92,21 @@ def main() -> int:
                 value = raw.get(key)
                 if isinstance(value, int) and value >= 0:
                     timings[key].append(value)
+            raw_stats = item.get("renderStats")
+            if isinstance(raw_stats, dict):
+                count = raw_stats.get("inpaintCallCount")
+                if isinstance(count, int) and count >= 0:
+                    render_stats["inpaintCalls"].append(count)
+                    inpaint = raw.get("inpaint") if isinstance(raw, dict) else None
+                    if isinstance(inpaint, int) and inpaint >= 0 and count > 0:
+                        render_stats["inpaintMsPerCall"].append(round(inpaint / count))
+                for input_key, output_key in (
+                    ("drawableGroupCount", "drawableGroups"),
+                    ("skippedGroupCount", "skippedGroups"),
+                ):
+                    value = raw_stats.get(input_key)
+                    if isinstance(value, int) and value >= 0:
+                        render_stats[output_key].append(value)
         records.append({
             "recordingId": recording_id,
             "familyId": next(iter(families)),
@@ -96,6 +117,7 @@ def main() -> int:
             "blockCount": summary([int(item.get("blockCount", 0)) for item in observations]),
             "layoutCount": summary([int(item.get("layoutCount", 0)) for item in observations]),
             "timingsMs": {key: summary(value) for key, value in timings.items()},
+            "renderStats": {key: summary(value) for key, value in render_stats.items()},
         })
     output = {
         "schemaVersion": 1,
