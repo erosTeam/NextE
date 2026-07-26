@@ -26,6 +26,9 @@ import {
   ComicRenderProfile,
   ComicSourceInpaintingModelPaths,
   ComicTextBlock,
+  ComicTextTranslationRequest,
+  ComicTranslationDebugProbeResult,
+  ComicTranslationDebugProbeService,
   ComicTextMaskModelPaths,
   ComicTextRecognitionModelPaths,
   ComicTranslationBatch,
@@ -123,6 +126,14 @@ function containerCalibrationEnabled(): boolean {
 
 function candidateGroupingEnabled(): boolean {
   return parameter('comicCandidateGrouping') === 'true'
+}
+
+function liveTranslationMode(): string {
+  const mode: string = parameter('comicLiveTranslationMode').trim()
+  if (mode.length > 0 && mode !== 'export' && mode !== 'import') {
+    throw new Error('Live translation mode is invalid')
+  }
+  return mode
 }
 
 function safeFileName(value: string): boolean {
@@ -694,6 +705,25 @@ function containerCalibrationTranslations(
   return result
 }
 
+function liveTranslationRequest(
+  source: ComicVisualPageSource,
+  analysis: ComicRegionAnalysisResult,
+  translationRevision: number,
+): ComicTextTranslationRequest {
+  const request: ComicTextTranslationRequest = new ComicTextTranslationRequest()
+  request.source = source
+  request.document = analysis.document
+  request.context.sourceLanguage = 'en'
+  request.context.targetLanguage = 'zh-CN'
+  request.context.styleGuide =
+    'Use concise natural Chinese suitable for comic lettering. Keep names, forms of address, tone, and references consistent across all blocks on the page.'
+  request.context.glossaryRevision = 0
+  request.context.styleGuideRevision = 1
+  request.context.contextRevision = 1
+  request.requestedTranslationRevision = translationRevision
+  return request
+}
+
 function renderRequest(
   backend: ComicLocalVisualBackend,
   source: ComicVisualPageSource,
@@ -793,6 +823,26 @@ export default function comicLocalExternalReplayTest(): void {
           return
         }
         const pages: ExternalReplayPage[] = loadReplayPages(root, calibrationOnly)
+        const translationMode: string = liveTranslationMode()
+        const liveTranslation: boolean = translationMode.length > 0
+        let liveTranslationPageIndex: number = -1
+        let liveTranslationProbeId: string = ''
+        if (liveTranslation) {
+          if (!calibrationOnly) {
+            throw new Error('Live translation replay requires calibration-only input')
+          }
+          liveTranslationPageIndex = parsePositiveInteger(
+            parameter('comicLiveTranslationPageNumber'),
+            'Live translation page number',
+          ) - 1
+          if (liveTranslationPageIndex < 0 || liveTranslationPageIndex >= pages.length) {
+            throw new Error('Live translation page number is out of range')
+          }
+          liveTranslationProbeId = parameter('comicLiveTranslationProbeId').trim()
+          if (!safeFileName(liveTranslationProbeId)) {
+            throw new Error('Live translation probe id is invalid')
+          }
+        }
         let candidatePlan: CandidateGroupingPlan | null = null
         if (candidateGroupingEnabled()) {
           if (!calibrationOnly) {
@@ -811,6 +861,14 @@ export default function comicLocalExternalReplayTest(): void {
           timingPath,
           '# page\tcategory\tblocks\tmatched\tanalysis_ms\trender_ms\ttotal_ms\n',
         )
+        const translationTimingPath: string =
+          `${recorder.recordingDirectory()}/translation-timings.tsv`
+        if (liveTranslation) {
+          writeTextFile(
+            translationTimingPath,
+            '# page\tblocks\ttranslation_ms\n',
+          )
+        }
         const backend: ComicLocalVisualBackend = new ComicLocalVisualBackend(
           mainContext,
           ocr,
@@ -843,6 +901,7 @@ export default function comicLocalExternalReplayTest(): void {
         let totalBlocks: number = 0
         let totalMatched: number = 0
         let candidatePages: number = 0
+        let liveTranslationPages: number = 0
         try {
           for (let pageIndex: number = 0; pageIndex < pages.length; pageIndex++) {
             const page: ExternalReplayPage = pages[pageIndex]
@@ -869,7 +928,44 @@ export default function comicLocalExternalReplayTest(): void {
               }
             }
             let replay: ReplayTranslationResult
-            if (calibrationOnly) {
+            let translationMs: number = 0
+            if (liveTranslation && pageIndex === liveTranslationPageIndex) {
+              const request: ComicTextTranslationRequest = liveTranslationRequest(
+                source,
+                renderAnalysis,
+                pageIndex + 1,
+              )
+              if (translationMode === 'export') {
+                ComicTranslationDebugProbeService.exportRequest(
+                  mainContext,
+                  liveTranslationProbeId,
+                  request,
+                )
+                replay = containerCalibrationTranslations(
+                  source,
+                  renderAnalysis,
+                  pageIndex + 1,
+                )
+              } else {
+                const imported: ComicTranslationDebugProbeResult =
+                  ComicTranslationDebugProbeService.importResult(
+                    mainContext,
+                    liveTranslationProbeId,
+                    request,
+                  )
+                replay = new ReplayTranslationResult()
+                replay.batch = imported.result.batch
+                replay.matchedBlocks = imported.result.batch.blocks.length
+                translationMs = imported.elapsedMs
+              }
+              liveTranslationPages = liveTranslationPages + 1
+              if (translationMode === 'import') {
+                appendTextFile(
+                  translationTimingPath,
+                  `${pageIndex}\t${renderAnalysis.document.blocks.length}\t${translationMs}\n`,
+                )
+              }
+            } else if (calibrationOnly) {
               replay = containerCalibrationTranslations(
                 source,
                 renderAnalysis,
@@ -914,7 +1010,8 @@ export default function comicLocalExternalReplayTest(): void {
                 `mode=${calibrationOnly ? 'container-calibration' : 'translated-replay'} ` +
                 `category=${page.category} blocks=${renderAnalysis.document.blocks.length} ` +
                 `matched=${replay.matchedBlocks} candidateLines=${replay.candidateLines} ` +
-                `analysisMs=${analysisMs} renderMs=${renderMs} artifact=${rendered.localFilePath}`,
+                `analysisMs=${analysisMs} translationMs=${translationMs} ` +
+                `renderMs=${renderMs} artifact=${rendered.localFilePath}`,
             )
           }
           console.info(
@@ -924,6 +1021,9 @@ export default function comicLocalExternalReplayTest(): void {
           expect(totalMatched > 0).assertEqual(true)
           if (candidatePlan !== null) {
             expect(candidatePages).assertEqual(candidatePlan.pages.length)
+          }
+          if (liveTranslation) {
+            expect(liveTranslationPages).assertEqual(1)
           }
         } finally {
           await ocr.release()

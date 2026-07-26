@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { EhConstants } from '../constants/EhConstants'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { CodexOAuthTokenSet } from '../model/ComicTranslationProvider'
 import {
   LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
@@ -297,7 +298,13 @@ export class ComicResponsesProviderCore {
         COMIC_RESPONSES_READ_TIMEOUT_MS,
       )
     } catch (error) {
-      throw ComicResponsesProviderCore.stageError('transport', error as Error)
+      const failure: Error = error as Error
+      DiagnosticLogger.warn(
+        'comic-translation',
+        'provider_transport_exception',
+        `name=${failure.name} message=${failure.message}`,
+      )
+      throw ComicResponsesProviderCore.stageError('transport', failure)
     }
     if (response.statusCode !== 200) {
       throw new ComicProviderHttpError(response.statusCode, response.body)

@@ -20,6 +20,7 @@ import {
   ImagePipelineService,
   ScreenOrientationSettings,
   SecuritySettings,
+  ComicTranslationDebugProbeService,
   connectSecuritySettings,
   connectSafeMode,
   SyncScheduler,
@@ -109,6 +110,14 @@ export default class EntryAbility extends UIAbility {
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
     }
     SettingsBootstrap.loadAll(this.context).finally(() => {
+      ComicTranslationDebugProbeService.executePending(this.context)
+        .catch((error: Error) => {
+          DiagnosticLogger.warn(
+            'comic-translation',
+            'debug_probe_failed',
+            error.message,
+          )
+        })
       SyncScheduler.rememberContext(this.context)
       HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
         DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)

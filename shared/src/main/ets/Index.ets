@@ -474,6 +474,10 @@ export {
   ComicTranslationLiveEvaluationService,
 } from './services/ComicTranslationLiveEvaluationService'
 export {
+  ComicTranslationDebugProbeResult,
+  ComicTranslationDebugProbeService,
+} from './services/ComicTranslationDebugProbeService'
+export {
   ToriiWholePageLiveEvaluationPageReport,
   ToriiWholePageLiveEvaluationReport,
   ToriiWholePageLiveEvaluationService,
