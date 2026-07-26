@@ -68,7 +68,7 @@ import {
 
 const LOCAL_VISUAL_BACKEND_ID: string = 'harmony-local-comic-visual'
 const LOCAL_VISUAL_PROFILE_ID: string = 'core-vision-ocr-bubble-group-v50'
-const LOCAL_VISUAL_PROTOCOL_REVISION: number = 50
+const LOCAL_VISUAL_PROTOCOL_REVISION: number = 51
 const LOCAL_PRESERVE_SOURCE_SIGNAL: string = 'local_source_geometry_not_supported'
 const LOCAL_TEMPLATE_MIME: string = 'application/vnd.nexte.comic-local-template+json'
 const LOCAL_RENDER_CACHE_DIR: string = 'comic-translated-pages'
@@ -2987,6 +2987,17 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     const firstRect: LocalRenderRect = ComicLocalVisualBackend.bounds(first.polygon)
     const secondRect: LocalRenderRect = ComicLocalVisualBackend.bounds(second.polygon)
+    const widthScaleRatio: number = Math.max(first.lineWidthScale, second.lineWidthScale) /
+      Math.max(1, Math.min(first.lineWidthScale, second.lineWidthScale))
+    const heightScaleRatio: number = Math.max(first.lineHeightScale, second.lineHeightScale) /
+      Math.max(1, Math.min(first.lineHeightScale, second.lineHeightScale))
+    // A large title/header can overlap the first body line just enough to satisfy the ordinary
+    // paragraph rule. Once merged, its wide bounds become a bridge that absorbs unrelated text
+    // below it. Treat a simultaneously much wider and taller neighbour as its own visual region;
+    // rendering it separately is safe, while merging it can erase unrelated artwork.
+    if (widthScaleRatio >= 2.5 && heightScaleRatio >= 1.8) {
+      return false
+    }
     const upperRect: LocalRenderRect = firstRect.top <= secondRect.top ? firstRect : secondRect
     const lowerRect: LocalRenderRect = firstRect.top <= secondRect.top ? secondRect : firstRect
     const verticalGap: number = lowerRect.top - upperRect.bottom
