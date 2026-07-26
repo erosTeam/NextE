@@ -1365,6 +1365,27 @@ def longest_expanded_dark_run(row: np.ndarray) -> int:
     return longest
 
 
+def horizontal_merge_members(
+    grouped: tuple[GroupingSourceBlock, ...],
+    merged_block: GroupingSourceBlock,
+) -> list[GroupingSourceBlock]:
+    merged_regions = set(merged_block.detector_region_indexes)
+    members = [
+        block
+        for block in grouped
+        if block.style_hint == "horizontal-ltr"
+        and block.detector_region_indexes
+        and set(block.detector_region_indexes).issubset(merged_regions)
+    ]
+    members.sort(
+        key=lambda block: (
+            (block.rect[1] + block.rect[3]) / 2,
+            block.rect[0],
+        )
+    )
+    return members
+
+
 def horizontal_separator_probes(
     source: np.ndarray,
     grouped: tuple[GroupingSourceBlock, ...],
@@ -1386,19 +1407,7 @@ def horizontal_separator_probes(
             or len(merged_regions) < 2
         ):
             continue
-        members = [
-            block
-            for block in grouped
-            if block.style_hint == "horizontal-ltr"
-            and block.detector_region_indexes
-            and set(block.detector_region_indexes).issubset(merged_regions)
-        ]
-        members.sort(
-            key=lambda block: (
-                (block.rect[1] + block.rect[3]) / 2,
-                block.rect[0],
-            )
-        )
+        members = horizontal_merge_members(grouped, merged_block)
         for boundary_index in range(len(members) - 1):
             upper = members[boundary_index]
             lower = members[boundary_index + 1]
@@ -1514,6 +1523,200 @@ def horizontal_separator_probes(
                 }
             )
     return probes
+
+
+def unique_text_length_subset(
+    candidates: list[GroupingSourceBlock],
+    target: int,
+) -> list[GroupingSourceBlock] | None:
+    if target < 0:
+        return None
+    if target == 0:
+        return []
+    solutions: dict[int, list[tuple[int, ...]]] = {0: [()]}
+    for candidate_index, candidate in enumerate(candidates):
+        updates: dict[int, list[tuple[int, ...]]] = {}
+        for subtotal, subtotal_solutions in list(solutions.items()):
+            next_total = subtotal + candidate.text_length
+            if next_total > target:
+                continue
+            next_solutions = updates.setdefault(next_total, [])
+            for solution in subtotal_solutions:
+                next_solutions.append(solution + (candidate_index,))
+                if len(next_solutions) >= 2:
+                    break
+        for subtotal, subtotal_solutions in updates.items():
+            existing = solutions.setdefault(subtotal, [])
+            for solution in subtotal_solutions:
+                if solution not in existing:
+                    existing.append(solution)
+                if len(existing) >= 2:
+                    break
+    matches = solutions.get(target, [])
+    if len(matches) != 1:
+        return None
+    return [candidates[index] for index in matches[0]]
+
+
+def horizontal_separator_split_plans(
+    grouped: tuple[GroupingSourceBlock, ...],
+    merged: tuple[GroupingSourceBlock, ...],
+    probes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    strong_probes: dict[int, list[dict[str, Any]]] = {}
+    for probe in probes:
+        if not probe["strongSeparatorCandidate"]:
+            continue
+        merged_index = int(probe["mergedIndex"])
+        strong_probes.setdefault(merged_index, []).append(probe)
+    plans: list[dict[str, Any]] = []
+    for merged_index, merged_probes in sorted(strong_probes.items()):
+        if merged_index < 1 or merged_index > len(merged):
+            raise ValueError(
+                f"separator split references missing merged block {merged_index}"
+            )
+        merged_block = merged[merged_index - 1]
+        proven_members = horizontal_merge_members(grouped, merged_block)
+        valid_boundaries = sorted(
+            {
+                int(probe["boundaryIndex"])
+                for probe in merged_probes
+                if 1 <= int(probe["boundaryIndex"]) < len(proven_members)
+            }
+        )
+        if not valid_boundaries:
+            continue
+        separator_ys = sorted({
+            int(round(
+                (
+                    int(probe["upperRect"][3])
+                    + int(probe["lowerRect"][1])
+                )
+                / 2
+            ))
+            for probe in merged_probes
+            if int(probe["boundaryIndex"]) in valid_boundaries
+        })
+        proven_text_length = sum(
+            member.text_length
+            for member in proven_members
+        )
+        missing_text_length = merged_block.text_length - proven_text_length
+        unattributed_candidates = [
+            block
+            for block in grouped
+            if block.style_hint == "horizontal-ltr"
+            and not block.detector_region_indexes
+            and merged_block.rect[0]
+            <= (block.rect[0] + block.rect[2]) / 2
+            <= merged_block.rect[2]
+            and merged_block.rect[1]
+            <= (block.rect[1] + block.rect[3]) / 2
+            <= merged_block.rect[3]
+        ]
+        unattributed_members = unique_text_length_subset(
+            unattributed_candidates,
+            missing_text_length,
+        )
+        attribution_resolved = unattributed_members is not None
+        members = list(proven_members)
+        if unattributed_members is not None:
+            members.extend(unattributed_members)
+        members.sort(
+            key=lambda block: (
+                (block.rect[1] + block.rect[3]) / 2,
+                block.rect[0],
+            )
+        )
+        segments: list[list[GroupingSourceBlock]] = [
+            []
+            for _ in range(len(separator_ys) + 1)
+        ]
+        for member in members:
+            center_y = (member.rect[1] + member.rect[3]) / 2
+            segment_index = sum(
+                center_y > separator_y
+                for separator_y in separator_ys
+            )
+            segments[segment_index].append(member)
+        serialized_segments: list[dict[str, Any]] = []
+        for segment in segments:
+            if not segment:
+                continue
+            detector_indexes = sorted({
+                region
+                for member in segment
+                for region in member.detector_region_indexes
+            })
+            detector_labels = sorted({
+                label
+                for member in segment
+                for label in member.detector_labels
+                if label
+            })
+            serialized_segments.append(
+                {
+                    "rect": [
+                        min(member.rect[0] for member in segment),
+                        min(member.rect[1] for member in segment),
+                        max(member.rect[2] for member in segment),
+                        max(member.rect[3] for member in segment),
+                    ],
+                    "memberCount": len(segment),
+                    "textLength": sum(
+                        member.text_length
+                        for member in segment
+                    ),
+                    "detectorRegionIndexes": detector_indexes,
+                    "detectorLabels": detector_labels,
+                }
+            )
+        if len(serialized_segments) < 2:
+            continue
+        segment_text_length = sum(
+            int(segment["textLength"])
+            for segment in serialized_segments
+        )
+        segment_detector_indexes = {
+            int(region)
+            for segment in serialized_segments
+            for region in segment["detectorRegionIndexes"]
+        }
+        text_length_preserved = segment_text_length == merged_block.text_length
+        detector_provenance_preserved = (
+            segment_detector_indexes
+            == set(merged_block.detector_region_indexes)
+        )
+        plans.append(
+            {
+                "mergedIndex": merged_index,
+                "originalRect": list(merged_block.rect),
+                "originalDetectorRegionIndexes":
+                    list(merged_block.detector_region_indexes),
+                "separatorBoundaryIndexes": valid_boundaries,
+                "separatorYs": separator_ys,
+                "segments": serialized_segments,
+                "sourceBlockDelta": len(serialized_segments) - 1,
+                "unattributedCandidateCount": len(unattributed_candidates),
+                "unattributedMemberCount": (
+                    len(unattributed_members)
+                    if unattributed_members is not None
+                    else 0
+                ),
+                "unattributedAttributionResolved": attribution_resolved,
+                "sourceTextLength": merged_block.text_length,
+                "segmentTextLength": segment_text_length,
+                "textLengthPreserved": text_length_preserved,
+                "detectorProvenancePreserved": detector_provenance_preserved,
+                "safeForCandidateGrouping": (
+                    attribution_resolved
+                    and len(serialized_segments) == len(separator_ys) + 1
+                    and text_length_preserved
+                    and detector_provenance_preserved
+                ),
+            }
+        )
+    return plans
 
 
 def load_allowed_mask(path: Path, size: tuple[int, int]) -> np.ndarray:
@@ -1755,6 +1958,44 @@ def save_container_label_overlay(
     save_thumbnail(merged.convert("RGB"), path)
 
 
+def save_grouping_split_overlay(
+    source: Image.Image,
+    plans: list[dict[str, Any]],
+    path: Path,
+) -> None:
+    canvas = source.convert("RGBA")
+    draw = ImageDraw.Draw(canvas)
+    palette = (
+        (34, 211, 238, 255),
+        (250, 204, 21, 255),
+        (244, 114, 182, 255),
+        (74, 222, 128, 255),
+    )
+    for plan in plans:
+        original = [int(value) for value in plan["originalRect"]]
+        draw.rectangle(
+            (original[0], original[1], original[2] - 1, original[3] - 1),
+            outline=(248, 113, 113, 255),
+            width=4,
+        )
+        for segment_index, segment in enumerate(plan["segments"]):
+            rect = [int(value) for value in segment["rect"]]
+            color = palette[segment_index % len(palette)]
+            draw.rectangle(
+                (rect[0], rect[1], rect[2] - 1, rect[3] - 1),
+                outline=color,
+                width=4,
+            )
+            draw.text(
+                (rect[0] + 4, rect[1] + 4),
+                f"M{plan['mergedIndex']} S{segment_index + 1}",
+                fill=color,
+                stroke_width=2,
+                stroke_fill=(0, 0, 0, 255),
+            )
+    save_thumbnail(canvas.convert("RGB"), path)
+
+
 def metric_row(label: str, value: str) -> str:
     return f"<tr><th>{html.escape(label)}</th><td>{html.escape(value)}</td></tr>"
 
@@ -1781,6 +2022,11 @@ def score_page(
         source,
         page.grouped_source_blocks,
         page.horizontal_merged_source_blocks,
+    )
+    separator_split_plans = horizontal_separator_split_plans(
+        page.grouped_source_blocks,
+        page.horizontal_merged_source_blocks,
+        separator_probes,
     )
     allowed: np.ndarray | None = None
     if page.allowed_mask_path is not None:
@@ -1998,6 +2244,14 @@ def score_page(
             container_labels,
             container_labels_asset,
         )
+    grouping_split_asset: Path | None = None
+    if separator_split_plans and page.comparison_rect is None:
+        grouping_split_asset = page_dir / "grouping-split-plan.png"
+        save_grouping_split_overlay(
+            source_image,
+            separator_split_plans,
+            grouping_split_asset,
+        )
 
     return {
         "id": page.page_id,
@@ -2062,6 +2316,22 @@ def score_page(
                 1
                 for probe in separator_probes
                 if probe["strongSeparatorCandidate"]
+            ),
+            "separatorSplitPlans": separator_split_plans,
+            "separatorSplitOutputBlocks": sum(
+                len(plan["segments"])
+                for plan in separator_split_plans
+                if plan["safeForCandidateGrouping"]
+            ),
+            "separatorSplitBlockDelta": sum(
+                int(plan["sourceBlockDelta"])
+                for plan in separator_split_plans
+                if plan["safeForCandidateGrouping"]
+            ),
+            "safeSeparatorSplitPlans": sum(
+                1
+                for plan in separator_split_plans
+                if plan["safeForCandidateGrouping"]
             ),
         },
         "changedPixels": changed_pixels,
@@ -2184,6 +2454,11 @@ def score_page(
                 if container_labels_asset is not None
                 else None
             ),
+            "groupingSplitPlan": (
+                relative_asset(grouping_split_asset, output_dir)
+                if grouping_split_asset is not None
+                else None
+            ),
         },
     }
 
@@ -2228,6 +2503,10 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         "multiRegionHorizontalMergedBlocks": 0,
         "horizontalSeparatorProbes": 0,
         "strongSeparatorCandidates": 0,
+        "separatorSplitPlans": 0,
+        "separatorSplitOutputBlocks": 0,
+        "separatorSplitBlockDelta": 0,
+        "safeSeparatorSplitPlans": 0,
     }
     container_confidences: list[float] = []
     container_probe_outcomes: dict[str, int] = {}
@@ -2273,6 +2552,18 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         )
         totals["strongSeparatorCandidates"] += int(
             grouping_stages["strongSeparatorCandidates"]
+        )
+        totals["separatorSplitPlans"] += len(
+            grouping_stages["separatorSplitPlans"]
+        )
+        totals["separatorSplitOutputBlocks"] += int(
+            grouping_stages["separatorSplitOutputBlocks"]
+        )
+        totals["separatorSplitBlockDelta"] += int(
+            grouping_stages["separatorSplitBlockDelta"]
+        )
+        totals["safeSeparatorSplitPlans"] += int(
+            grouping_stages["safeSeparatorSplitPlans"]
         )
         if result["totalMs"] is not None:
             totals["analysisMs"] += int(result["analysisMs"])
@@ -2390,6 +2681,10 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         ],
         "horizontalSeparatorProbes": totals["horizontalSeparatorProbes"],
         "strongSeparatorCandidates": totals["strongSeparatorCandidates"],
+        "separatorSplitPlans": totals["separatorSplitPlans"],
+        "separatorSplitOutputBlocks": totals["separatorSplitOutputBlocks"],
+        "separatorSplitBlockDelta": totals["separatorSplitBlockDelta"],
+        "safeSeparatorSplitPlans": totals["safeSeparatorSplitPlans"],
         "containerCandidateLayoutPercent": (
             percent(totals["containerDetections"], totals["layouts"])
             if totals["layoutPages"] > 0
@@ -3085,6 +3380,7 @@ def page_section(result: dict[str, Any]) -> str:
         ("Glyph mask on source", "glyphMask"),
         ("Container mask on source", "containerMask"),
         ("Container candidates on source", "containerLabels"),
+        ("Recording grouping split plan", "groupingSplitPlan"),
         ("Baseline", "baseline"),
         ("Candidate", "candidate"),
         ("Overlay", "overlay"),
@@ -3215,9 +3511,26 @@ def page_section(result: dict[str, Any]) -> str:
                 f"{grouping_stages['multiRegionHorizontalMergedBlocks']} "
                 "multi-region merged blocks / "
                 f"{len(grouping_stages['horizontalSeparatorProbes'])} boundaries / "
-                f"{grouping_stages['strongSeparatorCandidates']} strong candidates",
+                f"{grouping_stages['strongSeparatorCandidates']} strong candidates / "
+                f"{grouping_stages['safeSeparatorSplitPlans']}/"
+                f"{len(grouping_stages['separatorSplitPlans'])} safe split plans / "
+                f"+{grouping_stages['separatorSplitBlockDelta']} source blocks",
             )
         )
+        for plan in grouping_stages["separatorSplitPlans"]:
+            segment_rects = " | ".join(
+                ",".join(str(value) for value in segment["rect"])
+                for segment in plan["segments"]
+            )
+            rows.append(
+                metric_row(
+                    f"Recording split merged #{plan['mergedIndex']}",
+                    f"{','.join(str(value) for value in plan['originalRect'])} → "
+                    f"{segment_rects} / "
+                    f"{'safe' if plan['safeForCandidateGrouping'] else 'blocked'} / "
+                    f"text {plan['segmentTextLength']}/{plan['sourceTextLength']}",
+                )
+            )
     if result["containerCandidates"]:
         for candidate in result["containerCandidates"]:
             feature_parts = [
@@ -3472,8 +3785,12 @@ def write_html(
             f"{summary['groupedSourceBlocks']} grouped source blocks · "
             f"{summary['multiRegionHorizontalMergedBlocks']} multi-region merged "
             f"blocks · {summary['horizontalSeparatorProbes']} tested boundaries · "
-            f"{summary['strongSeparatorCandidates']} strong separator candidates. "
-            "These are recording-only observations, not production split decisions.</p>"
+            f"{summary['strongSeparatorCandidates']} strong separator candidates · "
+            f"{summary['safeSeparatorSplitPlans']}/{summary['separatorSplitPlans']} "
+            "provenance-safe candidate split plans producing "
+            f"{summary['separatorSplitOutputBlocks']} blocks "
+            f"(+{summary['separatorSplitBlockDelta']}). "
+            "These are recording-only A/B plans, not production split decisions.</p>"
         )
     document = f"""<!doctype html>
 <html lang="en">
