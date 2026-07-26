@@ -112,6 +112,119 @@ def polygon_value(value: Any, label: str) -> list[dict[str, int]]:
     return points
 
 
+def bounded_number(value: Any, label: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        fail(f"{label} is invalid")
+    number = float(value)
+    if number < 0 or number > 100000:
+        fail(f"{label} is invalid")
+    return number
+
+
+def recorded_rect(value: Any, label: str) -> dict[str, float]:
+    if not isinstance(value, dict):
+        fail(f"{label} is invalid")
+    left = bounded_number(value.get("left"), f"{label}.left")
+    top = bounded_number(value.get("top"), f"{label}.top")
+    right = bounded_number(value.get("right"), f"{label}.right")
+    bottom = bounded_number(value.get("bottom"), f"{label}.bottom")
+    if right <= left or bottom <= top:
+        fail(f"{label} is empty")
+    return {"left": left, "top": top, "right": right, "bottom": bottom}
+
+
+def recorded_layouts(render: dict[str, Any]) -> list[dict[str, Any]]:
+    values = render.get("layouts")
+    if not isinstance(values, list):
+        fail("render layouts are invalid")
+    output: list[dict[str, Any]] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, dict):
+            fail(f"render layout {index} is invalid")
+        block_ids = value.get("blockIds")
+        source_rects = value.get("sourceRects")
+        treatment_rects = value.get("treatmentRects")
+        writing_mode = value.get("writingMode")
+        if (
+            not isinstance(block_ids, list)
+            or not block_ids
+            or not all(isinstance(block_id, str) and block_id for block_id in block_ids)
+            or not isinstance(source_rects, list)
+            or not source_rects
+            or not isinstance(treatment_rects, list)
+            or not isinstance(writing_mode, str)
+            or not writing_mode
+        ):
+            fail(f"render layout {index} is invalid")
+        font_size = bounded_number(value.get("fontSize"), f"render layout {index}.fontSize")
+        outline_width = bounded_number(
+            value.get("outlineWidth"),
+            f"render layout {index}.outlineWidth",
+        )
+        translated_length = required_int(
+            value.get("translatedTextLength"),
+            f"render layout {index}.translatedTextLength",
+        )
+        output.append({
+            "layoutIndex": index,
+            "blockIds": list(block_ids),
+            "sourceRects": [
+                recorded_rect(rect, f"render layout {index}.sourceRects[{rect_index}]")
+                for rect_index, rect in enumerate(source_rects)
+            ],
+            "treatmentRects": [
+                recorded_rect(rect, f"render layout {index}.treatmentRects[{rect_index}]")
+                for rect_index, rect in enumerate(treatment_rects)
+            ],
+            "textRect": recorded_rect(value.get("textRect"), f"render layout {index}.textRect"),
+            "writingMode": writing_mode,
+            "fontSize": font_size,
+            "outlineWidth": outline_width,
+            "rotationDegrees": bounded_number(
+                value.get("rotationDegrees"),
+                f"render layout {index}.rotationDegrees",
+            ),
+            "translatedTextLength": translated_length,
+            "containerLabel": (
+                required_int(value.get("containerLabel"), f"render layout {index}.containerLabel")
+                if value.get("containerLabel") is not None
+                else 0
+            ),
+        })
+    return output
+
+
+def translation_trace(render: dict[str, Any]) -> dict[str, Any] | None:
+    translations = render.get("translations")
+    if not isinstance(translations, dict):
+        return None
+    fields = (
+        "sourceProfileId",
+        "modelId",
+        "promptVersion",
+        "contextFingerprint",
+    )
+    output: dict[str, Any] = {}
+    for field in fields:
+        value = translations.get(field)
+        if not isinstance(value, str) or not value:
+            return None
+        output[field] = value
+    source_revision = translations.get("sourceRevision")
+    translation_revision = translations.get("translationRevision")
+    if not isinstance(source_revision, int) or source_revision < 0:
+        return None
+    if not isinstance(translation_revision, int) or translation_revision < 0:
+        return None
+    output["sourceRevision"] = source_revision
+    output["translationRevision"] = translation_revision
+    blocks = translations.get("blocks")
+    if not isinstance(blocks, list):
+        return None
+    output["translatedBlockCount"] = len(blocks)
+    return output
+
+
 def observe(
     analysis_path: Path,
     recording_root: Path,
@@ -200,6 +313,10 @@ def observe(
             "drawableGroupCount": timing_value(render_timings.get("drawableGroupCount")),
             "skippedGroupCount": timing_value(render_timings.get("skippedGroupCount")),
         },
+        # These are immutable observations from one completed render, not labels. Keeping the
+        # provider identity and final layout together lets review compare OCR, translation and
+        # visual outcomes without copying request/response text into a separate spreadsheet.
+        "renderLayouts": recorded_layouts(render),
         "assets": {
             "source": str(manifest.get("sourceImage", "source.jpg")),
             "rendered": str(manifest.get("renderedImage", "rendered.png")),
@@ -207,6 +324,9 @@ def observe(
             "render": "render.json",
         },
     }
+    trace = translation_trace(render)
+    if trace is not None:
+        observation["translationTrace"] = trace
     if include_text:
         observation["observedBlocks"] = block_values
     page = {

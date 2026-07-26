@@ -60,6 +60,19 @@ def candidate_region(block: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def candidate_layouts(
+    block_id: str,
+    layouts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    matched: list[dict[str, Any]] = []
+    for layout in layouts:
+        block_ids = layout.get("blockIds")
+        if not isinstance(block_ids, list) or block_id not in block_ids:
+            continue
+        matched.append(layout)
+    return matched
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", type=Path, required=True)
@@ -89,6 +102,19 @@ def main() -> int:
         blocks = observation.get("observedBlocks")
         if not isinstance(blocks, list):
             fail(f"{page.get('sampleId', 'unknown')} lacks observed blocks")
+        layouts = observation.get("renderLayouts", [])
+        if not isinstance(layouts, list):
+            fail(f"{page.get('sampleId', 'unknown')} has invalid render layouts")
+        regions: list[dict[str, Any]] = []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            region = candidate_region(block)
+            region["candidateLayouts"] = candidate_layouts(
+                str(block.get("blockId", "")),
+                layouts,
+            )
+            regions.append(region)
         template_pages.append({
             "sampleId": str(page.get("sampleId", "")),
             "imageHash": str(page.get("imageHash", "")),
@@ -101,8 +127,9 @@ def main() -> int:
                 "recordingId": args.recording_id,
                 "path": str(observation.get("path", "")),
                 "assets": observation.get("assets", {}),
+                "translationTrace": observation.get("translationTrace", {}),
             },
-            "candidateRegions": [candidate_region(item) for item in blocks if isinstance(item, dict)],
+            "candidateRegions": regions,
             "additionalRegions": [],
             "pageNotes": "",
         })

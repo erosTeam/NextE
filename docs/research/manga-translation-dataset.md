@@ -23,10 +23,14 @@ catalog 必须按画廊或视觉家族分配 `train`、`dev`、`holdout`；禁�
 
 - 页面 identity、尺寸、录制路径和 artifact 文件；
 - analyzer/profile、block 数量、SFX/普通文本类别、source origin；
+- 翻译源/模型/prompt/context 的不可变身份，以及每个最终 layout 的 source/treatment/text
+  矩形、书写方向、字号、描边与容器标签；
 - layout 数量、analysis/render/AOT 耗时；
 - 显式开启 `--include-text` 时的 OCR 原文、规范化原文、译文和 block kind。
 
 这些字段可以自动生成，因此以后修改检测、OCR、布局或修复时可以统一跑回放，不需要重新抄写截图结论。
+它们仍全是候选观察：标签模板只把对应 layout 附在 candidate 下供审核，不会把 OCR、译文、字体或矩形
+静默写进 truth。这样一次真实页评审可以明确定位到“上游转录、某次翻译请求或最终回填”的哪一层。
 
 已有原创两页 fixture 的严格 transcript/术语真值可直接评分：
 
