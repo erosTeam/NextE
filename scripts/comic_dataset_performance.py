@@ -77,7 +77,13 @@ def main() -> int:
         backends = {str(item.get("backendId", "")) for item in observations}
         if len(families) != 1 or len(splits) != 1 or len(profiles) != 1 or len(backends) != 1:
             fail(f"recording {recording_id} has inconsistent identity metadata")
-        timings: dict[str, list[int]] = {"analysis": [], "render": [], "inpaint": []}
+        timings: dict[str, list[int]] = {
+            "analysis": [],
+            "translation": [],
+            "render": [],
+            "endToEnd": [],
+            "inpaint": [],
+        }
         render_stats: dict[str, list[int]] = {
             "inpaintCalls": [],
             "inpaintNativeCall": [],

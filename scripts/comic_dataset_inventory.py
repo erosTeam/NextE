@@ -99,6 +99,36 @@ def timing_value(value: Any) -> int | None:
     return value if isinstance(value, int) and value >= 0 else None
 
 
+def live_translation_timing(run_dir: Path, page_index: int) -> int | None:
+    """Read the optional app-owned live-provider timing without exporting translated text."""
+    path = run_dir.parent / "translation-timings.tsv"
+    if not path.is_file():
+        return None
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        fail(f"cannot read {path}: {error}")
+    matches: list[int] = []
+    for line_number, line in enumerate(lines, start=1):
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 3:
+            fail(f"{path} line {line_number} is invalid")
+        try:
+            recorded_page = int(fields[0])
+            elapsed_ms = int(fields[2])
+        except ValueError:
+            fail(f"{path} line {line_number} is invalid")
+        if recorded_page == page_index:
+            if elapsed_ms < 0:
+                fail(f"{path} line {line_number} is invalid")
+            matches.append(elapsed_ms)
+    if len(matches) > 1:
+        fail(f"{path} has duplicate timing for page {page_index}")
+    return matches[0] if matches else None
+
+
 def polygon_value(value: Any, label: str) -> list[dict[str, int]]:
     if not isinstance(value, list) or len(value) < 3:
         fail(f"{label} is invalid")
@@ -314,6 +344,17 @@ def observe(
             })
     timings = analysis.get("timings") if isinstance(analysis.get("timings"), dict) else {}
     render_timings = render.get("timings") if isinstance(render.get("timings"), dict) else {}
+    analysis_ms = timing_value(timings.get("totalMs"))
+    render_ms = timing_value(render_timings.get("totalMs"))
+    translation_ms = live_translation_timing(
+        run_dir,
+        required_int(document.get("pageIndex"), f"{analysis_path} pageIndex"),
+    )
+    end_to_end_ms = (
+        analysis_ms + render_ms + translation_ms
+        if analysis_ms is not None and render_ms is not None and translation_ms is not None
+        else None
+    )
     observation: dict[str, Any] = {
         "recordingId": recording_id,
         "familyId": family_id,
@@ -328,8 +369,10 @@ def observe(
         "blockKinds": dict(sorted(kinds.items())),
         "sourceOrigins": dict(sorted(source_origins.items())),
         "timingsMs": {
-            "analysis": timing_value(timings.get("totalMs")),
-            "render": timing_value(render_timings.get("totalMs")),
+            "analysis": analysis_ms,
+            "translation": translation_ms,
+            "render": render_ms,
+            "endToEnd": end_to_end_ms,
             "inpaint": timing_value(render_timings.get("inpaintMs")),
         },
         "renderStats": {
