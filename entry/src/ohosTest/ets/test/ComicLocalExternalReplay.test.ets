@@ -143,6 +143,10 @@ function candidateContinuationMergeEnabled(): boolean {
   return parameter('comicCandidateContinuationMerge') === 'true'
 }
 
+function candidatePageFontNormalizationEnabled(): boolean {
+  return parameter('comicCandidatePageFontNormalization') === 'true'
+}
+
 function liveTranslationMode(): string {
   const mode: string = parameter('comicLiveTranslationMode').trim()
   if (mode.length > 0 && mode !== 'export' && mode !== 'import') {
@@ -161,6 +165,11 @@ function parsePositiveInteger(value: string, label: string): number {
     throw new Error(`${label} is invalid`)
   }
   return parsed
+}
+
+function optionalPageIndex(name: string, label: string): number {
+  const raw: string = parameter(name).trim()
+  return raw.length <= 0 ? -1 : parsePositiveInteger(raw, label) - 1
 }
 
 function validateIntegerArray(
@@ -961,6 +970,7 @@ function renderRequest(
   source: ComicVisualPageSource,
   analysis: ComicRegionAnalysisResult,
   translations: ComicTranslationBatch,
+  pageFontNormalization: boolean,
 ): ComicRegionRenderRequest {
   const request: ComicRegionRenderRequest = new ComicRegionRenderRequest()
   request.source = source
@@ -971,7 +981,9 @@ function renderRequest(
   const profile: ComicRenderProfile = new ComicRenderProfile()
   profile.profileId = 'reader-local-bubble-layout-v30'
   profile.sourceTreatmentProfileId = 'local-glyph-inpaint-v30'
-  profile.layoutProfileId = 'local-bubble-typography-v30'
+  profile.layoutProfileId = pageFontNormalization ?
+    'local-bubble-typography-page-median-v1' :
+    'local-bubble-typography-v30'
   profile.targetMimeType = 'image/png'
   profile.revision = 8
   request.renderProfile = profile
@@ -1113,11 +1125,20 @@ export default function comicLocalExternalReplayTest(): void {
           return
         }
         const pages: ExternalReplayPage[] = loadReplayPages(root, calibrationOnly)
+        const selectedPageIndex: number = optionalPageIndex(
+          'comicExternalReplayPageNumber',
+          'External replay page number',
+        )
+        if (selectedPageIndex >= pages.length) {
+          throw new Error('External replay page number is out of range')
+        }
         const translationMode: string = liveTranslationMode()
         const liveTranslation: boolean = translationMode.length > 0
         const candidateParentRender: boolean = candidateParentRenderEnabled()
         const candidateContinuationMerge: boolean =
           candidateContinuationMergeEnabled()
+        const candidatePageFontNormalization: boolean =
+          candidatePageFontNormalizationEnabled()
         if (candidateParentRender &&
           (!candidateGroupingEnabled() || translationMode !== 'import')) {
           throw new Error(
@@ -1128,6 +1149,9 @@ export default function comicLocalExternalReplayTest(): void {
           throw new Error(
             'Candidate continuation merge requires candidate grouping',
           )
+        }
+        if (candidatePageFontNormalization && !calibrationOnly) {
+          throw new Error('Candidate page font normalization requires calibration input')
         }
         let liveTranslationPageIndex: number = -1
         let liveTranslationProbeId: string = ''
@@ -1141,6 +1165,10 @@ export default function comicLocalExternalReplayTest(): void {
           ) - 1
           if (liveTranslationPageIndex < 0 || liveTranslationPageIndex >= pages.length) {
             throw new Error('Live translation page number is out of range')
+          }
+          if (selectedPageIndex >= 0 &&
+            liveTranslationPageIndex !== selectedPageIndex) {
+            throw new Error('Live translation page is outside the selected replay page')
           }
           liveTranslationProbeId = parameter('comicLiveTranslationProbeId').trim()
           if (!safeFileName(liveTranslationProbeId)) {
@@ -1206,8 +1234,13 @@ export default function comicLocalExternalReplayTest(): void {
         let totalMatched: number = 0
         let candidatePages: number = 0
         let liveTranslationPages: number = 0
+        let replayedPages: number = 0
         try {
           for (let pageIndex: number = 0; pageIndex < pages.length; pageIndex++) {
+            if (selectedPageIndex >= 0 && pageIndex !== selectedPageIndex) {
+              continue
+            }
+            replayedPages = replayedPages + 1
             const page: ExternalReplayPage = pages[pageIndex]
             const source: ComicVisualPageSource = pageSource(page, pageIndex, calibrationOnly)
             const analysisRequest: ComicRegionAnalysisRequest =
@@ -1322,6 +1355,7 @@ export default function comicLocalExternalReplayTest(): void {
               source,
               renderAnalysis,
               replay.batch,
+              candidatePageFontNormalization,
             )
             const renderStartedAt: number = Date.now()
             const rendered: ComicRenderedPage = await backend.render(request)
@@ -1345,12 +1379,23 @@ export default function comicLocalExternalReplayTest(): void {
             )
           }
           console.info(
-            `ComicExternalReplay summary pages=${pages.length} blocks=${totalBlocks} ` +
+            `ComicExternalReplay summary pages=${replayedPages}/${pages.length} ` +
+              `blocks=${totalBlocks} ` +
               `matched=${totalMatched} recording=${recorder.recordingDirectory()}`,
           )
           expect(totalMatched > 0).assertEqual(true)
+          expect(replayedPages).assertEqual(selectedPageIndex >= 0 ? 1 : pages.length)
           if (candidatePlan !== null) {
-            expect(candidatePages).assertEqual(candidatePlan.pages.length)
+            let expectedCandidatePages: number = candidatePlan.pages.length
+            if (selectedPageIndex >= 0) {
+              expectedCandidatePages = 0
+              for (let index: number = 0; index < candidatePlan.pages.length; index++) {
+                if (candidatePlan.pages[index].pageIndex === selectedPageIndex) {
+                  expectedCandidatePages = 1
+                }
+              }
+            }
+            expect(candidatePages).assertEqual(expectedCandidatePages)
           }
           if (liveTranslation) {
             expect(liveTranslationPages).assertEqual(1)

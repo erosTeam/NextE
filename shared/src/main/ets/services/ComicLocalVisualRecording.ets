@@ -50,6 +50,8 @@ export class ComicLocalVisualRenderTimings {
   inpaintCallCount: number = 0
   drawableGroupCount: number = 0
   skippedGroupCount: number = 0
+  horizontalFontCap: number = 0
+  layoutProfileId: string = ''
 
   copy(): ComicLocalVisualRenderTimings {
     const value: ComicLocalVisualRenderTimings = new ComicLocalVisualRenderTimings()
@@ -64,6 +66,8 @@ export class ComicLocalVisualRenderTimings {
     value.inpaintCallCount = this.inpaintCallCount
     value.drawableGroupCount = this.drawableGroupCount
     value.skippedGroupCount = this.skippedGroupCount
+    value.horizontalFontCap = this.horizontalFontCap
+    value.layoutProfileId = this.layoutProfileId
     return value
   }
 }

@@ -102,6 +102,8 @@ const LOCAL_TEXT_MASK_CACHE_MAX_BYTES: number = 16 * 1024 * 1024
 const LOCAL_MIN_FONT_SIZE: number = 8
 const LOCAL_MAX_FONT_SIZE: number = 42
 const LOCAL_NARROW_UPRIGHT_MIN_FONT_SIZE: number = 10
+const LOCAL_PAGE_MEDIAN_LAYOUT_PROFILE_ID: string =
+  'local-bubble-typography-page-median-v1'
 const LOCAL_NARROW_UPRIGHT_MIN_ROTATED_RATIO: number = 0.75
 const LOCAL_TEXT_MASK_DILATION_PASSES: number = 4
 const LOCAL_UNMATCHED_SHORT_TEXT_MAX_CHARS: number = 4
@@ -653,7 +655,7 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         request.source.imageHeight,
         request.translations.targetLanguage,
       )
-      const horizontalFontCap: number = ComicLocalVisualBackend.horizontalPageFontCap(
+      let horizontalFontCap: number = ComicLocalVisualBackend.horizontalPageFontCap(
         renderPlans,
         request.source.imageWidth,
         request.source.imageHeight,
@@ -670,6 +672,14 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
           request.translations.targetLanguage,
           this.recordingSink !== null,
         ))
+      }
+      if (request.renderProfile.layoutProfileId ===
+        LOCAL_PAGE_MEDIAN_LAYOUT_PROFILE_ID) {
+        horizontalFontCap = ComicLocalVisualBackend.resolvedHorizontalPageFontCap(
+          renderPlans,
+          textRects,
+          request.translations.targetLanguage,
+        )
       }
       const renderGroups: LocalBubbleRenderGroup[] = ComicLocalVisualBackend.bubbleRenderGroups(
         renderPlans,
@@ -848,6 +858,8 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
         timings.inpaintCallCount = inpaintCallCount
         timings.drawableGroupCount = drawableGroups.length
         timings.skippedGroupCount = renderGroups.length - drawableGroups.length
+        timings.horizontalFontCap = horizontalFontCap
+        timings.layoutProfileId = request.renderProfile.layoutProfileId
         const recording: ComicLocalVisualRenderRecording =
           new ComicLocalVisualRenderRecording()
         recording.source = request.source.copy()
@@ -3470,8 +3482,10 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     result.contentHeight = Math.max(1, result.rect.height() - result.verticalPadding * 2)
     const font: drawing.Font = new drawing.Font()
     font.enableSubpixel(true)
-    let blockFontCap: number = block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
-      horizontalFontCap : LOCAL_MAX_FONT_SIZE
+    const resolvedHorizontalFontCap: number = Math.abs(horizontalFontCap)
+    let blockFontCap: number = horizontalFontCap < 0 ||
+      block.styleHint === LOCAL_VERTICAL_STYLE_HINT ?
+      resolvedHorizontalFontCap : LOCAL_MAX_FONT_SIZE
     if (block.styleHint === LOCAL_VERTICAL_STYLE_HINT && result.rect.width() > 360) {
       const referenceWidth: number = 360
       const referencePadding: number = Math.max(4, Math.min(12, referenceWidth * 0.08))
@@ -4060,7 +4074,12 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     const fittedSizes: number[] = []
     for (let index: number = 0; index < renderPlans.length; index++) {
       const block: ComicTextBlock = renderPlans[index].block
-      if (block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
+      const renderStyleHint: string = ComicLocalVisualBackend.renderStyleHint(
+        block.styleHint,
+        targetLanguage,
+      )
+      if (renderStyleHint !== LOCAL_HORIZONTAL_STYLE_HINT ||
+        block.styleHint !== LOCAL_VERTICAL_STYLE_HINT) {
         continue
       }
       const raw: LocalRenderRect = ComicLocalVisualBackend.bounds(block.polygon)
@@ -4093,6 +4112,49 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
     fittedSizes.sort((left: number, right: number): number => left - right)
     return fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
+  }
+
+  private static resolvedHorizontalPageFontCap(
+    renderPlans: LocalRenderPlanBlock[],
+    textRects: LocalRenderRect[],
+    targetLanguage: string,
+  ): number {
+    const fittedSizes: number[] = []
+    const count: number = Math.min(renderPlans.length, textRects.length)
+    for (let index: number = 0; index < count; index++) {
+      const block: ComicTextBlock = renderPlans[index].block
+      if (ComicLocalVisualBackend.renderStyleHint(
+        block.styleHint,
+        targetLanguage,
+      ) !== LOCAL_HORIZONTAL_STYLE_HINT) {
+        continue
+      }
+      try {
+        const prepared: LocalHorizontalRenderLayout =
+          ComicLocalVisualBackend.horizontalRenderLayout(
+            block,
+            renderPlans[index].translatedText,
+            textRects[index],
+            LOCAL_MAX_FONT_SIZE,
+          )
+        fittedSizes.push(prepared.layout.fontSize)
+      } catch (error) {
+        DiagnosticLogger.warn(
+          'comic-translation',
+          'local_font_cap_sample_skipped',
+          `block=${block.blockId} direction=resolved-horizontal ` +
+            `reason=${(error as Error).message}`,
+        )
+      }
+    }
+    if (fittedSizes.length <= 0) {
+      return LOCAL_MAX_FONT_SIZE
+    }
+    fittedSizes.sort((left: number, right: number): number => left - right)
+    // Negative marks a recording candidate that applies the median to every horizontal source
+    // block. Positive production caps continue to affect only vertical-source blocks converted
+    // to horizontal Latin layout.
+    return -fittedSizes[Math.floor((fittedSizes.length - 1) / 2)]
   }
 
   private static renderPlans(
