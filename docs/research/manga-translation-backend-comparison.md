@@ -108,7 +108,7 @@ box detector 被排除。
 | 候选 | 许可 / 输出 | 本地转换结果 | 判定 |
 |---|---|---:|---|
 | kitsumed YOLOv8m-seg | GPL-3.0 / instance mask | 52 MB ncnn bin，104.697 GFLOPs（640） | 淘汰：相对当前 79 MB 整包和端侧延迟预算过重 |
-| Manga109 YOLO11n-seg | Apache-2.0 / instance mask | 原 `best.pt` 12,003,405 bytes；固定 640 ncnn param/bin 约 25 KiB / 5.5 MB，9.777 GFLOPs | 进入隔离真机资格验证，尚未接入 |
+| Manga109 YOLO11n-seg | Apache-2.0 / instance mask | 原 `best.pt` 12,003,405 bytes；固定 640 ncnn param/bin 约 25 KiB / 5.5 MB，9.777 GFLOPs | 淘汰为独立容器方案：真实彩页 P20 只命中 2 个传统封闭气泡，漏掉主导的细长矩形对白框 |
 
 YOLO11n 候选的上游模型卡声称使用 MangaSegmentation 与 Manga109 训练，输出一类 balloon 的实例 mask；其
 自报准确率不可作为本项目验收。已固定上游 revision `f9a4108c4955136a810e5e92207972f3fb3a65fd`，下载
@@ -116,6 +116,13 @@ checkpoint SHA-256 `4028152940f7c910f40192f46ede3b3f6c7129e5c76849c324d3564f8ac5
 `pnnx 20260526` 从固定 640 TorchScript 转 ncnn，桌面 ncnn 实跑确认输出为 prediction `8400 × 37` 与
 prototype `160 × 160 × 32`；新 NAPI 以此生成 raster union mask，且明确不把预测框提升为边界。没有真实
 页 mask 比对、设备性能和内存记录前，不发布权重、不添加下载项、不改变 Reader 渲染。
+
+设备 `237` 上 P20 的隔离运行用 signed `ohosTest` 包内的临时 rawfile 完成，过程中不使用网络，也不把
+真实页写入版本控制。两次结果分别为 `535 ms` 与 `513 ms` 总耗时（加载 `73/77 ms`、推理 `187/228 ms`、
+后处理 `130/107 ms`），输出同样的两个实例：`1132,392–1237,614` 与 `350,1218–646,1565`，覆盖
+`3.8575%` 页面。原页复核确认它们正好是两个传统封闭气泡；该页主体的多个细长矩形对白框均未命中。
+因此速度不是当前阻碍，但模型形状覆盖不足，**不得**把它作为 `containerMask` 唯一来源、不得据此放宽
+原文擦除或排版边界。研究 NAPI 仅保留作后续多信号比较的隔离能力，不进入 model pack、设置或默认 Reader。
 
 ### 首个模型移植结果
 

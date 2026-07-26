@@ -348,6 +348,11 @@ export {
   ComicNcnnLocalTextMasker,
 } from './services/ComicNativeTextMasker'
 export {
+  ComicNativeBubbleMaskDetection,
+  ComicNativeBubbleMaskResult,
+  ComicNativeBubbleMasker,
+} from './services/ComicNativeBubbleMasker'
+export {
   ComicSourceInpaintingModelPaths,
   ComicTextMaskModelPaths,
   ComicTextRecognitionModelPaths,
