@@ -15,8 +15,9 @@ The old milestone snapshot is archived at
   candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
   [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); the local Reader boundary is
   archived as [Manga Translation Reader Acceptance](plans/archive/manga-translation-reader-acceptance-2026-07-27.md).
-  Torii qualification and cloud-provider feasibility both concluded with no production whole-page route; their records
-  are archived and do not authorize further provider work without a new user decision on data transfer and costs.
+  Torii qualification and cloud-provider feasibility are archived. Torii remains the current higher-quality whole-page
+  route relative to local rendering, but has not passed universal complex-page acceptance; no additional provider work
+  is authorized without a new user decision on data transfer and costs.
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.

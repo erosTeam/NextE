@@ -80,11 +80,12 @@
 ### 当前接入结论（2026-07-27）
 
 本节早期的“候选”只表示公开接口形态可查，不代表当前可接入。按官方 API、价格和隐私条款重新
-逐项核对后，**当前没有可直接新增到 NextE 的云端整图 provider**：
+逐项核对后，**当前没有可直接新增到 NextE 的云端整图 provider**；这不等同于否定已经接入的 Torii：
+在真实页对比中，Torii 的整图输出明显优于端侧拼接回填，只是尚未通过“复杂彩页通用成品”的绝对门槛。
 
 | 服务 | 复核结果 | 淘汰原因 |
 |---|---|---|
-| Torii | 保留为用户显式的实验整图路线 | 设备 `237` 的同一真实高密度彩页上，Lite 与目录中更高档 Gemini 3.5 Flash 都出现日文残留、叠字和竖排越界；不通过开发页，不进入 holdout。 |
+| Torii | 当前质量更高的整图路线，继续由用户显式选择 | 相对端侧可避免当前 AOT/矩形回填的主要视觉破坏；但设备 `237` 的同一真实高密度彩页上，Lite 与更高档 Gemini 3.5 Flash 仍有日文残留、叠字和竖排越界。因此不宣布其已覆盖所有复杂彩页，也不继续穷举模型、字体或 prompt。 |
 | ImageTranslate.ai | 不接入 | [API](https://imagetranslate.ai/docs/api) 的日文/中文、`manga` 模式、成图返回和幂等语义都满足，但其[隐私政策](https://imagetranslate.ai/legal/privacy-policy)写明默认无限期保留数据；[条款](https://imagetranslate.ai/legal/terms)还要求上传者授予为提供、改进和维护服务而处理、分析和存储内容的许可。 |
 | PixLab IMG-TRANSLATE | 不接入 | [API](https://pixlab.io/endpoints/image-text-translate)支持 `ja`/`zh`、整图回填和成图返回，且[隐私政策](https://pixlab.io/privacy-policy)声明默认内存处理后清除、未主动选择存储时不保留、不可识别输入输出不用于训练；但[价格页](https://pixlab.io/pricing)没有说明该 endpoint 的计量类别/单位，并在同页出现 `$0.07/1,000` 与 `$0.009/1,000` 两种超额单价，不能形成可靠单页成本或重复扣费边界。 |
 
