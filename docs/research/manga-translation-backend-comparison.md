@@ -1,5 +1,9 @@
 # 漫画翻译视觉后端与可替换技术栈
 
+这是技术栈与历史测量参考，不是当前任务队列。当前端侧工作只遵循
+[端侧漫画翻译质量收口](../plans/active/manga-translation-local-quality-closure.md)；Torii 是用户可选的独立
+整图路线，不从本文派生新的云端工作。
+
 - **status**: active engineering reference
 - **measured**: 2026-07-23
 - **fixture**: `nexte-original-manga-eval-v1`, two original 1024 × 1536 pages
@@ -59,9 +63,9 @@ production profile；CTD 提供像素 mask，AOT 承担有界内容修复。模�
 等价的复杂纹理修复。
 
 `ComicRegionRenderBackend` 同时拥有 `analyze()` 和 `render()`，所以可把 Core Vision 替换为另一套端侧视觉
-模型，而不改 LLM、上下文和 Reader。`ComicWholePageRenderBackend` 与 `WHOLE_PAGE_RENDER` identity 也已
-定义并有契约测试，但截至本次复核只有接口和 fixture backend，没有生产 provider、编排器路由或设置选择；
-因此“整图出图可接入”是真实架构能力，“现在已能调用任意整图模型”则不是事实。
+模型，而不改 LLM、上下文和 Reader。`ComicWholePageRenderBackend` 与 `WHOLE_PAGE_RENDER` identity 已有
+Torii 的用户可选生产路由；它不进入端侧阶段，也不意味着可以调用任意整图模型。该能力仅用于说明两条路线
+在视觉产物边界汇合，不能改变当前端侧质量收口的范围。
 
 ## Docker 对照链路
 

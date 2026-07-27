@@ -1,5 +1,9 @@
 # 漫画翻译端侧质量基线
 
+本文件记录阶段性测量与否决候选；当前唯一执行顺序以
+[端侧漫画翻译质量收口](../plans/active/manga-translation-local-quality-closure.md)为准。文中按日期记录的
+“下一步”不自动成为当前任务。
+
 - **status**: active baseline; not a production-quality claim
 - **measured fixture profile**: `core-vision-ocr-directional-render-v13`
 - **current production analyzer**: `core-vision-ocr-bubble-group-v50`

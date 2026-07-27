@@ -1,6 +1,6 @@
 # NextE 漫画翻译设计与演进指南
 
-- **状态**：Torii 是当前质量更高的整图路线；端侧视觉 Reader 仅保留为轻量、失败保留原图的基线。两者都尚未通过通用成品质量验收
+- **状态**：Torii 是当前质量更高的整图路线；端侧视觉 Reader 是正在收口质量证据的轻量、失败保留原图基线。两者都尚未通过通用成品质量验收
 - **首次整理**：2026-07-20
 - **最近复核**：2026-07-27
 - **外部调研**：[漫画翻译工作流调研](research/manga-translation-workflows.md)
@@ -13,6 +13,10 @@
 本文件是漫画翻译领域的长期设计入口，用来保持数据语义、阶段接口和实施顺序一致。它不是全局任务
 队列，也不授权模型费用、设备操作、远端上传或发布。每次实施仍由用户最新请求决定范围，并按
 [Plan Lifecycle](plans/README.md) 建立有边界的 active plan。
+
+**当前唯一执行入口**是[端侧漫画翻译质量收口](plans/active/manga-translation-local-quality-closure.md)。
+它定义当前证据、瓶颈、顺序和停止条件；本文件后续的 Torii、sidecar、历史阶段和研究链接仅用于解释
+架构或比较，不能自行切换开发主线。
 
 当前产品方向是：**先交付低操作成本的 Reader 阅读翻译，但其用户结果仍是一张可直接阅读的视觉译制
 漫画页。** 正式默认路线必须在端侧完成文字检测、OCR、原文处理、排版和渲染，只把翻译与必要的图像
@@ -904,7 +908,7 @@ Reader 或切换画廊后自动关闭，不写入全局设置。开启前提示�
 - 在新规划确认前不修改功能实现、不调用模型、不操作设备。
 
 已完成审计见 [漫画翻译产品重置计划](plans/completed/manga-translation-product-reset.md)，当前实施见
-[Reader 端侧验收收口计划](plans/active/manga-translation-reader-acceptance.md)。历史 Phase 0
+[端侧漫画翻译质量收口](plans/active/manga-translation-local-quality-closure.md)。历史 Phase 0
 两页评测只证明整页多模态能返回有界结构文档；历史 Reader 测试只证明请求身份、缓存与切页隔离，
 均不证明存在翻译漫画页。
 

@@ -96,8 +96,13 @@ def main() -> int:
         if not isinstance(observations, list):
             fail("inventory page observations are invalid")
         matches = [item for item in observations if isinstance(item, dict) and item.get("recordingId") == args.recording_id]
+        # A family normally contains multiple pages.  Selecting one recording must produce a
+        # review packet only for the page(s) that actually belong to that recording; unrelated
+        # family pages are not an error and must not inherit this run's candidates.
+        if not matches:
+            continue
         if len(matches) != 1:
-            fail(f"{page.get('sampleId', 'unknown')} needs exactly one observation for {args.recording_id}")
+            fail(f"{page.get('sampleId', 'unknown')} has multiple observations for {args.recording_id}")
         observation = matches[0]
         blocks = observation.get("observedBlocks")
         if not isinstance(blocks, list):
