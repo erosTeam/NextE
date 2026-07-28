@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -245,12 +246,12 @@ export struct TagTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.modeMenuShown, this.UpdateModeMenu, {
+            .bindMenu(this.modeMenuShown, this.UpdateModeMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.modeMenuShown = false
               },
-            })
+            }))
             this.rowDivider()
             Column() {
               ConciseListRow({
@@ -264,12 +265,12 @@ export struct TagTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.introImageMenuShown, this.IntroImageMenu, {
+            .bindMenu(this.introImageMenuShown, this.IntroImageMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.introImageMenuShown = false
               },
-            })
+            }))
           }
         }
       }

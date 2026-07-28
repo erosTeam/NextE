@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import {
   connectAuth,
   AuthState,
@@ -112,12 +113,12 @@ export struct FavoritesPage {
         .width(1)
         .height(1)
         .hitTestBehavior(HitTestMode.None)
-        .bindMenu(this.orderMenuShown, this.OrderMenu, {
+        .bindMenu(this.orderMenuShown, this.OrderMenu, appMenuOptions({
           placement: Placement.BottomRight,
           onDisappear: () => {
             this.orderMenuShown = false
           },
-        })
+        }))
     }
     .width('100%')
     .height('100%')

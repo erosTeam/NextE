@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -358,12 +359,12 @@ export struct LocalBlockSettingsPage {
                 },
               })
             }
-            .bindMenu(this.commentDisplayMenuShown, this.CommentDisplayMenu, {
+            .bindMenu(this.commentDisplayMenuShown, this.CommentDisplayMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.commentDisplayMenuShown = false
               },
-            })
+            }))
           }
         }
         this.RuleSection(LOCAL_BLOCK_TYPE_TITLE)
@@ -411,12 +412,12 @@ export struct LocalBlockSettingsPage {
               },
             })
           }
-          .bindMenu(this.typeMenuShown, this.TypeMenu, {
+          .bindMenu(this.typeMenuShown, this.TypeMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.typeMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.local_block_rule_enabled'),

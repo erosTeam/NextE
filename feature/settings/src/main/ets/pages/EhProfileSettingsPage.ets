@@ -1,6 +1,8 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import {
   ColorMetrics,
+  CustomContentDialog,
   KeyboardAvoidMode,
   LengthMetrics,
   MultiCapsuleSegmentButtonV2,
@@ -9,8 +11,6 @@ import {
 } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
-  AppModalScaffold,
-  appSheetOptions,
   AppStrings,
   AuthState,
   CookieJarSettings,
@@ -75,16 +75,68 @@ export struct EhProfileSettingsPage {
   @Local saving: boolean = false;
   @Local failed: boolean = false;
   @Local profileBusy: boolean = false;
-  @Local createNameSheetShown: boolean = false;
-  @Local renameNameSheetShown: boolean = false;
   @Local nameInput: string = '';
   private nameAction: string = 'create';
   private nameProfileSet: string = '';
-  private nameSheetContext: EhProfileSettingsRequestContext | null = null;
+  private nameDialogContext: EhProfileSettingsRequestContext | null = null;
   private loadedContext: EhProfileSettingsRequestContext | null = null;
   private loadRun: number = 0;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
+  private createNameDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.ehp_profile_create'),
+      contentBuilder: () => {
+        this.NameDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeNameDialog()
+          },
+        },
+        {
+          value: $r('app.string.common_save'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmNameDialog()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
+  private renameNameDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.ehp_profile_rename'),
+      contentBuilder: () => {
+        this.NameDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeNameDialog()
+          },
+        },
+        {
+          value: $r('app.string.common_save'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmNameDialog()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -148,9 +200,8 @@ export struct EhProfileSettingsPage {
     const run: number = this.loadRun
     const request: EhProfileSettingsRequestContext = this.currentRequestContext()
     this.loadedContext = null
-    this.createNameSheetShown = false
-    this.renameNameSheetShown = false
-    this.nameSheetContext = null
+    this.closeAllNameDialogs()
+    this.nameDialogContext = null
     this.loading = true
     this.failed = false
     if (!this.contextMatchesCurrent(request)) {
@@ -296,7 +347,7 @@ export struct EhProfileSettingsPage {
     }
   }
 
-  private openNameSheet(action: string): void {
+  private openNameDialog(action: string): void {
     if (!this.canStartWrite()) {
       this.load()
       return
@@ -308,23 +359,48 @@ export struct EhProfileSettingsPage {
     }
     this.nameAction = action
     this.nameProfileSet = action === 'rename' ? `${this.settings.selectedProfile}` : ''
-    this.nameSheetContext = context
+    this.nameDialogContext = context
     this.nameInput = action === 'rename' ? this.currentProfileName() : ''
-    this.createNameSheetShown = action === 'create'
-    this.renameNameSheetShown = action === 'rename'
+    if (action === 'rename') {
+      this.renameNameDialogController.open()
+    } else {
+      this.createNameDialogController.open()
+    }
   }
 
-  private confirmNameSheet(): void {
+  private closeNameDialog(): void {
+    try {
+      if (this.nameAction === 'rename') {
+        this.renameNameDialogController.close()
+      } else {
+        this.createNameDialogController.close()
+      }
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
+  private closeAllNameDialogs(): void {
+    try {
+      this.createNameDialogController.close()
+    } catch (_error) {
+    }
+    try {
+      this.renameNameDialogController.close()
+    } catch (_error) {
+    }
+  }
+
+  private confirmNameDialog(): void {
     const name: string = this.nameInput.trim()
     if (name.length === 0) {
       return
     }
     const action: string = this.nameAction
     const profileSet: string = this.nameProfileSet
-    const context: EhProfileSettingsRequestContext | null = this.nameSheetContext
-    this.createNameSheetShown = false
-    this.renameNameSheetShown = false
-    this.nameSheetContext = null
+    const context: EhProfileSettingsRequestContext | null = this.nameDialogContext
+    this.closeNameDialog()
+    this.nameDialogContext = null
     if (action === 'rename') {
       this.runProfileAction('rename', profileSet, name, context)
     } else {
@@ -632,13 +708,9 @@ export struct EhProfileSettingsPage {
           showChevron: false,
           isEnabled: this.canStartWrite(),
           action: () => {
-            this.openNameSheet('create')
+            this.openNameDialog('create')
           },
-        }).bindSheet(
-          $$this.createNameSheetShown,
-          this.NameSheet(),
-          appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-        )
+        })
         this.rowDivider()
         ConciseListRow({
           title: $r('app.string.ehp_profile_rename'),
@@ -646,13 +718,9 @@ export struct EhProfileSettingsPage {
           showChevron: false,
           isEnabled: this.canStartWrite(),
           action: () => {
-            this.openNameSheet('rename')
+            this.openNameDialog('rename')
           },
-        }).bindSheet(
-          $$this.renameNameSheetShown,
-          this.NameSheet(),
-          appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-        )
+        })
         // 设为默认 only when the current profile is not already the default.
         if (this.settings.selectedProfile !== this.settings.defaultProfile) {
           this.rowDivider()
@@ -689,32 +757,13 @@ export struct EhProfileSettingsPage {
   }
 
   @Builder
-  NameSheet() {
-    AppModalScaffold({
-      title:
-        this.nameAction === 'rename'
-          ? $r('app.string.ehp_profile_rename')
-          : $r('app.string.ehp_profile_create'),
-      confirmIcon: $r('sys.symbol.checkmark'),
-      confirmText: $r('app.string.common_save'),
-      closeAction: () => {
-        this.createNameSheetShown = false
-        this.renameNameSheetShown = false
-      },
-      confirmAction: () => {
-        this.confirmNameSheet()
-      },
-    }) {
-      ListItem() {
-        Column() {
-          TextInput({ text: this.nameInput, placeholder: $r('app.string.ehp_profile_name_hint') })
-            .onChange((v: string) => {
-              this.nameInput = v
-            })
-        }
-        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
-      }
-    }
+  NameDialogContent() {
+    TextInput({ text: this.nameInput, placeholder: $r('app.string.ehp_profile_name_hint') })
+      .defaultFocus(true)
+      .width('100%')
+      .onChange((value: string) => {
+        this.nameInput = value
+      })
   }
 
   @Builder
@@ -1234,12 +1283,12 @@ struct UcSelectRow {
         },
       })
     }
-    .bindMenu(this.menuShown, this.OptionMenu, {
+    .bindMenu(this.menuShown, this.OptionMenu, appMenuOptions({
       placement: Placement.BottomRight,
       onDisappear: () => {
         this.menuShown = false
       },
-    })
+    }))
   }
 
   @Builder

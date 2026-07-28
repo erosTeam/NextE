@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { pasteboard } from '@kit.BasicServicesKit'
@@ -255,12 +256,12 @@ export struct AdvancedSettingsPage {
           },
         })
       }
-      .bindMenu(this.levelMenuShown, this.LevelMenu, {
+      .bindMenu(this.levelMenuShown, this.LevelMenu, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           this.levelMenuShown = false
         },
-      })
+      }))
     }
   }
 

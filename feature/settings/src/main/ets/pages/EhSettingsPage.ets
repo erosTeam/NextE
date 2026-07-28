@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -200,12 +201,12 @@ export struct EhSettingsPage {
                 },
               })
             }
-            .bindMenu(this.siteMenuShown, this.SiteMenu, {
+            .bindMenu(this.siteMenuShown, this.SiteMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.siteMenuShown = false
               },
-            })
+            }))
           }
         }
         if (ClipboardLinkBuildFlag.CLIPBOARD_LINK_BUILD_ENABLED) {

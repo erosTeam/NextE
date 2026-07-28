@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -856,12 +857,12 @@ export struct ComicTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.visualRouteMenuShown, this.VisualRouteMenu, {
+            .bindMenu(this.visualRouteMenuShown, this.VisualRouteMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.visualRouteMenuShown = false
               },
-            })
+            }))
           }
         }
         if (this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL) {
@@ -920,12 +921,12 @@ export struct ComicTranslationSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.sourceMenuShown, this.SourceMenu, {
+              .bindMenu(this.sourceMenuShown, this.SourceMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.sourceMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -939,12 +940,12 @@ export struct ComicTranslationSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.modelMenuShown, this.ModelMenu, {
+              .bindMenu(this.modelMenuShown, this.ModelMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.modelMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_translation_multimodal_assist'),
@@ -1000,12 +1001,12 @@ export struct ComicTranslationSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.toriiModelMenuShown, this.ToriiModelMenu, {
+              .bindMenu(this.toriiModelMenuShown, this.ToriiModelMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.toriiModelMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -1018,12 +1019,12 @@ export struct ComicTranslationSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.toriiFontMenuShown, this.ToriiFontMenu, {
+              .bindMenu(this.toriiFontMenuShown, this.ToriiFontMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.toriiFontMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               this.ToriiSecretRow(
                 $r('app.string.comic_torii_api_key'),

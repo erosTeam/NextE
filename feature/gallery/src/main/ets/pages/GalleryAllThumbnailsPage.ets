@@ -1,4 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { CustomContentDialog } from '@kit.ArkUI'
 import {
   ThemeConstants,
   EhGalleryImage,
@@ -12,7 +13,6 @@ import {
   AppStrings,
   ListMode,
   immersiveTitleBarOpts,
-  appSheetOptions,
 } from 'shared'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 
@@ -129,12 +129,39 @@ export struct GalleryAllThumbnailsContent {
 export struct GalleryAllThumbnailsPage {
   @Local vm: AllThumbnailsViewModel = new AllThumbnailsViewModel();
   @Local params: AllThumbnailsParams = new AllThumbnailsParams();
-  @Local jumpSheetShown: boolean = false;
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
+  private jumpSubmitting: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
+  private jumpDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.gallery_preview_jump'),
+      contentBuilder: () => {
+        this.JumpDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeJumpDialog()
+          },
+        },
+        {
+          value: $r('app.string.gallery_preview_jump'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmJump()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private openReader(img: EhGalleryImage): void {
     const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
@@ -174,9 +201,7 @@ export struct GalleryAllThumbnailsPage {
       'icon': $r('sys.symbol.arrow_right'),
       'isEnabled': true,
       'action': () => {
-        this.jumpPageText = `${this.defaultJumpPage()}`
-        this.jumpError = ''
-        this.jumpSheetShown = true
+        this.openJumpDialog()
       },
     }
     const items: Record<string, Object>[] = [
@@ -235,67 +260,88 @@ export struct GalleryAllThumbnailsPage {
     return Math.min(maxPage, this.vm.itemCount + 1)
   }
 
-  private async confirmJump(): Promise<void> {
+  private openJumpDialog(): void {
+    this.jumpPageText = `${this.defaultJumpPage()}`
+    this.jumpError = ''
+    this.jumpDialogController.open()
+  }
+
+  private closeJumpDialog(): void {
+    try {
+      this.jumpDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
+  private normalizeJumpInput(value: string): string {
+    return (value || '').replace(/[^0-9]/g, '')
+  }
+
+  private jumpHelpText(): string {
+    const maxPage: number = this.maxImagePage()
+    if (maxPage <= 0) {
+      return AppStrings.get('gallery_preview_jump_help')
+    }
+    return `${AppStrings.get('gallery_preview_jump_help')} 1 - ${maxPage}`
+  }
+
+  private confirmJump(): void {
+    if (this.jumpSubmitting) {
+      return
+    }
     const page: number = Number.parseInt(this.jumpPageText, 10)
     const maxPage: number = this.maxImagePage()
     if (Number.isNaN(page) || page <= 0 || (maxPage > 0 && page > maxPage)) {
       this.jumpError = AppStrings.get('gallery_preview_jump_invalid')
       return
     }
-    const loaded: boolean = await this.vm.loadImagePage(page)
-    if (!loaded) {
-      this.jumpError = AppStrings.get('common_load_failed')
-      return
-    }
-    this.jumpSheetShown = false
-    const targetIndex: number = this.vm.visibleIndexForImagePage(page)
-    setTimeout(() => {
-      if (targetIndex >= 0) {
-        this.scroller.scrollToIndex(targetIndex)
-      }
-    }, 50)
+    this.jumpSubmitting = true
+    this.vm.loadImagePage(page)
+      .then((loaded: boolean) => {
+        this.jumpSubmitting = false
+        if (!loaded) {
+          this.jumpError = AppStrings.get('common_load_failed')
+          return
+        }
+        this.closeJumpDialog()
+        const targetIndex: number = this.vm.visibleIndexForImagePage(page)
+        setTimeout(() => {
+          if (targetIndex >= 0) {
+            this.scroller.scrollToIndex(targetIndex)
+          }
+        }, 50)
+      })
+      .catch((_error: Error) => {
+        this.jumpSubmitting = false
+        this.jumpError = AppStrings.get('common_load_failed')
+      })
   }
 
   @Builder
-  JumpSheet() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      Text($r('app.string.gallery_preview_jump_help'))
+  JumpDialogContent() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(this.jumpHelpText())
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
       TextInput({ text: this.jumpPageText, placeholder: $r('app.string.gallery_preview_jump_placeholder') })
         .type(InputType.Number)
-        .height(44)
-        .backgroundColor($r('app.color.card_background'))
+        .inputFilter('^[0-9]*$')
+        .defaultFocus(true)
+        .width('100%')
         .onChange((v: string) => {
-          this.jumpPageText = v
+          this.jumpPageText = this.normalizeJumpInput(v)
           this.jumpError = ''
         })
       if (this.jumpError.length > 0) {
         Text(this.jumpError)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.Red)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .width('100%')
       }
-      Row({ space: ThemeConstants.SPACE_MD }) {
-        Button($r('app.string.common_cancel'))
-          .type(ButtonType.Capsule)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-          .onClick(() => {
-            this.jumpSheetShown = false
-          })
-        Button($r('app.string.gallery_preview_jump'))
-          .type(ButtonType.Capsule)
-          .fontColor(ThemeConstants.TEXT_ON_BRAND)
-          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-          .layoutWeight(1)
-          .onClick(() => {
-            this.confirmJump()
-          })
-      }.width('100%')
     }
     .width('100%')
-    .padding(ThemeConstants.SPACE_LG)
   }
 
   build() {
@@ -312,11 +358,6 @@ export struct GalleryAllThumbnailsPage {
       }
       .width('100%')
       .height('100%')
-      .bindSheet($$this.jumpSheetShown, this.JumpSheet(), appSheetOptions({
-        detents: [SheetSize.MEDIUM],
-        title: { title: $r('app.string.gallery_preview_jump') },
-        showClose: true,
-      }))
     }
     .titleBar(this.previewTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))

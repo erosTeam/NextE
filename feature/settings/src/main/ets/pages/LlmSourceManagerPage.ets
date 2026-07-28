@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -166,12 +167,12 @@ export struct LlmSourceManagerPage {
                 },
               })
             }
-            .bindMenu(this.addMenuShown, this.AddSourceMenu, {
+            .bindMenu(this.addMenuShown, this.AddSourceMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.addMenuShown = false
               },
-            })
+            }))
           }
         }
       }

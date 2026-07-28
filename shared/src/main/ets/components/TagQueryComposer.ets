@@ -1,3 +1,4 @@
+import { appMenuOptions } from './AppMenuOptions'
 import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { AppSearchField } from './AppSearchField'
@@ -401,12 +402,12 @@ export struct TagRow {
         },
       })
     }
-    .bindMenu(this.menuShown, this.RelationMenu, {
+    .bindMenu(this.menuShown, this.RelationMenu, appMenuOptions({
       placement: Placement.BottomRight,
       onDisappear: () => {
         this.menuShown = false
       },
-    })
+    }))
   }
 
   @Builder

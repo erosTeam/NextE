@@ -1,3 +1,4 @@
+import { appMenuOptions } from './AppMenuOptions'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { AppStrings } from '../i18n/AppStrings'
 import { SearchFilterState } from '../state/SearchFilterState'
@@ -101,12 +102,12 @@ export struct AdvancedSearchControls {
             },
           })
         }
-        .bindMenu(this.ratingMenuShown, this.RatingMenu, {
+        .bindMenu(this.ratingMenuShown, this.RatingMenu, appMenuOptions({
           placement: Placement.BottomRight,
           onDisappear: () => {
             this.ratingMenuShown = false
           },
-        })
+        }))
         this.rowDivider()
         ConciseListRow({
           title: $r('app.string.filter_pages'),

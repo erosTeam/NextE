@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, Want } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
@@ -422,12 +423,12 @@ export struct DownloadSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.originalMenuShown, this.OriginalModeMenu, {
+              .bindMenu(this.originalMenuShown, this.OriginalModeMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.originalMenuShown = false
                 },
-              })
+              }))
             }
           }
         }

@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
@@ -617,12 +618,12 @@ struct TabSelectRow {
         },
       })
     }
-    .bindMenu(this.menuShown, this.OptionMenu, {
+    .bindMenu(this.menuShown, this.OptionMenu, appMenuOptions({
       placement: Placement.BottomRight,
       onDisappear: () => {
         this.menuShown = false
       },
-    })
+    }))
   }
 
   @Builder

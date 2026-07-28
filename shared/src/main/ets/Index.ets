@@ -176,9 +176,11 @@ export { TagQueryComposer, TagRow, TagQuery, QueryTag, TagRowItem, TagRelation }
 export { SectionHeader } from './components/SectionHeader'
 export { AppSearchField } from './components/AppSearchField'
 export { AppModalScaffold } from './components/AppModalScaffold'
+export { appMenuOptions } from './components/AppMenuOptions'
 export { appSheetOptions } from './components/AppSheetOptions'
 export { AppColorPicker } from './components/AppColorPicker'
 export { HdsCapsuleBarButton } from './components/HdsCapsuleBarButton'
+export { AppPrompt } from './utils/AppPrompt'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'

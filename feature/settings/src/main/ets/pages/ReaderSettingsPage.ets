@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -776,12 +777,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.dirMenuShown, this.DirMenu, {
+          .bindMenu(this.dirMenuShown, this.DirMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.dirMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_double_page'),
@@ -814,12 +815,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.spreadLayoutMenuShown, this.SpreadLayoutMenu, {
+          .bindMenu(this.spreadLayoutMenuShown, this.SpreadLayoutMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.spreadLayoutMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_page_turn_animation'),
@@ -851,12 +852,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.tapZoneMenuShown, this.TapZoneMenu, {
+          .bindMenu(this.tapZoneMenuShown, this.TapZoneMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.tapZoneMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           Column() {
             ConciseListRow({
@@ -868,12 +869,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.tapZoneInvertMenuShown, this.TapZoneInvertMenu, {
+          .bindMenu(this.tapZoneInvertMenuShown, this.TapZoneInvertMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.tapZoneInvertMenuShown = false
             },
-          })
+          }))
         }
       }
     }
@@ -892,12 +893,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.backgroundMenuShown, this.BackgroundMenu, {
+          .bindMenu(this.backgroundMenuShown, this.BackgroundMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.backgroundMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           Column() {
             ConciseListRow({
@@ -911,12 +912,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.imageScalingQualityMenuShown, this.ImageScalingQualityMenu, {
+          .bindMenu(this.imageScalingQualityMenuShown, this.ImageScalingQualityMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.imageScalingQualityMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_show_page_number'),
@@ -993,12 +994,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.superResolutionModelMenuShown, this.SuperResolutionModelMenu, {
+          .bindMenu(this.superResolutionModelMenuShown, this.SuperResolutionModelMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.superResolutionModelMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_super_resolution_models'),
@@ -1024,12 +1025,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.superResolutionMaxHeightMenuShown, this.SuperResolutionMaxHeightMenu, {
+          .bindMenu(this.superResolutionMaxHeightMenuShown, this.SuperResolutionMaxHeightMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.superResolutionMaxHeightMenuShown = false
             },
-          })
+          }))
         }
       }
     }
@@ -1048,12 +1049,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, {
+          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.autoPageMenuShown = false
             },
-          })
+          }))
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_volume_key'),
@@ -1087,12 +1088,12 @@ export struct ReaderSettingsPage {
               },
             })
           }
-          .bindMenu(this.preloadPageMenuShown, this.PreloadPageMenu, {
+          .bindMenu(this.preloadPageMenuShown, this.PreloadPageMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.preloadPageMenuShown = false
             },
-          })
+          }))
         }
       }
     }

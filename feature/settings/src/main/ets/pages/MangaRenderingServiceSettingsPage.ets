@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -369,12 +370,12 @@ export struct MangaRenderingServiceSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.detectionMenuShown, this.DetectionProfileMenu, {
+              .bindMenu(this.detectionMenuShown, this.DetectionProfileMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.detectionMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -387,12 +388,12 @@ export struct MangaRenderingServiceSettingsPage {
                   },
                 })
               }
-              .bindMenu(this.inpaintingMenuShown, this.InpaintingProfileMenu, {
+              .bindMenu(this.inpaintingMenuShown, this.InpaintingProfileMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.inpaintingMenuShown = false
                 },
-              })
+              }))
               this.rowDivider()
               this.TextInputRow(
                 $r('app.string.comic_render_service_url'),

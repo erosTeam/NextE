@@ -1,5 +1,6 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
-import { ComponentContent, FrameNode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { ComponentContent, CustomContentDialog, FrameNode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import {
@@ -140,7 +141,6 @@ function galleryDetailSheetContentBuilder(params: GalleryDetailSheetContentParam
 }
 
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
-const DETAIL_SHEET_RATING: string = 'rating'
 const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
 const DETAIL_SHEET_TORRENTS: string = 'torrents'
 const DETAIL_SHEET_ARCHIVER: string = 'archiver'
@@ -222,7 +222,6 @@ export struct GalleryDetailPage {
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
-  @Local fullPreviewJumpSheetShown: boolean = false;
   @Local fullPreviewJumpPageText: string = '';
   @Local fullPreviewJumpError: string = '';
   @Local remoteFavoriteSelectedCat: string = '';
@@ -245,6 +244,61 @@ export struct GalleryDetailPage {
   private fullPreviewScroller: Scroller = new Scroller();
   private fullPreviewRefreshController: PullRefreshController = new PullRefreshController();
   private remoteFavoriteSheetContent: ComponentContent<GalleryDetailSheetContentParams> | null = null;
+  private fullPreviewJumpSubmitting: boolean = false;
+  private fullPreviewJumpDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.gallery_preview_jump'),
+      contentBuilder: () => {
+        this.FullPreviewJumpDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeFullPreviewJumpDialog()
+          },
+        },
+        {
+          value: $r('app.string.gallery_preview_jump'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmFullPreviewJump()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
+  private ratingDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.detail_rate'),
+      contentBuilder: () => {
+        this.RatingDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeRatingDialog()
+          },
+        },
+        {
+          value: $r('app.string.detail_rate_submit'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.submitRating()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
   // Account/site changes replace preview URLs and permissions. Until a real replacement detail result
   // arrives, keep the full-preview VM empty and make the next seed a complete fresh session.
   private fullPreviewMustReset: boolean = false;
@@ -1011,9 +1065,6 @@ export struct GalleryDetailPage {
     (string | number | Resource)?,
     (string | number | Resource)?,
   ] {
-    if (kind === DETAIL_SHEET_RATING) {
-      return [SheetSize.MEDIUM]
-    }
     if (kind === DETAIL_SHEET_ARCHIVER) {
       return [SheetSize.MEDIUM, SheetSize.LARGE]
     }
@@ -1111,19 +1162,18 @@ export struct GalleryDetailPage {
     })
   }
 
-  private openRatingSheet(): void {
+  private openRatingDialog(): void {
     this.ratingSelected = this.currentPersonalRating()
     this.ratingError = ''
-    this.openDetailSheet(DETAIL_SHEET_RATING)
+    this.ratingDialogController.open()
   }
 
-  private canSubmitRating(): boolean {
-    return (
-      !this.ratingSubmitting &&
-      this.ratingSelected > 0 &&
-      this.vm.gallery.apikey.length > 0 &&
-      this.vm.gallery.apiuid.length > 0
-    )
+  private closeRatingDialog(): void {
+    try {
+      this.ratingDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
   }
 
   private ratingLabel(value: number): string {
@@ -1141,8 +1191,14 @@ export struct GalleryDetailPage {
   }
 
   private async submitRating(): Promise<void> {
-    if (!this.canSubmitRating()) {
+    if (this.ratingSubmitting) {
+      return
+    }
+    if (this.vm.gallery.apikey.length === 0 || this.vm.gallery.apiuid.length === 0) {
       this.ratingError = AppStrings.get('detail_rate_missing_key')
+      return
+    }
+    if (this.ratingSelected <= 0) {
       return
     }
     this.ratingSubmitting = true
@@ -1156,7 +1212,7 @@ export struct GalleryDetailPage {
         result.ratingCount,
         result.colorRating,
       )
-      this.closeDetailSheet()
+      this.closeRatingDialog()
       this.getUIContext()
         .getPromptAction()
         .openToast({ message: $r('app.string.detail_rate_success') })
@@ -1439,26 +1495,57 @@ export struct GalleryDetailPage {
     return Math.min(maxPage, this.fullPreviewVm.itemCount + 1)
   }
 
-  private openFullPreviewJumpSheet(): void {
+  private openFullPreviewJumpDialog(): void {
     this.fullPreviewJumpPageText = `${this.fullPreviewDefaultJumpPage()}`
     this.fullPreviewJumpError = ''
-    this.fullPreviewJumpSheetShown = true
+    this.fullPreviewJumpDialogController.open()
   }
 
-  private async confirmFullPreviewJump(): Promise<void> {
+  private closeFullPreviewJumpDialog(): void {
+    try {
+      this.fullPreviewJumpDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
+  private normalizeFullPreviewJumpInput(value: string): string {
+    return (value || '').replace(/[^0-9]/g, '')
+  }
+
+  private fullPreviewJumpHelpText(): string {
+    const maxPage: number = this.fullPreviewMaxImagePage()
+    if (maxPage <= 0) {
+      return AppStrings.get('gallery_preview_jump_help')
+    }
+    return `${AppStrings.get('gallery_preview_jump_help')} 1 - ${maxPage}`
+  }
+
+  private confirmFullPreviewJump(): void {
+    if (this.fullPreviewJumpSubmitting) {
+      return
+    }
     const page: number = Number.parseInt(this.fullPreviewJumpPageText, 10)
     const maxPage: number = this.fullPreviewMaxImagePage()
     if (Number.isNaN(page) || page <= 0 || (maxPage > 0 && page > maxPage)) {
       this.fullPreviewJumpError = AppStrings.get('gallery_preview_jump_invalid')
       return
     }
-    const loaded: boolean = await this.fullPreviewVm.loadImagePage(page)
-    if (!loaded) {
-      this.fullPreviewJumpError = AppStrings.get('common_load_failed')
-      return
-    }
-    this.fullPreviewJumpSheetShown = false
-    this.scrollFullPreviewToImagePage(page)
+    this.fullPreviewJumpSubmitting = true
+    this.fullPreviewVm.loadImagePage(page)
+      .then((loaded: boolean) => {
+        this.fullPreviewJumpSubmitting = false
+        if (!loaded) {
+          this.fullPreviewJumpError = AppStrings.get('common_load_failed')
+          return
+        }
+        this.closeFullPreviewJumpDialog()
+        this.scrollFullPreviewToImagePage(page)
+      })
+      .catch((_error: Error) => {
+        this.fullPreviewJumpSubmitting = false
+        this.fullPreviewJumpError = AppStrings.get('common_load_failed')
+      })
   }
 
   private detailBottomPreviewInitialPage(): number {
@@ -1522,7 +1609,7 @@ export struct GalleryDetailPage {
       'icon': $r('sys.symbol.arrow_right'),
       'isEnabled': !this.fullPreviewVm.loading,
       'action': () => {
-        this.openFullPreviewJumpSheet()
+        this.openFullPreviewJumpDialog()
       },
     }
     const parentInner: Record<string, Object> = {
@@ -2026,62 +2113,41 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private RatingSheet() {
-    AppModalScaffold({
-      title: $r('app.string.detail_rate'),
-      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
-      confirmText: $r('app.string.detail_rate_submit'),
-      confirmEnabled: this.canSubmitRating(),
-      confirmLoading: this.ratingSubmitting,
-      closeAction: () => {
-        this.closeDetailSheet()
-      },
-      confirmAction: () => {
-        this.submitRating()
-      },
-    }) {
-      ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          Text(this.ratingHint())
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-          // Slide or tap across the stars to rate (eros_fe rate dialog; 0.5 steps); value updates live below.
-          Column({ space: ThemeConstants.SPACE_SM }) {
-            RatingStars({
-              rating: this.ratingSelected,
-              color: EhConstants.ratingStarColor(''),
-              starSize: 40,
-              interactive: true,
-              onRate: (value: number) => {
-                this.ratingSelected = value
-              },
-            })
-            Text(this.ratingSelected > 0 ? this.ratingLabel(this.ratingSelected) : '—')
-              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-          }
-          // Keep the rating control centered in the space left after the hint and any error message,
-          // rather than pinning it to a fixed offset below the sheet top.
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-          .enabled(!this.ratingSubmitting)
-          if (this.ratingError.length > 0) {
-            Text(this.ratingError)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor(Color.Red)
-              .width('100%')
-          }
-        }
+  private RatingDialogContent() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Text(this.ratingHint())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
         .width('100%')
-        .height('100%')
-        .alignItems(HorizontalAlign.Start)
+      // A rating is one bounded decision, so keep it in the same centered Dialog pattern as page jumps.
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        RatingStars({
+          rating: this.ratingSelected,
+          color: EhConstants.ratingStarColor(''),
+          starSize: 40,
+          interactive: true,
+          onRate: (value: number) => {
+            this.ratingSelected = value
+            this.ratingError = ''
+          },
+        })
+        Text(this.ratingSelected > 0 ? this.ratingLabel(this.ratingSelected) : '—')
+          .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
       }
-      .height('100%')
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+      .enabled(!this.ratingSubmitting)
+      if (this.ratingError.length > 0) {
+        Text(this.ratingError)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .width('100%')
+      }
     }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -2237,8 +2303,6 @@ export struct GalleryDetailPage {
   private DetailSheet() {
     if (this.detailSheetKind === DETAIL_SHEET_REMOTE_FAVORITE) {
       this.RemoteFavoriteSheet()
-    } else if (this.detailSheetKind === DETAIL_SHEET_RATING) {
-      this.RatingSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_FULL_TITLE) {
       this.FullTitleSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE) {
@@ -2276,49 +2340,32 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private FullPreviewJumpSheet() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      Text($r('app.string.gallery_preview_jump_help'))
+  private FullPreviewJumpDialogContent() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(this.fullPreviewJumpHelpText())
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
       TextInput({
         text: this.fullPreviewJumpPageText,
         placeholder: $r('app.string.gallery_preview_jump_placeholder'),
       })
         .type(InputType.Number)
-        .height(44)
-        .backgroundColor($r('app.color.card_background'))
+        .inputFilter('^[0-9]*$')
+        .defaultFocus(true)
+        .width('100%')
         .onChange((value: string) => {
-          this.fullPreviewJumpPageText = value
+          this.fullPreviewJumpPageText = this.normalizeFullPreviewJumpInput(value)
           this.fullPreviewJumpError = ''
         })
       if (this.fullPreviewJumpError.length > 0) {
         Text(this.fullPreviewJumpError)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.Red)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .width('100%')
       }
-      Row({ space: ThemeConstants.SPACE_MD }) {
-        Button($r('app.string.common_cancel'))
-          .type(ButtonType.Capsule)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-          .onClick(() => {
-            this.fullPreviewJumpSheetShown = false
-          })
-        Button($r('app.string.gallery_preview_jump'))
-          .type(ButtonType.Capsule)
-          .fontColor(ThemeConstants.TEXT_ON_BRAND)
-          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-          .layoutWeight(1)
-          .onClick(() => {
-            this.confirmFullPreviewJump()
-          })
-      }
-      .width('100%')
     }
     .width('100%')
-    .padding(ThemeConstants.SPACE_LG)
   }
 
   @Builder
@@ -2608,13 +2655,6 @@ export struct GalleryDetailPage {
     }
     .width('100%')
     .height('100%')
-    // The jump command is generated by the HDS title menu, which exposes no rendered trigger node.
-    // Keep the matching preview pane as the native fallback host instead of inventing a surrogate.
-    .bindSheet($$this.fullPreviewJumpSheetShown, this.FullPreviewJumpSheet(), appSheetOptions({
-      detents: [SheetSize.MEDIUM],
-      title: { title: $r('app.string.gallery_preview_jump') },
-      showClose: true,
-    }))
   }
 
   private refreshFirstSecondaryDetail(pathStack: NavPathStack): void {
@@ -2845,12 +2885,12 @@ export struct GalleryDetailPage {
     .onClick(() => {
       this.onDownloadChipTap()
     })
-    .bindMenu(this.downloadMenuShown, this.DownloadVariantMenu, {
+    .bindMenu(this.downloadMenuShown, this.DownloadVariantMenu, appMenuOptions({
       placement: Placement.BottomRight,
       onDisappear: () => {
         this.downloadMenuShown = false
       },
-    })
+    }))
   }
 
   @Builder
@@ -2880,10 +2920,9 @@ export struct GalleryDetailPage {
               DETAIL_SHEET_ARCHIVER, () => {
                 this.openArchiver()
               })
-            this.DetailSheetActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true,
-              DETAIL_SHEET_RATING, () => {
-                this.openRatingSheet()
-              })
+            this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
+              this.openRatingDialog()
+            })
             this.DownloadActionChip()
           }
           .alignItems(VerticalAlign.Center)

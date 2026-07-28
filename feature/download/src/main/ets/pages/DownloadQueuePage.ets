@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import {
   ThemeConstants,
   SecondaryListScaffold,
@@ -1520,14 +1521,14 @@ export struct DownloadQueuePage {
       .onClick(() => {
         this.actionMenuKey = this.galleryActionKey(task)
       })
-      .bindMenu(this.actionMenuKey === this.galleryActionKey(task), this.TaskActionMenu, {
+      .bindMenu(this.actionMenuKey === this.galleryActionKey(task), this.TaskActionMenu, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           if (this.actionMenuKey === this.galleryActionKey(task)) {
             this.closeActionMenu()
           }
         },
-      })
+      }))
   }
 
   @Builder
@@ -1545,14 +1546,14 @@ export struct DownloadQueuePage {
       .onClick(() => {
         this.actionMenuKey = this.archiverActionKey(task)
       })
-      .bindMenu(this.actionMenuKey === this.archiverActionKey(task), this.TaskActionMenu, {
+      .bindMenu(this.actionMenuKey === this.archiverActionKey(task), this.TaskActionMenu, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           if (this.actionMenuKey === this.archiverActionKey(task)) {
             this.closeActionMenu()
           }
         },
-      })
+      }))
   }
 
   @Builder
@@ -1825,12 +1826,12 @@ export struct DownloadQueuePage {
         .width(1)
         .height(1)
         .hitTestBehavior(HitTestMode.None)
-        .bindMenu(this.sortMenuShown, this.SortMenu, {
+        .bindMenu(this.sortMenuShown, this.SortMenu, appMenuOptions({
           placement: Placement.BottomRight,
           onDisappear: () => {
             this.sortMenuShown = false
           },
-        })
+        }))
     }
     .width('100%')
     .height('100%')

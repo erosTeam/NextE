@@ -1,6 +1,7 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { CustomContentDialog, SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppModalScaffold,
   AppStrings,
@@ -57,7 +58,6 @@ export struct CacheSettingsPage {
   @Local exportPwd: string = '';
   @Local exportPwd2: string = '';
   @Local exportSheetShown: boolean = false;
-  @Local importPwdSheetShown: boolean = false;
   @Local importPwd: string = '';
   @Local busy: boolean = false;
   @Local safeMode: SafeModeState = connectSafeMode();
@@ -65,6 +65,37 @@ export struct CacheSettingsPage {
   private appVersionCode: number = 0;
   private pendingImportRaw: string = '';
   private scroller: Scroller = new Scroller();
+  private importPasswordDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.backup_encrypted_title'),
+      contentBuilder: () => {
+        this.ImportPasswordDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeImportPasswordDialog()
+          },
+        },
+        {
+          value: $r('app.string.backup_import'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmDecryptImport()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    onWillDismiss: (_action: DismissDialogAction) => {
+      this.importPwd = ''
+      this.pendingImportRaw = ''
+    },
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -361,7 +392,7 @@ export struct CacheSettingsPage {
         if (result.encrypted === true) {
           this.pendingImportRaw = selection.raw
           this.importPwd = ''
-          this.importPwdSheetShown = true
+          this.importPasswordDialogController.open()
           return
         }
         if (!result.ok || result.envelope === undefined) {
@@ -397,7 +428,7 @@ export struct CacheSettingsPage {
           )
           return
         }
-        this.importPwdSheetShown = false
+        this.closeImportPasswordDialog()
         this.importPwd = ''
         this.pendingImportRaw = ''
         this.confirmRestore(result)
@@ -405,6 +436,16 @@ export struct CacheSettingsPage {
       .finally(() => {
         this.busy = false
       })
+  }
+
+  private closeImportPasswordDialog(): void {
+    try {
+      this.importPasswordDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+    this.importPwd = ''
+    this.pendingImportRaw = ''
   }
 
   // Restore overwrites the current settings, so confirm first.
@@ -463,7 +504,8 @@ export struct CacheSettingsPage {
                   })
                 }
               }
-              // Backup & restore, inlined (export / import open their own sheets — no sub-page).
+              // Backup & restore stays inlined: export uses a variable-length sheet, while the encrypted
+              // import password is one bounded decision and therefore uses a Dialog.
               GroupedListSection() {
                 ConciseListRow({
                   title: $r('app.string.backup_export'),
@@ -489,11 +531,7 @@ export struct CacheSettingsPage {
                   action: () => {
                     this.startImport()
                   },
-                }).bindSheet(
-                  $$this.importPwdSheetShown,
-                  this.ImportPasswordSheet(),
-                  appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-                )
+                })
               }
               GroupedListSection() {
                 Column() {
@@ -507,12 +545,12 @@ export struct CacheSettingsPage {
                     },
                   })
                 }
-                .bindMenu(this.readerCacheLimitMenuShown, this.ReaderCacheLimitMenu, {
+                .bindMenu(this.readerCacheLimitMenuShown, this.ReaderCacheLimitMenu, appMenuOptions({
                   placement: Placement.BottomRight,
                   onDisappear: () => {
                     this.readerCacheLimitMenuShown = false
                   },
-                })
+                }))
               }
               // Total usage header.
               Row({ space: ThemeConstants.SPACE_XS }) {
@@ -668,35 +706,22 @@ export struct CacheSettingsPage {
   }
 
   @Builder
-  ImportPasswordSheet() {
-    AppModalScaffold({
-      title: $r('app.string.backup_encrypted_title'),
-      confirmIcon: $r('sys.symbol.doc_plaintext'),
-      confirmText: $r('app.string.backup_import'),
-      confirmEnabled: !this.busy && this.importPwd.length > 0,
-      confirmLoading: this.busy,
-      closeAction: () => {
-        this.importPwdSheetShown = false
-      },
-      confirmAction: () => {
-        this.confirmDecryptImport()
-      },
-    }) {
-      ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          Text($r('app.string.backup_encrypted_hint'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-          this.PasswordField(this.importPwd, $r('app.string.backup_password'), (value: string) => {
-            this.importPwd = value
-          })
-        }
+  ImportPasswordDialogContent() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Text($r('app.string.backup_encrypted_hint'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
         .width('100%')
-        .alignItems(HorizontalAlign.Start)
-        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
-      }
+      TextInput({ text: this.importPwd, placeholder: $r('app.string.backup_password') })
+        .type(InputType.Password)
+        .defaultFocus(true)
+        .width('100%')
+        .onChange((value: string) => {
+          this.importPwd = value
+        })
     }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder

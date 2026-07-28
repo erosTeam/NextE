@@ -1,3 +1,4 @@
+import { appMenuOptions } from './AppMenuOptions'
 import { common } from '@kit.AbilityKit'
 import { AppStrings } from '../i18n/AppStrings'
 import { ThemeConstants } from '../theme/ThemeConstants'
@@ -228,12 +229,12 @@ export struct PreviewThumbTile {
             this.menuShown = true
           }),
       )
-      .bindMenu(this.menuShown, this.ThumbMenu, {
+      .bindMenu(this.menuShown, this.ThumbMenu, appMenuOptions({
         placement: Placement.Bottom,
         onDisappear: () => {
           this.menuShown = false
         },
-      })
+      }))
 
       // Page number — fixed position below the fixed frame, identical for every tile.
       Text(`${this.image.page}`)

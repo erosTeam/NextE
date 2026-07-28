@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -133,12 +134,12 @@ export struct SecuritySettingsPage {
                   },
                 })
               }
-              .bindMenu(this.autoLockMenuShown, this.AutoLockMenu, {
+              .bindMenu(this.autoLockMenuShown, this.AutoLockMenu, appMenuOptions({
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.autoLockMenuShown = false
                 },
-              })
+              }))
             }
           }
         }

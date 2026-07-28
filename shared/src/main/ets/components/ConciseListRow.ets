@@ -1,3 +1,4 @@
+import { appMenuOptions } from './AppMenuOptions'
 import {
   HdsListItemCard,
   PrefixCustomBuilder,
@@ -107,14 +108,14 @@ export struct ConciseListRow {
         }
       }
       .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
-      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, {
+      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           if (this.dropdownMenuOnDisappear) {
             this.dropdownMenuOnDisappear()
           }
         },
-      })
+      }))
     } else {
       Row() {
         if (this.suffixBuilderParam) {
@@ -261,14 +262,14 @@ export struct ConciseListRow {
         this.DropdownSuffixContent()
       }
       .alignItems(VerticalAlign.Center)
-      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, {
+      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           if (this.dropdownMenuOnDisappear) {
             this.dropdownMenuOnDisappear()
           }
         },
-      })
+      }))
     } else {
       Row({ space: ThemeConstants.SPACE_XS }) {
         this.DropdownSuffixContent()

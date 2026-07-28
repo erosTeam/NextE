@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -353,12 +354,12 @@ export struct CommentTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.displayMenuShown, this.DisplayModeMenu, {
+            .bindMenu(this.displayMenuShown, this.DisplayModeMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.displayMenuShown = false
               },
-            })
+            }))
           }
         }
         ListItem() {
@@ -391,12 +392,12 @@ export struct CommentTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.sourceMenuShown, this.SourceMenu, {
+            .bindMenu(this.sourceMenuShown, this.SourceMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.sourceMenuShown = false
               },
-            })
+            }))
             this.rowDivider()
             Column() {
               ConciseListRow({
@@ -414,12 +415,12 @@ export struct CommentTranslationSettingsPage {
                 },
               })
             }
-            .bindMenu(this.modelMenuShown, this.ModelMenu, {
+            .bindMenu(this.modelMenuShown, this.ModelMenu, appMenuOptions({
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.modelMenuShown = false
               },
-            })
+            }))
           }
         }
         ListItem() {

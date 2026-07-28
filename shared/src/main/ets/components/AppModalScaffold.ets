@@ -1,6 +1,7 @@
 import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode } from '@kit.UIDesignKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { AppPrompt } from '../utils/AppPrompt'
 
 @ComponentV2
 export struct AppModalScaffold {
@@ -197,12 +198,12 @@ export struct AppModalScaffold {
           top: ThemeConstants.SPACE_SM,
           bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_MD,
         })
-        .backgroundColor(this.contentBackgroundColor)
+        .backgroundColor(AppPrompt.modalContentBackgroundColor(this.contentBackgroundColor))
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.contentBackgroundColor)
+    .backgroundColor(AppPrompt.modalContentBackgroundColor(this.contentBackgroundColor))
   }
 
   private hasFooterActions(): boolean {

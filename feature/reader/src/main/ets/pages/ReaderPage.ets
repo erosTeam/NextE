@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { LengthMetrics, SymbolGlyphModifier, window } from '@kit.ArkUI'
@@ -4083,12 +4084,12 @@ export struct ReaderPage {
           .onClick(() => {
             this.readerTopMoreMenuShown = true
           })
-          .bindMenu(this.readerTopMoreMenuShown, this.ReaderTopMoreMenu, {
+          .bindMenu(this.readerTopMoreMenuShown, this.ReaderTopMoreMenu, appMenuOptions({
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.readerTopMoreMenuShown = false
             },
-          })
+          }))
         }
       }
       .width('100%')
@@ -4212,12 +4213,12 @@ export struct ReaderPage {
           .onClick(() => {
             this.openSaveAction()
           })
-          .bindMenu(this.saveSpreadMenuShown, this.ReaderSaveSpreadMenu, {
+          .bindMenu(this.saveSpreadMenuShown, this.ReaderSaveSpreadMenu, appMenuOptions({
             placement: Placement.TopRight,
             onDisappear: () => {
               this.saveSpreadMenuShown = false
             },
-          })
+          }))
           Button({ type: ButtonType.Circle }) {
             if (this.originalImageResolving) {
               LoadingProgress()
@@ -4237,12 +4238,12 @@ export struct ReaderPage {
           .onClick(() => {
             this.openOriginalAction()
           })
-          .bindMenu(this.originalSpreadMenuShown, this.ReaderOriginalSpreadMenu, {
+          .bindMenu(this.originalSpreadMenuShown, this.ReaderOriginalSpreadMenu, appMenuOptions({
             placement: Placement.TopRight,
             onDisappear: () => {
               this.originalSpreadMenuShown = false
             },
-          })
+          }))
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.clock'))
               .fontSize(READER_CHROME_ICON_SIZE)
@@ -4306,12 +4307,12 @@ export struct ReaderPage {
           .onClick(() => {
             this.readModeMenuShown = true
           })
-          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, {
+          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, appMenuOptions({
             placement: Placement.TopRight,
             onDisappear: () => {
               this.readModeMenuShown = false
             },
-          })
+          }))
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

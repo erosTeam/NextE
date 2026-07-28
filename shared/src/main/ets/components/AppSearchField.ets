@@ -1,10 +1,5 @@
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { uiMaterial } from '@kit.ArkUI'
-import { ImmersiveMaterialSettings } from '../settings/ImmersiveMaterialSettings'
-import {
-  connectImmersiveMaterialSettings,
-  ImmersiveMaterialSettingsState,
-} from '../state/ImmersiveMaterialSettingsState'
+import { AppPrompt } from '../utils/AppPrompt'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
 
@@ -16,8 +11,8 @@ let appSearchFieldSeq: number = 0
  * out through `onTextChange` — build() reads `fieldText`, NEVER the external keyword, so typing
  * never re-mounts the field (which would flap the soft keyboard when hosted in a title-bar
  * ComponentContent). `useSystemMaterial` gives the translucent immersive look in the HDS title
- * bar and routes its API-26 material grade through the shared user setting. `searchButtonText`
- * renders Search's built-in trailing button so a query can be run without the IME enter key.
+ * bar and uses the API-26 native material's semantic automatic grade. `searchButtonText` renders
+ * Search's built-in trailing button so a query can be run without the IME enter key.
  */
 @ComponentV2
 export struct AppSearchField {
@@ -31,7 +26,6 @@ export struct AppSearchField {
   @Event onSubmit?: (value: string) => void;
   // Search fields can live inside cached title-bar ComponentContent on API levels without system material.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
-  private immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   // Unique id so getFocusController().requestFocus can target this specific Search instance.
   private fieldId: string = `appSearchField-${appSearchFieldSeq++}`;
 
@@ -63,7 +57,7 @@ export struct AppSearchField {
         .height(ThemeConstants.SEARCH_FIELD_HEIGHT)
         .width('100%')
         .backgroundColor(Color.Transparent)
-        .systemMaterial(this.searchMaterial())
+        .systemMaterial(AppPrompt.searchSystemMaterial())
         .searchButton(this.searchButtonText, { fontColor: ThemeConstants.BRAND_PRIMARY })
         .onChange((value: string) => {
           this.handleChange(value)
@@ -116,16 +110,5 @@ export struct AppSearchField {
     setTimeout(() => {
       this.getUIContext().getFocusController().requestFocus(this.fieldId)
     }, 80)
-  }
-
-  private searchMaterial(): uiMaterial.Material | undefined {
-    if (!deviceInfo.apiAvailable('26.0.0')) {
-      return undefined
-    }
-    return ImmersiveMaterialSettings.systemMaterial(
-      this.immersiveMaterial.level,
-      uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      true,
-    )
   }
 }

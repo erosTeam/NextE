@@ -1,3 +1,4 @@
+import { appMenuOptions } from 'shared'
 import {
   connectAuth,
   AuthState,
@@ -198,12 +199,12 @@ export struct HomePage {
         .width(1)
         .height(1)
         .hitTestBehavior(HitTestMode.None)
-        .bindMenu(this.layoutMenuShown, this.LayoutMenu, {
+        .bindMenu(this.layoutMenuShown, this.LayoutMenu, appMenuOptions({
           placement: Placement.BottomRight,
           onDisappear: () => {
             this.layoutMenuShown = false
           },
-        })
+        }))
     }
     .width('100%')
     .height('100%')
