@@ -21,8 +21,9 @@ oh-package-lock.json5
 local.properties
 # Signing config is injected by dev.sh/sign.py at build time, never committed
 scripts/dev.env
-# Captured EH page fixtures for local parser smoke-checks (site content, not committed).
-# The committed contract tests carry an inline synthetic fixture as the hard gate.
+# Captured EH pages and real-image QA fixtures for local parser/visual checks
+# (site content, not committed or packaged into ohosTest).
+# Committed gates must use owned/synthetic fixtures under tracked test resources.
 scripts/fixtures/
 # Local design exploration rejects and raw prompt outputs. Keep accepted assets
 # under tracked project paths instead.

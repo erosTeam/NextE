@@ -122,7 +122,8 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_CODEX_USAGE_CACHE | volatile-cache | excluded | excluded | Account-scoped 5H/7D snapshot; refreshed from Codex in background |
 | StorageKeys.COMIC_TRANSLATION_LLM_SOURCE_PROFILE | setting | plaintext | excluded | Shared LLM source selected by manga translation; no implicit fallback after source deletion |
 | StorageKeys.COMIC_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Manga translation model selected within its shared source |
-| StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE | setting | plaintext | excluded | Explicit on-device or Torii whole-page visual route; defaults to on-device |
+| StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE | setting | plaintext | excluded | Explicit on-device, self-hosted, or Torii whole-page visual route; defaults to on-device |
+| StorageKeys.COMIC_TRANSLATION_MULTIMODAL_ASSIST | setting | plaintext | excluded | Whether staged local/self-hosted translation uploads the full page and text-region crops to the selected LLM; defaults to the prior multimodal behavior |
 | StorageKeys.COMIC_TRANSLATION_TORII_MODEL | setting | plaintext | excluded | Model ID selected from the versioned official Torii catalog snapshot |
 | StorageKeys.COMIC_TRANSLATION_TORII_FONT | setting | plaintext | excluded | Torii whole-page rendering font ID |
 | StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE | retired-tombstone | excluded | excluded | Legacy BYOK setting; deleted on load and never written |
@@ -132,6 +133,8 @@ Allowed `Sync` values:
 | StorageKeys.COMIC_TRANSLATION_TORII_CREDITS_CACHE | volatile-cache | excluded | excluded | API-key-scoped Torii balance snapshot; shown from cache and refreshed in background |
 | StorageKeys.COMIC_TRANSLATION_TORII_CREDENTIAL | secret | encrypted-only | excluded | Torii account API key; disclosed to Torii only on the selected cloud route |
 | StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_URL | setting | plaintext | excluded | User-configured manga rendering sidecar endpoint; public endpoints require HTTPS |
+| StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_DETECTION | setting | plaintext | excluded | Pinned self-hosted detector sensitivity profile |
+| StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_INPAINTER | setting | plaintext | excluded | Pinned self-hosted LaMa quality or AOT fast inpainting profile |
 | StorageKeys.COMIC_TRANSLATION_RENDER_SERVICE_CREDENTIAL | secret | encrypted-only | excluded | Optional Authorization value for the manga rendering sidecar |
 | StorageKeys.LLM_SOURCE_PROFILES | setting | plaintext | excluded | Provider-neutral reusable source metadata; contains no API key or OAuth token |
 | StorageKeys.LLM_SOURCE_API_KEYS | secret | encrypted-only | excluded | Source-scoped API credentials keyed by stable source profile ID |
