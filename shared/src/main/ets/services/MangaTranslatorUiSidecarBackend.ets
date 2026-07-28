@@ -24,11 +24,11 @@ import {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
-  MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
-  MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
-  MANGA_TRANSLATOR_UI_PROFILE_ID,
+  MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+  MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
   MANGA_TRANSLATOR_UI_PROTOCOL_REVISION,
   MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
+  MangaTranslatorUiSidecarProfileCatalog,
   MangaTranslatorUiSidecarProtocol,
 } from './MangaTranslatorUiSidecarProtocol'
 import {
@@ -78,23 +78,29 @@ export class MangaTranslatorUiSidecarConfig {
   readTimeoutMs: number = 5 * 60 * 1000
 
   applySourceLanguage(sourceLanguage: string): void {
-    const normalized: string = sourceLanguage.trim().toLowerCase()
-    if (normalized === 'auto' || normalized === 'ja' || normalized === 'jp' ||
-      normalized === 'jpn' || normalized === 'japanese') {
-      this.translationConfigJson = MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
-      return
-    }
-    this.translationConfigJson = MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON
+    this.applyProfile(
+      sourceLanguage,
+      MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+      MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+    )
+  }
+
+  applyProfile(
+    sourceLanguage: string,
+    detectionProfile: string,
+    inpaintingProfile: string,
+  ): void {
+    this.translationConfigJson = MangaTranslatorUiSidecarProfileCatalog.configJson(
+      sourceLanguage,
+      detectionProfile,
+      inpaintingProfile,
+    )
   }
 
   profileId(): string {
-    if (this.translationConfigJson === MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON) {
-      return MANGA_TRANSLATOR_UI_PROFILE_ID
-    }
-    if (this.translationConfigJson === MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON) {
-      return MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID
-    }
-    throw new Error('Manga translator UI config must use a pinned visual-only profile')
+    return MangaTranslatorUiSidecarProfileCatalog.profileIdForConfig(
+      this.translationConfigJson,
+    )
   }
 
   validatedBaseUrl(): string {
@@ -218,8 +224,7 @@ export class MangaTranslatorUiSidecarConfig {
   private static validateConfigJson(value: string): void {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(value)
     if (bytes.length <= 0 || bytes.length > MAX_CONFIG_JSON_BYTES ||
-      (value !== MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON &&
-        value !== MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON)) {
+      !MangaTranslatorUiSidecarProfileCatalog.supportsConfigJson(value)) {
       throw new Error('Manga translator UI config must use the pinned visual-only profile')
     }
     try {

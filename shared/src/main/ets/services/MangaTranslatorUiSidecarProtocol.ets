@@ -18,6 +18,10 @@ import { ComicRegionAnalysisRequest } from './ComicVisualTranslationBackend'
 import { ComicVisualTranslationContract } from './ComicVisualTranslationContract'
 
 export const MANGA_TRANSLATOR_UI_BACKEND_ID: string = 'manga-translator-ui'
+export const MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL: string = 'high_recall'
+export const MANGA_TRANSLATOR_UI_DETECTION_BALANCED: string = 'balanced'
+export const MANGA_TRANSLATOR_UI_INPAINTER_QUALITY: string = 'quality'
+export const MANGA_TRANSLATOR_UI_INPAINTER_FAST: string = 'fast'
 export const MANGA_TRANSLATOR_UI_PROFILE_ID: string =
   'manga-translator-ui-v1.9.9-nexte-load-text-v2-recall-v2-geometry-v2'
 export const MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID: string =
@@ -56,6 +60,172 @@ export const MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON: string =
     '"yolo_obb_overlap_threshold":0.1,"min_box_area_ratio":0},' +
     '"ocr":{"ocr":"48px","use_hybrid_ocr":false,"secondary_ocr":"48px",' +
     '"min_text_length":0,"ignore_bubble":0,"prob":0.1}}'
+
+/** Finite product profiles; callers cannot pass arbitrary manga-translator-ui JSON. */
+export class MangaTranslatorUiSidecarProfileCatalog {
+  static configJson(
+    sourceLanguage: string,
+    detectionProfile: string = MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+    inpaintingProfile: string = MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+  ): string {
+    MangaTranslatorUiSidecarProfileCatalog.assertOptions(
+      detectionProfile,
+      inpaintingProfile,
+    )
+    const japaneseProfile: boolean =
+      MangaTranslatorUiSidecarProfileCatalog.usesJapaneseOcr(sourceLanguage)
+    if (detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL &&
+      inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_QUALITY) {
+      return japaneseProfile
+        ? MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON
+        : MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON
+    }
+    return '{"translator":{"translator":"original","target_lang":"CHS"},' +
+      MangaTranslatorUiSidecarProfileCatalog.detectorJson(detectionProfile) + ',' +
+      MangaTranslatorUiSidecarProfileCatalog.ocrJson(japaneseProfile) +
+      MangaTranslatorUiSidecarProfileCatalog.inpainterJson(inpaintingProfile) + '}'
+  }
+
+  static profileId(
+    sourceLanguage: string,
+    detectionProfile: string = MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+    inpaintingProfile: string = MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+  ): string {
+    MangaTranslatorUiSidecarProfileCatalog.assertOptions(
+      detectionProfile,
+      inpaintingProfile,
+    )
+    let output: string = MangaTranslatorUiSidecarProfileCatalog.usesJapaneseOcr(sourceLanguage)
+      ? MANGA_TRANSLATOR_UI_PROFILE_ID
+      : MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID
+    if (detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_BALANCED) {
+      output = output + '-balanced-v1'
+    }
+    if (inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST) {
+      output = output + '-aot-v1'
+    }
+    return output
+  }
+
+  static profileIdForConfig(configJson: string): string {
+    const sourceLanguages: string[] = ['auto', 'non-japanese']
+    const detectionProfiles: string[] = [
+      MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+      MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+    ]
+    const inpaintingProfiles: string[] = [
+      MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+      MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+    ]
+    for (let sourceIndex: number = 0; sourceIndex < sourceLanguages.length; sourceIndex++) {
+      for (let detectionIndex: number = 0;
+        detectionIndex < detectionProfiles.length;
+        detectionIndex++) {
+        for (let inpaintingIndex: number = 0;
+          inpaintingIndex < inpaintingProfiles.length;
+          inpaintingIndex++) {
+          if (configJson === MangaTranslatorUiSidecarProfileCatalog.configJson(
+            sourceLanguages[sourceIndex],
+            detectionProfiles[detectionIndex],
+            inpaintingProfiles[inpaintingIndex],
+          )) {
+            return MangaTranslatorUiSidecarProfileCatalog.profileId(
+              sourceLanguages[sourceIndex],
+              detectionProfiles[detectionIndex],
+              inpaintingProfiles[inpaintingIndex],
+            )
+          }
+        }
+      }
+    }
+    throw new Error('Manga translator UI config must use a pinned visual-only profile')
+  }
+
+  static supportsConfigJson(configJson: string): boolean {
+    try {
+      MangaTranslatorUiSidecarProfileCatalog.profileIdForConfig(configJson)
+      return true
+    } catch (_error) {
+      return false
+    }
+  }
+
+  static supportsProfileId(profileId: string): boolean {
+    const sourceLanguages: string[] = ['auto', 'non-japanese']
+    const detectionProfiles: string[] = [
+      MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+      MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+    ]
+    const inpaintingProfiles: string[] = [
+      MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+      MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+    ]
+    for (let sourceIndex: number = 0; sourceIndex < sourceLanguages.length; sourceIndex++) {
+      for (let detectionIndex: number = 0;
+        detectionIndex < detectionProfiles.length;
+        detectionIndex++) {
+        for (let inpaintingIndex: number = 0;
+          inpaintingIndex < inpaintingProfiles.length;
+          inpaintingIndex++) {
+          if (profileId === MangaTranslatorUiSidecarProfileCatalog.profileId(
+            sourceLanguages[sourceIndex],
+            detectionProfiles[detectionIndex],
+            inpaintingProfiles[inpaintingIndex],
+          )) {
+            return true
+          }
+        }
+      }
+    }
+    return false
+  }
+
+  static assertOptions(detectionProfile: string, inpaintingProfile: string): void {
+    if ((detectionProfile !== MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL &&
+      detectionProfile !== MANGA_TRANSLATOR_UI_DETECTION_BALANCED) ||
+      (inpaintingProfile !== MANGA_TRANSLATOR_UI_INPAINTER_QUALITY &&
+        inpaintingProfile !== MANGA_TRANSLATOR_UI_INPAINTER_FAST)) {
+      throw new Error('Manga translator UI profile options are invalid')
+    }
+  }
+
+  private static usesJapaneseOcr(sourceLanguage: string): boolean {
+    const normalized: string = sourceLanguage.trim().toLowerCase()
+    return normalized === 'auto' || normalized === 'ja' || normalized === 'jp' ||
+      normalized === 'jpn' || normalized === 'japanese'
+  }
+
+  private static detectorJson(detectionProfile: string): string {
+    if (detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL) {
+      return '"detector":{"detector":"default","detection_size":2048,' +
+        '"text_threshold":0.5,"det_rotate":false,"det_auto_rotate":false,' +
+        '"det_invert":false,"det_gamma_correct":false,"box_threshold":0.5,' +
+        '"unclip_ratio":2.5,"use_yolo_obb":true,"yolo_obb_conf":0.4,' +
+        '"yolo_obb_iou":0.6,"yolo_obb_overlap_threshold":0.1,' +
+        '"min_box_area_ratio":0}'
+    }
+    return '"detector":{"detector":"default","detection_size":2048,' +
+      '"text_threshold":0.5,"det_rotate":false,"det_auto_rotate":false,' +
+      '"det_invert":false,"det_gamma_correct":false,"box_threshold":0.7,' +
+      '"unclip_ratio":2.3,"use_yolo_obb":true,"yolo_obb_conf":0.4,' +
+      '"yolo_obb_iou":0.6,"yolo_obb_overlap_threshold":0.1,' +
+      '"min_box_area_ratio":0.0009}'
+  }
+
+  private static ocrJson(japaneseProfile: boolean): string {
+    return japaneseProfile
+      ? '"ocr":{"ocr":"48px","use_hybrid_ocr":true,"secondary_ocr":"mocr",' +
+        '"min_text_length":0,"ignore_bubble":0,"prob":0.1}'
+      : '"ocr":{"ocr":"48px","use_hybrid_ocr":false,"secondary_ocr":"48px",' +
+        '"min_text_length":0,"ignore_bubble":0,"prob":0.1}'
+  }
+
+  private static inpainterJson(inpaintingProfile: string): string {
+    return inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST
+      ? ',"inpainter":{"inpainter":"default","inpainting_size":2048}'
+      : ''
+  }
+}
 
 const MANGA_TRANSLATOR_UI_TEMPLATE_MIME: string =
   'application/vnd.manga-translator-ui.translation+json'
@@ -539,8 +709,7 @@ export class MangaTranslatorUiSidecarProtocol {
   }
 
   private static isProfileId(profileId: string): boolean {
-    return profileId === MANGA_TRANSLATOR_UI_PROFILE_ID ||
-      profileId === MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID
+    return MangaTranslatorUiSidecarProfileCatalog.supportsProfileId(profileId)
   }
 
   private static blockId(pageIndex: number, regionIndex: number): string {

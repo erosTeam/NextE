@@ -1,6 +1,6 @@
 # NextE Planning Index
 
-Last reviewed: 2026-07-21.
+Last reviewed: 2026-07-28.
 
 This file is a planning index, not a priority queue. The user's latest explicit request decides what to work on.
 The old milestone snapshot is archived at
@@ -15,11 +15,13 @@ The old milestone snapshot is archived at
   candidates only. The historical Reader text sheet is not an accepted V1 result. The completed audit is
   [Manga Translation Product Reset](plans/completed/manga-translation-product-reset.md); the local Reader boundary is
   archived as [Manga Translation Reader Acceptance](plans/archive/manga-translation-reader-acceptance-2026-07-27.md).
-  The only active manga lane is [Local Translation Quality Closure](plans/active/manga-translation-local-quality-closure.md):
-  first separate the existing container-calibration records from a real translation trace, then freeze the eligible
-  real-page Core set, establish a baseline, and qualify at most one root-cause candidate. Torii remains a
-  user-selectable parallel whole-page route and quality comparison; it neither replaces the local lane nor authorizes
-  additional cloud-provider work.
+  [Local Translation Quality Closure](plans/completed/manga-translation-local-quality-closure.md) has now closed the
+  current local visual-tuning lane and the multimodal-versus-text-only real-page A/B. It preserves an explicit image
+  upload switch and records the current model stack's stop conditions instead of opening more heuristic tuning.
+  [Self-hosted Translation Route](plans/active/manga-translation-self-hosted-route.md) remains the bounded manga lane:
+  it productizes the existing pinned `manga-translator-ui` sidecar as a third explicit route with only two quality
+  controls, pending real-page acceptance after the existing account is reauthenticated. Torii remains a
+  user-selectable whole-page route and quality comparison; neither parallel route replaces or widens the local closure.
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.

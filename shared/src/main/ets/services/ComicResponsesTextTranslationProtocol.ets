@@ -18,6 +18,9 @@ const MAX_COMIC_TEXT_TRANSLATION_SUMMARY_CHARS: number = 4096
 const MAX_COMIC_TEXT_TRANSLATION_TEXT_CHARS: number = 8192
 const MAX_COMIC_TEXT_TRANSLATION_IDENTIFIER_CHARS: number = 160
 
+export const COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL: string = 'multimodal'
+export const COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY: string = 'text_only'
+
 class ComicTextPromptBlock {
   blockId: string = ''
   readingOrder: number = 0
@@ -43,16 +46,26 @@ class RawComicTextTranslationPayload {
   blocks: RawComicBlockTranslation[] = []
 }
 
-/** Prompt and strict output protocol for translating sidecar-detected regions with the page image. */
+/** Prompt and strict output protocol for translating detected comic text regions. */
 export class ComicResponsesTextTranslationProtocol {
-  static buildPrompt(request: ComicTextTranslationRequest): string {
+  static buildPrompt(
+    request: ComicTextTranslationRequest,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  ): string {
     ComicVisualTranslationContract.validateTextTranslationRequest(request)
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     const lines: string[] = []
     lines.push('Translate the detected text regions on this comic page.')
-    lines.push('Use the attached full page image to resolve speakers, tone, references, and OCR mistakes.')
-    lines.push('The supplied blockId list and region ordering are authoritative, but OCR text is evidence rather than ground truth.')
-    lines.push('Silently correct misrecognized characters from the image when translating; do not copy an OCR mistake into the translation.')
-    lines.push('After the full page image, labeled enlarged region crops may follow. Use each crop for exact transcription of its blockId; if a crop conflicts with supplied OCR text, the crop wins.')
+    if (inputMode === COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL) {
+      lines.push('Use the attached full page image to resolve speakers, tone, references, and OCR mistakes.')
+      lines.push('The supplied blockId list and region ordering are authoritative, but OCR text is evidence rather than ground truth.')
+      lines.push('Silently correct misrecognized characters from the image when translating; do not copy an OCR mistake into the translation.')
+      lines.push('After the full page image, labeled enlarged region crops may follow. Use each crop for exact transcription of its blockId; if a crop conflicts with supplied OCR text, the crop wins.')
+    } else {
+      lines.push('No comic image is attached. Translate from the supplied OCR transcript and bounded cross-page context only.')
+      lines.push('Treat every supplied blockId, sourceText, polygon, and region ordering as authoritative input.')
+      lines.push('Do not claim to visually verify or silently replace OCR characters that are absent from the supplied text.')
+    }
     lines.push('Translate only legible text inside each supplied polygon. Never invent parenthetical narration for facial expressions, actions, scenery, or other visual content.')
     lines.push('For blocks marked kind="sfx", copy sourceText exactly. The local reader preserves stylized sound-effect artwork instead of replacing it with typeset text.')
     lines.push('For any other block that mixes semantic dialogue with repeated breathing, moaning, or onomatopoeia, translate all semantic dialogue but omit every non-semantic vocalization. Do not output a translated sound cue for that fragment.')
@@ -77,10 +90,17 @@ export class ComicResponsesTextTranslationProtocol {
     return prompt
   }
 
-  static contextFingerprint(request: ComicTextTranslationRequest): string {
+  static contextFingerprint(
+    request: ComicTextTranslationRequest,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  ): string {
     ComicVisualTranslationContract.validateTextTranslationRequest(request)
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(
-      JSON.stringify(ComicResponsesTextTranslationProtocol.payloadLines(request)),
+      JSON.stringify([
+        inputMode,
+        ComicResponsesTextTranslationProtocol.payloadLines(request),
+      ]),
     )
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
@@ -99,8 +119,10 @@ export class ComicResponsesTextTranslationProtocol {
     sourceRevision: number,
     modelId: string,
     promptVersion: string,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
   ): ComicTextTranslationResult {
     ComicVisualTranslationContract.validateTextTranslationRequest(request)
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     ComicResponsesTextTranslationProtocol.validateProviderIdentity(
       sourceProfileId,
       sourceRevision,
@@ -153,7 +175,8 @@ export class ComicResponsesTextTranslationProtocol {
     batch.sourceRevision = sourceRevision
     batch.modelId = modelId
     batch.promptVersion = promptVersion
-    batch.contextFingerprint = ComicResponsesTextTranslationProtocol.contextFingerprint(request)
+    batch.contextFingerprint =
+      ComicResponsesTextTranslationProtocol.contextFingerprint(request, inputMode)
     batch.glossaryRevision = request.context.glossaryRevision
     batch.translationRevision = request.requestedTranslationRevision
     for (let index: number = 0; index < request.document.blocks.length; index++) {
@@ -249,6 +272,13 @@ export class ComicResponsesTextTranslationProtocol {
     if (!Number.isFinite(sourceRevision) || sourceRevision <= 0 ||
       Math.floor(sourceRevision) !== sourceRevision) {
       throw new Error('Comic text translation source revision is invalid')
+    }
+  }
+
+  static validateInputMode(inputMode: string): void {
+    if (inputMode !== COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL &&
+      inputMode !== COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY) {
+      throw new Error('Comic text translation input mode is invalid')
     }
   }
 

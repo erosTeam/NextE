@@ -52,9 +52,25 @@ export class ComicTextTranslationRequest {
   requestedTranslationRevision: number = 1
 }
 
+export class ComicTextTranslationDiagnostics {
+  inputMode: string = ''
+  promptChars: number = 0
+  fullImageDataUrlChars: number = 0
+  regionCropCount: number = 0
+  regionCropDataUrlChars: number = 0
+  regionCropBytes: number = 0
+  regionCropPixels: number = 0
+  providerResponseChars: number = 0
+  prepareMs: number = 0
+  providerMs: number = 0
+  parseMs: number = 0
+  totalMs: number = 0
+}
+
 export class ComicTextTranslationResult {
   batch: ComicTranslationBatch = new ComicTranslationBatch()
   pageSummary: string = ''
+  diagnostics: ComicTextTranslationDiagnostics = new ComicTextTranslationDiagnostics()
 }
 
 export class ComicWholePageRenderRequest {

@@ -4814,15 +4814,39 @@
     },
     {
       "name": "comic_visual_route_hint",
-      "value": "Choose who produces the final translated page"
+      "value": "Choose on-device, self-hosted, or Torii processing"
     },
     {
       "name": "comic_visual_route_local",
       "value": "On-device"
     },
     {
+      "name": "comic_visual_route_self_hosted",
+      "value": "Self-hosted"
+    },
+    {
       "name": "comic_visual_route_torii",
       "value": "Torii cloud image"
+    },
+    {
+      "name": "comic_translation_multimodal_assist",
+      "value": "Upload images to assist translation"
+    },
+    {
+      "name": "comic_translation_multimodal_assist_notice",
+      "value": "On sends the full page and text-region crops to the selected LLM. Off sends only OCR text and context."
+    },
+    {
+      "name": "comic_translation_multimodal_source_unsupported",
+      "value": "The selected LLM source does not support image input."
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm_title",
+      "value": "Use self-hosted processing?"
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm",
+      "value": "The current manga page is sent to your configured service only when you translate it. The service handles detection, OCR, inpainting, and typesetting; translation still uses your selected LLM source."
     },
     {
       "name": "comic_visual_route_torii_confirm_title",
@@ -4922,7 +4946,7 @@
     },
     {
       "name": "comic_render_service_title",
-      "value": "Rendering service"
+      "value": "Self-hosted"
     },
     {
       "name": "comic_render_service_summary",
@@ -4938,11 +4962,35 @@
     },
     {
       "name": "comic_render_service_profile",
-      "value": "Compatibility profile"
+      "value": "Engine"
     },
     {
       "name": "comic_render_service_profile_hint",
       "value": "Pinned export and import contract"
+    },
+    {
+      "name": "comic_render_service_detection",
+      "value": "Detection sensitivity"
+    },
+    {
+      "name": "comic_render_service_detection_high_recall",
+      "value": "High recall"
+    },
+    {
+      "name": "comic_render_service_detection_balanced",
+      "value": "Balanced"
+    },
+    {
+      "name": "comic_render_service_inpainting",
+      "value": "Inpainting"
+    },
+    {
+      "name": "comic_render_service_inpainting_quality",
+      "value": "LaMa quality"
+    },
+    {
+      "name": "comic_render_service_inpainting_fast",
+      "value": "AOT fast"
     },
     {
       "name": "comic_render_service_url",
@@ -4997,20 +5045,28 @@
       "value": "Connection failed: %s"
     },
     {
+      "name": "comic_render_service_session_expired",
+      "value": "The saved session expired. Enter the username and password."
+    },
+    {
+      "name": "comic_render_service_check_generic_reason",
+      "value": "Check the address, account, and service version."
+    },
+    {
       "name": "comic_render_service_available",
       "value": "Available"
     },
     {
       "name": "comic_render_service_save_failed",
-      "value": "Could not save rendering service: %s"
+      "value": "Could not save self-hosted settings: %s"
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "Credentials stay in private app storage and enter encrypted backups only; session tokens remain memory-only. Public services require HTTPS."
+      "value": "Pages are sent only while self-hosted processing is selected. LLM credentials are never sent to this service. Public services require HTTPS."
     },
     {
       "name": "comic_translation_settings_hint",
-      "value": "Whole-page multimodal translation, model, and provider"
+      "value": "On-device workflow, model, and cloud service"
     },
     {
       "name": "comic_translation_provider",
@@ -5430,7 +5486,7 @@
     },
     {
       "name": "llm_source_support_comments",
-      "value": "Comment translation"
+      "value": "Use for comment translation"
     },
     {
       "name": "llm_source_support_comments_hint",
@@ -5438,11 +5494,11 @@
     },
     {
       "name": "llm_source_support_manga",
-      "value": "Manga translation"
+      "value": "Use for manga translation"
     },
     {
       "name": "llm_source_support_manga_hint",
-      "value": "Supports Responses requests with image input"
+      "value": "Manga translation requires Responses with image input"
     },
     {
       "name": "llm_source_support_catalog",

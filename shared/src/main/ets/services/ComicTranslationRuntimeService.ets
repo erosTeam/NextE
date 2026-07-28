@@ -6,11 +6,16 @@ import { image } from '@kit.ImageKit'
 import { ComicRenderProfile } from '../model/ComicVisualTranslation'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
+  COMIC_VISUAL_ROUTE_SELF_HOSTED,
   COMIC_VISUAL_ROUTE_TORII,
   ComicVisualProviderSettings,
   ComicVisualProviderSettingsSnapshot,
   ToriiFontCatalog,
 } from '../settings/ComicVisualProviderSettings'
+import {
+  MangaRenderingServiceSettings,
+  MangaRenderingServiceSettingsSnapshot,
+} from '../settings/MangaRenderingServiceSettings'
 import { CacheStat } from './CacheStat'
 import {
   ComicWholePageTranslationOrchestrator,
@@ -31,6 +36,10 @@ import {
   ComicTranslationModelService,
 } from './ComicTranslationModelService'
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
+import {
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
+} from './ComicResponsesTextTranslationProtocol'
 import { ComicTranslationRepository } from './ComicTranslationRepository'
 import { PersistentComicTranslationRepository } from './ComicTranslationPersistentRepository'
 import {
@@ -43,6 +52,14 @@ import {
   ComicVisualTranslationRequest,
   ComicVisualTranslationRunResult,
 } from './ComicVisualTranslationOrchestrator'
+import {
+  MangaTranslatorUiSidecarBackend,
+  MangaTranslatorUiSidecarConfig,
+} from './MangaTranslatorUiSidecarBackend'
+import {
+  MangaRenderingServiceCredential,
+  MangaRenderingServiceSecretStore,
+} from './MangaRenderingServiceSecretStore'
 import { ToriiWholePageContextStore } from './ToriiWholePageContextStore'
 import {
   TORII_WHOLE_PAGE_LAYOUT_PROFILE_ID,
@@ -61,6 +78,12 @@ const COMIC_READER_HASH_CHUNK_BYTES: number = 256 * 1024
 const COMIC_READER_RENDER_PROFILE_ID: string = 'reader-local-bubble-layout-v45'
 const COMIC_READER_SOURCE_TREATMENT_PROFILE_ID: string = 'local-ctd-aot-inpaint-v30'
 const COMIC_READER_LAYOUT_PROFILE_ID: string = 'local-bubble-typography-v39'
+const COMIC_READER_SELF_HOSTED_RENDER_PROFILE_ID: string =
+  'reader-manga-translator-ui-render-v2'
+const COMIC_READER_SELF_HOSTED_SOURCE_TREATMENT_PROFILE_ID: string =
+  'manga-translator-ui-v1.9.9-source-treatment-v2'
+const COMIC_READER_SELF_HOSTED_LAYOUT_PROFILE_ID: string =
+  'manga-translator-ui-v1.9.9-layout-v2'
 const MAX_RUNTIME_ORCHESTRATORS: number = 4
 const MAX_COMIC_READER_IDENTIFIER_CHARS: number = 160
 const MAX_COMIC_READER_IMAGE_PATH_CHARS: number = 4096
@@ -116,25 +139,55 @@ export class ComicTranslationRuntimeService {
         forceRefresh,
       )
     }
+    if (visualSettings.route === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
+      return ComicTranslationRuntimeService.runSelfHostedPage(
+        context,
+        input,
+        metadata,
+        ComicTranslationRuntimeService.translationInputMode(visualSettings),
+        forceRefresh,
+      )
+    }
     const backend: ComicRegionRenderBackend =
       ComicTranslationRuntimeService.localBackendFor(context)
-    const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(context)
-    const regionRevision: number = backend.protocolRevision()
+    return ComicTranslationRuntimeService.runRegionPage(
+      context,
+      input,
+      metadata,
+      backend,
+      ComicTranslationRuntimeService.renderProfile(),
+      backend.protocolRevision(),
+      '',
+      ComicTranslationRuntimeService.translationInputMode(visualSettings),
+      forceRefresh,
+    )
+  }
+
+  private static async runRegionPage(
+    context: common.UIAbilityContext,
+    input: ComicTranslationReaderPageInput,
+    metadata: ComicTranslationReaderFileMetadata,
+    backend: ComicRegionRenderBackend,
+    renderProfile: ComicRenderProfile,
+    regionRevision: number,
+    runtimeFingerprint: string,
+    translationInputMode: string,
+    forceRefresh: boolean,
+  ): Promise<ComicVisualTranslationRunResult> {
+    const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(
+      context,
+      translationInputMode,
+    )
     const orchestrator: ComicVisualTranslationOrchestrator =
       ComicTranslationRuntimeService.orchestrator(
         context,
         backend,
         translator,
         regionRevision,
+        runtimeFingerprint,
       )
     const request: ComicVisualTranslationRequest = new ComicVisualTranslationRequest()
-    request.source = new ComicVisualPageSource()
-    request.source.projectId = input.projectId
-    request.source.pageIndex = input.pageIndex
-    request.source.imageFilePath = input.imageFilePath
-    request.source.imageHash = metadata.imageHash
-    request.source.imageWidth = metadata.imageWidth
-    request.source.imageHeight = metadata.imageHeight
+    request.source = ComicTranslationRuntimeService.visualSource(input, metadata)
     request.context.sourceLanguage = input.sourceLanguage
     request.context.targetLanguage = input.targetLanguage
     request.context.styleGuide =
@@ -142,7 +195,7 @@ export class ComicTranslationRuntimeService {
     request.context.glossaryRevision = 0
     request.context.styleGuideRevision = 2
     request.context.contextRevision = 1
-    request.renderProfile = ComicTranslationRuntimeService.renderProfile()
+    request.renderProfile = renderProfile
     request.requestedRegionRevision = regionRevision
     request.requestedDocumentRevision = 1
     request.requestedTranslationRevision = 1
@@ -230,17 +283,67 @@ export class ComicTranslationRuntimeService {
     return orchestrator.run(request, forceRefresh)
   }
 
+  private static async runSelfHostedPage(
+    context: common.UIAbilityContext,
+    input: ComicTranslationReaderPageInput,
+    metadata: ComicTranslationReaderFileMetadata,
+    translationInputMode: string,
+    forceRefresh: boolean,
+  ): Promise<ComicVisualTranslationRunResult> {
+    const settings: MangaRenderingServiceSettingsSnapshot =
+      await MangaRenderingServiceSettings.load(context)
+    if (!settings.configured()) {
+      throw new Error('Self-hosted manga translation service is not configured')
+    }
+    const credential: MangaRenderingServiceCredential =
+      await MangaRenderingServiceSecretStore.read(context)
+    const config: MangaTranslatorUiSidecarConfig = new MangaTranslatorUiSidecarConfig()
+    config.baseUrl = settings.baseUrl
+    config.username = credential.username
+    config.password = credential.password
+    config.sessionToken = credential.legacySessionToken
+    config.applyProfile(
+      input.sourceLanguage,
+      settings.detectionProfile,
+      settings.inpaintingProfile,
+    )
+    config.validatedBaseUrl()
+    const backend: MangaTranslatorUiSidecarBackend =
+      new MangaTranslatorUiSidecarBackend(context, config)
+    return ComicTranslationRuntimeService.runRegionPage(
+      context,
+      input,
+      metadata,
+      backend,
+      ComicTranslationRuntimeService.selfHostedRenderProfile(),
+      ComicTranslationRuntimeService.selfHostedRegionRevision(config),
+      ComicTranslationRuntimeService.credentialRuntimeFingerprint(credential),
+      translationInputMode,
+      forceRefresh,
+    )
+  }
+
+  private static translationInputMode(
+    settings: ComicVisualProviderSettingsSnapshot,
+  ): string {
+    return settings.multimodalTranslationEnabled
+      ? COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL
+      : COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY
+  }
+
   private static orchestrator(
     context: common.UIAbilityContext,
     backend: ComicRegionRenderBackend,
     translator: ComicTextTranslator,
     regionRevision: number,
+    runtimeFingerprint: string,
   ): ComicVisualTranslationOrchestrator {
     const runtimeKey: string = ComicTranslationRuntimeService.digest(JSON.stringify([
       backend.backendId(),
       backend.profileId(),
       `${backend.protocolRevision()}`,
       `${regionRevision}`,
+      runtimeFingerprint,
       translator.sourceProfileId(),
       `${translator.sourceRevision()}`,
       translator.modelId(),
@@ -400,6 +503,39 @@ export class ComicTranslationRuntimeService {
     profile.targetMimeType = 'image/png'
     profile.revision = 1
     return profile
+  }
+
+  private static selfHostedRenderProfile(): ComicRenderProfile {
+    const profile: ComicRenderProfile = new ComicRenderProfile()
+    profile.profileId = COMIC_READER_SELF_HOSTED_RENDER_PROFILE_ID
+    profile.sourceTreatmentProfileId =
+      COMIC_READER_SELF_HOSTED_SOURCE_TREATMENT_PROFILE_ID
+    profile.layoutProfileId = COMIC_READER_SELF_HOSTED_LAYOUT_PROFILE_ID
+    profile.targetMimeType = 'image/png'
+    profile.revision = 2
+    return profile
+  }
+
+  private static selfHostedRegionRevision(
+    config: MangaTranslatorUiSidecarConfig,
+  ): number {
+    const fingerprint: string = ComicTranslationRuntimeService.digest(JSON.stringify([
+      config.validatedBaseUrl(),
+      config.translationConfigJson,
+      `${config.connectTimeoutMs}`,
+      `${config.readTimeoutMs}`,
+    ]))
+    return Math.max(1, Number.parseInt(fingerprint.substring(0, 12), 16))
+  }
+
+  private static credentialRuntimeFingerprint(
+    credential: MangaRenderingServiceCredential,
+  ): string {
+    return ComicTranslationRuntimeService.digest(JSON.stringify([
+      credential.username,
+      credential.password,
+      credential.legacySessionToken,
+    ]))
   }
 
   private static visualSource(

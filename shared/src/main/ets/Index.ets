@@ -103,6 +103,7 @@ export {
   LlmSourceResolution,
   generateLlmSourceProfileId,
   supportsCommentTranslation,
+  supportsMangaTranslation,
 } from './model/LlmSourceProfile'
 export {
   ReaderSourceDescriptor,
@@ -254,9 +255,12 @@ export {
   ComicResponsesRegionImagePayload,
 } from './services/ComicResponsesRegionImagePayload'
 export {
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
   ComicResponsesTextTranslationProtocol,
 } from './services/ComicResponsesTextTranslationProtocol'
 export {
+  COMIC_RESPONSES_TEXT_ONLY_TRANSLATION_PROMPT_VERSION,
   COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION,
   ComicTextTranslatorFactory,
   ExperimentalCodexComicTextTranslator,
@@ -292,6 +296,7 @@ export {
   ComicRegionAnalysisRequest,
   ComicRegionRenderBackend,
   ComicRegionRenderRequest,
+  ComicTextTranslationDiagnostics,
   ComicTextTranslationRequest,
   ComicTextTranslationResult,
   ComicTextTranslator,
@@ -407,10 +412,14 @@ export {
   MANGA_TRANSLATOR_UI_BACKEND_ID,
   MANGA_TRANSLATOR_UI_AUTH_CHECK_PATH,
   MANGA_TRANSLATOR_UI_AUTH_LOGIN_PATH,
+  MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+  MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
   MANGA_TRANSLATOR_UI_EXPORT_JSON_ENTRY,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_EXPORT_TEXT_ENTRY,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+  MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
   MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
   MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
@@ -418,6 +427,7 @@ export {
   MANGA_TRANSLATOR_UI_UPSTREAM_COMMIT,
   MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
   MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
+  MangaTranslatorUiSidecarProfileCatalog,
   MangaTranslatorUiSidecarProtocol,
 } from './services/MangaTranslatorUiSidecarProtocol'
 export {
@@ -702,6 +712,7 @@ export {
 } from './settings/MangaRenderingServiceSettings'
 export {
   COMIC_VISUAL_ROUTE_LOCAL,
+  COMIC_VISUAL_ROUTE_SELF_HOSTED,
   COMIC_VISUAL_ROUTE_TORII,
   TORII_DEFAULT_MODEL_ID,
   TORII_FONT_MA_SHAN_ZHENG,

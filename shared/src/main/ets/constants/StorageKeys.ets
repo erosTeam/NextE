@@ -112,6 +112,8 @@ export class StorageKeys {
   static readonly COMIC_TRANSLATION_LLM_SOURCE_PROFILE: string = 'comicTranslation.llmSourceProfile'
   static readonly COMIC_TRANSLATION_LLM_MODEL: string = 'comicTranslation.llmModel'
   static readonly COMIC_TRANSLATION_VISUAL_ROUTE: string = 'comicTranslation.visualRoute'
+  static readonly COMIC_TRANSLATION_MULTIMODAL_ASSIST: string =
+    'comicTranslation.multimodalAssist'
   static readonly COMIC_TRANSLATION_TORII_MODEL: string = 'comicTranslation.torii.model'
   // Retired Torii BYOK tombstones. Read only to delete; do not restore as product settings.
   static readonly COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE: string =
@@ -131,6 +133,10 @@ export class StorageKeys {
     'comicTranslation.torii.credential'
   static readonly COMIC_TRANSLATION_RENDER_SERVICE_URL: string =
     'comicTranslation.renderService.url'
+  static readonly COMIC_TRANSLATION_RENDER_SERVICE_DETECTION: string =
+    'comicTranslation.renderService.detection'
+  static readonly COMIC_TRANSLATION_RENDER_SERVICE_INPAINTER: string =
+    'comicTranslation.renderService.inpainter'
   // Sidecar login credentials; legacy session tokens remain readable. Encrypted backup only; never sync.
   static readonly COMIC_TRANSLATION_RENDER_SERVICE_CREDENTIAL: string =
     'comicTranslation.renderService.credential'

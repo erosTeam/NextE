@@ -24,18 +24,30 @@ import {
   ComicResponsesRegionImage,
   ComicResponsesRegionImagePayload,
 } from './ComicResponsesRegionImagePayload'
-import { ComicResponsesTextTranslationProtocol } from './ComicResponsesTextTranslationProtocol'
+import {
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
+  ComicResponsesTextTranslationProtocol,
+} from './ComicResponsesTextTranslationProtocol'
 import { ExperimentalCodexOAuthService } from './ExperimentalCodexOAuthService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
 
 export const COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION: string =
   'comic-text-responses-v8'
+export const COMIC_RESPONSES_TEXT_ONLY_TRANSLATION_PROMPT_VERSION: string =
+  'comic-text-responses-text-only-v1'
 
 class ComicResponsesTextTranslatorCore {
   private readonly providerCore: ComicResponsesProviderCore
+  private readonly inputMode: string
 
-  constructor(transport: ComicResponsesHttpTransport) {
+  constructor(
+    transport: ComicResponsesHttpTransport,
+    inputMode: string,
+  ) {
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     this.providerCore = new ComicResponsesProviderCore(transport)
+    this.inputMode = inputMode
   }
 
   async translate(
@@ -44,13 +56,17 @@ class ComicResponsesTextTranslatorCore {
     sourceRevision: number,
   ): Promise<ComicTextTranslationResult> {
     const startedAt: number = Date.now()
-    const prompt: string = ComicResponsesTextTranslationProtocol.buildPrompt(request)
-    const imageDataUrl: string = ComicResponsesImagePayload.dataUrl(
-      request.source.imageFilePath,
-      request.source.imageHash,
-    )
-    const crops: ComicResponsesRegionImage[] =
-      await ComicResponsesRegionImagePayload.build(request)
+    const prompt: string =
+      ComicResponsesTextTranslationProtocol.buildPrompt(request, this.inputMode)
+    let imageDataUrl: string = ''
+    let crops: ComicResponsesRegionImage[] = []
+    if (this.inputMode === COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL) {
+      imageDataUrl = ComicResponsesImagePayload.dataUrl(
+        request.source.imageFilePath,
+        request.source.imageHash,
+      )
+      crops = await ComicResponsesRegionImagePayload.build(request)
+    }
     const additionalImages: ComicResponsesLabeledImage[] = []
     for (let index: number = 0; index < crops.length; index++) {
       const input: ComicResponsesLabeledImage = new ComicResponsesLabeledImage()
@@ -67,14 +83,16 @@ class ComicResponsesTextTranslatorCore {
       cropPixels += crops[index].width * crops[index].height
     }
     const payloadPreparedAt: number = Date.now()
+    const prepareMs: number = payloadPreparedAt - startedAt
     DiagnosticLogger.info(
       'comic-translation',
       'text_request_payload',
-      `page=${request.source.pageIndex} source=${request.source.imageWidth}x${request.source.imageHeight} ` +
+      `page=${request.source.pageIndex} input=${this.inputMode} ` +
+        `source=${request.source.imageWidth}x${request.source.imageHeight} ` +
         `blocks=${request.document.blocks.length} promptChars=${prompt.length} ` +
         `fullImageChars=${imageDataUrl.length} crops=${crops.length} ` +
         `cropChars=${cropDataUrlChars} cropBytes=${cropBytes} cropPixels=${cropPixels} ` +
-        `prepare=${payloadPreparedAt - startedAt}ms`,
+        `prepare=${prepareMs}ms`,
     )
     const providerJson: string = await this.providerCore.requestJson(
       prompt,
@@ -82,24 +100,52 @@ class ComicResponsesTextTranslatorCore {
       config,
       additionalImages,
     )
+    const providerCompletedAt: number = Date.now()
+    const providerMs: number = providerCompletedAt - payloadPreparedAt
     DiagnosticLogger.info(
       'comic-translation',
       'text_request_timing',
-      `page=${request.source.pageIndex} prepare=${payloadPreparedAt - startedAt}ms ` +
-        `provider=${Date.now() - payloadPreparedAt}ms total=${Date.now() - startedAt}ms`,
+      `page=${request.source.pageIndex} input=${this.inputMode} ` +
+        `prepare=${prepareMs}ms ` +
+        `provider=${providerMs}ms total=${providerCompletedAt - startedAt}ms`,
     )
     try {
-      return ComicResponsesTextTranslationProtocol.parse(
+      const result: ComicTextTranslationResult = ComicResponsesTextTranslationProtocol.parse(
         request,
         providerJson,
         config.providerId,
         sourceRevision,
         config.model,
-        COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION,
+        this.promptVersion(),
+        this.inputMode,
       )
+      const finishedAt: number = Date.now()
+      result.diagnostics.inputMode = this.inputMode
+      result.diagnostics.promptChars = prompt.length
+      result.diagnostics.fullImageDataUrlChars = imageDataUrl.length
+      result.diagnostics.regionCropCount = crops.length
+      result.diagnostics.regionCropDataUrlChars = cropDataUrlChars
+      result.diagnostics.regionCropBytes = cropBytes
+      result.diagnostics.regionCropPixels = cropPixels
+      result.diagnostics.providerResponseChars = providerJson.length
+      result.diagnostics.prepareMs = prepareMs
+      result.diagnostics.providerMs = providerMs
+      result.diagnostics.parseMs = finishedAt - providerCompletedAt
+      result.diagnostics.totalMs = finishedAt - startedAt
+      return result
     } catch (error) {
       throw ComicResponsesProviderCore.stageError('output', error as Error)
     }
+  }
+
+  promptVersion(): string {
+    return this.inputMode === COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY
+      ? COMIC_RESPONSES_TEXT_ONLY_TRANSLATION_PROMPT_VERSION
+      : COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION
+  }
+
+  contextFingerprint(request: ComicTextTranslationRequest): string {
+    return ComicResponsesTextTranslationProtocol.contextFingerprint(request, this.inputMode)
   }
 }
 
@@ -115,6 +161,7 @@ export class OpenAiApiComicTextTranslator implements ComicTextTranslator {
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
     sourceProfileId: string = 'openai-responses-api',
     sourceRevision: number = 1,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
   ) {
     this.config = new ComicResponsesCallConfig()
     this.config.providerId = sourceProfileId
@@ -122,7 +169,7 @@ export class OpenAiApiComicTextTranslator implements ComicTextTranslator {
     this.config.accessToken = apiKey
     this.config.model = model
     this.revision = sourceRevision
-    this.core = new ComicResponsesTextTranslatorCore(transport)
+    this.core = new ComicResponsesTextTranslatorCore(transport, inputMode)
   }
 
   sourceProfileId(): string {
@@ -138,11 +185,11 @@ export class OpenAiApiComicTextTranslator implements ComicTextTranslator {
   }
 
   promptVersion(): string {
-    return COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION
+    return this.core.promptVersion()
   }
 
   contextFingerprint(request: ComicTextTranslationRequest): string {
-    return ComicResponsesTextTranslationProtocol.contextFingerprint(request)
+    return this.core.contextFingerprint(request)
   }
 
   translate(request: ComicTextTranslationRequest): Promise<ComicTextTranslationResult> {
@@ -163,12 +210,13 @@ export class ExperimentalCodexComicTextTranslator implements ComicTextTranslator
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
     sourceProfileId: string = 'codex-oauth-experimental',
     sourceRevision: number = 1,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
   ) {
     this.context = context
     this.model = model
     this.profileId = sourceProfileId
     this.revision = sourceRevision
-    this.core = new ComicResponsesTextTranslatorCore(transport)
+    this.core = new ComicResponsesTextTranslatorCore(transport, inputMode)
   }
 
   sourceProfileId(): string {
@@ -184,11 +232,11 @@ export class ExperimentalCodexComicTextTranslator implements ComicTextTranslator
   }
 
   promptVersion(): string {
-    return COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION
+    return this.core.promptVersion()
   }
 
   contextFingerprint(request: ComicTextTranslationRequest): string {
-    return ComicResponsesTextTranslationProtocol.contextFingerprint(request)
+    return this.core.contextFingerprint(request)
   }
 
   async translate(request: ComicTextTranslationRequest): Promise<ComicTextTranslationResult> {
@@ -227,9 +275,13 @@ export class ExperimentalCodexComicTextTranslator implements ComicTextTranslator
 export class ComicTextTranslatorFactory {
   static async create(
     context: common.UIAbilityContext,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
   ): Promise<ComicTextTranslator> {
-    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(context)
+    const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveManga(
+      context,
+      inputMode === COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+    )
     if (runtime.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
       return new ExperimentalCodexComicTextTranslator(
         context,
@@ -237,6 +289,7 @@ export class ComicTextTranslatorFactory {
         transport,
         runtime.sourceProfileId,
         runtime.sourceRevision,
+        inputMode,
       )
     }
     if (runtime.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
@@ -247,6 +300,7 @@ export class ComicTextTranslatorFactory {
         transport,
         runtime.sourceProfileId,
         runtime.sourceRevision,
+        inputMode,
       )
     }
     throw new Error('Selected LLM source type is unsupported')

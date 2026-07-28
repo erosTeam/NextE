@@ -6,6 +6,8 @@ import { image } from '@kit.ImageKit'
 import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
   ComicBlockTranslation,
   ComicBackendTemplate,
   ComicLocalOcrLine,
@@ -160,6 +162,29 @@ function liveTranslationMode(): string {
     throw new Error('Live translation mode is invalid')
   }
   return mode
+}
+
+function liveTranslationInputMode(): string {
+  const mode: string = parameter('comicLiveTranslationInputMode').trim()
+  if (mode.length === 0) {
+    return COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL
+  }
+  if (mode !== COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL &&
+    mode !== COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY) {
+    throw new Error('Live translation input mode is invalid')
+  }
+  return mode
+}
+
+function liveTranslationLanguage(name: string, fallback: string): string {
+  const value: string = parameter(name).trim()
+  if (value.length === 0) {
+    return fallback
+  }
+  if (!/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8}){0,3}$/.test(value)) {
+    throw new Error('Live translation language is invalid')
+  }
+  return value
 }
 
 function externalReplayManifestName(): string {
@@ -433,6 +458,11 @@ function loadReplayPages(
   manifestName: string,
 ): ExternalReplayPage[] {
   const manifestPath: string = `${root}/${manifestName}`
+  if (!fileIo.accessSync(manifestPath)) {
+    throw new Error(
+      `External replay manifest is unavailable: root=${root}, manifest=${manifestName}`,
+    )
+  }
   const lines: string[] = fileIo.readTextSync(manifestPath).split('\n')
   const pages: ExternalReplayPage[] = []
   const ids: Set<string> = new Set<string>()
@@ -1005,12 +1035,14 @@ function liveTranslationRequest(
   source: ComicVisualPageSource,
   analysis: ComicRegionAnalysisResult,
   translationRevision: number,
+  sourceLanguage: string,
+  targetLanguage: string,
 ): ComicTextTranslationRequest {
   const request: ComicTextTranslationRequest = new ComicTextTranslationRequest()
   request.source = source
   request.document = analysis.document
-  request.context.sourceLanguage = 'en'
-  request.context.targetLanguage = 'zh-CN'
+  request.context.sourceLanguage = sourceLanguage
+  request.context.targetLanguage = targetLanguage
   request.context.styleGuide =
     'Use concise natural Chinese suitable for comic lettering. Keep names, forms of address, tone, and references consistent across all blocks on the page.'
   request.context.glossaryRevision = 0
@@ -1184,10 +1216,17 @@ export default function comicLocalExternalReplayTest(): void {
           inpaintingPaths === null) {
           return
         }
+        const manifestName: string = externalReplayManifestName()
+        if (!fileIo.accessSync(`${root}/${manifestName}`)) {
+          throw new Error(
+            `External replay manifest is unavailable: root=${root}, manifest=${manifestName}, ` +
+            `mainCache=${mainContext.cacheDir}, fixtureCache=${fixtureContext.cacheDir}`,
+          )
+        }
         const pages: ExternalReplayPage[] = loadReplayPages(
           root,
           calibrationOnly,
-          externalReplayManifestName(),
+          manifestName,
         )
         const selectedPageIndex: number = optionalPageIndex(
           'comicExternalReplayPageNumber',
@@ -1198,6 +1237,11 @@ export default function comicLocalExternalReplayTest(): void {
         }
         const translationMode: string = liveTranslationMode()
         const liveTranslation: boolean = translationMode.length > 0
+        const translationInputMode: string = liveTranslationInputMode()
+        const liveTranslationSourceLanguage: string =
+          liveTranslationLanguage('comicLiveTranslationSourceLanguage', 'en')
+        const liveTranslationTargetLanguage: string =
+          liveTranslationLanguage('comicLiveTranslationTargetLanguage', 'zh-CN')
         const candidateParentRender: boolean = candidateParentRenderEnabled()
         const candidateContinuationMerge: boolean =
           candidateContinuationMergeEnabled()
@@ -1349,12 +1393,15 @@ export default function comicLocalExternalReplayTest(): void {
                 source,
                 renderAnalysis,
                 pageIndex + 1,
+                liveTranslationSourceLanguage,
+                liveTranslationTargetLanguage,
               )
               if (translationMode === 'export') {
                 ComicTranslationDebugProbeService.exportRequest(
                   mainContext,
                   liveTranslationProbeId,
                   request,
+                  translationInputMode,
                 )
                 replay = containerCalibrationTranslations(
                   source,
@@ -1367,6 +1414,7 @@ export default function comicLocalExternalReplayTest(): void {
                     mainContext,
                     liveTranslationProbeId,
                     request,
+                    translationInputMode,
                   )
                 replay = new ReplayTranslationResult()
                 replay.batch = imported.result.batch

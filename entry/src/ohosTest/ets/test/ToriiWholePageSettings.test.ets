@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
+  COMIC_VISUAL_ROUTE_SELF_HOSTED,
+  ComicVisualProviderSettingsSnapshot,
+  MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+  MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+  MangaRenderingServiceSettingsSnapshot,
   TORII_FONT_MA_SHAN_ZHENG,
   TORII_FONT_NOTO,
   TORII_FONT_WILDWORDS,
@@ -43,6 +48,32 @@ class FakeToriiCreditsTransport implements ToriiCreditsHttpTransport {
 
 export default function toriiWholePageSettingsTest(): void {
   describe('ToriiWholePageSettings', () => {
+    it('accepts self-hosted as a parallel visual route with finite profiles', 0, () => {
+      const visual: ComicVisualProviderSettingsSnapshot =
+        new ComicVisualProviderSettingsSnapshot()
+      visual.route = COMIC_VISUAL_ROUTE_SELF_HOSTED
+      visual.multimodalTranslationEnabled = false
+      visual.assertValid()
+      expect(visual.copy().multimodalTranslationEnabled).assertFalse()
+
+      const rendering: MangaRenderingServiceSettingsSnapshot =
+        new MangaRenderingServiceSettingsSnapshot()
+      rendering.baseUrl = 'https://manga.example.test'
+      rendering.detectionProfile = MANGA_TRANSLATOR_UI_DETECTION_BALANCED
+      rendering.inpaintingProfile = MANGA_TRANSLATOR_UI_INPAINTER_FAST
+      rendering.assertValid()
+      expect(rendering.copy().configured()).assertEqual(true)
+
+      rendering.inpaintingProfile = 'arbitrary'
+      let invalidRejected: boolean = false
+      try {
+        rendering.assertValid()
+      } catch (_error) {
+        invalidRejected = true
+      }
+      expect(invalidRejected).assertEqual(true)
+    })
+
     it('uses the versioned official model snapshot and rejects unknown IDs', 0, () => {
       const models: ToriiTranslatorModel[] = ToriiTranslatorModelCatalog.all()
       expect(models.length).assertEqual(8)

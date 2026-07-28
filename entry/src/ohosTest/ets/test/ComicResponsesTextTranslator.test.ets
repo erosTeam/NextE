@@ -5,6 +5,8 @@ import { abilityDelegatorRegistry } from '@kit.TestKit'
 import { describe, expect, it } from '@ohos/hypium'
 import {
   AxiosTextResponse,
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
   ComicPageDocument,
   ComicPoint,
   ComicPreviousPageContext,
@@ -243,12 +245,60 @@ export default function comicResponsesTextTranslatorTest(): void {
             translator.contextFingerprint(request),
           )
           expect(result.pageSummary).assertEqual('优发现哥哥就在前方并叫他停下。')
+          expect(result.diagnostics.inputMode)
+            .assertEqual(COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL)
+          expect(result.diagnostics.fullImageDataUrlChars > 0).assertEqual(true)
+          expect(result.diagnostics.regionCropCount).assertEqual(2)
+          expect(result.diagnostics.regionCropDataUrlChars > 0).assertEqual(true)
+          expect(result.diagnostics.providerResponseChars > 0).assertEqual(true)
         } finally {
           try {
             fileIo.unlinkSync(path)
           } catch (_error) {
           }
         }
+        done()
+      })
+
+    it('sends the same detected blocks without reading or attaching an image in text-only mode', 0,
+      async (done: Function) => {
+        const request: ComicTextTranslationRequest = translationRequest(
+          '/cache/this-image-does-not-exist.jpg',
+          'f'.repeat(64),
+        )
+        const transport: FixedTranslationTransport =
+          new FixedTranslationTransport(outputPayload(request))
+        const translator: OpenAiApiComicTextTranslator = new OpenAiApiComicTextTranslator(
+          'https://api.example.com/v1',
+          'fixture-key',
+          'fixture-model',
+          transport,
+          'source-fixture',
+          7,
+          COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY,
+        )
+        const result: ComicTextTranslationResult = await translator.translate(request)
+        expect(transport.requestCount).assertEqual(1)
+        expect(transport.requestBody.includes('"type":"input_image"')).assertEqual(false)
+        expect(transport.requestBody.includes('data:image/')).assertEqual(false)
+        expect(transport.requestBody.includes('No comic image is attached')).assertEqual(true)
+        expect(transport.requestBody.includes('お兄ちゃん')).assertEqual(true)
+        expect(transport.requestBody.includes('我在找哥哥。')).assertEqual(true)
+        expect(result.batch.blocks.length).assertEqual(2)
+        expect(result.batch.promptVersion).assertEqual(translator.promptVersion())
+        expect(result.batch.contextFingerprint).assertEqual(
+          translator.contextFingerprint(request),
+        )
+        expect(result.diagnostics.inputMode)
+          .assertEqual(COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY)
+        expect(result.diagnostics.fullImageDataUrlChars).assertEqual(0)
+        expect(result.diagnostics.regionCropCount).assertEqual(0)
+        expect(result.diagnostics.regionCropDataUrlChars).assertEqual(0)
+        expect(result.diagnostics.providerResponseChars > 0).assertEqual(true)
+        expect(ComicResponsesTextTranslationProtocol.contextFingerprint(
+          request,
+          COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+        ) === result.batch.contextFingerprint).assertEqual(false)
         done()
       })
 

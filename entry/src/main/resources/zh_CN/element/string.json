@@ -4814,15 +4814,39 @@
     },
     {
       "name": "comic_visual_route_hint",
-      "value": "选择由端侧还是云端生成最终译图"
+      "value": "选择端侧、自部署或 Torii 处理"
     },
     {
       "name": "comic_visual_route_local",
       "value": "端侧处理"
     },
     {
+      "name": "comic_visual_route_self_hosted",
+      "value": "自部署"
+    },
+    {
       "name": "comic_visual_route_torii",
       "value": "Torii 云端整图"
+    },
+    {
+      "name": "comic_translation_multimodal_assist",
+      "value": "上传图片辅助翻译"
+    },
+    {
+      "name": "comic_translation_multimodal_assist_notice",
+      "value": "开启后向所选 LLM 上传整页和文字区域裁图；关闭后只发送 OCR 文本与上下文。"
+    },
+    {
+      "name": "comic_translation_multimodal_source_unsupported",
+      "value": "当前 LLM 源不支持图片输入。"
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm_title",
+      "value": "使用自部署处理？"
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm",
+      "value": "只有主动翻译时才会向你配置的服务上传当前漫画页。服务负责检测、OCR、修复和排版；翻译仍使用已选 LLM 源。"
     },
     {
       "name": "comic_visual_route_torii_confirm_title",
@@ -4922,7 +4946,7 @@
     },
     {
       "name": "comic_render_service_title",
-      "value": "制图服务"
+      "value": "自部署"
     },
     {
       "name": "comic_render_service_summary",
@@ -4938,11 +4962,35 @@
     },
     {
       "name": "comic_render_service_profile",
-      "value": "兼容协议"
+      "value": "引擎"
     },
     {
       "name": "comic_render_service_profile_hint",
       "value": "固定的导出与回填协议"
+    },
+    {
+      "name": "comic_render_service_detection",
+      "value": "检测灵敏度"
+    },
+    {
+      "name": "comic_render_service_detection_high_recall",
+      "value": "高召回"
+    },
+    {
+      "name": "comic_render_service_detection_balanced",
+      "value": "平衡"
+    },
+    {
+      "name": "comic_render_service_inpainting",
+      "value": "修复方式"
+    },
+    {
+      "name": "comic_render_service_inpainting_quality",
+      "value": "LaMa 高质量"
+    },
+    {
+      "name": "comic_render_service_inpainting_fast",
+      "value": "AOT 快速"
     },
     {
       "name": "comic_render_service_url",
@@ -4997,20 +5045,28 @@
       "value": "连接失败：%s"
     },
     {
+      "name": "comic_render_service_session_expired",
+      "value": "旧会话已失效，请填写用户名和密码"
+    },
+    {
+      "name": "comic_render_service_check_generic_reason",
+      "value": "请检查地址、账号和服务版本"
+    },
+    {
       "name": "comic_render_service_available",
       "value": "可用"
     },
     {
       "name": "comic_render_service_save_failed",
-      "value": "制图服务保存失败：%s"
+      "value": "自部署设置保存失败：%s"
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "账号密码只保存在应用私有存储，备份时仅进入加密备份；会话令牌仅驻内存。公网服务必须使用 HTTPS。"
+      "value": "仅在选择自部署时发送漫画页；LLM 凭据不会发给该服务。公网服务必须使用 HTTPS。"
     },
     {
       "name": "comic_translation_settings_hint",
-      "value": "整页多模态翻译、模型与提供方"
+      "value": "端侧工作流、模型与云端服务"
     },
     {
       "name": "comic_translation_provider",
@@ -5430,7 +5486,7 @@
     },
     {
       "name": "llm_source_support_comments",
-      "value": "评论翻译"
+      "value": "用于评论翻译"
     },
     {
       "name": "llm_source_support_comments_hint",
@@ -5438,11 +5494,11 @@
     },
     {
       "name": "llm_source_support_manga",
-      "value": "漫画翻译"
+      "value": "用于漫画翻译"
     },
     {
       "name": "llm_source_support_manga_hint",
-      "value": "支持带图片输入的 Responses 请求"
+      "value": "漫画翻译要求接口支持 Responses 与图片输入"
     },
     {
       "name": "llm_source_support_catalog",

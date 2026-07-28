@@ -5,7 +5,7 @@
 - **入口**：`scripts/comic_visual_regression.py`
 - **适用范围**：端侧检测、容器、消字、排版和最终译图的真实页面回归
 
-当前执行顺序和停止条件以[端侧漫画翻译质量收口](../plans/active/manga-translation-local-quality-closure.md)
+当前执行顺序和停止条件以[端侧漫画翻译质量收口](../plans/completed/manga-translation-local-quality-closure.md)
 为准。本文件中的按日期“下一步”是当时实验的历史结论，不能单独创建新的实现分支。
 
 ## 目的

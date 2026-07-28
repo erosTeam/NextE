@@ -433,6 +433,17 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     file.timings = recording.timings.copy()
     file.groupingStages = recording.groupingStages.copy()
     ComicLocalVisualFileRecorder.writeJson(`${pageDir}/analysis.json`, file)
+    let verticalBlocks: number = 0
+    for (let index: number = 0; index < recording.document.blocks.length; index++) {
+      if (recording.document.blocks[index].styleHint === 'vertical-rl') {
+        verticalBlocks = verticalBlocks + 1
+      }
+    }
+    console.info(
+      `ComicLocalVisualAnalysis id=${this.recordingId} page=${recording.source.pageIndex} ` +
+        `profile=${recording.profileId} blocks=${recording.document.blocks.length} ` +
+        `vertical=${verticalBlocks}`,
+    )
     this.writeManifest(pageDir, recording.source.pageIndex, sourceFile, false, false, false, false)
   }
 
@@ -494,6 +505,34 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     }
     file.timings = recording.timings.copy()
     ComicLocalVisualFileRecorder.writeJson(`${pageDir}/render.json`, file)
+    let verticalLayouts: number = 0
+    let constrainedLayouts: number = 0
+    let acceptedContainers: number = 0
+    let textArea: number = 0
+    for (let index: number = 0; index < recording.layouts.length; index++) {
+      const layout: ComicLocalVisualRecordedLayout = recording.layouts[index]
+      if (layout.writingMode === 'vertical-rl') {
+        verticalLayouts = verticalLayouts + 1
+      }
+      if (layout.textRect.shapeConstrained) {
+        constrainedLayouts = constrainedLayouts + 1
+      }
+      if (layout.textRect.containerProbeOutcome.startsWith('accepted')) {
+        acceptedContainers = acceptedContainers + 1
+      }
+      textArea = textArea + Math.max(0, layout.textRect.right - layout.textRect.left) *
+        Math.max(0, layout.textRect.bottom - layout.textRect.top)
+    }
+    console.info(
+      `ComicLocalVisualRecording id=${this.recordingId} page=${recording.source.pageIndex} ` +
+        `profile=${recording.timings.layoutProfileId} layouts=${recording.layouts.length} ` +
+        `vertical=${verticalLayouts} constrained=${constrainedLayouts} ` +
+        `accepted=${acceptedContainers} textArea=${textArea} ` +
+        `decodeMs=${recording.timings.decodeMs} maskMs=${recording.timings.maskMs} ` +
+        `layoutMs=${recording.timings.layoutMs} inpaintMs=${recording.timings.inpaintMs} ` +
+        `drawMs=${recording.timings.drawMs} encodeMs=${recording.timings.encodeMs} ` +
+        `renderMs=${recording.timings.totalMs} artifact=${recording.renderedPage.artifactHash}`,
+    )
     this.writeManifest(
       pageDir,
       recording.source.pageIndex,

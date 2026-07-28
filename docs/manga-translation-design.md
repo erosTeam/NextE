@@ -1,8 +1,8 @@
 # NextE 漫画翻译设计与演进指南
 
-- **状态**：Torii 是当前质量更高的整图路线；端侧视觉 Reader 是正在收口质量证据的轻量、失败保留原图基线。两者都尚未通过通用成品质量验收
+- **状态**：端侧、自部署 sidecar 与 Torii 是三条用户显式选择的并列视觉路线；端侧当前模型栈的视觉调优与 LLM 输入模式 A/B 已有界收口，三者都不作通用成品质量承诺
 - **首次整理**：2026-07-20
-- **最近复核**：2026-07-27
+- **最近复核**：2026-07-28
 - **外部调研**：[漫画翻译工作流调研](research/manga-translation-workflows.md)
 - **实测对照**：[视觉后端与可替换技术栈](research/manga-translation-backend-comparison.md)
 - **质量回归**：[真实页面视觉回归工作流](research/manga-translation-visual-regression.md)
@@ -14,14 +14,15 @@
 队列，也不授权模型费用、设备操作、远端上传或发布。每次实施仍由用户最新请求决定范围，并按
 [Plan Lifecycle](plans/README.md) 建立有边界的 active plan。
 
-**当前唯一执行入口**是[端侧漫画翻译质量收口](plans/active/manga-translation-local-quality-closure.md)。
-它定义当前证据、瓶颈、顺序和停止条件；本文件后续的 Torii、sidecar、历史阶段和研究链接仅用于解释
-架构或比较，不能自行切换开发主线。
+端侧当前模型栈的停止条件、真实页视觉候选否决和“多模态辅助 / 仅 OCR 文本”输入 A/B 已记录在
+[端侧漫画翻译质量收口](plans/completed/manga-translation-local-quality-closure.md)。当前仍需外部条件闭环的
+执行入口是[自部署路线产品化](plans/active/manga-translation-self-hosted-route.md)，它只恢复现有 pinned
+sidecar 为第三条显式路线。Torii 维持已有并列路线，不得借任一路线继续无边界扩展参数或 provider。
 
 当前产品方向是：**先交付低操作成本的 Reader 阅读翻译，但其用户结果仍是一张可直接阅读的视觉译制
 漫画页。** 正式默认路线必须在端侧完成文字检测、OCR、原文处理、排版和渲染，只把翻译与必要的图像
-语境判断交给用户选择的 LLM 源。普通用户不得为了使用漫画翻译而部署 Docker、填写制图服务地址或维护
-第二套服务账号；首次使用最多需要下载并管理本地视觉模型包。可持久化的画廊/页面翻译文档衔接各阶段，
+语境判断交给用户选择的 LLM 源。默认使用不要求部署外部服务；需要更强视觉处理且愿意维护服务的用户，
+可以主动选择自部署 sidecar。首次使用端侧路线最多需要下载并管理本地视觉模型包。可持久化的画廊/页面翻译文档衔接各阶段，
 整页多模态和 OCR 只是可替换的上游分析器。中间文档、转录文本、质量信号和调试面板都不能替代视觉页面。
 
 专业漫画制作是共享同一底层文档与渲染能力的后续产品分支，不是当前 V1 的同义词。Reader 分支追求
@@ -42,8 +43,8 @@
   LLM 继续受该源能力、隐私说明和显式翻译动作约束；
 - 用户可主动选择独立的云端整图路线；该路线由一个 provider 对最终成图负责，不得把其内部 OCR、修复、
   排版子阶段拆入端侧管线。默认端侧路线与云端整图路线只在统一视觉产物边界汇合；
-- 外部 sidecar 只能作为研发验收、质量对照或用户主动开启的高级后端，不能出现在普通漫画翻译配置的
-  必填路径，也不能成为“功能已完成”的隐藏前提；
+- 外部 sidecar 是用户主动选择的自部署视觉后端，不能成为端侧或 Torii 的必填依赖，也不能成为
+  “功能已完成”的隐藏前提；
 - 原文/译文对照、识别详情和待复核项只能作为翻译页的次级检查工具，不能成为主结果或阶段完成替代品；
 - 任何阶段可以只交付基础设施，但必须明确标为基础设施，不能以“V1 漫画翻译完成”描述；
 - 以后若要把视觉翻译页降级成文字阅读辅助，属于改变产品语义，必须先取得用户明确决定，不能写进计划后
@@ -96,9 +97,9 @@
   默认 Responses transport 会在 Axios/平台 HTTP 接收阶段把响应限制为 8 MiB，协议解析层保留相同上限；
   远端异常大响应不会等到完整进入应用内存后才被拒绝，自定义 transport 也仍受协议层二次校验。
 - [ComicTranslationSettingsPage.ets](../feature/settings/src/main/ets/pages/ComicTranslationSettingsPage.ets)
-  选择共享 LLM 源和漫画使用的模型；API 与 Codex OAuth 源统一由 LLM 源管理维护，同一 Codex 源也可供
-  评论翻译选择。普通漫画翻译页面已移除外部“制图服务”地址与账号；sidecar 配置代码仅为研发/实验后端
-  保留，不再参与默认运行时或普通用户配置。
+  选择端侧、自部署或 Torii 视觉路线。端侧与自部署共用漫画绑定的 LLM 源和模型；API 与 Codex OAuth 源
+  统一由 LLM 源管理维护，同一 Codex 源也可供评论翻译选择。自部署地址、账号和两个视觉 profile 选项位于
+  独立设置页，不平铺进漫画翻译主页面。
 - [ComicTranslationRepository.ets](../shared/src/main/ets/services/ComicTranslationRepository.ets) 与
   [ComicTranslationOrchestrator.ets](../shared/src/main/ets/services/ComicTranslationOrchestrator.ets) 已建立
   provider/model/prompt/language/image/revision 分键、并发去重、前两页上下文和成功后写入边界。当前实现是
@@ -315,6 +316,36 @@ sidecar 不是内部文档格式，也不与翻译 provider 共用认证；未�
 50%，限制在 4–24 px；填充覆盖内侧后保留约 25% 字号的外沿，使可见描边至少达到普通字面笔画的量级。
 深色背景不得触发浅色字回退，背景采样只服务原文修复和气泡边界，不拥有译文字色。
 
+### 分阶段路线的 LLM 输入模式
+
+端侧与自部署分阶段路线始终先得到同一个 `ComicPageDocument`，制图也始终由所选视觉后端完成。漫画设置中
+的“上传图片辅助翻译”只改变中间 `ComicTextTranslator` 的输入，不改变检测、OCR、消字、排版或最终 PNG：
+
+- 开启：发送 OCR 文档、画廊上下文、当前整页和按 blockId 标注的文字区域裁图；LLM 可以利用图片纠正 OCR、
+  判断语气和指代，但仍只能返回按 blockId 对齐的文本 JSON；
+- 关闭：只发送完全相同的 OCR 文档与画廊上下文；不读取或上传当前页图像，普通非多模态 Responses 模型
+  也可以承担翻译；
+- 两种模式使用不同 prompt version 与 context fingerprint，不能互相命中译文缓存；Torii 整图路线不经过
+  这个开关，它仍按自身协议接收图片并直接返回视觉译制页。
+
+2026-07-28 已在设备 `237` 用 P11、P20 和 Turok P09 三张真实页完成严格同页 A/B：两种模式共用完全
+相同的图像哈希、序列化 OCR 文档、画廊上下文、源 revision 和
+`migrated-manga-codex / gpt-5.6-luna`，只改变输入模式。逐块查看原图和端侧成图的 26 块人工复核中，
+多模态更好 15 块、纯文本更好 2 块、相当 9 块；可接受译文为多模态 `19/26`、纯文本 `12/26`。
+多模态主要修正严重 OCR 噪声，但在 P11 两个“一个检测区合并两名说话者”的块中漏掉了第二名说话者，
+证明图片上下文不能替代正确的 block/说话者分割。
+
+三页主请求的 provider 中位数为多模态 `33.372 s`、纯文本 `37.570 s`；同一 Turok 页各 3 次成功请求的
+总耗时中位数分别为 `20.551 s` 与 `27.387 s`。两种模式各 4 次尝试都出现 1 次相同 transport exception，
+所以失败不归因于图片输入；当前 Luna 结果也不能推广成“多模态在所有源上更快”。多模态三页共增加
+`4,552,207` 个 data URL 字符，隐私和流量成本真实存在。
+
+因此开关保持默认开启，但这是当前样本下的 Reader 默认值，不是强制能力：关闭后必须保证不读取、不上传
+当前页图片，并允许纯文本 Responses 模型承担翻译。用户因隐私、流量、模型能力或希望避免合并块漏译而
+关闭是完整受支持路径。以后改变默认值必须重新执行同页协议；不得以“模型支持图片”推导“每次都应上传
+图片”，也不得以单次时延推导性能。可复现汇总由 `scripts/comic_translation_input_ab.mjs` 生成；真实页、
+OCR、译文和 provider 响应只保留在本地忽略证据目录。
+
 翻译语义单元与视觉替换单元必须分开建模。标题、正文和对白被可靠分隔线拆开时，可以作为独立 block
 进入同一页翻译请求，以避免语义串接；但同一父容器内的子 block 不得因此各自扩大修复框、独立计算字号并
 互相覆盖。子 block 必须保留稳定父区域身份，原文字形按各自 geometry 收集，但父区域只执行一次有界修复，
@@ -497,7 +528,8 @@ profile；完整数据见
 上述阶段不是固定技术选型：`ComicRegionRenderBackend` 允许整个端侧视觉 profile 替换，
 `ComicTextTranslator` 允许 API/Codex 或以后满足结构协议的本地 LLM 替换，`ComicWholePageRenderBackend`
 允许真正具备 image-output 的模型直接返回整张译制页。当前 production runtime 同时包含本地 staged
-backend + 文本 translator，以及独立的 Torii 整图 provider 路由；后续 image-output provider 继续复用同一
+backend + 文本 translator、用户选择的自部署 sidecar + 同一文本 translator，以及独立的 Torii 整图
+provider 路由；后续 image-output provider 继续复用同一
 整图边界。普通文本
 LLM 不能承担像素 mask、背景修复或最终图片输出；多模态文本 LLM 可以校正 OCR、阅读顺序和语义，但仍需
 geometry/render；图片编辑模型则必须走 whole-page route 并接受画面保真校验。完整分层与同页 A/B 见
@@ -682,6 +714,10 @@ Reader V1 在继续 provider 实现前先迁移到共享 LLM 源档案：评论�
 |---|---|---|---|
 | OpenAI/兼容 API | 用户填写 base URL、API Key；通过 `/models` 查询并选择 model，兼容端点可手动覆盖；调用 `/responses` | 非流式 Responses JSON | 正式候选；生产环境仍优先考虑代理，避免移动端长期持有服务端密钥 |
 | Codex OAuth（实验） | 设备码登录；从 ChatGPT Codex backend 查询当前账号的 model catalog 与用量窗口 | SSE，按 `response.output_item.done`/文本 delta 重建结果，401 时刷新一次 | 兼容性试验；依赖非公开移动端集成契约，随时可能失效 |
+
+LLM 源的漫画能力首先要求 `/responses`。只有“上传图片辅助翻译”开启时才额外要求图片输入能力；关闭后，
+只支持文本 Responses 的 OpenAI 兼容源也可用于端侧与自部署路线。图片输入是这次翻译请求的显式策略，
+不是“能否进行漫画翻译”的永久同义词。
 
 两条路径通过共享源档案复用传输能力，但评论与漫画仍各自拥有 prompt、输入约束和响应协议。切换源不会
 切换页面文档语义，
@@ -907,8 +943,8 @@ Reader 或切换画廊后自动关闭，不写入全局设置。开启前提示�
 - 替换 Reader 原文/译文半模态主路径，重新定义 render identity、状态和缓存；
 - 在新规划确认前不修改功能实现、不调用模型、不操作设备。
 
-已完成审计见 [漫画翻译产品重置计划](plans/completed/manga-translation-product-reset.md)，当前实施见
-[端侧漫画翻译质量收口](plans/active/manga-translation-local-quality-closure.md)。历史 Phase 0
+已完成审计见 [漫画翻译产品重置计划](plans/completed/manga-translation-product-reset.md)，端侧当前模型栈的
+实现与停止证据见[端侧漫画翻译质量收口](plans/completed/manga-translation-local-quality-closure.md)。历史 Phase 0
 两页评测只证明整页多模态能返回有界结构文档；历史 Reader 测试只证明请求身份、缓存与切页隔离，
 均不证明存在翻译漫画页。
 
@@ -1041,9 +1077,12 @@ MAE/PSNR 或可解释人工复核；不得用单张复杂背景的优势覆盖�
 
 ## 已确认的部署决策
 
-- 正式 Reader 采用“端侧视觉处理 + 用户选择的 LLM 源”；外部制图服务不是必需依赖；
-- 普通用户只配置 LLM 源/模型和必要的本地模型资源，不配置服务器地址或 sidecar 账号；
-- sidecar 保留为研发基准和显式高级选项，不能阻塞本地能力、污染默认失败提示或决定正式验收；
+- 正式 Reader 默认采用“端侧视觉处理 + 用户选择的 LLM 源”；外部服务不是必需依赖；
+- 自部署 sidecar 是与端侧、Torii 同级的显式路线；只有选择该路线的用户才配置地址和账号；
+- 自部署与端侧复用同一漫画 LLM 绑定，但 sidecar 只接收页面、原文和回填译文，不接收 LLM 凭据；
+- 端侧与自部署的 LLM 翻译可显式选择是否上传整页与区域裁图；关闭后仍保留本地 OCR、上下文、视觉回填与
+  最终 PNG，不能把它误称为文字面板或“非端侧”；
+- sidecar 同时保留为研发基准，不能阻塞端侧能力、污染其他路线的失败提示或决定端侧验收；
 - 具有公开契约的托管图片翻译 API 可以实现可选 `ComicWholePageRenderBackend`；它是独立视觉 provider，
   不应伪装成普通 LLM 源，也不能在未明确同意图片上传、费用和数据保留条款时自动调用；
 - 端侧模型的下载、校验、版本、磁盘上限和清理属于本地资源管理，不归入 LLM 源管理。

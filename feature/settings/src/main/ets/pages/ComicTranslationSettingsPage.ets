@@ -4,6 +4,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
   COMIC_VISUAL_ROUTE_LOCAL,
+  COMIC_VISUAL_ROUTE_SELF_HOSTED,
   COMIC_VISUAL_ROUTE_TORII,
   ComicVisualProviderSettings,
   ComicVisualProviderSettingsSnapshot,
@@ -20,6 +21,8 @@ import {
   LlmSourceProfile,
   LlmSourceProfileRepository,
   LlmSourceProfilesState,
+  MangaRenderingServiceSettings,
+  MangaRenderingServiceSettingsSnapshot,
   SecondaryListScaffold,
   TORII_DEFAULT_MODEL_ID,
   TORII_FONT_NOTO,
@@ -37,6 +40,7 @@ import {
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
+  supportsMangaTranslation,
 } from 'shared'
 import { ToriiWholePageLiveEvaluationRouteParams } from './ToriiWholePageLiveEvaluationPage'
 
@@ -55,6 +59,7 @@ export struct ComicTranslationSettingsPage {
   @Local private toriiModelMenuShown: boolean = false;
   @Local private toriiFontMenuShown: boolean = false;
   @Local private visualRoute: string = COMIC_VISUAL_ROUTE_LOCAL;
+  @Local private multimodalTranslationEnabled: boolean = true;
   @Local private toriiModelId: string = TORII_DEFAULT_MODEL_ID;
   @Local private toriiFontId: string = TORII_FONT_NOTO;
   @Local private toriiApiKeyDraft: string = '';
@@ -65,6 +70,7 @@ export struct ComicTranslationSettingsPage {
   @Local private visualSettingsLoaded: boolean = false;
   @Local private localDetectorInstalled: boolean = false;
   @Local private localDetectorBusy: boolean = false;
+  @Local private selfHostedConfigured: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -92,13 +98,18 @@ export struct ComicTranslationSettingsPage {
         await ComicVisualProviderSettings.load(this.ctx())
       const credential: ToriiWholePageCredential =
         await ToriiWholePageSecretStore.read(this.ctx())
+      const selfHostedSettings: MangaRenderingServiceSettingsSnapshot =
+        await MangaRenderingServiceSettings.load(this.ctx())
       this.visualRoute = snapshot.route
+      this.multimodalTranslationEnabled = snapshot.multimodalTranslationEnabled
+      this.restoreBinding()
       this.toriiModelId = snapshot.toriiModelId
       this.toriiFontId = ToriiFontCatalog.effectiveFontId(
         snapshot.toriiFontId,
         CommentTranslationService.targetLanguage(),
       )
       this.toriiApiKeyDraft = credential.toriiApiKey
+      this.selfHostedConfigured = selfHostedSettings.configured()
       this.toriiCredits = await ToriiCreditsService.cached(
         this.ctx(),
         credential.toriiApiKey,
@@ -121,6 +132,7 @@ export struct ComicTranslationSettingsPage {
     const snapshot: ComicVisualProviderSettingsSnapshot =
       new ComicVisualProviderSettingsSnapshot()
     snapshot.route = this.visualRoute
+    snapshot.multimodalTranslationEnabled = this.multimodalTranslationEnabled
     snapshot.toriiModelId = this.toriiModelId
     snapshot.toriiFontId = this.toriiFontId
     const credential: ToriiWholePageCredential = new ToriiWholePageCredential()
@@ -227,9 +239,13 @@ export struct ComicTranslationSettingsPage {
   }
 
   private visualRouteText(): ResourceStr {
-    return this.visualRoute === COMIC_VISUAL_ROUTE_TORII
-      ? $r('app.string.comic_visual_route_torii')
-      : $r('app.string.comic_visual_route_local')
+    if (this.visualRoute === COMIC_VISUAL_ROUTE_TORII) {
+      return $r('app.string.comic_visual_route_torii')
+    }
+    if (this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
+      return $r('app.string.comic_visual_route_self_hosted')
+    }
+    return $r('app.string.comic_visual_route_local')
   }
 
   private selectVisualRoute(route: string): void {
@@ -256,8 +272,36 @@ export struct ComicTranslationSettingsPage {
       })
       return
     }
+    if (route === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
+      this.getUIContext().showAlertDialog({
+        title: $r('app.string.comic_visual_route_self_hosted_confirm_title'),
+        message: $r('app.string.comic_visual_route_self_hosted_confirm'),
+        primaryButton: {
+          value: $r('app.string.common_cancel'),
+          action: () => {},
+        },
+        secondaryButton: {
+          value: $r('app.string.common_ok'),
+          action: () => {
+            this.visualRoute = COMIC_VISUAL_ROUTE_SELF_HOSTED
+            this.persistVisualSettings(true)
+          },
+        },
+      })
+      return
+    }
     this.visualRoute = COMIC_VISUAL_ROUTE_LOCAL
     this.persistVisualSettings(true)
+  }
+
+  private selfHostedStateText(): ResourceStr {
+    return this.selfHostedConfigured
+      ? $r('app.string.comic_render_service_configured')
+      : $r('app.string.comic_render_service_not_configured')
+  }
+
+  private openSelfHostedSettings(): void {
+    this.stack.pushPathByName('MangaRenderingServiceSettings', null)
   }
 
   private toriiModels(): ToriiTranslatorModel[] {
@@ -444,7 +488,7 @@ export struct ComicTranslationSettingsPage {
     const profiles: LlmSourceProfile[] = []
     for (let index: number = 0; index < this.llmSources.profiles.length; index++) {
       const profile: LlmSourceProfile = this.llmSources.profiles[index]
-      if (profile.capabilities.responses && profile.capabilities.imageInput) {
+      if (supportsMangaTranslation(profile, this.multimodalTranslationEnabled)) {
         profiles.push(profile)
       }
     }
@@ -454,8 +498,9 @@ export struct ComicTranslationSettingsPage {
   private restoreBinding(): void {
     const binding: LlmConsumerBinding = this.llmSources.mangaBinding
     const profile: LlmSourceProfile | null = this.llmSources.findById(binding.sourceProfileId)
-    if (profile === null || !profile.capabilities.responses ||
-      !profile.capabilities.imageInput || !binding.configured()) {
+    if (profile === null ||
+      !supportsMangaTranslation(profile, this.multimodalTranslationEnabled) ||
+      !binding.configured()) {
       this.selectedSourceId = ''
       this.selectedModelId = ''
       return
@@ -499,6 +544,19 @@ export struct ComicTranslationSettingsPage {
     this.liveEvaluationReport = null
     // Publish source and model together only after the user picks a model.
     this.fetchModels()
+  }
+
+  private setMultimodalTranslationEnabled(value: boolean): void {
+    if (value) {
+      const profile: LlmSourceProfile | null = this.llmSources.findById(this.selectedSourceId)
+      if (profile !== null && !supportsMangaTranslation(profile, true)) {
+        this.toast($r('app.string.comic_translation_multimodal_source_unsupported'))
+        return
+      }
+    }
+    this.multimodalTranslationEnabled = value
+    this.restoreBinding()
+    this.persistVisualSettings(true)
   }
 
   private fetchModels(): void {
@@ -651,6 +709,14 @@ export struct ComicTranslationSettingsPage {
           : undefined,
       }).onClick(() => {
         this.selectVisualRoute(COMIC_VISUAL_ROUTE_LOCAL)
+      })
+      MenuItem({
+        content: $r('app.string.comic_visual_route_self_hosted'),
+        symbolEndIcon: this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.selectVisualRoute(COMIC_VISUAL_ROUTE_SELF_HOSTED)
       })
       MenuItem({
         content: $r('app.string.comic_visual_route_torii'),
@@ -823,6 +889,23 @@ export struct ComicTranslationSettingsPage {
               }
             }
           }
+        }
+        if (this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
+          ListItem() {
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.comic_render_service_title'),
+                leadingIcon: $r('sys.symbol.cloud'),
+                trailingText: this.selfHostedStateText(),
+                action: () => {
+                  this.openSelfHostedSettings()
+                },
+              })
+            }
+          }
+        }
+        if (this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL ||
+          this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
           ListItem() {
             GroupedListSection() {
               Column() {
@@ -862,8 +945,30 @@ export struct ComicTranslationSettingsPage {
                   this.modelMenuShown = false
                 },
               })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.comic_translation_multimodal_assist'),
+                leadingIcon: $r('sys.symbol.picture'),
+                hasSwitch: true,
+                checked: this.multimodalTranslationEnabled,
+                showChevron: false,
+                switchAction: (value: boolean) => {
+                  this.setMultimodalTranslationEnabled(value)
+                },
+              })
+              Text($r('app.string.comic_translation_multimodal_assist_notice'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_tertiary'))
+                .width('100%')
+                .padding({
+                  left: ThemeConstants.SPACE_MD,
+                  right: ThemeConstants.SPACE_MD,
+                  bottom: ThemeConstants.SPACE_SM,
+                })
             }
           }
+        }
+        if (this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL) {
           ListItem() {
             GroupedListSection() {
               ConciseListRow({
@@ -880,7 +985,8 @@ export struct ComicTranslationSettingsPage {
               })
             }
           }
-        } else {
+        }
+        if (this.visualRoute === COMIC_VISUAL_ROUTE_TORII) {
           ListItem() {
             GroupedListSection() {
               Column() {

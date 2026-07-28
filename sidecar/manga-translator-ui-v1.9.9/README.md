@@ -18,3 +18,29 @@ build the independent `nexte/manga-translator-ui:v1.9.9-nexte2` image. The build
 `nexte/manga-translator-ui:v1.9.9` base image when it exists, or builds that base from the upstream Dockerfile first.
 The sidecar remains a separate GPL-3.0 program; it is not linked into or packaged with the NextE HAP. Review the
 upstream license before redistribution.
+
+## Run for NextE
+
+Build the pinned compatibility image and expose its web port:
+
+```bash
+scripts/build_manga_translator_ui_sidecar.sh
+docker run -d --name nexte-manga-translator \
+  -p 8000:8000 \
+  nexte/manga-translator-ui:v1.9.9-nexte2
+```
+
+Open `http://<server>:8000/static/login.html` once and complete the upstream first-account setup. In NextE, select
+`漫画翻译 -> 制图方式 -> 自部署`, then enter the same service URL and account. The connection check validates
+the patched OpenAPI route and sign-in without uploading a manga page. A private-network HTTP URL is accepted;
+an Internet-facing service must be placed behind HTTPS.
+
+NextE exposes only two finite profile controls:
+
+- detection sensitivity: the existing high-recall profile or a stricter balanced profile;
+- inpainting: upstream LaMa Large quality or AOT fast.
+
+The sidecar always runs with `translator=original`. It never receives the API key or OAuth token from NextE's
+selected LLM source; NextE translates the exported regions and sends only the validated translated text back for
+rendering. Other upstream detector, OCR, mask, font, stroke, layout, and upscaler settings remain pinned until a
+versioned real-page regression demonstrates a safe product option.

@@ -4814,15 +4814,39 @@
     },
     {
       "name": "comic_visual_route_hint",
-      "value": "最終翻訳画像を端末またはクラウドで生成します"
+      "value": "端末内・セルフホスト・Torii から処理方式を選択"
     },
     {
       "name": "comic_visual_route_local",
       "value": "端末内処理"
     },
     {
+      "name": "comic_visual_route_self_hosted",
+      "value": "セルフホスト"
+    },
+    {
       "name": "comic_visual_route_torii",
       "value": "Torii クラウド画像"
+    },
+    {
+      "name": "comic_translation_multimodal_assist",
+      "value": "画像を送信して翻訳を補助"
+    },
+    {
+      "name": "comic_translation_multimodal_assist_notice",
+      "value": "オンではページ全体と文字領域の切り抜きを選択した LLM に送信し、オフでは OCR テキストとコンテキストのみを送信します。"
+    },
+    {
+      "name": "comic_translation_multimodal_source_unsupported",
+      "value": "選択した LLM ソースは画像入力に対応していません。"
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm_title",
+      "value": "セルフホスト処理を使用しますか？"
+    },
+    {
+      "name": "comic_visual_route_self_hosted_confirm",
+      "value": "翻訳を実行した場合のみ、現在の漫画ページを設定済みサービスへ送信します。検出、OCR、修復、組版はサービスが処理し、翻訳には選択済み LLM ソースを使用します。"
     },
     {
       "name": "comic_visual_route_torii_confirm_title",
@@ -4922,7 +4946,7 @@
     },
     {
       "name": "comic_render_service_title",
-      "value": "組版サービス"
+      "value": "セルフホスト"
     },
     {
       "name": "comic_render_service_summary",
@@ -4938,11 +4962,35 @@
     },
     {
       "name": "comic_render_service_profile",
-      "value": "互換プロファイル"
+      "value": "エンジン"
     },
     {
       "name": "comic_render_service_profile_hint",
       "value": "固定されたエクスポート・インポート契約"
+    },
+    {
+      "name": "comic_render_service_detection",
+      "value": "検出感度"
+    },
+    {
+      "name": "comic_render_service_detection_high_recall",
+      "value": "高再現率"
+    },
+    {
+      "name": "comic_render_service_detection_balanced",
+      "value": "バランス"
+    },
+    {
+      "name": "comic_render_service_inpainting",
+      "value": "修復方式"
+    },
+    {
+      "name": "comic_render_service_inpainting_quality",
+      "value": "LaMa 高品質"
+    },
+    {
+      "name": "comic_render_service_inpainting_fast",
+      "value": "AOT 高速"
     },
     {
       "name": "comic_render_service_url",
@@ -4997,20 +5045,28 @@
       "value": "接続失敗: %s"
     },
     {
+      "name": "comic_render_service_session_expired",
+      "value": "保存済みセッションの期限が切れました。ユーザー名とパスワードを入力してください"
+    },
+    {
+      "name": "comic_render_service_check_generic_reason",
+      "value": "アドレス、アカウント、サービスのバージョンを確認してください"
+    },
+    {
       "name": "comic_render_service_available",
       "value": "利用可能"
     },
     {
       "name": "comic_render_service_save_failed",
-      "value": "組版サービスを保存できません: %s"
+      "value": "セルフホスト設定を保存できません: %s"
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "認証情報はアプリのプライベート領域に保存し、暗号化バックアップだけに含めます。セッショントークンはメモリ内だけに保持します。公開サービスには HTTPS が必要です。"
+      "value": "ページはセルフホスト選択中だけ送信され、LLM 認証情報は送信されません。公開サービスには HTTPS が必要です。"
     },
     {
       "name": "comic_translation_settings_hint",
-      "value": "ページ全体のマルチモーダル翻訳、モデル、プロバイダー"
+      "value": "端末ワークフロー、モデル、クラウドサービス"
     },
     {
       "name": "comic_translation_provider",
@@ -5430,7 +5486,7 @@
     },
     {
       "name": "llm_source_support_comments",
-      "value": "コメント翻訳"
+      "value": "コメント翻訳に使用"
     },
     {
       "name": "llm_source_support_comments_hint",
@@ -5438,11 +5494,11 @@
     },
     {
       "name": "llm_source_support_manga",
-      "value": "漫画翻訳"
+      "value": "漫画翻訳に使用"
     },
     {
       "name": "llm_source_support_manga_hint",
-      "value": "画像入力付き Responses 要求に対応"
+      "value": "漫画翻訳には画像入力対応の Responses API が必要です"
     },
     {
       "name": "llm_source_support_catalog",

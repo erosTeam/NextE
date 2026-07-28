@@ -28,6 +28,7 @@ import {
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
+  supportsMangaTranslation,
 } from 'shared'
 import { LlmSourceDetailRouteParams } from './LlmSourceManagerPage'
 
@@ -54,6 +55,8 @@ export struct LlmSourceDetailPage {
   @Local private codexUsage: CodexUsageSnapshot | null = null;
   @Local private codexUsageRefreshing: boolean = false;
   @Local private deleting: boolean = false;
+  private backSaveInFlight: boolean = false;
+  private suppressDisappearSave: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -62,7 +65,7 @@ export struct LlmSourceDetailPage {
   }
 
   aboutToDisappear(): void {
-    if (!this.deleting) {
+    if (!this.deleting && !this.suppressDisappearSave) {
       this.persistDrafts(false)
     }
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
@@ -88,7 +91,7 @@ export struct LlmSourceDetailPage {
     this.nameDraft = profile.displayName
     this.baseUrlDraft = profile.baseUrl
     this.supportsComments = profile.capabilities.chatCompletions
-    this.supportsManga = profile.capabilities.responses && profile.capabilities.imageInput
+    this.supportsManga = supportsMangaTranslation(profile)
     this.supportsCatalog = profile.capabilities.modelCatalog
     this.loaded = true
     if (profile.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
@@ -164,6 +167,28 @@ export struct LlmSourceDetailPage {
     return this.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL
       ? $r('app.string.llm_source_type_codex')
       : $r('app.string.llm_source_type_api')
+  }
+
+  private saveAndExit(): boolean {
+    if (!this.loaded || this.deleting || this.profile() === null) {
+      return false
+    }
+    if (this.backSaveInFlight) {
+      return true
+    }
+    this.backSaveInFlight = true
+    this.persistDrafts(true)
+      .then((saved: boolean) => {
+        if (!saved) {
+          return
+        }
+        this.suppressDisappearSave = true
+        this.stack.pop()
+      })
+      .finally(() => {
+        this.backSaveInFlight = false
+      })
+    return true
   }
 
   private apiKeyStateText(): ResourceStr {
@@ -563,46 +588,55 @@ export struct LlmSourceDetailPage {
           }
           if (this.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
             ListItem() {
-              GroupedListSection() {
-                ConciseListRow({
-                  title: $r('app.string.llm_source_support_comments'),
-                  subtitle: $r('app.string.llm_source_support_comments_hint'),
-                  leadingIcon: $r('sys.symbol.translate'),
-                  hasSwitch: true,
-                  checked: this.supportsComments,
-                  switchAction: (value: boolean) => {
-                    if (!value && !this.supportsManga) {
-                      return
-                    }
-                    this.supportsComments = value
-                  },
-                })
-                this.rowDivider()
-                ConciseListRow({
-                  title: $r('app.string.llm_source_support_manga'),
-                  subtitle: $r('app.string.llm_source_support_manga_hint'),
-                  leadingIcon: $r('sys.symbol.picture'),
-                  hasSwitch: true,
-                  checked: this.supportsManga,
-                  switchAction: (value: boolean) => {
-                    if (!value && !this.supportsComments) {
-                      return
-                    }
-                    this.supportsManga = value
-                  },
-                })
-                this.rowDivider()
-                ConciseListRow({
-                  title: $r('app.string.llm_source_support_catalog'),
-                  subtitle: $r('app.string.llm_source_support_catalog_hint'),
-                  leadingIcon: $r('sys.symbol.arrow_down_circle'),
-                  hasSwitch: true,
-                  checked: this.supportsCatalog,
-                  switchAction: (value: boolean) => {
-                    this.supportsCatalog = value
-                  },
-                })
+              Column({ space: ThemeConstants.SPACE_SM }) {
+                GroupedListSection() {
+                  ConciseListRow({
+                    title: $r('app.string.llm_source_support_comments'),
+                    leadingIcon: $r('sys.symbol.translate'),
+                    hasSwitch: true,
+                    checked: this.supportsComments,
+                    switchAction: (value: boolean) => {
+                      if (!value && !this.supportsManga) {
+                        return
+                      }
+                      this.supportsComments = value
+                    },
+                  })
+                  this.rowDivider()
+                  ConciseListRow({
+                    title: $r('app.string.llm_source_support_manga'),
+                    leadingIcon: $r('sys.symbol.picture'),
+                    hasSwitch: true,
+                    checked: this.supportsManga,
+                    switchAction: (value: boolean) => {
+                      if (!value && !this.supportsComments) {
+                        return
+                      }
+                      this.supportsManga = value
+                    },
+                  })
+                  this.rowDivider()
+                  ConciseListRow({
+                    title: $r('app.string.llm_source_support_catalog'),
+                    leadingIcon: $r('sys.symbol.arrow_down_circle'),
+                    hasSwitch: true,
+                    checked: this.supportsCatalog,
+                    switchAction: (value: boolean) => {
+                      this.supportsCatalog = value
+                    },
+                  })
+                }
+                Text($r('app.string.llm_source_support_manga_hint'))
+                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .width('100%')
+                  .padding({
+                    left: ThemeConstants.SPACE_MD,
+                    right: ThemeConstants.SPACE_MD,
+                  })
               }
+              .width('100%')
+              .alignItems(HorizontalAlign.Start)
             }
           } else {
             ListItem() {
@@ -682,6 +716,9 @@ export struct LlmSourceDetailPage {
     }
     .titleBar(immersiveTitleBar(AppStrings.get('llm_source_detail_title')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onBackPressed(() => {
+      return this.saveAndExit()
+    })
     .onReady((context: NavDestinationContext) => {
       const params: LlmSourceDetailRouteParams | null =
         context.pathInfo.param as LlmSourceDetailRouteParams | null

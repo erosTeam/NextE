@@ -14,11 +14,15 @@ import {
   ComicVisualPageSource,
 } from './ComicVisualTranslationBackend'
 import { ComicTextTranslatorFactory } from './ComicResponsesTextTranslator'
+import {
+  COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
+  ComicResponsesTextTranslationProtocol,
+} from './ComicResponsesTextTranslationProtocol'
 import { ComicTranslationDocumentCodec } from './ComicTranslationPersistentRepository'
 import { ComicTranslationErrorClassifier } from './ComicTranslationErrorClassifier'
 import { ComicVisualTranslationContract } from './ComicVisualTranslationContract'
 
-const PROBE_SCHEMA_VERSION: number = 1
+const PROBE_SCHEMA_VERSION: number = 2
 const PROBE_ROOT_NAME: string = 'comic-live-translation-probes'
 const REQUEST_FILE_NAME: string = 'request.json'
 const RESPONSE_FILE_NAME: string = 'response.json'
@@ -51,6 +55,7 @@ class RawProbeContext {
 class RawProbeRequest {
   schemaVersion: number = 0
   probeId: string = ''
+  inputMode: string = ''
   source: RawProbeSource = new RawProbeSource()
   documentPayload: string = ''
   context: RawProbeContext = new RawProbeContext()
@@ -77,6 +82,21 @@ class RawProbeBatch {
   blocks: RawProbeBlockTranslation[] = []
 }
 
+class RawProbeTranslationDiagnostics {
+  inputMode: string = ''
+  promptChars: number = 0
+  fullImageDataUrlChars: number = 0
+  regionCropCount: number = 0
+  regionCropDataUrlChars: number = 0
+  regionCropBytes: number = 0
+  regionCropPixels: number = 0
+  providerResponseChars: number = 0
+  prepareMs: number = 0
+  providerMs: number = 0
+  parseMs: number = 0
+  totalMs: number = 0
+}
+
 class RawProbeResponse {
   schemaVersion: number = 0
   probeId: string = ''
@@ -84,6 +104,7 @@ class RawProbeResponse {
   elapsedMs: number = 0
   pageSummary: string = ''
   batch: RawProbeBatch = new RawProbeBatch()
+  diagnostics: RawProbeTranslationDiagnostics = new RawProbeTranslationDiagnostics()
 }
 
 class RawProbeStatus {
@@ -115,11 +136,13 @@ export class ComicTranslationDebugProbeService {
     context: common.UIAbilityContext,
     probeId: string,
     request: ComicTextTranslationRequest,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
   ): void {
     ComicTranslationDebugProbeService.validateProbeId(probeId)
     ComicTranslationDebugProbeService.validateRequest(context, request)
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     const raw: RawProbeRequest =
-      ComicTranslationDebugProbeService.rawRequest(probeId, request)
+      ComicTranslationDebugProbeService.rawRequest(probeId, request, inputMode)
     const payload: string = ComicTranslationDebugProbeService.encode(raw)
     const directory: string = ComicTranslationDebugProbeService.directory(context, probeId)
     ComicTranslationDebugProbeService.ensureDirectory(directory)
@@ -167,7 +190,10 @@ export class ComicTranslationDebugProbeService {
         ComicTranslationDebugProbeService.readRawRequest(context, probeId)
       const request: ComicTextTranslationRequest =
         ComicTranslationDebugProbeService.request(context, raw)
-      const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(context)
+      const translator: ComicTextTranslator = await ComicTextTranslatorFactory.create(
+        context,
+        raw.inputMode,
+      )
       const result: ComicTextTranslationResult = await translator.translate(request)
       ComicVisualTranslationContract.validateTranslationBatch(request.document, result.batch)
       const elapsedMs: number = Math.max(0, Date.now() - startedAt)
@@ -208,11 +234,13 @@ export class ComicTranslationDebugProbeService {
     context: common.UIAbilityContext,
     probeId: string,
     request: ComicTextTranslationRequest,
+    inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
   ): ComicTranslationDebugProbeResult {
     ComicTranslationDebugProbeService.validateProbeId(probeId)
     ComicTranslationDebugProbeService.validateRequest(context, request)
+    ComicResponsesTextTranslationProtocol.validateInputMode(inputMode)
     const expectedRaw: RawProbeRequest =
-      ComicTranslationDebugProbeService.rawRequest(probeId, request)
+      ComicTranslationDebugProbeService.rawRequest(probeId, request, inputMode)
     const path: string =
       `${ComicTranslationDebugProbeService.directory(context, probeId)}/${RESPONSE_FILE_NAME}`
     const payload: string = ComicTranslationDebugProbeService.readBounded(path)
@@ -221,12 +249,28 @@ export class ComicTranslationDebugProbeService {
       raw.requestHash !== ComicTranslationDebugProbeService.requestHash(expectedRaw) ||
       !ComicTranslationDebugProbeService.nonNegativeInteger(raw.elapsedMs) ||
       typeof raw.pageSummary !== 'string' ||
-      raw.pageSummary.length > MAX_PAGE_SUMMARY_CHARS) {
+      raw.pageSummary.length > MAX_PAGE_SUMMARY_CHARS ||
+      !ComicTranslationDebugProbeService.validDiagnostics(raw.diagnostics, inputMode)) {
       throw new Error('Comic translation debug probe response is invalid')
     }
     const result: ComicTranslationDebugProbeResult = new ComicTranslationDebugProbeResult()
     result.result.batch = ComicTranslationDebugProbeService.batch(raw.batch)
     result.result.pageSummary = raw.pageSummary
+    result.result.diagnostics.inputMode = raw.diagnostics.inputMode
+    result.result.diagnostics.promptChars = raw.diagnostics.promptChars
+    result.result.diagnostics.fullImageDataUrlChars =
+      raw.diagnostics.fullImageDataUrlChars
+    result.result.diagnostics.regionCropCount = raw.diagnostics.regionCropCount
+    result.result.diagnostics.regionCropDataUrlChars =
+      raw.diagnostics.regionCropDataUrlChars
+    result.result.diagnostics.regionCropBytes = raw.diagnostics.regionCropBytes
+    result.result.diagnostics.regionCropPixels = raw.diagnostics.regionCropPixels
+    result.result.diagnostics.providerResponseChars =
+      raw.diagnostics.providerResponseChars
+    result.result.diagnostics.prepareMs = raw.diagnostics.prepareMs
+    result.result.diagnostics.providerMs = raw.diagnostics.providerMs
+    result.result.diagnostics.parseMs = raw.diagnostics.parseMs
+    result.result.diagnostics.totalMs = raw.diagnostics.totalMs
     result.elapsedMs = raw.elapsedMs
     ComicVisualTranslationContract.validateTranslationBatch(
       request.document,
@@ -238,10 +282,12 @@ export class ComicTranslationDebugProbeService {
   private static rawRequest(
     probeId: string,
     request: ComicTextTranslationRequest,
+    inputMode: string,
   ): RawProbeRequest {
     const raw: RawProbeRequest = new RawProbeRequest()
     raw.schemaVersion = PROBE_SCHEMA_VERSION
     raw.probeId = probeId
+    raw.inputMode = inputMode
     raw.source.projectId = request.source.projectId
     raw.source.pageIndex = request.source.pageIndex
     raw.source.imageFilePath = request.source.imageFilePath
@@ -268,6 +314,7 @@ export class ComicTranslationDebugProbeService {
       !ComicTranslationDebugProbeService.safeIdentifier(raw.probeId)) {
       throw new Error('Comic translation debug probe request identity is invalid')
     }
+    ComicResponsesTextTranslationProtocol.validateInputMode(raw.inputMode)
     const request: ComicTextTranslationRequest = new ComicTextTranslationRequest()
     request.source = ComicTranslationDebugProbeService.source(raw.source)
     request.document = ComicTranslationDocumentCodec.decode(
@@ -362,7 +409,48 @@ export class ComicTranslationDebugProbeService {
     raw.elapsedMs = elapsedMs
     raw.pageSummary = result.pageSummary
     raw.batch = result.batch.copy() as RawProbeBatch
+    raw.diagnostics.inputMode = result.diagnostics.inputMode
+    raw.diagnostics.promptChars = result.diagnostics.promptChars
+    raw.diagnostics.fullImageDataUrlChars = result.diagnostics.fullImageDataUrlChars
+    raw.diagnostics.regionCropCount = result.diagnostics.regionCropCount
+    raw.diagnostics.regionCropDataUrlChars = result.diagnostics.regionCropDataUrlChars
+    raw.diagnostics.regionCropBytes = result.diagnostics.regionCropBytes
+    raw.diagnostics.regionCropPixels = result.diagnostics.regionCropPixels
+    raw.diagnostics.providerResponseChars = result.diagnostics.providerResponseChars
+    raw.diagnostics.prepareMs = result.diagnostics.prepareMs
+    raw.diagnostics.providerMs = result.diagnostics.providerMs
+    raw.diagnostics.parseMs = result.diagnostics.parseMs
+    raw.diagnostics.totalMs = result.diagnostics.totalMs
     return raw
+  }
+
+  private static validDiagnostics(
+    value: RawProbeTranslationDiagnostics,
+    inputMode: string,
+  ): boolean {
+    if (value === null || typeof value !== 'object' || value.inputMode !== inputMode) {
+      return false
+    }
+    const fields: number[] = [
+      value.promptChars,
+      value.fullImageDataUrlChars,
+      value.regionCropCount,
+      value.regionCropDataUrlChars,
+      value.regionCropBytes,
+      value.regionCropPixels,
+      value.providerResponseChars,
+      value.prepareMs,
+      value.providerMs,
+      value.parseMs,
+      value.totalMs,
+    ]
+    for (let index: number = 0; index < fields.length; index++) {
+      if (!ComicTranslationDebugProbeService.nonNegativeInteger(fields[index])) {
+        return false
+      }
+    }
+    return value.promptChars > 0 && value.providerResponseChars > 0 &&
+      value.totalMs >= value.prepareMs + value.providerMs
   }
 
   private static readRawRequest(

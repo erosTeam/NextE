@@ -87,12 +87,21 @@ export class ComicResponsesRequestBuilder {
       type: 'input_text',
       text: prompt,
     }
-    const imageItem: ResponsesInputImage = {
-      type: 'input_image',
-      image_url: imageDataUrl,
-      detail: 'high',
+    message.content = [promptItem]
+    if (imageDataUrl.length > 0) {
+      if (!imageDataUrl.startsWith('data:image/')) {
+        throw new Error('Comic provider image is invalid')
+      }
+      const imageItem: ResponsesInputImage = {
+        type: 'input_image',
+        image_url: imageDataUrl,
+        detail: 'high',
+      }
+      message.content.push(imageItem)
     }
-    message.content = [promptItem, imageItem]
+    if (imageDataUrl.length === 0 && additionalImages.length > 0) {
+      throw new Error('Comic provider additional images require a full-page image')
+    }
     for (let index: number = 0; index < additionalImages.length; index++) {
       const additional: ComicResponsesLabeledImage = additionalImages[index]
       if (additional.label.trim().length <= 0 ||

@@ -11,6 +11,7 @@ import {
   LlmSourceProfileRepository,
   LlmSourceSecretStore,
   supportsCommentTranslation,
+  supportsMangaTranslation,
 } from 'shared'
 
 function apiSource(id: string, name: string = 'Fixture API'): LlmSourceProfile {
@@ -105,6 +106,19 @@ export default function llmSourceProfileRepositoryTest(): void {
       expect(supportsCommentTranslation(codex)).assertEqual(true)
       codex.capabilities.responses = false
       expect(supportsCommentTranslation(codex)).assertEqual(false)
+    })
+
+    it('requires Responses for manga and image input only in multimodal mode', 0, () => {
+      const api: LlmSourceProfile = apiSource('source-manga-api')
+      const codex: LlmSourceProfile = codexSource('source-manga-codex')
+      expect(supportsMangaTranslation(api)).assertEqual(true)
+      expect(supportsMangaTranslation(codex)).assertEqual(true)
+      api.capabilities.imageInput = false
+      codex.capabilities.responses = false
+      expect(supportsMangaTranslation(api)).assertEqual(false)
+      expect(supportsMangaTranslation(codex)).assertEqual(false)
+      expect(supportsMangaTranslation(api, false)).assertEqual(true)
+      expect(supportsMangaTranslation(codex, false)).assertEqual(false)
     })
 
     it('does not fall back when a referenced profile disappears', 0, () => {

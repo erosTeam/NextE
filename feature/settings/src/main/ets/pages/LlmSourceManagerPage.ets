@@ -40,6 +40,10 @@ export struct LlmSourceManagerPage {
       : $r('app.string.llm_source_type_api')
   }
 
+  private sourceDisplayName(sourceProfileId: string): string {
+    return this.sources.findById(sourceProfileId)?.displayName ?? ''
+  }
+
   private openSource(sourceProfileId: string): void {
     const params: LlmSourceDetailRouteParams = new LlmSourceDetailRouteParams()
     params.sourceProfileId = sourceProfileId
@@ -131,7 +135,9 @@ export struct LlmSourceManagerPage {
                     this.rowDivider()
                   }
                   ConciseListRow({
-                    title: profile.displayName,
+                    // Resolve through the traced source state so a stable ForEach item observes
+                    // display-name edits instead of retaining its original plain-object snapshot.
+                    title: this.sourceDisplayName(profile.sourceProfileId),
                     subtitle: this.sourceTypeText(profile),
                     leadingIcon: profile.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL
                       ? $r('sys.symbol.person')

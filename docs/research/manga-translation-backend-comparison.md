@@ -1,7 +1,7 @@
 # 漫画翻译视觉后端与可替换技术栈
 
 这是技术栈与历史测量参考，不是当前任务队列。当前端侧工作只遵循
-[端侧漫画翻译质量收口](../plans/active/manga-translation-local-quality-closure.md)；Torii 是用户可选的独立
+[端侧漫画翻译质量收口](../plans/completed/manga-translation-local-quality-closure.md)；Torii 是用户可选的独立
 整图路线，不从本文派生新的云端工作。
 
 - **status**: active engineering reference

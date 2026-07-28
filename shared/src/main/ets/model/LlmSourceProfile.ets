@@ -109,6 +109,18 @@ export function supportsCommentTranslation(profile: LlmSourceProfile): boolean {
   return false
 }
 
+export function supportsMangaTranslation(
+  profile: LlmSourceProfile,
+  requireImageInput: boolean = true,
+): boolean {
+  if (profile.sourceType !== LLM_SOURCE_TYPE_OPENAI_COMPATIBLE &&
+    profile.sourceType !== LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
+    return false
+  }
+  return profile.capabilities.responses &&
+    (!requireImageInput || profile.capabilities.imageInput)
+}
+
 export function generateLlmSourceProfileId(): string {
   return util.generateRandomUUID(true)
 }

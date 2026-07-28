@@ -1,11 +1,15 @@
 import { common } from '@kit.AbilityKit'
-import { KeyboardAvoidMode } from '@kit.ArkUI'
+import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
   ConciseListRow,
   DiagnosticLogger,
   GroupedListSection,
+  MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+  MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+  MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+  MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
   MANGA_TRANSLATOR_UI_UPSTREAM_TAG,
   MangaRenderingServiceCredential,
   MangaRenderingServiceSecretStore,
@@ -35,6 +39,10 @@ export struct MangaRenderingServiceSettingsPage {
   @Local private loaded: boolean = false;
   @Local private connectionState: string = CONNECTION_IDLE;
   @Local private connectionFailure: string = '';
+  @Local private detectionProfile: string = MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL;
+  @Local private inpaintingProfile: string = MANGA_TRANSLATOR_UI_INPAINTER_QUALITY;
+  @Local private detectionMenuShown: boolean = false;
+  @Local private inpaintingMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
   private loadedCredential: MangaRenderingServiceCredential =
     new MangaRenderingServiceCredential();
@@ -62,6 +70,8 @@ export struct MangaRenderingServiceSettingsPage {
       const credential: MangaRenderingServiceCredential =
         await MangaRenderingServiceSecretStore.read(this.ctx())
       this.baseUrlDraft = snapshot.baseUrl
+      this.detectionProfile = snapshot.detectionProfile
+      this.inpaintingProfile = snapshot.inpaintingProfile
       this.loadedCredential = credential.copy()
       this.usernameDraft = credential.username
       this.passwordDraft = credential.password
@@ -78,6 +88,8 @@ export struct MangaRenderingServiceSettingsPage {
     const snapshot: MangaRenderingServiceSettingsSnapshot =
       new MangaRenderingServiceSettingsSnapshot()
     snapshot.baseUrl = this.baseUrlDraft
+    snapshot.detectionProfile = this.detectionProfile
+    snapshot.inpaintingProfile = this.inpaintingProfile
     try {
       const credential: MangaRenderingServiceCredential | null = this.credentialDirty
         ? this.draftCredential()
@@ -93,6 +105,8 @@ export struct MangaRenderingServiceSettingsPage {
       const stored: MangaRenderingServiceSettingsSnapshot =
         await MangaRenderingServiceSettings.load(this.ctx())
       this.baseUrlDraft = stored.baseUrl
+      this.detectionProfile = stored.detectionProfile
+      this.inpaintingProfile = stored.inpaintingProfile
       return true
     } catch (error) {
       DiagnosticLogger.warn('comic-translation', 'render_service_save_failed', (error as Error).message)
@@ -134,6 +148,17 @@ export struct MangaRenderingServiceSettingsPage {
     return $r('app.string.comic_render_service_check_hint')
   }
 
+  private connectionFailureText(error: Error): string {
+    if (error.message === 'Manga rendering service session is invalid' &&
+      this.effectiveCredential().hasLegacySession()) {
+      return AppStrings.get('comic_render_service_session_expired')
+    }
+    if (error.message.startsWith('Manga rendering service')) {
+      return AppStrings.get('comic_render_service_check_generic_reason')
+    }
+    return error.message
+  }
+
   private async checkConnection(): Promise<void> {
     if (this.connectionState === CONNECTION_RUNNING || !await this.persist(true)) {
       return
@@ -150,6 +175,11 @@ export struct MangaRenderingServiceSettingsPage {
     config.username = credential.username
     config.password = credential.password
     config.sessionToken = credential.legacySessionToken
+    config.applyProfile(
+      'auto',
+      this.detectionProfile,
+      this.inpaintingProfile,
+    )
     try {
       const result: MangaTranslatorUiSidecarConnectionResult =
         await MangaTranslatorUiSidecarConnectionService.check(config)
@@ -157,13 +187,40 @@ export struct MangaRenderingServiceSettingsPage {
       this.toast($r('app.string.comic_render_service_check_success_revision', result.protocolRevision))
     } catch (error) {
       this.connectionState = CONNECTION_FAILED
-      this.connectionFailure = (error as Error).message
-      DiagnosticLogger.warn('comic-translation', 'render_service_check_failed', this.connectionFailure)
+      const failure: Error = error as Error
+      this.connectionFailure = this.connectionFailureText(failure)
+      DiagnosticLogger.warn('comic-translation', 'render_service_check_failed', failure.message)
     }
   }
 
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
+  }
+
+  private detectionProfileText(): ResourceStr {
+    return this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_BALANCED
+      ? $r('app.string.comic_render_service_detection_balanced')
+      : $r('app.string.comic_render_service_detection_high_recall')
+  }
+
+  private inpaintingProfileText(): ResourceStr {
+    return this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST
+      ? $r('app.string.comic_render_service_inpainting_fast')
+      : $r('app.string.comic_render_service_inpainting_quality')
+  }
+
+  private selectDetectionProfile(value: string): void {
+    this.detectionProfile = value
+    this.detectionMenuShown = false
+    this.connectionState = CONNECTION_IDLE
+    this.persist(true)
+  }
+
+  private selectInpaintingProfile(value: string): void {
+    this.inpaintingProfile = value
+    this.inpaintingMenuShown = false
+    this.connectionState = CONNECTION_IDLE
+    this.persist(true)
   }
 
   @Builder
@@ -240,6 +297,50 @@ export struct MangaRenderingServiceSettingsPage {
       .color(ThemeConstants.BRAND_PRIMARY)
   }
 
+  @Builder
+  private DetectionProfileMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.comic_render_service_detection_high_recall'),
+        symbolEndIcon: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL)
+      })
+      MenuItem({
+        content: $r('app.string.comic_render_service_detection_balanced'),
+        symbolEndIcon: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_BALANCED
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_BALANCED)
+      })
+    }
+  }
+
+  @Builder
+  private InpaintingProfileMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.comic_render_service_inpainting_quality'),
+        symbolEndIcon: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_QUALITY
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
+      })
+      MenuItem({
+        content: $r('app.string.comic_render_service_inpainting_fast'),
+        symbolEndIcon: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_FAST)
+      })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -252,10 +353,45 @@ export struct MangaRenderingServiceSettingsPage {
             GroupedListSection() {
               ConciseListRow({
                 title: $r('app.string.comic_render_service_profile'),
-                subtitle: $r('app.string.comic_render_service_profile_hint'),
                 leadingIcon: $r('sys.symbol.doc_plaintext_and_checkmark'),
                 trailingText: `manga-translator-ui ${MANGA_TRANSLATOR_UI_UPSTREAM_TAG}`,
                 showChevron: false,
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.comic_render_service_detection'),
+                  leadingIcon: $r('sys.symbol.character_viewfinder'),
+                  trailingText: this.detectionProfileText(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.detectionMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.detectionMenuShown, this.DetectionProfileMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.detectionMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.comic_render_service_inpainting'),
+                  leadingIcon: $r('sys.symbol.picture'),
+                  trailingText: this.inpaintingProfileText(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.inpaintingMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.inpaintingMenuShown, this.InpaintingProfileMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.inpaintingMenuShown = false
+                },
               })
               this.rowDivider()
               this.TextInputRow(

@@ -8,6 +8,7 @@ import {
   LlmSourceProfile,
   LlmSourceResolution,
   supportsCommentTranslation,
+  supportsMangaTranslation,
 } from '../model/LlmSourceProfile'
 import { LlmSourceProfileRepository } from '../settings/LlmSourceProfileRepository'
 import { LlmSourceSecretStore } from './LlmSourceSecretStore'
@@ -52,13 +53,14 @@ export class LlmSourceRuntimeResolver {
 
   static async resolveManga(
     context: common.UIAbilityContext,
+    requireImageInput: boolean = true,
   ): Promise<LlmSourceRuntimeConfig> {
     const config: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveConsumer(
       context,
       LLM_CONSUMER_MANGA_TRANSLATION,
     )
     const profile: LlmSourceProfile = LlmSourceRuntimeResolver.profile(config.sourceProfileId)
-    if (!profile.capabilities.responses || !profile.capabilities.imageInput) {
+    if (!supportsMangaTranslation(profile, requireImageInput)) {
       throw new Error('Selected LLM source does not support manga translation')
     }
     return config

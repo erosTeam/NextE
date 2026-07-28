@@ -16,8 +16,12 @@ import {
   ComicVisualTranslationContract,
   ComicVisualTranslationRoute,
   MANGA_TRANSLATOR_UI_BACKEND_ID,
+  MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+  MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
   MANGA_TRANSLATOR_UI_EXPORT_PATH,
   MANGA_TRANSLATOR_UI_IMPORT_PATH,
+  MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+  MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
   MANGA_TRANSLATOR_UI_NON_JAPANESE_CONFIG_JSON,
   MANGA_TRANSLATOR_UI_NON_JAPANESE_PROFILE_ID,
   MANGA_TRANSLATOR_UI_PROFILE_ID,
@@ -292,6 +296,42 @@ export default function mangaTranslatorUiSidecarBackendTest(): void {
       expect(ukrainian.translationConfigJson.includes('"use_hybrid_ocr":false')).assertEqual(true)
       expect(ukrainian.translationConfigJson.includes('mocr')).assertEqual(false)
       expect(ukrainian.validatedBaseUrl()).assertEqual('http://127.0.0.1:5003')
+    })
+
+    it('accepts only the finite detection and inpainting product profiles', 0, () => {
+      const balancedFast: MangaTranslatorUiSidecarConfig = config()
+      balancedFast.applyProfile(
+        'Japanese',
+        MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+        MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+      )
+      expect(balancedFast.translationConfigJson.includes('"box_threshold":0.7'))
+        .assertEqual(true)
+      expect(balancedFast.translationConfigJson.includes('"min_box_area_ratio":0.0009'))
+        .assertEqual(true)
+      expect(balancedFast.translationConfigJson.includes('"inpainter":"default"'))
+        .assertEqual(true)
+      expect(balancedFast.profileId().includes('balanced-v1-aot-v1')).assertEqual(true)
+      expect(balancedFast.validatedBaseUrl()).assertEqual('http://127.0.0.1:5003')
+
+      const recallQuality: MangaTranslatorUiSidecarConfig = config()
+      recallQuality.applyProfile(
+        'auto',
+        MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+        MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+      )
+      expect(recallQuality.translationConfigJson).assertEqual(
+        MANGA_TRANSLATOR_UI_VISUAL_ONLY_CONFIG_JSON,
+      )
+      expect(recallQuality.profileId()).assertEqual(MANGA_TRANSLATOR_UI_PROFILE_ID)
+
+      let invalidRejected: boolean = false
+      try {
+        recallQuality.applyProfile('auto', 'arbitrary', MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
+      } catch (_error) {
+        invalidRejected = true
+      }
+      expect(invalidRejected).assertEqual(true)
     })
 
     it('connects export and JSON import to one validated rendered page', 0,

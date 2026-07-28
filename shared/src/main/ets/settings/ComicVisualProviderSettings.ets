@@ -3,6 +3,7 @@ import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 
 export const COMIC_VISUAL_ROUTE_LOCAL: string = 'local'
+export const COMIC_VISUAL_ROUTE_SELF_HOSTED: string = 'self_hosted'
 export const COMIC_VISUAL_ROUTE_TORII: string = 'torii_whole_page'
 export const TORII_FONT_NOTO: string = 'noto'
 export const TORII_FONT_WILDWORDS: string = 'wildwords'
@@ -146,6 +147,7 @@ export class ToriiTranslatorModelCatalog {
 
 export class ComicVisualProviderSettingsSnapshot {
   route: string = COMIC_VISUAL_ROUTE_LOCAL
+  multimodalTranslationEnabled: boolean = true
   toriiModelId: string = TORII_DEFAULT_MODEL_ID
   toriiFontId: string = TORII_FONT_NOTO
 
@@ -153,6 +155,7 @@ export class ComicVisualProviderSettingsSnapshot {
     const value: ComicVisualProviderSettingsSnapshot =
       new ComicVisualProviderSettingsSnapshot()
     value.route = this.route
+    value.multimodalTranslationEnabled = this.multimodalTranslationEnabled
     value.toriiModelId = this.toriiModelId
     value.toriiFontId = this.toriiFontId
     return value
@@ -160,6 +163,7 @@ export class ComicVisualProviderSettingsSnapshot {
 
   assertValid(): void {
     if ((this.route !== COMIC_VISUAL_ROUTE_LOCAL &&
+      this.route !== COMIC_VISUAL_ROUTE_SELF_HOSTED &&
       this.route !== COMIC_VISUAL_ROUTE_TORII) ||
       ToriiTranslatorModelCatalog.find(this.toriiModelId) === null ||
       (this.toriiFontId !== TORII_FONT_NOTO &&
@@ -190,6 +194,10 @@ export class ComicVisualProviderSettings {
       StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE,
       COMIC_VISUAL_ROUTE_LOCAL,
     ) as string
+    snapshot.multimodalTranslationEnabled = store.getSync(
+      StorageKeys.COMIC_TRANSLATION_MULTIMODAL_ASSIST,
+      true,
+    ) as boolean
     snapshot.toriiModelId = store.getSync(
       StorageKeys.COMIC_TRANSLATION_TORII_MODEL,
       TORII_DEFAULT_MODEL_ID,
@@ -217,6 +225,10 @@ export class ComicVisualProviderSettings {
       StorageKeys.STORE_SETTINGS,
     )
     store.putSync(StorageKeys.COMIC_TRANSLATION_VISUAL_ROUTE, snapshot.route)
+    store.putSync(
+      StorageKeys.COMIC_TRANSLATION_MULTIMODAL_ASSIST,
+      snapshot.multimodalTranslationEnabled,
+    )
     store.putSync(StorageKeys.COMIC_TRANSLATION_TORII_MODEL, snapshot.toriiModelId)
     store.putSync(StorageKeys.COMIC_TRANSLATION_TORII_FONT, snapshot.toriiFontId)
     ComicVisualProviderSettings.deleteLegacyByokSettings(store)
