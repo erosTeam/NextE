@@ -1,5 +1,10 @@
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { uiMaterial } from '@kit.ArkUI'
+import { ImmersiveMaterialSettings } from '../settings/ImmersiveMaterialSettings'
+import {
+  connectImmersiveMaterialSettings,
+  ImmersiveMaterialSettingsState,
+} from '../state/ImmersiveMaterialSettingsState'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
 
@@ -11,7 +16,7 @@ let appSearchFieldSeq: number = 0
  * out through `onTextChange` — build() reads `fieldText`, NEVER the external keyword, so typing
  * never re-mounts the field (which would flap the soft keyboard when hosted in a title-bar
  * ComponentContent). `useSystemMaterial` gives the translucent immersive look in the HDS title
- * bar (V2Next routed this through user settings; NextE pins ULTRA_THIN). `searchButtonText`
+ * bar and routes its API-26 material grade through the shared user setting. `searchButtonText`
  * renders Search's built-in trailing button so a query can be run without the IME enter key.
  */
 @ComponentV2
@@ -26,6 +31,7 @@ export struct AppSearchField {
   @Event onSubmit?: (value: string) => void;
   // Search fields can live inside cached title-bar ComponentContent on API levels without system material.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+  private immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   // Unique id so getFocusController().requestFocus can target this specific Search instance.
   private fieldId: string = `appSearchField-${appSearchFieldSeq++}`;
 
@@ -116,11 +122,10 @@ export struct AppSearchField {
     if (!deviceInfo.apiAvailable('26.0.0')) {
       return undefined
     }
-    return new uiMaterial.ImmersiveMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      colorInvert: true,
-      applyShadow: true,
-      interactive: true,
-    })
+    return ImmersiveMaterialSettings.systemMaterial(
+      this.immersiveMaterial.level,
+      uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      true,
+    )
   }
 }

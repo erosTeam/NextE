@@ -1,5 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
+import { uiMaterial } from '@kit.ArkUI'
+import { deviceInfo } from '@kit.BasicServicesKit'
 import { hdsMaterial } from '@kit.UIDesignKit'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -7,8 +9,8 @@ import { connectImmersiveMaterialSettings } from '../state/ImmersiveMaterialSett
 
 // "沉浸光感材质" — ported from V2Next (shared/.../settings/ImmersiveMaterialSettings.ets). A 4-level choice:
 // 自动 (ADAPTIVE) plus three IMMERSIVE grades, the latter only offered when the device's HDS supports the
-// IMMERSIVE material type. effect() drives the title-bar / floating-tab-bar systemMaterialEffect. The
-// uiMaterial.ImmersiveMaterial helper V2Next also exposes is omitted — NextE has no consumer for it.
+// IMMERSIVE material type. effect() drives HDS systemMaterialEffect, while systemMaterial() maps the same
+// preference to API-26 component-level uiMaterial.ImmersiveMaterial.
 const LEVEL_ADAPTIVE: string = 'adaptive'
 const LEVEL_EXQUISITE: string = 'exquisite'
 const LEVEL_GENTLE: string = 'gentle'
@@ -150,5 +152,38 @@ export class ImmersiveMaterialSettings {
       materialType: hdsMaterial.MaterialType.ADAPTIVE,
       materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
     }
+  }
+
+  static systemMaterial(
+    level: string,
+    adaptiveStyle: uiMaterial.ImmersiveStyle,
+    interactive: boolean,
+  ): uiMaterial.Material | undefined {
+    if (!deviceInfo.apiAvailable('26.0.0')) {
+      return undefined
+    }
+    return new uiMaterial.ImmersiveMaterial({
+      style: ImmersiveMaterialSettings.systemMaterialStyle(level, adaptiveStyle),
+      colorInvert: true,
+      applyShadow: true,
+      interactive: interactive,
+    })
+  }
+
+  private static systemMaterialStyle(
+    level: string,
+    adaptiveStyle: uiMaterial.ImmersiveStyle,
+  ): uiMaterial.ImmersiveStyle {
+    const normalized: string = ImmersiveMaterialSettings.normalizeLevel(level)
+    if (normalized === LEVEL_EXQUISITE) {
+      return uiMaterial.ImmersiveStyle.THIN
+    }
+    if (normalized === LEVEL_GENTLE) {
+      return uiMaterial.ImmersiveStyle.REGULAR
+    }
+    if (normalized === LEVEL_SMOOTH) {
+      return uiMaterial.ImmersiveStyle.THICK
+    }
+    return adaptiveStyle
   }
 }
