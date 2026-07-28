@@ -21,14 +21,30 @@ upstream license before redistribution.
 
 ## Run for NextE
 
-Build the pinned compatibility image and expose its web port:
+Build the pinned compatibility image, persist both the model cache and account data, and expose its web port:
 
 ```bash
 scripts/build_manga_translator_ui_sidecar.sh
+docker volume create nexte-manga-translator-models
+docker volume create nexte-manga-translator-data
 docker run -d --name nexte-manga-translator \
+  --restart unless-stopped \
   -p 8000:8000 \
+  -v nexte-manga-translator-models:/app/models \
+  -v nexte-manga-translator-data:/app/manga_translator/server/data \
   nexte/manga-translator-ui:v1.9.9-nexte2
+scripts/prepare_manga_translator_ui_sidecar.sh nexte-manga-translator
 ```
+
+The compatibility image intentionally does not redistribute upstream model weights. The preparation command invokes
+the pinned upstream downloaders and hash checks without requiring a synthetic or user manga page. It prepares the
+default detector, YSGYolo, 48px OCR, MangaOCR, LaMa Large, and AOT models used by every finite NextE profile. It is
+idempotent and should be rerun after changing the pinned sidecar version.
+
+Do not use the first Reader request as model installation. A fresh isolated v1.9.9 container downloaded about 1.3 GiB
+and remained busy for more than ten minutes in the 2026-07-28 real-page test, exceeding NextE's bounded page-request
+timeout. The named model volume makes preparation a one-time deployment step; the data volume preserves upstream
+accounts and sessions when the container is recreated.
 
 Open `http://<server>:8000/static/login.html` once and complete the upstream first-account setup. In NextE, select
 `漫画翻译 -> 制图方式 -> 自部署`, then enter the same service URL and account. The connection check validates

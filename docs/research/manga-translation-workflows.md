@@ -255,6 +255,12 @@ profile 的真实衔接成立，但不能外推为广泛语料、字体排版或
 并发登录合流，并在 401 后只自动重新登录和重放一次。账号轮换不应使已生成的视觉译图缓存失效，但必须
 让持有旧会话的运行时 backend 立即重建。历史 token 只作为升级兼容路径保留。
 
+2026-07-28 的全新隔离容器还验证了一个部署边界：模型不在兼容镜像中，第一次真实 export 会现场下载
+default detector、YSGYolo、48px OCR、MangaOCR 和 LaMa，约占 1.3 GiB，并可能持续超过十分钟。Reader
+请求不应兼任模型安装器。正式部署必须给 `/app/models` 和 `/app/manga_translator/server/data` 配置持久卷，
+并在接入 Reader 前运行 `scripts/prepare_manga_translator_ui_sidecar.sh`；该脚本直接调用 pinned 上游模型
+下载器与哈希校验，不需要伪造测试图片。AOT 也一并准备，切换首版两个修复 profile 时不会再次触发冷下载。
+
 这给 NextE 一个不重写整套 Python/模型栈的首条质量路线：把该类服务当作可替换的区域/修复/渲染
 sidecar，NextE 继续用自己的 API/Codex provider 负责带画廊上下文的翻译。客户端只实现窄的版本化协议
 适配器，不复制 GPL 实现；sidecar 原始 JSON 属于可再生成的适配器缓存，内部长期语义仍由

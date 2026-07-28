@@ -18,10 +18,11 @@ The old milestone snapshot is archived at
   [Local Translation Quality Closure](plans/completed/manga-translation-local-quality-closure.md) has now closed the
   current local visual-tuning lane and the multimodal-versus-text-only real-page A/B. It preserves an explicit image
   upload switch and records the current model stack's stop conditions instead of opening more heuristic tuning.
-  [Self-hosted Translation Route](plans/active/manga-translation-self-hosted-route.md) remains the bounded manga lane:
-  it productizes the existing pinned `manga-translator-ui` sidecar as a third explicit route with only two quality
-  controls, pending real-page acceptance after the existing account is reauthenticated. Torii remains a
-  user-selectable whole-page route and quality comparison; neither parallel route replaces or widens the local closure.
+  [Self-hosted Translation Route](plans/completed/manga-translation-self-hosted-route.md) has also closed after a fresh
+  isolated deployment and two real Reader pages on device `237`. It productizes the pinned `manga-translator-ui`
+  sidecar as a third explicit route with only two quality controls and a deterministic model-preparation step. Torii
+  remains a user-selectable whole-page route and quality comparison; neither parallel route replaces or widens the
+  local closure.
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.

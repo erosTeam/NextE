@@ -34,3 +34,4 @@ docker build \
   "${checkout_path}"
 
 echo "Built ${image_tag} from ${upstream_commit} with the NextE load-text compatibility route."
+echo "After starting the container, run scripts/prepare_manga_translator_ui_sidecar.sh before Reader use."

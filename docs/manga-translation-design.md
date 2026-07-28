@@ -15,15 +15,18 @@
 [Plan Lifecycle](plans/README.md) 建立有边界的 active plan。
 
 端侧当前模型栈的停止条件、真实页视觉候选否决和“多模态辅助 / 仅 OCR 文本”输入 A/B 已记录在
-[端侧漫画翻译质量收口](plans/completed/manga-translation-local-quality-closure.md)。当前仍需外部条件闭环的
-执行入口是[自部署路线产品化](plans/active/manga-translation-self-hosted-route.md)，它只恢复现有 pinned
-sidecar 为第三条显式路线。Torii 维持已有并列路线，不得借任一路线继续无边界扩展参数或 provider。
+[端侧漫画翻译质量收口](plans/completed/manga-translation-local-quality-closure.md)。随后
+[自部署路线产品化](plans/completed/manga-translation-self-hosted-route.md)已用代理维护的隔离服务和设备
+`237` 完成真实 Reader 闭环。Torii 维持已有并列路线；当前三条路线都没有未关闭的泛化调参计划，不得借
+任一路线继续无边界扩展参数或 provider。
 
 当前产品方向是：**先交付低操作成本的 Reader 阅读翻译，但其用户结果仍是一张可直接阅读的视觉译制
 漫画页。** 正式默认路线必须在端侧完成文字检测、OCR、原文处理、排版和渲染，只把翻译与必要的图像
 语境判断交给用户选择的 LLM 源。默认使用不要求部署外部服务；需要更强视觉处理且愿意维护服务的用户，
 可以主动选择自部署 sidecar。首次使用端侧路线最多需要下载并管理本地视觉模型包。可持久化的画廊/页面翻译文档衔接各阶段，
 整页多模态和 OCR 只是可替换的上游分析器。中间文档、转录文本、质量信号和调试面板都不能替代视觉页面。
+自部署镜像不打包上游模型；服务维护者必须使用持久模型/账号卷，并在 Reader 接入前运行固定模型准备脚本，
+不能让第一次阅读请求兼任约 1.3 GiB 模型安装。
 
 专业漫画制作是共享同一底层文档与渲染能力的后续产品分支，不是当前 V1 的同义词。Reader 分支追求
 少操作、可失败回退、可缓存和足够好的即时阅读；制作分支才要求逐框编辑、精细修复、字体与布局调优、
