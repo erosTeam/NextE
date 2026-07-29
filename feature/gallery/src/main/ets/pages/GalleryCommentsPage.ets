@@ -31,6 +31,7 @@ import {
   connectGalleryDetailRefreshMutation,
   DiagnosticLogger,
   EhErrorText,
+  AppPrompt,
   connectCommentTranslationSettings,
   immersiveTitleBarOpts,
 } from 'shared'
@@ -990,101 +991,132 @@ export struct GalleryCommentsPage {
   }
 
   @Builder
-  CommentComposer() {
-    Column() {
-      Column({ space: ThemeConstants.SPACE_SM }) {
-        if (this.hasComposerContext()) {
-          Row({ space: ThemeConstants.SPACE_SM }) {
-            Blank()
-              .width(COMMENT_COMPOSER_QUOTE_LINE_W)
-              .height(COMMENT_COMPOSER_QUOTE_LINE_H)
-              .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-              .borderRadius(COMMENT_COMPOSER_QUOTE_LINE_W / 2)
-            Column({ space: ThemeConstants.SPACE_XS }) {
-              Text(this.composerContextTitle())
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_emphasize'))
-                .textAlign(TextAlign.Start)
-                .width('100%')
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(this.composerContextPreview())
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_secondary'))
-                .textAlign(TextAlign.Start)
-                .width('100%')
-                .maxLines(2)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-            Row() {
-              SymbolGlyph($r('sys.symbol.xmark'))
-                .fontSize(COMMENT_COMPOSER_CLOSE_ICON_SIZE)
-                .fontColor([$r('sys.color.font_secondary')])
-            }
-            .width(COMMENT_COMPOSER_SEND_SIZE)
-            .height(COMMENT_COMPOSER_SEND_SIZE)
-            .justifyContent(FlexAlign.Center)
-            .alignItems(VerticalAlign.Center)
-            .onClick(() => {
-              this.cancelCommentContext()
-            })
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-          .padding({
-            left: COMMENT_COMPOSER_QUOTE_LEFT_GAP,
-            right: COMMENT_COMPOSER_CLOSE_RIGHT_GAP,
-            top: COMMENT_COMPOSER_QUOTE_TOP_GAP,
-          })
-        }
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          TextArea({
-            text: this.commentText,
-            placeholder: this.commentPlaceholder(),
-          })
-            .id(COMMENT_COMPOSER_FIELD_ID)
-            .constraintSize({ maxHeight: COMMENT_COMPOSER_INPUT_MAX_H })
-            .maxLines(8)
-            .backgroundColor(Color.Transparent)
-            .layoutWeight(1)
-            .enabled(!this.commentSubmitting && this.canOpenCommentSheet())
-            .onChange((value: string) => {
-              this.commentText = value
-            })
-          SymbolGlyph($r('sys.symbol.location_north_up_right_circle_fill'))
-            .fontSize(COMMENT_COMPOSER_SEND_SIZE)
-            .fontColor([
-              this.canSubmitComment()
-                ? ThemeConstants.BRAND_PRIMARY
-                : $r('sys.color.font_tertiary'),
-            ])
-            .opacity(this.canSubmitComment() ? 1 : 0.45)
-            .onClick(() => {
-              this.submitComment()
-            })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Bottom)
-        if (this.commentError.length > 0) {
-          Text(this.commentError)
+  private CommentComposerFields() {
+    if (this.hasComposerContext()) {
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        Blank()
+          .width(COMMENT_COMPOSER_QUOTE_LINE_W)
+          .height(COMMENT_COMPOSER_QUOTE_LINE_H)
+          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+          .borderRadius(COMMENT_COMPOSER_QUOTE_LINE_W / 2)
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Text(this.composerContextTitle())
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor(Color.Red)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_emphasize'))
+            .textAlign(TextAlign.Start)
             .width('100%')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.composerContextPreview())
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .textAlign(TextAlign.Start)
+            .width('100%')
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        Row() {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(COMMENT_COMPOSER_CLOSE_ICON_SIZE)
+            .fontColor([$r('sys.color.font_secondary')])
+        }
+        .width(COMMENT_COMPOSER_SEND_SIZE)
+        .height(COMMENT_COMPOSER_SEND_SIZE)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.cancelCommentContext()
+        })
       }
       .width('100%')
+      .alignItems(VerticalAlign.Center)
       .padding({
-        left: COMMENT_COMPOSER_INNER_GAP,
-        right: COMMENT_COMPOSER_INNER_GAP,
-        top: COMMENT_COMPOSER_INNER_GAP,
-        bottom: COMMENT_COMPOSER_INNER_GAP,
+        left: COMMENT_COMPOSER_QUOTE_LEFT_GAP,
+        right: COMMENT_COMPOSER_CLOSE_RIGHT_GAP,
+        top: COMMENT_COMPOSER_QUOTE_TOP_GAP,
       })
-      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-      .borderRadius(COMMENT_COMPOSER_RADIUS)
-      .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+    }
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      TextArea({
+        text: this.commentText,
+        placeholder: this.commentPlaceholder(),
+      })
+        .id(COMMENT_COMPOSER_FIELD_ID)
+        .constraintSize({ maxHeight: COMMENT_COMPOSER_INPUT_MAX_H })
+        .maxLines(8)
+        .backgroundColor(Color.Transparent)
+        .layoutWeight(1)
+        .enabled(!this.commentSubmitting && this.canOpenCommentSheet())
+        .onChange((value: string) => {
+          this.commentText = value
+        })
+      SymbolGlyph($r('sys.symbol.location_north_up_right_circle_fill'))
+        .fontSize(COMMENT_COMPOSER_SEND_SIZE)
+        .fontColor([
+          this.canSubmitComment()
+            ? ThemeConstants.BRAND_PRIMARY
+            : $r('sys.color.font_tertiary'),
+        ])
+        .opacity(this.canSubmitComment() ? 1 : 0.45)
+        .onClick(() => {
+          this.submitComment()
+        })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Bottom)
+    if (this.commentError.length > 0) {
+      Text(this.commentError)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(Color.Red)
+        .width('100%')
+    }
+  }
+
+  @Builder
+  private MaterialCommentComposerSurface() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      this.CommentComposerFields()
+    }
+    .width('100%')
+    .padding({
+      left: COMMENT_COMPOSER_INNER_GAP,
+      right: COMMENT_COMPOSER_INNER_GAP,
+      top: COMMENT_COMPOSER_INNER_GAP,
+      bottom: COMMENT_COMPOSER_INNER_GAP,
+    })
+    .backgroundColor(Color.Transparent)
+    .systemMaterial(AppPrompt.composerSystemMaterial())
+    .borderRadius(COMMENT_COMPOSER_RADIUS)
+  }
+
+  @Builder
+  private FallbackCommentComposerSurface() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      this.CommentComposerFields()
+    }
+    .width('100%')
+    .padding({
+      left: COMMENT_COMPOSER_INNER_GAP,
+      right: COMMENT_COMPOSER_INNER_GAP,
+      top: COMMENT_COMPOSER_INNER_GAP,
+      bottom: COMMENT_COMPOSER_INNER_GAP,
+    })
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(COMMENT_COMPOSER_RADIUS)
+    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+  }
+
+  @Builder
+  CommentComposer() {
+    Column() {
+      if (AppPrompt.systemMaterialSupported()) {
+        this.MaterialCommentComposerSurface()
+      } else {
+        this.FallbackCommentComposerSurface()
+      }
     }
     .width('100%')
     .padding({
