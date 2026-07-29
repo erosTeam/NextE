@@ -14,6 +14,8 @@ export struct AppModalScaffold {
   @Param closeIcon: Resource = $r('sys.symbol.xmark')
   @Param closeIconStyle: IconStyleMode = IconStyleMode.SMALL
   @Param footerReserveHeight: number = 0
+  @Param contentOwnsScrolling: boolean = false
+  @Param scroller: Scroller = new Scroller()
   @Param showFooterActionOne: boolean = false
   @Param footerActionOneIcon: Resource = $r('sys.symbol.checkmark')
   @Param footerActionOneText: ResourceStr = ''
@@ -45,30 +47,41 @@ export struct AppModalScaffold {
   @Event footerActionTwo?: () => void
   @Event footerActionThree?: () => void
   layout: LayoutSafeAreaState = connectLayoutSafeArea()
-  scroller: Scroller = new Scroller()
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
       HdsNavigation() {
-        List({ space: ThemeConstants.SPACE_SM, scroller: this.scroller }) {
-          this.content()
-          ListItem() {
-            Column() {
-              Blank()
-                .height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_MD + this.footerReserveHeight)
-            }
-            .width('100%')
+        if (this.contentOwnsScrolling) {
+          Column() {
+            this.content()
           }
+          .height('100%')
+          .width('100%')
+          .padding({
+            left: this.contentHorizontalPadding,
+            right: this.contentHorizontalPadding,
+          })
+        } else {
+          List({ space: ThemeConstants.SPACE_SM, scroller: this.scroller }) {
+            this.content()
+            ListItem() {
+              Column() {
+                Blank()
+                  .height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_MD + this.footerReserveHeight)
+              }
+              .width('100%')
+            }
+          }
+          .height('100%')
+          .width('100%')
+          .padding({ left: this.contentHorizontalPadding, right: this.contentHorizontalPadding })
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.None)
+          .nestedScroll({
+            scrollForward: NestedScrollMode.SELF_FIRST,
+            scrollBackward: NestedScrollMode.SELF_FIRST,
+          })
         }
-        .height('100%')
-        .width('100%')
-        .padding({ left: this.contentHorizontalPadding, right: this.contentHorizontalPadding })
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.None)
-        .nestedScroll({
-          scrollForward: NestedScrollMode.SELF_FIRST,
-          scrollBackward: NestedScrollMode.SELF_FIRST,
-        })
       }
       .titleBar({
         enableComponentSafeArea: this.enableComponentSafeArea,

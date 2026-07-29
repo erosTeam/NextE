@@ -7,9 +7,13 @@ rules live in one domain guide each.
 
 - The user's latest explicit request defines the active scope. Plans, archived notes, handoffs, test
   artifacts, and device leases never create work or authorization by themselves.
-- Within repository documentation, follow this order: `AGENTS.md` → the relevant guide below → current
-  source and fresh evidence → active task plan. `docs/archive/` and `docs/plans/archive/` are historical
-  evidence only.
+- After the user's current scope, execution order is: `AGENTS.md` → applicable skills and the relevant
+  guide below → relevant memory and current-task artifacts → current source and fresh evidence → active
+  task plan and actions. Process discipline is part of correctness; do not act first and backfill
+  required reading later. `docs/archive/` and `docs/plans/archive/` are historical evidence only.
+- An applicable skill is an execution workflow, not optional background reading. Read it before acting,
+  keep its established scenario state across retries, and treat user corrections as deltas unless the
+  user rejects that state or changes the goal.
 - Agents may choose reversible implementation details that preserve the requested result. A choice that
   changes product meaning, data ownership, remote schema, user-visible hierarchy, or another major
   trade-off must be explained and returned to the user for decision before implementation.
@@ -54,6 +58,8 @@ acquire the lease with the resolved full target: `scripts/device-lease --device 
 - ArkTS, ArkUI, NDK, or UI work: [HarmonyOS constraints](docs/agent-guides/harmonyos-default.md).
 - Build, signing, worktree, or local-tool work: [Local development](docs/agent-guides/local-development.md).
 - Device or emulator work: [Device lease](docs/device-lease.md).
+- Repeated HarmonyOS UI actions, diagnostics, logs, or traces: use the
+  `harmony-run-device-diagnostics` skill after reading the device guide.
 - Product bug or feature work: [Product work](docs/agent-guides/product-work.md).
 - Architecture-sensitive work: [Architecture](docs/architecture.md).
 - Manga translation, OCR, multimodal context, or translated-image work:

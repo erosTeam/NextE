@@ -10,9 +10,11 @@ import {
   EhErrorText,
   EhTagSuggestion,
   EhTagSuggestionDisplay,
+  LayoutSafeAreaState,
   TagTranslationService,
   TagTranslationSettingsState,
   ThemeConstants,
+  connectLayoutSafeArea,
   connectTagTranslationSettings,
 } from 'shared'
 
@@ -42,8 +44,10 @@ export struct GalleryAddTagsSheet {
   @Local submitting: boolean = false
   @Local errorMessage: string = ''
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings()
+  layout: LayoutSafeAreaState = connectLayoutSafeArea()
   private suggestTimer: number = -1
   private suggestEpoch: number = 0
+  private suggestionScroller: Scroller = new Scroller()
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -271,6 +275,24 @@ export struct GalleryAddTagsSheet {
     })
   }
 
+  @Builder
+  private DraftField() {
+    TextArea({
+      text: this.draft,
+      placeholder: $r('app.string.detail_add_tags_placeholder'),
+    })
+      .id(ADD_TAGS_FIELD_ID)
+      .width('100%')
+      .maxLines(4)
+      .fontColor($r('sys.color.font_primary'))
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+      .enabled(!this.submitting)
+      .onChange((value: string) => {
+        this.onDraftChange(value)
+      })
+  }
+
   build() {
     AppModalScaffold({
       title: $r('app.string.detail_add_tags'),
@@ -278,6 +300,8 @@ export struct GalleryAddTagsSheet {
       confirmText: $r('app.string.detail_add_tags'),
       confirmEnabled: this.canSubmit(),
       confirmLoading: this.submitting,
+      contentOwnsScrolling: true,
+      scroller: this.suggestionScroller,
       closeAction: () => {
         if (this.closeAction) {
           this.closeAction()
@@ -287,64 +311,71 @@ export struct GalleryAddTagsSheet {
         this.confirmSubmit()
       },
     }) {
-      ListItem() {
-        TextArea({
-          text: this.draft,
-          placeholder: $r('app.string.detail_add_tags_placeholder'),
-        })
-          .id(ADD_TAGS_FIELD_ID)
-          .width('100%')
-          .maxLines(4)
-          .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('app.color.card_background'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .enabled(!this.submitting)
-          .onChange((value: string) => {
-            this.onDraftChange(value)
-          })
-      }
-      if (this.suggestionLoading || this.suggestions.length > 0) {
-        ListItem() {
-          Column({ space: ThemeConstants.SPACE_XS }) {
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        this.DraftField()
+
+        List({ space: ThemeConstants.SPACE_SM, scroller: this.suggestionScroller }) {
+          if (this.suggestionLoading || this.suggestions.length > 0) {
             if (this.suggestionLoading) {
-              LoadingProgress()
-                .width(ThemeConstants.LOADING_SIZE)
-                .height(ThemeConstants.LOADING_SIZE)
-                .color(ThemeConstants.BRAND_PRIMARY)
+              ListItem() {
+                Row() {
+                  LoadingProgress()
+                    .width(ThemeConstants.LOADING_SIZE)
+                    .height(ThemeConstants.LOADING_SIZE)
+                    .color(ThemeConstants.BRAND_PRIMARY)
+                }
+                .width('100%')
+                .justifyContent(FlexAlign.Center)
+              }
             }
             ForEach(
               this.suggestions,
-              (suggestion: EhTagSuggestion) => {
-                this.SuggestionRow(suggestion)
+              (suggestion: EhTagSuggestion, index: number) => {
+                ListItem() {
+                  this.SuggestionRow(suggestion)
+                }
+                .id(`gallery-add-tags-suggestion-${index}-of-${this.suggestions.length}`)
               },
               (suggestion: EhTagSuggestion, index: number) =>
                 `suggestion_${index}_${suggestion.namespace}_${suggestion.text}`.replace(/[^A-Za-z0-9_]/g, '_'),
             )
           }
-          .width('100%')
+          if (
+            !this.loadingCredentials &&
+            this.draft.trim().length > 0 &&
+            !this.canSubmit() &&
+            this.errorMessage.length === 0
+          ) {
+            ListItem() {
+              Text($r('app.string.detail_add_tags_unavailable'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+            }
+          }
+          if (this.errorMessage.length > 0) {
+            ListItem() {
+              Text(this.errorMessage)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor(Color.Red)
+                .width('100%')
+            }
+          }
         }
+        .width('100%')
+        .layoutWeight(1)
+        .contentEndOffset(this.layout.keyboardHeight)
+        .clip(true)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        .nestedScroll({
+          scrollForward: NestedScrollMode.SELF_FIRST,
+          scrollBackward: NestedScrollMode.SELF_FIRST,
+        })
       }
-      if (
-        !this.loadingCredentials &&
-        this.draft.trim().length > 0 &&
-        !this.canSubmit() &&
-        this.errorMessage.length === 0
-      ) {
-        ListItem() {
-          Text($r('app.string.detail_add_tags_unavailable'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-        }
-      }
-      if (this.errorMessage.length > 0) {
-        ListItem() {
-          Text(this.errorMessage)
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor(Color.Red)
-            .width('100%')
-        }
-      }
+      .width('100%')
+      .height('100%')
+      .padding({ top: ThemeConstants.SPACE_SM })
     }
   }
 
