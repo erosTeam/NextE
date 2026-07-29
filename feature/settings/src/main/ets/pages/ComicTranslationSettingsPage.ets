@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -846,23 +845,23 @@ export struct ComicTranslationSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.comic_visual_route'),
-                leadingIcon: $r('sys.symbol.picture'),
-                trailingText: this.visualRouteText(),
-                trailingDropdown: true,
-                action: () => {
-                  this.visualRouteMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.visualRouteMenuShown, this.VisualRouteMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
+            ConciseListRow({
+              title: $r('app.string.comic_visual_route'),
+              leadingIcon: $r('sys.symbol.picture'),
+              trailingText: this.visualRouteText(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuShown: this.visualRouteMenuShown,
+              dropdownMenuBuilder: () => {
+                this.VisualRouteMenu()
+              },
+              dropdownMenuOnDisappear: () => {
                 this.visualRouteMenuShown = false
               },
-            }))
+              action: () => {
+                this.visualRouteMenuShown = true
+              },
+            })
           }
         }
         if (this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL) {
@@ -909,43 +908,43 @@ export struct ComicTranslationSettingsPage {
           this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED) {
           ListItem() {
             GroupedListSection() {
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.llm_binding_source'),
-                  leadingIcon: $r('sys.symbol.cloud'),
-                  trailingText: this.selectedSourceText(),
-                  trailingDropdown: this.compatibleSources().length > 0,
-                  showChevron: this.compatibleSources().length === 0,
-                  action: () => {
-                    this.openSourceSelector()
-                  },
-                })
-              }
-              .bindMenu(this.sourceMenuShown, this.SourceMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
+              ConciseListRow({
+                title: $r('app.string.llm_binding_source'),
+                leadingIcon: $r('sys.symbol.cloud'),
+                trailingText: this.selectedSourceText(),
+                trailingDropdown: this.compatibleSources().length > 0,
+                showChevron: this.compatibleSources().length === 0,
+                dropdownMenuEnabled: this.compatibleSources().length > 0,
+                dropdownMenuShown: this.sourceMenuShown,
+                dropdownMenuBuilder: () => {
+                  this.SourceMenu()
+                },
+                dropdownMenuOnDisappear: () => {
                   this.sourceMenuShown = false
                 },
-              }))
+                action: () => {
+                  this.openSourceSelector()
+                },
+              })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.llm_binding_model'),
-                  leadingIcon: $r('sys.symbol.arrow_down_circle'),
-                  trailingText: this.selectedModelText(),
-                  trailingDropdown: true,
-                  isEnabled: this.selectedSourceId.length > 0 && !this.fetchingModels,
-                  action: () => {
-                    this.fetchModels()
-                  },
-                })
-              }
-              .bindMenu(this.modelMenuShown, this.ModelMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
+              ConciseListRow({
+                title: $r('app.string.llm_binding_model'),
+                leadingIcon: $r('sys.symbol.arrow_down_circle'),
+                trailingText: this.selectedModelText(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuShown: this.modelMenuShown,
+                dropdownMenuBuilder: () => {
+                  this.ModelMenu()
+                },
+                dropdownMenuOnDisappear: () => {
                   this.modelMenuShown = false
                 },
-              }))
+                isEnabled: this.selectedSourceId.length > 0 && !this.fetchingModels,
+                action: () => {
+                  this.fetchModels()
+                },
+              })
               this.rowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_translation_multimodal_assist'),
@@ -990,41 +989,41 @@ export struct ComicTranslationSettingsPage {
         if (this.visualRoute === COMIC_VISUAL_ROUTE_TORII) {
           ListItem() {
             GroupedListSection() {
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.comic_torii_model'),
-                  leadingIcon: $r('sys.symbol.translate'),
-                  trailingText: this.toriiModelText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.toriiModelMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.toriiModelMenuShown, this.ToriiModelMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
+              ConciseListRow({
+                title: $r('app.string.comic_torii_model'),
+                leadingIcon: $r('sys.symbol.translate'),
+                trailingText: this.toriiModelText(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuShown: this.toriiModelMenuShown,
+                dropdownMenuBuilder: () => {
+                  this.ToriiModelMenu()
+                },
+                dropdownMenuOnDisappear: () => {
                   this.toriiModelMenuShown = false
                 },
-              }))
+                action: () => {
+                  this.toriiModelMenuShown = true
+                },
+              })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.comic_torii_font'),
-                  leadingIcon: $r('sys.symbol.textformat'),
-                  trailingText: this.toriiFontText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.toriiFontMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.toriiFontMenuShown, this.ToriiFontMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
+              ConciseListRow({
+                title: $r('app.string.comic_torii_font'),
+                leadingIcon: $r('sys.symbol.textformat'),
+                trailingText: this.toriiFontText(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuShown: this.toriiFontMenuShown,
+                dropdownMenuBuilder: () => {
+                  this.ToriiFontMenu()
+                },
+                dropdownMenuOnDisappear: () => {
                   this.toriiFontMenuShown = false
                 },
-              }))
+                action: () => {
+                  this.toriiFontMenuShown = true
+                },
+              })
               this.rowDivider()
               this.ToriiSecretRow(
                 $r('app.string.comic_torii_api_key'),
