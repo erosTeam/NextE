@@ -16,6 +16,9 @@ import {
   SEARCH_SCOPE_FAVORITE,
   SEARCH_SCOPE_GALLERY,
   SEARCH_SCOPE_WATCHED,
+  SegmentButtonTheme,
+  ThemeDisplayState,
+  connectThemeDisplay,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
@@ -35,6 +38,7 @@ const FORM_FONT_SIZE: number = ThemeConstants.FONT_SIZE_TITLE
 export struct SearchFilterSheet {
   @Local filter: SearchFilterState = connectSearchFilter();
   @Local fav: FavSelectionState = connectFavSelection();
+  @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Param session: SearchSessionState = new SearchSessionState();
   @Local private scopeItems: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }, { text: '' }]);
   @Event onClose: () => void = () => {};
@@ -192,6 +196,11 @@ export struct SearchFilterSheet {
             itemSelectedFontSize: LengthMetrics.vp(FORM_FONT_SIZE),
             itemFontWeight: FontWeight.Medium,
             itemSelectedFontWeight: FontWeight.Bold,
+            buttonBackgroundColor: SegmentButtonTheme.tabButtonBackground(this.themeDisplay.effectiveDark),
+            itemSelectedBackgroundColor:
+              SegmentButtonTheme.tabSelectedItemBackground(this.themeDisplay.effectiveDark),
+            itemFontColor: SegmentButtonTheme.itemFont(this.themeDisplay.effectiveDark),
+            itemSelectedFontColor: SegmentButtonTheme.tabSelectedItemFont(this.themeDisplay.effectiveDark),
             onItemClicked: (index: number) => {
               this.setScope(this.scopeForIndex(index))
             },

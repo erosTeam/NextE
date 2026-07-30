@@ -37,6 +37,9 @@ import {
   PROFILE_TYPE_WATCHED,
   PROFILE_TYPE_TOPLIST,
   PROFILE_TYPE_FAVORITE,
+  SegmentButtonTheme,
+  ThemeDisplayState,
+  connectThemeDisplay,
 } from 'shared'
 
 /** One option for a dropdown row (string value + resolved label). */
@@ -99,6 +102,7 @@ export struct TabEditPage {
   @Local displayMode: string = PROFILE_DISPLAY_GLOBAL;
   @Local filter: SearchFilterState = new SearchFilterState();
   @Local favSelection: FavSelectionState = connectFavSelection();
+  @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay();
   // ns:text -> translated display name for the added tag rows (resolved async as searchText changes).
   @Local private trans: Map<string, string> = new Map<string, string>();
   @Local private periodItems: SegmentButtonV2Items = new SegmentButtonV2Items([
@@ -514,6 +518,13 @@ export struct TabEditPage {
                     enableStateAnimation: true,
                     itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
                     itemSelectedFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+                    buttonBackgroundColor:
+                      SegmentButtonTheme.tabButtonBackground(this.themeDisplay.effectiveDark),
+                    itemSelectedBackgroundColor:
+                      SegmentButtonTheme.tabSelectedItemBackground(this.themeDisplay.effectiveDark),
+                    itemFontColor: SegmentButtonTheme.itemFont(this.themeDisplay.effectiveDark),
+                    itemSelectedFontColor:
+                      SegmentButtonTheme.tabSelectedItemFont(this.themeDisplay.effectiveDark),
                     onItemClicked: (index: number) => {
                       this.toplistTl = this.periodForIndex(index)
                     },

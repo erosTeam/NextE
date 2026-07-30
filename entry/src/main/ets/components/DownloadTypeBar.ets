@@ -5,8 +5,11 @@ import {
   DownloadViewState,
   DownloadViewType,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
+  SegmentButtonTheme,
+  ThemeDisplayState,
   ThemeConstants,
   connectDownloadView,
+  connectThemeDisplay,
 } from 'shared'
 import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 import { DownloadPinnedTaskGroupHeader } from 'download'
@@ -18,6 +21,7 @@ import { DownloadPinnedTaskGroupHeader } from 'download'
 @ComponentV2
 export struct DownloadTypeBar {
   @Local private downloadView: DownloadViewState = connectDownloadView();
+  @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local private items: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }]);
 
   private updateHdsSelectorBoundary(area: Area): void {
@@ -63,6 +67,11 @@ export struct DownloadTypeBar {
           itemSelectedFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
           itemFontWeight: FontWeight.Medium,
           itemSelectedFontWeight: FontWeight.Bold,
+          buttonBackgroundColor: SegmentButtonTheme.tabButtonBackground(this.themeDisplay.effectiveDark),
+          itemSelectedBackgroundColor:
+            SegmentButtonTheme.tabSelectedItemBackground(this.themeDisplay.effectiveDark),
+          itemFontColor: SegmentButtonTheme.itemFont(this.themeDisplay.effectiveDark),
+          itemSelectedFontColor: SegmentButtonTheme.tabSelectedItemFont(this.themeDisplay.effectiveDark),
           itemPadding: {
             top: LengthMetrics.vp(ThemeConstants.SPACE_XS),
             bottom: LengthMetrics.vp(ThemeConstants.SPACE_XS),

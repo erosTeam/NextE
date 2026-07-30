@@ -3,6 +3,7 @@
 
 // theme
 export { ThemeConstants } from './theme/ThemeConstants'
+export { SegmentButtonTheme } from './theme/SegmentButtonTheme'
 
 // constants
 export { StorageKeys } from './constants/StorageKeys'

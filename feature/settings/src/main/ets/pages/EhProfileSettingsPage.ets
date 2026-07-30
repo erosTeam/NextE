@@ -31,10 +31,13 @@ import {
   SecondaryListScaffold,
   SettingsCheckedMenuItem,
   SiteModeState,
+  SegmentButtonTheme,
+  ThemeDisplayState,
   ThemeConstants,
   connectAuth,
   connectNavStack,
   connectSiteMode,
+  connectThemeDisplay,
   immersiveTitleBarOpts,
 } from 'shared'
 
@@ -1322,6 +1325,7 @@ struct LanguageVariantRow {
   @Param row: EhLanguageRow = new EhLanguageRow('');
   @Local items: SegmentButtonV2Items = new SegmentButtonV2Items([]);
   @Local selectedIndexes: number[] = [];
+  @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay();
 
   aboutToAppear(): void {
     const opts: SegmentButtonV2ItemOptions[] = []
@@ -1362,6 +1366,8 @@ struct LanguageVariantRow {
       items: this.items,
       selectedIndexes: this.selectedIndexes,
       itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_CAPTION),
+      itemBackgroundColor: SegmentButtonTheme.multiItemBackground(this.themeDisplay.effectiveDark),
+      itemFontColor: SegmentButtonTheme.itemFont(this.themeDisplay.effectiveDark),
       itemSelectedFontColor: ColorMetrics.resourceColor(ThemeConstants.TEXT_ON_BRAND),
       itemSelectedBackgroundColor: ColorMetrics.resourceColor(ThemeConstants.BRAND_PRIMARY),
       $selectedIndexes: (indexes: number[]) => {

@@ -5,6 +5,8 @@ import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import {
   ThemeConstants,
+  ThemeDisplayState,
+  connectThemeDisplay,
   EhGallery,
   EhGalleryVersion,
   EhGalleryComment,
@@ -90,6 +92,7 @@ import {
   ReadButtonStyleState,
   connectReadButtonStyle,
   appSheetOptions,
+  AppPrompt,
   DiagnosticLogger,
   SafeModeState,
   connectSafeMode,
@@ -219,6 +222,7 @@ export struct GalleryDetailPage {
   @Local actionStripLayoutReady: boolean = false;
   @Local actionStripShouldAnimate: boolean = false;
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
@@ -418,6 +422,23 @@ export struct GalleryDetailPage {
   @Monitor('navStackHolder.isSplitMode')
   private onNavigationModeChanged(): void {
     this.syncGalleryDetailBackToTopWorkspace()
+  }
+
+  @Monitor('themeDisplay.effectiveDark')
+  private onThemeDisplayChanged(): void {
+    const content: ComponentContent<GalleryDetailSheetContentParams> | null = this.remoteFavoriteSheetContent
+    if (content === null) {
+      return
+    }
+    // ComponentContent owns the sheet body, while openBindSheet owns the native HDS host surface.
+    // Refresh both boundaries when the resolved theme changes so the API-26 material cannot retain
+    // the color mode from the time the sheet was opened.
+    content.updateConfiguration()
+    this.getUIContext()
+      .updateBindSheet(content, { systemMaterial: AppPrompt.modalSystemMaterial() }, true)
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('gallery', 'favorite_sheet_theme_refresh_failed', error.message)
+      })
   }
 
   private readFabMaterialBarWidth(): number {

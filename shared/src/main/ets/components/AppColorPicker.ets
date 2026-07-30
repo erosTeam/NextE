@@ -3,6 +3,8 @@ import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.Ar
 import { AppStrings } from '../i18n/AppStrings'
 import { AppColorFavoritesSettings } from '../settings/AppColorFavoritesSettings'
 import { AppColorFavoritesState, connectAppColorFavorites } from '../state/AppColorFavoritesState'
+import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
+import { SegmentButtonTheme } from '../theme/SegmentButtonTheme'
 import { ThemeConstants } from '../theme/ThemeConstants'
 
 const COLOR_PICKER_MODE_GRID: number = 0
@@ -33,6 +35,7 @@ export struct AppColorPicker {
   @Local private lastEmittedColor: string = '';
   @Local private shrinkingFavoriteIndex: number = -1;
   @Local private colorFavorites: AppColorFavoritesState = connectAppColorFavorites();
+  @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay();
 
   aboutToAppear(): void {
     this.syncModeLabels()
@@ -73,6 +76,11 @@ export struct AppColorPicker {
         items: this.modeItems,
         selectedIndex: this.mode,
         enableStateAnimation: true,
+        buttonBackgroundColor: SegmentButtonTheme.tabButtonBackground(this.themeDisplay.effectiveDark),
+        itemSelectedBackgroundColor:
+          SegmentButtonTheme.tabSelectedItemBackground(this.themeDisplay.effectiveDark),
+        itemFontColor: SegmentButtonTheme.itemFont(this.themeDisplay.effectiveDark),
+        itemSelectedFontColor: SegmentButtonTheme.tabSelectedItemFont(this.themeDisplay.effectiveDark),
         onItemClicked: (index: number) => {
           this.mode = index
         },
