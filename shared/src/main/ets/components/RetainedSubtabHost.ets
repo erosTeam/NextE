@@ -56,7 +56,12 @@ export struct RetainedSubtabHost {
   private swiperController: SwiperController = new SwiperController();
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
-  private ignoreStartupSelectionChange: boolean = false;
+  // The only source position for the shared indicator. It records the last value published by the host,
+  // so a release animation continues from the finger-driven position instead of re-sampling a stale event.
+  private visualPosition: number = 0;
+  // Deduplicates an animation-start callback for the same native page transition. A new gesture or an
+  // immediate reconciliation clears it before becoming the next visual-state owner.
+  private visualSettleTarget: number = -1;
   private pendingTransitionIndex: number = -1;
   // Shared active-key signal handed to every page; updated at a bar-triggered animation start or when a
   // swipe settles. Its @Trace reaches cached pages, so each key's first activation triggers exactly one load.
@@ -92,6 +97,66 @@ export struct RetainedSubtabHost {
     return index + -extraInfo.currentOffset / this.swiperWidth
   }
 
+  private clampedVisualIndex(value: number): number {
+    const lastIndex: number = this.keys.length - 1
+    if (lastIndex <= 0) {
+      return 0
+    }
+    const candidate: number = Number.isNaN(value) ? this.activeIndex() : value
+    return Math.max(0, Math.min(lastIndex, candidate))
+  }
+
+  private publishVisualIndex(value: number): void {
+    const next: number = this.clampedVisualIndex(value)
+    this.visualPosition = next
+    this.onVisualIndex(next)
+  }
+
+  private commitVisualIndex(value: number): void {
+    const wasSettling: boolean = this.visualSettleTarget >= 0
+    this.visualSettleTarget = -1
+    if (wasSettling) {
+      // A new native settle has ended (or an immediate reconciliation supersedes it). A duration-0
+      // animateTo stops the prior property animation before its terminal value can write over this commit.
+      this.getUIContext().animateTo({ duration: 0 }, () => {
+        this.publishVisualIndex(value)
+      })
+      return
+    }
+    this.publishVisualIndex(value)
+  }
+
+  private publishGestureVisualIndex(value: number): void {
+    const next: number = this.clampedVisualIndex(value)
+    const wasSettling: boolean = this.visualSettleTarget >= 0
+    this.visualSettleTarget = -1
+    if (wasSettling) {
+      // The finger becomes the sole owner again. Explicitly stop the prior property animation once,
+      // then keep subsequent onGestureSwipe frames direct and continuous.
+      this.getUIContext().animateTo({ duration: 0 }, () => {
+        this.publishVisualIndex(next)
+      })
+      return
+    }
+    this.publishVisualIndex(next)
+  }
+
+  private settleVisualIndex(targetIndex: number): void {
+    const target: number = this.clampedVisualIndex(targetIndex)
+    if (this.visualSettleTarget === target) {
+      return
+    }
+    this.visualSettleTarget = target
+    if (this.visualPosition === target) {
+      return
+    }
+    // The visual state already contains the latest onGestureSwipe position. Starting this property
+    // animation without another offset write guarantees a gesture cannot be reset to its origin at release.
+    this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+      this.publishVisualIndex(target)
+    })
+  }
+
   private notifyActiveScroller(): void {
     if (this.onScrollerReady) {
       this.onScrollerReady(this.scrollerForKey(this.selectedKey))
@@ -110,8 +175,10 @@ export struct RetainedSubtabHost {
     this.active.activeKey = this.selectedKey
     const restoredIndex: number = this.activeIndex()
     this.swiperIndex = restoredIndex
-    this.ignoreStartupSelectionChange = true
-    this.onVisualIndex(restoredIndex)
+    // `.index(this.swiperIndex)` establishes the opening page. Do not retain an onChange startup
+    // correction: when no startup event is emitted, it would consume the first real swipe and restore
+    // this stale visual index over the gesture-driven indicator position.
+    this.commitVisualIndex(restoredIndex)
     this.notifyActiveScroller()
     DiagnosticLogger.info(
       'home-list-anchor',
@@ -162,7 +229,7 @@ export struct RetainedSubtabHost {
     if (this.keys.length <= 0) {
       this.swiperIndex = 0
       this.active.activeKey = ''
-      this.onVisualIndex(0)
+      this.commitVisualIndex(0)
       return
     }
     const from: number = Math.max(0, Math.min(this.keys.length - 1, this.swiperIndex))
@@ -171,7 +238,7 @@ export struct RetainedSubtabHost {
     if (from === target) {
       this.swiperIndex = target
       this.active.activeKey = activeKey
-      this.onVisualIndex(target)
+      this.commitVisualIndex(target)
       this.notifyActiveScroller()
       return
     }
@@ -182,7 +249,7 @@ export struct RetainedSubtabHost {
     } else {
       this.swiperIndex = target
       this.swiperController.changeIndex(target, false)
-      this.onVisualIndex(target)
+      this.commitVisualIndex(target)
     }
     this.notifyActiveScroller()
   }
@@ -210,23 +277,20 @@ export struct RetainedSubtabHost {
     .duration(ThemeConstants.ANIM_DURATION)
     .curve(Curve.EaseOut)
     .onGestureSwipe((index: number, extraInfo: SwiperAnimationEvent) => {
-      this.onVisualIndex(this.visualFromOffset(index, extraInfo))
+      this.publishGestureVisualIndex(this.visualFromOffset(index, extraInfo))
     })
-    .onAnimationStart((index: number, targetIndex: number, extraInfo: SwiperAnimationEvent) => {
+    .onAnimationStart((_index: number, targetIndex: number, _extraInfo: SwiperAnimationEvent) => {
       // Start a first visit's load when a bar-triggered page transition actually begins. The semantic
       // selected key remains unchanged until onAnimationEnd, matching the normal swipe path.
       if (this.pendingTransitionIndex === targetIndex && targetIndex >= 0 && targetIndex < this.keys.length) {
         this.active.activeKey = this.keys[targetIndex]
       }
-      this.onVisualIndex(this.visualFromOffset(index, extraInfo))
-      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-        this.onVisualIndex(targetIndex)
-      })
+      this.settleVisualIndex(targetIndex)
     })
     .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
       this.pendingTransitionIndex = -1
       this.swiperIndex = index
-      this.onVisualIndex(index)
+      this.commitVisualIndex(index)
       const key: string = this.keys[index]
       this.active.activeKey = key
       DiagnosticLogger.info(
@@ -238,19 +302,6 @@ export struct RetainedSubtabHost {
         this.onSelectKey(key)
       }
       this.notifyActiveScroller()
-    })
-    .onChange((i: number) => {
-      if (this.ignoreStartupSelectionChange) {
-        this.ignoreStartupSelectionChange = false
-        const expectedIndex: number = this.activeIndex()
-        if (i !== expectedIndex) {
-          this.onVisualIndex(expectedIndex)
-          return
-        }
-      }
-      if (i < 0 || i >= this.keys.length) {
-        return
-      }
     })
     .onAreaChange((_oldValue: Area, newValue: Area) => {
       this.swiperWidth = newValue.width as number

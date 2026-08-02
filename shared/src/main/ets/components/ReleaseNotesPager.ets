@@ -11,6 +11,9 @@ const RELEASE_NOTES_RIBBON_LABEL_HORIZONTAL_PADDING: number = ThemeConstants.SPA
 const RELEASE_NOTES_RIBBON_FOCUS_RAIL_Y: number = 40
 const RELEASE_NOTES_RIBBON_FOCUS_RAIL_HEIGHT: number = 14
 const RELEASE_NOTES_RIBBON_FOCUS_RAIL_WIDTH_RATIO: number = 0.52
+const RELEASE_NOTES_RIBBON_LABEL_REGULAR_WEIGHT: number = 400
+const RELEASE_NOTES_RIBBON_LABEL_BOLD_WEIGHT: number = 700
+const RELEASE_NOTES_RIBBON_LABEL_MIN_OPACITY: number = 0.68
 
 /**
  * Release-history-only version track. This keeps the dialog's natural-width labels, edge centring and
@@ -106,6 +109,29 @@ struct ReleaseNotesVersionTrack {
       return 0
     }
     return Math.max(0, Math.min(this.tabs.length - 1, Math.round(this.visualIndex)))
+  }
+
+  // A single fractional emphasis drives the drag-time visual state. It deliberately does not use
+  // round(visualIndex): the page gesture publishes a float while the finger is down, and labels must
+  // grow, shrink, and change variable font weight continuously through that interval.
+  private labelEmphasis(index: number): number {
+    const distance: number = Math.abs(this.visualIndex - index)
+    return Math.max(0, 1 - Math.min(1, distance))
+  }
+
+  private labelScale(index: number): number {
+    const compactScale: number = ThemeConstants.FONT_SIZE_BODY / ThemeConstants.FONT_SIZE_H2
+    return compactScale + (1 - compactScale) * this.labelEmphasis(index)
+  }
+
+  private labelWeight(index: number): number {
+    const range: number = RELEASE_NOTES_RIBBON_LABEL_BOLD_WEIGHT - RELEASE_NOTES_RIBBON_LABEL_REGULAR_WEIGHT
+    return Math.round(RELEASE_NOTES_RIBBON_LABEL_REGULAR_WEIGHT + range * this.labelEmphasis(index))
+  }
+
+  private labelOpacity(index: number): number {
+    return RELEASE_NOTES_RIBBON_LABEL_MIN_OPACITY +
+      (1 - RELEASE_NOTES_RIBBON_LABEL_MIN_OPACITY) * this.labelEmphasis(index)
   }
 
   private centerIndex(): number {
@@ -217,19 +243,23 @@ struct ReleaseNotesVersionTrack {
         .fontWeight(FontWeight.Bold, { enableVariableFontWeight: true })
         .opacity(0)
         .maxLines(1)
+      // Keep exactly one visible glyph layer. Its opacity, scale and variable font weight all derive
+      // from the same fractional gesture progress, avoiding a midpoint colour snap or layer-composite
+      // ambiguity while retaining automatic light/dark adaptation from the system primary token.
       Text(tab.label)
         .fontSize(ThemeConstants.FONT_SIZE_H2)
         .fontWeight(
-          this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular,
+          this.labelWeight(index),
           { enableVariableFontWeight: true },
         )
-        .fontColor(this.visualSelectedIndex() === index ? ThemeConstants.TEXT_PRIMARY : $r('sys.color.font_secondary'))
+        .fontColor(ThemeConstants.TEXT_PRIMARY)
+        .opacity(this.labelOpacity(index))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .textAlign(TextAlign.Center)
         .scale({
-          x: this.visualSelectedIndex() === index ? 1 : ThemeConstants.FONT_SIZE_BODY / ThemeConstants.FONT_SIZE_H2,
-          y: this.visualSelectedIndex() === index ? 1 : ThemeConstants.FONT_SIZE_BODY / ThemeConstants.FONT_SIZE_H2,
+          x: this.labelScale(index),
+          y: this.labelScale(index),
         })
     }
     .padding({
@@ -315,12 +345,10 @@ export struct ReleaseNotesPager {
   @Local displayTabs: TabItem[] = []
   private controller: SwiperController = new SwiperController()
   private swiperWidth: number = 0
-  private ignoreStartupIndexChange: boolean = false
   private appliedReleaseSignature: string = ''
 
   aboutToAppear(): void {
     this.syncReleaseInput(false)
-    this.ignoreStartupIndexChange = true
   }
 
   @Monitor('releases')
@@ -490,19 +518,13 @@ export struct ReleaseNotesPager {
             this.visualIndex = this.clampedVisualIndex(targetIndex)
           })
         })
+        // `.index(this.activeIndex)` establishes the opening page. Do not use onChange to "correct" a
+        // presumed startup event: when none is emitted, that callback would instead consume the first
+        // real transition and reapply this stale activeIndex over the requested release page.
         .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
           this.activeIndex = this.clampedIndex(index)
           this.visualIndex = this.activeIndex
           this.onReleaseChanged(this.sourceIndexForDisplayIndex(this.activeIndex))
-        })
-        .onChange((index: number) => {
-          if (!this.ignoreStartupIndexChange) {
-            return
-          }
-          this.ignoreStartupIndexChange = false
-          if (index !== this.activeIndex) {
-            this.controller.changeIndex(this.activeIndex, false)
-          }
         })
         .onAreaChange((_oldArea: Area, area: Area) => {
           const width: number = area.width as number
