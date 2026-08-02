@@ -46,6 +46,7 @@ Allowed `Sync` values:
 | StorageKeys.THEME_COLOR | setting | plaintext | excluded | Theme accent |
 | StorageKeys.IMMERSIVE_MATERIAL_LEVEL | setting | plaintext | excluded | Material preference |
 | StorageKeys.LANGUAGE | setting | plaintext | excluded | App language |
+| StorageKeys.APP_RELEASE_CACHE | remote-cache | excluded | excluded | GitHub release-history cache; refreshed in the background and not user data |
 | StorageKeys.SEARCH_HISTORY | legacy-local-data | excluded | excluded | RDB source is `search_history` |
 | StorageKeys.SEARCH_HISTORY_TRANSLATE | setting | plaintext | excluded | Search-history translation preference |
 | StorageKeys.SEARCH_FILTER | setting | plaintext | excluded | Advanced-search filter snapshot |
