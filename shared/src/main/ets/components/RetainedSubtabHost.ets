@@ -1,5 +1,6 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { SubtabTransitionState } from '../state/SubtabTransitionState'
 
 /**
  * The active-key signal the host shares with EVERY retained page. Passed by reference (once) to each
@@ -33,8 +34,13 @@ export class ActiveKeyState {
 export struct RetainedSubtabHost {
   // Stable ordered key list (the surface's TabItem keys). The Swiper renders one retained page per key.
   @Param keys: string[] = [];
-  // Currently selected key (from the surface's selection bus). Drives the active page + the swipe target.
+  // Settled semantic selection from the surface's selection bus. External selection changes use it to
+  // realign the host; a SubTabBar click reaches the host through the transient transition request below.
   @Param selectedKey: string = '';
+  // A click intent from the shared title-bar SubTabBar. Unlike selectedKey, this is transient: the host
+  // consumes it to start the native Swiper animation and publishes selectedKey only after the page settles.
+  @Param subtabTransition: SubtabTransitionState = new SubtabTransitionState();
+  @Param transitionScope: string = '';
   // Renders the retained page for one key. GLOBAL @Builder (params only, no `this`). It receives the
   // SHARED ActiveKeyState (not a per-render isActive) so every page — cached too — sees activation.
   @BuilderParam pageBuilder:
@@ -51,8 +57,9 @@ export struct RetainedSubtabHost {
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
   private ignoreStartupSelectionChange: boolean = false;
-  // Shared active-key signal handed to every page; updated whenever the active key changes (bar tap or
-  // swipe settle). Its @Trace reaches cached pages, so each key's first activation triggers exactly one load.
+  private pendingTransitionIndex: number = -1;
+  // Shared active-key signal handed to every page; updated at a bar-triggered animation start or when a
+  // swipe settles. Its @Trace reaches cached pages, so each key's first activation triggers exactly one load.
   private active: ActiveKeyState = new ActiveKeyState();
 
   private scrollerForKey(key: string): Scroller {
@@ -113,8 +120,8 @@ export struct RetainedSubtabHost {
     )
   }
 
-  // Selection bus changed (a bar tap, a login-gated key removal, etc.) → swipe to that retained page AND
-  // publish the active key so that page (cached or not) loads on its first activation.
+  // An external selection change (restore, a full-screen selector, a login-gated key removal, etc.) →
+  // align to that retained page and publish its active key for first-load handling.
   @Monitor('selectedKey')
   onSelectedKeyChange(): void {
     DiagnosticLogger.info(
@@ -123,6 +130,22 @@ export struct RetainedSubtabHost {
       `selected=${this.selectedKey} keys=${this.keys.join(',')} swiperIndex=${this.swiperIndex}`,
     )
     this.syncSelectedIndex(true)
+  }
+
+  // The title bar and the retained page tree are separate HDS ComponentContent branches. A bar tap must
+  // therefore request the host's controller directly instead of first changing selectedKey, otherwise the
+  // controlled selection state settles the bar/page before the Swiper has a chance to animate.
+  @Monitor('subtabTransition.requestSeq')
+  onTransitionRequest(): void {
+    if (this.subtabTransition.scope !== this.transitionScope) {
+      return
+    }
+    const target: number = this.keys.indexOf(this.subtabTransition.targetKey)
+    if (target < 0 || target === this.swiperIndex) {
+      return
+    }
+    this.pendingTransitionIndex = target
+    this.swiperController.changeIndex(target, true)
   }
 
   @Monitor('keys')
@@ -190,12 +213,18 @@ export struct RetainedSubtabHost {
       this.onVisualIndex(this.visualFromOffset(index, extraInfo))
     })
     .onAnimationStart((index: number, targetIndex: number, extraInfo: SwiperAnimationEvent) => {
+      // Start a first visit's load when a bar-triggered page transition actually begins. The semantic
+      // selected key remains unchanged until onAnimationEnd, matching the normal swipe path.
+      if (this.pendingTransitionIndex === targetIndex && targetIndex >= 0 && targetIndex < this.keys.length) {
+        this.active.activeKey = this.keys[targetIndex]
+      }
       this.onVisualIndex(this.visualFromOffset(index, extraInfo))
       this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
         this.onVisualIndex(targetIndex)
       })
     })
     .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
+      this.pendingTransitionIndex = -1
       this.swiperIndex = index
       this.onVisualIndex(index)
       const key: string = this.keys[index]

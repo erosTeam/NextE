@@ -10,10 +10,10 @@ import {
   AuthState,
   connectLocalFav,
   LocalFavState,
-  SubtabSelectionSettings,
   EhConstants,
+  SubtabTransitionBridge,
+  SUBTAB_TRANSITION_SCOPE_FAVORITES,
 } from 'shared'
-import { common } from '@kit.AbilityKit'
 
 /**
  * Favorites favcat switcher, PINNED in the HDS title bar via a `bottomBuilder`. CHIPS-ONLY (search +
@@ -22,7 +22,7 @@ import { common } from '@kit.AbilityKit'
  * sliding indicator, driven by the per-frame favcat visual index that FavoritesPage's retained Swiper
  * publishes — so the bar tracks the finger/page swipe.
  * Many favcats overflow, so the bar scrolls horizontally and auto-centres the active favcat. A chip tap
- * writes the selected favcat (the bus); FavoritesPage swipes the Swiper to that retained page.
+ * requests the host's native transition; FavoritesPage writes the selected favcat after it settles.
  */
 @ComponentV2
 export struct FavcatBar {
@@ -30,10 +30,6 @@ export struct FavcatBar {
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
   @Local auth: AuthState = connectAuth();
   @Local localFav: LocalFavState = connectLocalFav();
-
-  private ctx(): common.UIAbilityContext {
-    return this.getUIContext().getHostContext() as common.UIAbilityContext
-  }
 
   // Must mirror FavoritesPage.favcatKeys() order: synthetic 'a' (all) + the favcat slots. Only the
   // synthetic all chip shows a count: eros_fe sums the remote 0-9 slots for "all"; per-slot counts stay
@@ -68,8 +64,11 @@ export struct FavcatBar {
       selectedIndex: this.selectedIndex(),
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
-        if (index >= 0 && index < items.length) {
-          SubtabSelectionSettings.setFavoritesFavcat(this.ctx(), items[index].key, this.auth.isLogin)
+        const selected: string = !this.auth.isLogin
+          ? 'l'
+          : (this.fav.selectedFavcat.length > 0 ? this.fav.selectedFavcat : 'a')
+        if (index >= 0 && index < items.length && items[index].key !== selected) {
+          SubtabTransitionBridge.request(SUBTAB_TRANSITION_SCOPE_FAVORITES, items[index].key)
         }
       },
     })

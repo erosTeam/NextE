@@ -8,7 +8,6 @@ import {
   CustomProfilesState,
   connectCustomProfiles,
   CustomProfile,
-  CustomProfilesSettings,
   connectNavStack,
   ThemeConstants,
   SafeModeState,
@@ -17,8 +16,9 @@ import {
   SAFE_MODE_PROFILE_UUID,
   ThemeDisplayState,
   connectThemeDisplay,
+  SubtabTransitionBridge,
+  SUBTAB_TRANSITION_SCOPE_HOME,
 } from 'shared'
-import { common } from '@kit.AbilityKit'
 
 /**
  * Gallery-tab source switcher, PINNED in the HDS title bar via a `bottomBuilder` (V2Next FeedPills
@@ -27,7 +27,7 @@ import { common } from '@kit.AbilityKit'
  *
  * The indicator is the shared SubTabBar's sliding underline, driven by the per-frame visual index that
  * HomePage's retained Swiper publishes — so the bar tracks the finger/page swipe instead of jumping on
- * settle. A tap publishes the source key (the bus); HomePage swipes the Swiper, which drives the indicator.
+ * settle. A tap requests the host's native transition; the selected profile is published after it settles.
  */
 @ComponentV2
 export struct HomeSourceBar {
@@ -36,10 +36,6 @@ export struct HomeSourceBar {
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
-
-  private ctx(): common.UIAbilityContext {
-    return this.getUIContext().getHostContext() as common.UIAbilityContext
-  }
 
   // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab:
   // non-hidden profiles, login-gated (watched/favorite need an account). The TabItem label is the
@@ -81,8 +77,8 @@ export struct HomeSourceBar {
             return
           }
           const items: TabItem[] = this.tabs()
-          if (index >= 0 && index < items.length) {
-            CustomProfilesSettings.setSelected(this.ctx(), items[index].key)
+          if (index >= 0 && index < items.length && items[index].key !== this.profiles.selectedUuid) {
+            SubtabTransitionBridge.request(SUBTAB_TRANSITION_SCOPE_HOME, items[index].key)
           }
         },
       })

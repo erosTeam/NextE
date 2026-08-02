@@ -6,6 +6,9 @@ import {
   RetainedSubtabHost,
   ActiveKeyState,
   SubtabSelectionSettings,
+  SubtabTransitionState,
+  connectSubtabTransition,
+  SUBTAB_TRANSITION_SCOPE_TOPLIST,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { ToplistPeriodPage } from '../components/ToplistPeriodPage'
@@ -28,15 +31,16 @@ function toplistPeriodPageBuilder(
 
 /**
  * Toplist (排行) tab: retained per-PERIOD sub-tabs on the shared RetainedSubtabHost framework (same as
- * Home). The period selector (全部/年榜/月榜/昨日, ToplistPeriodBar) writes HomeSourceState.toplistTl (the
- * selection BUS); the host swipes to the retained ToplistPeriodPage for that period (each owns its own VM
- * + scroller). NextE presents the period as a subtab, so it gets subtab retention — NOT a shared-list
- * reload. Toplist always hits the e-hentai host, so it does not react to the 表/里 toggle.
+ * Home). The period selector (全部/年榜/月榜/昨日, ToplistPeriodBar) requests the host's native transition;
+ * the host publishes the settled HomeSourceState.toplistTl selection for the retained ToplistPeriodPage
+ * (each owns its own VM + scroller). NextE presents the period as a subtab, so it gets subtab retention
+ * — NOT a shared-list reload. Toplist always hits the e-hentai host, so it does not react to the 表/里 toggle.
  */
 @ComponentV2
 export struct ToplistPage {
   @Local homeSource: HomeSourceState = connectHomeSource();
   @Local visual: TabVisualIndexState = connectToplistVisualIndex();
+  @Local subtabTransition: SubtabTransitionState = connectSubtabTransition();
   @Event onScrollerReady?: (scroller: Scroller) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
@@ -48,6 +52,8 @@ export struct ToplistPage {
     RetainedSubtabHost({
       keys: TOPLIST_KEYS,
       selectedKey: `${this.homeSource.toplistTl}`,
+      subtabTransition: this.subtabTransition,
+      transitionScope: SUBTAB_TRANSITION_SCOPE_TOPLIST,
       pageBuilder: toplistPeriodPageBuilder,
       onSelectKey: (key: string) => {
         SubtabSelectionSettings.setToplistTl(this.ctx(), Number(key))

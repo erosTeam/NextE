@@ -18,6 +18,9 @@ import {
   connectSafeMode,
   SAFE_MODE_PROFILE_UUID,
   DiagnosticLogger,
+  SubtabTransitionState,
+  connectSubtabTransition,
+  SUBTAB_TRANSITION_SCOPE_HOME,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -38,10 +41,10 @@ function gallerySourcePageBuilder(
 
 /**
  * Gallery tab: retained per-SOURCE sub-tabs on the shared RetainedSubtabHost framework. The source
- * switcher (默认/热门/订阅, HomeSourceBar in the title bar) writes the HomeSourceState selection BUS; the
- * host swipes to the retained GallerySourcePage for that source (each owns its own VM + scroller) and
- * publishes the visual index for the bar's sliding indicator. HomePage only adapts this surface to the
- * framework: the visible source keys (login-gated), the selection bus read/write, and the scroller handoff.
+ * switcher (默认/热门/订阅, HomeSourceBar in the title bar) requests the host's native transition; the host
+ * publishes the settled profile selection and the visual index for the bar's sliding indicator. HomePage
+ * only adapts this surface to the framework: the visible source keys (login-gated), selection ownership,
+ * and the scroller handoff.
  */
 @ComponentV2
 export struct HomePage {
@@ -49,6 +52,7 @@ export struct HomePage {
   @Local homeSource: HomeSourceState = connectHomeSource();
   @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
+  @Local subtabTransition: SubtabTransitionState = connectSubtabTransition();
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local layoutMenuShown: boolean = false;
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
@@ -166,6 +170,8 @@ export struct HomePage {
       RetainedSubtabHost({
         keys: this.visibleSources(),
         selectedKey: this.selectedKey(),
+        subtabTransition: this.subtabTransition,
+        transitionScope: SUBTAB_TRANSITION_SCOPE_HOME,
         pageBuilder: gallerySourcePageBuilder,
         onSelectKey: (key: string) => {
           if (this.safeMode.restricted()) {

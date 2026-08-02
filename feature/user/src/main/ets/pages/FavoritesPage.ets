@@ -10,6 +10,9 @@ import {
   RetainedSubtabHost,
   ActiveKeyState,
   SubtabSelectionSettings,
+  SubtabTransitionState,
+  connectSubtabTransition,
+  SUBTAB_TRANSITION_SCOPE_FAVORITES,
 } from 'shared'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
@@ -33,17 +36,19 @@ function favcatPageBuilder(
  * FavcatPage per favcat ('a' = all, '0'..'9'), each owning its OWN FavoritesViewModel + scroller, so
  * switching favcat away and back preserves that favcat's list AND scroll — no shared-list reload.
  *
- * FavSelectionState is the pure selection BUS: FavcatBar (pinned in the title bar) writes `selectedFavcat`;
- * the host swipes to it and publishes the visual index for the bar's sliding indicator. The GLOBAL order
- * menu writes `orderByPosted` (each FavcatPage reloads); the favcat counts (favList) are shared metadata
- * each page publishes. The order action arrives as an `openOrderMenu` command (HDS title-bar icons can't
- * anchor a Menu). FavoritesPage only adapts this surface to the framework — it owns no list mechanics.
+ * FavSelectionState owns only settled selection: FavcatBar (pinned in the title bar) requests a native
+ * host transition, and the host publishes `selectedFavcat` after it settles while continuously publishing
+ * the visual index for the bar's sliding indicator. The GLOBAL order menu writes `orderByPosted` (each
+ * FavcatPage reloads); the favcat counts (favList) are shared metadata each page publishes. The order
+ * action arrives as an `openOrderMenu` command (HDS title-bar icons can't anchor a Menu). FavoritesPage
+ * only adapts this surface to the framework — it owns no list mechanics.
  */
 @ComponentV2
 export struct FavoritesPage {
   @Local auth: AuthState = connectAuth();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
+  @Local subtabTransition: SubtabTransitionState = connectSubtabTransition();
   @Local orderMenuShown: boolean = false;
   // Index consumes the ACTIVE favcat's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
@@ -88,6 +93,8 @@ export struct FavoritesPage {
       RetainedSubtabHost({
         keys: this.favcatKeys(),
         selectedKey: this.effectiveSelectedFavcat(),
+        subtabTransition: this.subtabTransition,
+        transitionScope: SUBTAB_TRANSITION_SCOPE_FAVORITES,
         pageBuilder: favcatPageBuilder,
         onSelectKey: (key: string) => {
           SubtabSelectionSettings.setFavoritesFavcat(this.ctx(), key, this.auth.isLogin)

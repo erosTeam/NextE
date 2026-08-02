@@ -1034,6 +1034,14 @@ export {
   connectHomeSourceVisualIndex,
   connectToplistVisualIndex,
 } from './state/HomeSourceState'
+export {
+  SubtabTransitionState,
+  SubtabTransitionBridge,
+  connectSubtabTransition,
+  SUBTAB_TRANSITION_SCOPE_HOME,
+  SUBTAB_TRANSITION_SCOPE_TOPLIST,
+  SUBTAB_TRANSITION_SCOPE_FAVORITES,
+} from './state/SubtabTransitionState'
 export { SubTabBar } from './components/SubTabBar'
 export { TabItem } from './model/TabItem'
 export {
