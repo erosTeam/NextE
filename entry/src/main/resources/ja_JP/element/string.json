@@ -1654,15 +1654,15 @@
     },
     {
       "name": "about_check_update",
-      "value": "更新を確認"
+      "value": "更新とリリースノート"
     },
     {
       "name": "about_update_hint",
-      "value": "GitHub Releases を確認"
+      "value": "バックグラウンドで更新とリリースノートを確認"
     },
     {
       "name": "about_update_checking",
-      "value": "確認中"
+      "value": "更新中"
     },
     {
       "name": "about_update_available",
@@ -1671,6 +1671,10 @@
     {
       "name": "about_update_latest",
       "value": "最新バージョン %s"
+    },
+    {
+      "name": "about_release_notes",
+      "value": "リリースノート"
     },
     {
       "name": "about_update_failed",
@@ -1687,10 +1691,6 @@
     {
       "name": "about_update_no_notes",
       "value": "リリースノートはありません"
-    },
-    {
-      "name": "about_update_notes_truncated",
-      "value": "全文はリリースページで確認してください"
     },
     {
       "name": "about_platform",

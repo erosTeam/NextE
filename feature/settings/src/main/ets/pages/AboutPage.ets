@@ -1,12 +1,14 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { bundleManager, common, Want } from '@kit.AbilityKit'
+import { AdvancedDialogV2Button, CustomContentDialogV2, LengthMetrics } from '@kit.ArkUI'
 import {
   AppStrings,
-  AxiosHttpClient,
-  AxiosTextResponse,
+  AppRelease,
+  AppReleaseCacheSnapshot,
+  AppReleaseService,
   ConciseListRow,
-  EhConstants,
   GroupedListSection,
+  ReleaseNotesPager,
   SecondaryListScaffold,
   SectionHeader,
   ThemeConstants,
@@ -19,18 +21,8 @@ import {
   NavStackHolder,
 } from 'shared'
 
-const APP_RELEASE_API_URL: string = 'https://api.github.com/repos/erosTeam/NextE/releases/latest'
-const APP_UPDATE_CONNECT_TIMEOUT_MS: number = 15000
-const APP_UPDATE_READ_TIMEOUT_MS: number = 20000
-const RELEASE_BODY_MAX_CHARS: number = 1800
 const SYSTEM_SYMBOL_BROWSER_OPEN_TAPS: number = 5
 const SYSTEM_SYMBOL_BROWSER_TAP_WINDOW_MS: number = 2500
-
-class AppReleaseResponse {
-  tag_name: string = ''
-  body: string = ''
-  html_url: string = ''
-}
 
 @ComponentV2
 export struct AboutPage {
@@ -44,8 +36,11 @@ export struct AboutPage {
   @Local updateChecked: boolean = false;
   @Local latestVersion: string = '';
   @Local canUpdate: boolean = false;
-  private releasePageUrl: string = '';
-  private releaseBody: string = '';
+  @Local releaseHistory: AppRelease[] = [];
+  @Local selectedReleaseIndex: number = 0;
+  private updateDialogId: number = -1;
+  private releaseSnapshot: AppReleaseCacheSnapshot = new AppReleaseCacheSnapshot();
+  private releaseLoadGeneration: number = 0;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
   private lastPlatformTapAt: number = 0;
@@ -54,10 +49,12 @@ export struct AboutPage {
     bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
       .then((info) => {
         this.appVersion = info.versionName
+        this.applyReleaseSnapshot(this.releaseSnapshot)
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('settings', 'about_bundle_info_failed', error.message)
       })
+    this.loadReleaseHistory()
   }
 
   private versionText(): string {
@@ -68,16 +65,16 @@ export struct AboutPage {
   }
 
   private updateSubtitle(): string {
+    if (this.updateChecked && this.latestVersion.length > 0) {
+      if (this.canUpdate) {
+        return AppStrings.get('about_update_available').replace('%s', this.latestVersion)
+      }
+      return AppStrings.get('about_update_latest').replace('%s', this.latestVersion)
+    }
     if (this.updateChecking) {
       return AppStrings.get('about_update_checking')
     }
-    if (!this.updateChecked || this.latestVersion.length === 0) {
-      return AppStrings.get('about_update_hint')
-    }
-    if (this.canUpdate) {
-      return AppStrings.get('about_update_available').replace('%s', this.latestVersion)
-    }
-    return AppStrings.get('about_update_latest').replace('%s', this.latestVersion)
+    return AppStrings.get('about_update_hint')
   }
 
   private ctx(): common.UIAbilityContext {
@@ -120,131 +117,221 @@ export struct AboutPage {
     this.stack.pushPathByName('SystemSymbolBrowser', null)
   }
 
-  private checkUpdate(): void {
-    if (this.updateChecking) {
-      return
-    }
-    this.updateChecking = true
-    this.fetchLatestRelease()
-      .then((release: AppReleaseResponse) => {
-        const remote: string = AboutPage.normalizeVersion(release.tag_name)
-        if (remote.length === 0) {
-          throw new Error('release version unavailable')
+  private loadReleaseHistory(): void {
+    const generation: number = this.releaseLoadGeneration + 1
+    this.releaseLoadGeneration = generation
+    const context: common.UIAbilityContext = this.ctx()
+    AppReleaseService.loadCached(context)
+      .then((cached: AppReleaseCacheSnapshot) => {
+        if (!this.isCurrentReleaseLoad(generation)) {
+          return cached
         }
-        this.latestVersion = remote
-        this.releasePageUrl = release.html_url.trim()
-        this.releaseBody = release.body.trim()
-        this.canUpdate = AboutPage.compareVersions(this.versionText(), remote) < 0
-        this.updateChecked = true
-        if (this.canUpdate) {
-          this.showUpdateDialog()
-        } else {
-          this.toast(AppStrings.get('about_update_latest').replace('%s', remote))
+        this.applyReleaseSnapshot(cached)
+        this.updateChecking = true
+        return AppReleaseService.refresh(context, cached, false)
+      })
+      .then((snapshot: AppReleaseCacheSnapshot) => {
+        if (this.isCurrentReleaseLoad(generation)) {
+          this.applyReleaseSnapshot(snapshot)
         }
       })
       .catch((error: Error) => {
-        DiagnosticLogger.warn('settings', 'about_update_check_failed', error.message)
-        this.toast(`${AppStrings.get('about_update_failed')}: ${error.message}`)
+        if (this.isCurrentReleaseLoad(generation)) {
+          DiagnosticLogger.warn('settings', 'about_release_refresh_failed', error.message)
+        }
       })
       .finally(() => {
-        this.updateChecking = false
+        if (this.isCurrentReleaseLoad(generation)) {
+          this.updateChecking = false
+        }
       })
   }
 
-  private async fetchLatestRelease(): Promise<AppReleaseResponse> {
-    const header: Record<string, string> = {
-      'User-Agent': EhConstants.USER_AGENT,
-      'Accept': 'application/vnd.github+json,application/json,*/*',
-      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+  private loadReleaseHistoryForDialog(): void {
+    const generation: number = this.releaseLoadGeneration + 1
+    this.releaseLoadGeneration = generation
+    this.updateChecking = true
+    const context: common.UIAbilityContext = this.ctx()
+    AppReleaseService.loadCached(context)
+      .then((cached: AppReleaseCacheSnapshot) => {
+        if (cached.releases.length > 0) {
+          return cached
+        }
+        return AppReleaseService.refresh(context, cached, true)
+      })
+      .then((snapshot: AppReleaseCacheSnapshot) => {
+        if (!this.isCurrentReleaseLoad(generation)) {
+          return
+        }
+        this.applyReleaseSnapshot(snapshot)
+        if (this.releaseHistory.length === 0) {
+          throw new Error('release history unavailable')
+        }
+        this.showUpdateDialog()
+      })
+      .catch((error: Error) => {
+        if (this.isCurrentReleaseLoad(generation)) {
+          DiagnosticLogger.warn('settings', 'about_release_open_failed', error.message)
+          this.toast(`${AppStrings.get('about_update_failed')}: ${error.message}`)
+        }
+      })
+      .finally(() => {
+        if (this.isCurrentReleaseLoad(generation)) {
+          this.updateChecking = false
+        }
+      })
+  }
+
+  private isCurrentReleaseLoad(generation: number): boolean {
+    return this.releaseLoadGeneration === generation
+  }
+
+  private applyReleaseSnapshot(snapshot: AppReleaseCacheSnapshot): void {
+    const copied: AppReleaseCacheSnapshot = snapshot.copy()
+    this.releaseSnapshot = copied
+    this.releaseHistory = copied.releases
+    const latest: AppRelease | null = AppReleaseService.latestStable(copied)
+    if (latest === null || latest.version().length === 0) {
+      this.latestVersion = ''
+      this.canUpdate = false
+      this.updateChecked = false
+      this.selectedReleaseIndex = 0
+      return
     }
-    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
-      APP_RELEASE_API_URL,
-      'GET',
-      header,
-      '',
-      APP_UPDATE_CONNECT_TIMEOUT_MS,
-      APP_UPDATE_READ_TIMEOUT_MS,
-    )
-    if (resp.statusCode !== 200) {
-      throw new Error(`GitHub release HTTP ${resp.statusCode}`)
+    this.latestVersion = latest.version()
+    this.canUpdate = AppReleaseService.compareVersions(this.versionText(), this.latestVersion) < 0
+    this.updateChecked = true
+    this.selectedReleaseIndex = AppReleaseService.indexForVersion(this.releaseHistory, this.versionText())
+  }
+
+  private onUpdateRowClick(): void {
+    if (this.releaseHistory.length > 0) {
+      this.showUpdateDialog()
+      return
     }
-    try {
-      return JSON.parse(resp.body) as AppReleaseResponse
-    } catch (_error) {
-      throw new Error('GitHub release JSON invalid')
-    }
+    this.loadReleaseHistoryForDialog()
   }
 
   private showUpdateDialog(): void {
-    const notes: string = this.releaseNotesPreview()
-    this.getUIContext().showAlertDialog({
-      title: AppStrings.get('about_update_available').replace('%s', this.latestVersion),
-      message: notes,
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
+    if (this.releaseHistory.length === 0) {
+      return
+    }
+    this.selectedReleaseIndex = AppReleaseService.indexForVersion(this.releaseHistory, this.versionText())
+    this.updateDialogId = -1
+    this.getUIContext().getPromptAction().openCustomDialog({
+      builder: () => {
+        this.UpdateDialog()
       },
-      secondaryButton: {
-        value: $r('app.string.about_update_open_release'),
-        action: () => {
-          this.openReleasePage()
-        },
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+    })
+      .then((dialogId: number) => {
+        this.updateDialogId = dialogId
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('settings', 'about_update_dialog_open_failed', error.message)
+        this.toast($r('app.string.about_update_failed'))
+      })
+  }
+
+  private closeUpdateDialog(): void {
+    const dialogId: number = this.updateDialogId
+    if (dialogId < 0) {
+      return
+    }
+    this.updateDialogId = -1
+    try {
+      this.getUIContext().getPromptAction().closeCustomDialog(dialogId)
+    } catch (_error) {
+      // The dialog may already have been dismissed by a system gesture.
+    }
+  }
+
+  @Builder
+  private UpdateDialog() {
+    CustomContentDialogV2({
+      primaryTitle: this.canUpdate
+        ? AppStrings.get('about_update_available').replace('%s', this.latestVersion)
+        : AppStrings.get('about_release_notes'),
+      contentBuilder: () => {
+        this.UpdateDialogContent()
       },
+      // The dialog, not the paged body, owns the separation from its fixed action area.
+      // Keep the established 24vp horizontal inset and reserve the same bottom inset so
+      // a long release-note viewport cannot visually run into the two action buttons
+      // when the available height contracts in landscape.
+      contentAreaPadding: {
+        top: LengthMetrics.vp(0),
+        bottom: LengthMetrics.vp(ThemeConstants.SPACE_XL),
+        start: LengthMetrics.vp(ThemeConstants.SPACE_XL),
+        end: LengthMetrics.vp(ThemeConstants.SPACE_XL),
+      },
+      buttons: [
+        new AdvancedDialogV2Button({
+          content: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeUpdateDialog()
+          },
+        }),
+        new AdvancedDialogV2Button({
+          content: $r('app.string.about_update_open_release'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeUpdateDialog()
+            this.openReleasePage()
+          },
+        }),
+      ],
     })
   }
 
-  private releaseNotesPreview(): string {
-    const body: string = this.releaseBody.length > 0 ? this.releaseBody : AppStrings.get('about_update_no_notes')
-    if (body.length <= RELEASE_BODY_MAX_CHARS) {
-      return body
+  @Builder
+  private UpdateDialogContent() {
+    ReleaseNotesPager({
+      releases: this.releaseHistory,
+      initialIndex: this.selectedReleaseIndex,
+      emptyText: AppStrings.get('about_update_no_notes'),
+      focusRailImage: $r('app.media.release_notes_focus_rail'),
+      onReleaseChanged: (index: number) => {
+        this.selectedReleaseIndex = index
+      },
+      onLinkClick: (url: string) => {
+        this.openReleaseNoteLink(url)
+      },
+    })
+      .width('100%')
+  }
+
+  private openReleaseNoteLink(url: string): void {
+    if (url.length === 0) {
+      return
     }
-    return `${body.substring(0, RELEASE_BODY_MAX_CHARS)}\n\n${AppStrings.get('about_update_notes_truncated')}`
+    const want: Want = { action: 'ohos.want.action.viewData', uri: url }
+    this.ctx().startAbility(want).catch((error: Error) => {
+      DiagnosticLogger.warn('settings', 'about_update_open_note_link_failed', error.message)
+      this.toast($r('app.string.about_update_open_failed'))
+    })
   }
 
   private openReleasePage(): void {
-    if (this.releasePageUrl.length === 0) {
+    const release: AppRelease | null = this.selectedRelease()
+    if (release === null || release.htmlUrl.length === 0) {
       return
     }
-    const want: Want = { action: 'ohos.want.action.viewData', uri: this.releasePageUrl }
+    const want: Want = { action: 'ohos.want.action.viewData', uri: release.htmlUrl }
     this.ctx().startAbility(want).catch((error: Error) => {
       DiagnosticLogger.warn('settings', 'about_update_open_release_failed', error.message)
       this.toast($r('app.string.about_update_open_failed'))
     })
   }
 
-  private static normalizeVersion(value: string): string {
-    let out: string = value.trim()
-    if (out.startsWith('v') || out.startsWith('V')) {
-      out = out.substring(1)
+  private selectedRelease(): AppRelease | null {
+    if (this.releaseHistory.length === 0) {
+      return null
     }
-    const plus: number = out.indexOf('+')
-    if (plus >= 0) {
-      out = out.substring(0, plus)
-    }
-    const dash: number = out.indexOf('-')
-    if (dash >= 0) {
-      out = out.substring(0, dash)
-    }
-    return out.trim()
-  }
-
-  private static compareVersions(current: string, latest: string): number {
-    const a: string[] = AboutPage.normalizeVersion(current).split('.')
-    const b: string[] = AboutPage.normalizeVersion(latest).split('.')
-    const max: number = Math.max(a.length, b.length)
-    for (let i: number = 0; i < max; i++) {
-      const left: number = i < a.length ? Number.parseInt(a[i], 10) : 0
-      const right: number = i < b.length ? Number.parseInt(b[i], 10) : 0
-      const safeLeft: number = Number.isFinite(left) ? left : 0
-      const safeRight: number = Number.isFinite(right) ? right : 0
-      if (safeLeft < safeRight) {
-        return -1
-      }
-      if (safeLeft > safeRight) {
-        return 1
-      }
-    }
-    return 0
+    const index: number = Math.max(0, Math.min(this.releaseHistory.length - 1, this.selectedReleaseIndex))
+    return this.releaseHistory[index]
   }
 
   @Builder
@@ -307,10 +394,10 @@ export struct AboutPage {
         title: $r('app.string.about_check_update'),
         subtitle: this.updateSubtitle(),
         trailingText: this.updateChecking ? AppStrings.get('about_update_checking') : '',
-        showChevron: !this.updateChecking,
-        isEnabled: !this.updateChecking,
+        showChevron: this.releaseHistory.length > 0 || !this.updateChecking,
+        isEnabled: this.releaseHistory.length > 0 || !this.updateChecking,
         action: () => {
-          this.checkUpdate()
+          this.onUpdateRowClick()
         },
       })
       this.DividerRow()

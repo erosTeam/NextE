@@ -53,6 +53,7 @@ export {
   EhGalleryCommentTextSpan,
 } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
+export { AppRelease, AppReleaseCacheSnapshot } from './model/AppRelease'
 export {
   COMIC_TRANSLATION_SCHEMA_VERSION,
   ComicAnalysisState,
@@ -175,6 +176,8 @@ export { CategorySelector } from './components/CategorySelector'
 export { AdvancedSearchControls } from './components/AdvancedSearchControls'
 export { TagQueryComposer, TagRow, TagQuery, QueryTag, TagRowItem, TagRelation } from './components/TagQueryComposer'
 export { SectionHeader } from './components/SectionHeader'
+export { MarkdownContent } from './components/MarkdownContent'
+export { ReleaseNotesPager } from './components/ReleaseNotesPager'
 export { AppSearchField } from './components/AppSearchField'
 export { AppModalScaffold } from './components/AppModalScaffold'
 export { appMenuOptions } from './components/AppMenuOptions'
@@ -185,6 +188,18 @@ export { AppPrompt } from './utils/AppPrompt'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
+export {
+  MarkdownDocument,
+  MarkdownBlock,
+  MarkdownInline,
+  MARKDOWN_BLOCK_PARAGRAPH,
+  MARKDOWN_BLOCK_HEADING,
+  MARKDOWN_BLOCK_BULLET,
+  MARKDOWN_BLOCK_ORDERED,
+  MARKDOWN_BLOCK_QUOTE,
+  MARKDOWN_BLOCK_CODE,
+  MARKDOWN_BLOCK_DIVIDER,
+} from './parser/MarkdownDocument'
 export { EhGalleryListParser } from './parser/EhGalleryListParser'
 export { EhFavcatListParser } from './parser/EhFavcatListParser'
 export { EhMytagsParser } from './parser/EhMytagsParser'
@@ -213,6 +228,7 @@ export {
   ImageResolveSourceGate,
 } from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
+export { AppReleaseService } from './services/AppReleaseService'
 export {
   ComicPageAnalysisContext,
   ComicPageAnalysisRequest,

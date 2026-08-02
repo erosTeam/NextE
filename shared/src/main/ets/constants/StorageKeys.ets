@@ -32,6 +32,8 @@ export class StorageKeys {
   static readonly THEME_COLOR: string = 'theme.color' // accent: system/blue/orange/red/purple/pink/green
   static readonly IMMERSIVE_MATERIAL_LEVEL: string = 'theme.immersiveMaterialLevel' // adaptive/exquisite/gentle/smooth
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
+  // Published GitHub release history: stale-while-revalidate cache for About → updates and release notes.
+  static readonly APP_RELEASE_CACHE: string = 'app.releaseHistoryCache'
   static readonly SEARCH_HISTORY: string = 'search.history' // legacy Preferences key; RDB source of truth
   static readonly SEARCH_HISTORY_TRANSLATE: string = 'search.history.translate'
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters

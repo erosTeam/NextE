@@ -1654,15 +1654,15 @@
     },
     {
       "name": "about_check_update",
-      "value": "检查更新"
+      "value": "更新与日志"
     },
     {
       "name": "about_update_hint",
-      "value": "检查 GitHub Releases"
+      "value": "后台检查更新并加载日志"
     },
     {
       "name": "about_update_checking",
-      "value": "检查中"
+      "value": "刷新中"
     },
     {
       "name": "about_update_available",
@@ -1671,6 +1671,10 @@
     {
       "name": "about_update_latest",
       "value": "已是最新版本 %s"
+    },
+    {
+      "name": "about_release_notes",
+      "value": "更新日志"
     },
     {
       "name": "about_update_failed",
@@ -1687,10 +1691,6 @@
     {
       "name": "about_update_no_notes",
       "value": "没有发布说明"
-    },
-    {
-      "name": "about_update_notes_truncated",
-      "value": "打开发布页查看完整内容"
     },
     {
       "name": "about_platform",

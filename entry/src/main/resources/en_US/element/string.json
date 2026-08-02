@@ -1654,15 +1654,15 @@
     },
     {
       "name": "about_check_update",
-      "value": "Check for updates"
+      "value": "Updates & release notes"
     },
     {
       "name": "about_update_hint",
-      "value": "Check GitHub Releases"
+      "value": "Release history refreshes in the background"
     },
     {
       "name": "about_update_checking",
-      "value": "Checking"
+      "value": "Refreshing"
     },
     {
       "name": "about_update_available",
@@ -1671,6 +1671,10 @@
     {
       "name": "about_update_latest",
       "value": "Latest version %s"
+    },
+    {
+      "name": "about_release_notes",
+      "value": "Release notes"
     },
     {
       "name": "about_update_failed",
@@ -1687,10 +1691,6 @@
     {
       "name": "about_update_no_notes",
       "value": "No release notes"
-    },
-    {
-      "name": "about_update_notes_truncated",
-      "value": "Open the release page for the full notes"
     },
     {
       "name": "about_platform",
