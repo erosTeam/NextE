@@ -150,21 +150,41 @@ class GalleryTitleTranslationState {
   @Trace text: string = ''
   @Trace shown: boolean = false
   @Trace loading: boolean = false
+  @Trace measuredHeight: number = 0
+  @Trace animatedHeight: number = 0
+  @Trace heightLocked: boolean = false
+  @Trace contentOpacity: number = 1
+  @Trace pendingMeasure: boolean = false
+  @Trace pendingTargetShown: boolean = false
+  @Trace animating: boolean = false
   private requestId: number = 0
+  private animationId: number = 0
+
+  private cancelPresentation(): void {
+    this.animationId = this.animationId + 1
+    this.shown = false
+    this.measuredHeight = 0
+    this.animatedHeight = 0
+    this.heightLocked = false
+    this.contentOpacity = 1
+    this.pendingMeasure = false
+    this.pendingTargetShown = false
+    this.animating = false
+  }
 
   reset(): void {
     this.requestId = this.requestId + 1
+    this.cancelPresentation()
     this.source = ''
     this.text = ''
-    this.shown = false
     this.loading = false
   }
 
   begin(source: string): number {
     this.requestId = this.requestId + 1
+    this.cancelPresentation()
     this.source = source
     this.text = ''
-    this.shown = false
     this.loading = true
     return this.requestId
   }
@@ -174,14 +194,30 @@ class GalleryTitleTranslationState {
   }
 
   complete(translated: string): void {
+    this.cancelPresentation()
     this.loading = false
     this.text = translated
-    this.shown = translated.length > 0
   }
 
   fail(): void {
+    this.cancelPresentation()
     this.loading = false
-    this.shown = false
+  }
+
+  startAnimation(): number {
+    this.animationId = this.animationId + 1
+    this.animating = true
+    return this.animationId
+  }
+
+  isAnimationCurrent(animationId: number): boolean {
+    return animationId === this.animationId
+  }
+
+  finishAnimation(animationId: number): void {
+    if (this.isAnimationCurrent(animationId)) {
+      this.animating = false
+    }
   }
 }
 
@@ -720,6 +756,10 @@ export struct GalleryDetailPage {
     return source.length > 0 && state.source === source && state.loading
   }
 
+  private titleTranslationBusyFor(kind: string): boolean {
+    return this.titleTranslationLoadingFor(kind) || this.titleTranslationStateFor(kind).animating
+  }
+
   private titleSourceFor(kind: string): string {
     return kind === TITLE_TRANSLATION_JAPANESE
       ? this.japaneseDetailTitle().trim()
@@ -752,6 +792,67 @@ export struct GalleryDetailPage {
       .catch((_error: Error) => {})
   }
 
+  private requestTitleTranslationVisibility(kind: string, targetShown: boolean): void {
+    const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
+    if (state.text.length === 0 || state.animating) {
+      return
+    }
+    state.pendingTargetShown = targetShown
+    state.pendingMeasure = true
+    state.animating = true
+  }
+
+  private updateTitleTranslationMeasuredHeight(kind: string, area: Area): void {
+    const height: number = area.height as number
+    if (height > 0) {
+      this.titleTranslationStateFor(kind).measuredHeight = height
+    }
+  }
+
+  private handlePendingTitleTranslationArea(kind: string, area: Area): void {
+    const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
+    if (!state.pendingMeasure) {
+      return
+    }
+    const targetHeight: number = area.height as number
+    if (targetHeight <= 0) {
+      return
+    }
+    const targetShown: boolean = state.pendingTargetShown
+    const animationId: number = state.startAnimation()
+    state.pendingMeasure = false
+    state.measuredHeight = targetHeight
+    state.animatedHeight = targetShown ? 0 : targetHeight
+    state.heightLocked = true
+    state.contentOpacity = targetShown ? 0 : 1
+    if (targetShown) {
+      state.shown = true
+    }
+    setTimeout((): void => {
+      if (!state.isAnimationCurrent(animationId)) {
+        return
+      }
+      this.getUIContext().animateTo(
+        { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
+        () => {
+          state.animatedHeight = targetShown ? targetHeight : 0
+          state.contentOpacity = targetShown ? 1 : 0
+        },
+      )
+      setTimeout((): void => {
+        if (!state.isAnimationCurrent(animationId)) {
+          return
+        }
+        state.shown = targetShown
+        state.animatedHeight = 0
+        state.heightLocked = false
+        state.contentOpacity = 1
+        state.measuredHeight = targetHeight
+        state.finishAnimation(animationId)
+      }, ThemeConstants.ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+    }, 0)
+  }
+
   private translateTitle(kind: string, source: string): void {
     const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
     const requestId: number = state.begin(source)
@@ -763,10 +864,13 @@ export struct GalleryDetailPage {
           return
         }
         const result: string = translated.trim()
-        state.complete(result)
         if (result.length === 0) {
+          state.complete(result)
           this.failTitleTranslation(kind)
+          return
         }
+        state.complete(result)
+        this.requestTitleTranslationVisibility(kind, true)
       })
       .catch((error: Error) => {
         if (!this.isTitleTranslationRequestCurrent(kind, requestId, gid, token, source)) {
@@ -779,14 +883,15 @@ export struct GalleryDetailPage {
 
   private toggleOrTranslateTitle(kind: string): void {
     const source: string = this.titleSourceFor(kind)
-    if (source.length === 0 || this.titleTranslationLoadingFor(kind)) {
+    if (source.length === 0 || this.titleTranslationBusyFor(kind)) {
       return
     }
     if (
       this.titleTranslationStateFor(kind).source === source &&
       this.titleTranslationTextFor(kind).length > 0
     ) {
-      this.titleTranslationStateFor(kind).shown = !this.titleTranslationShownFor(kind)
+      const nextShown: boolean = !this.titleTranslationShownFor(kind)
+      this.requestTitleTranslationVisibility(kind, nextShown)
       return
     }
     this.translateTitle(kind, source)
@@ -2231,7 +2336,7 @@ export struct GalleryDetailPage {
     translationLabel: Resource,
     kind: string,
   ) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
+    Column() {
       Row({ space: ThemeConstants.SPACE_SM }) {
         Text(label)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -2249,27 +2354,80 @@ export struct GalleryDetailPage {
         .copyOption(CopyOptions.LocalDevice)
         .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
         .width('100%')
-      if (
-        this.titleTranslationShownFor(kind) &&
-        this.titleTranslationTextFor(kind).length > 0
-      ) {
-        Text(translationLabel)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-          .margin({ top: ThemeConstants.SPACE_XS })
-          .width('100%')
-        Text(this.titleTranslationTextFor(kind))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
-          .copyOption(CopyOptions.LocalDevice)
-          .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
-          .width('100%')
-      }
+        .margin({ top: ThemeConstants.SPACE_XS })
+      this.TitleTranslationArea(translationLabel, kind)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private TitleTranslationTextContent(translationLabel: Resource, kind: string) {
+    Text(translationLabel)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_secondary'))
+      .width('100%')
+    Text(this.titleTranslationTextFor(kind))
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_primary'))
+      .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+      .copyOption(CopyOptions.LocalDevice)
+      .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+      .width('100%')
+  }
+
+  @Builder
+  private TitleTranslationLayers(translationLabel: Resource, kind: string) {
+    if (
+      this.titleTranslationShownFor(kind) &&
+      this.titleTranslationTextFor(kind).length > 0
+    ) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.TitleTranslationTextContent(translationLabel, kind)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({ top: ThemeConstants.SPACE_XS * 2 })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.updateTitleTranslationMeasuredHeight(kind, area)
+      })
+    }
+    if (
+      this.titleTranslationStateFor(kind).pendingMeasure &&
+      this.titleTranslationTextFor(kind).length > 0
+    ) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.TitleTranslationTextContent(translationLabel, kind)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({ top: ThemeConstants.SPACE_XS * 2 })
+      .opacity(0)
+      .hitTestBehavior(HitTestMode.None)
+      .position({ x: 0, y: 0 })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.handlePendingTitleTranslationArea(kind, area)
+      })
+    }
+  }
+
+  @Builder
+  private TitleTranslationArea(translationLabel: Resource, kind: string) {
+    if (this.titleTranslationStateFor(kind).heightLocked) {
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.TitleTranslationLayers(translationLabel, kind)
+      }
+      .width('100%')
+      .height(this.titleTranslationStateFor(kind).animatedHeight)
+      .clip(true)
+      .opacity(this.titleTranslationStateFor(kind).contentOpacity)
+    } else {
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.TitleTranslationLayers(translationLabel, kind)
+      }
+      .width('100%')
+    }
   }
 
   @Builder
@@ -2293,7 +2451,7 @@ export struct GalleryDetailPage {
     .backgroundColor(Color.Transparent)
     .width(TITLE_TRANSLATION_ACTION_SIZE)
     .height(TITLE_TRANSLATION_ACTION_SIZE)
-    .enabled(!this.titleTranslationLoadingFor(kind))
+    .enabled(!this.titleTranslationBusyFor(kind))
     .opacity(1)
     .accessibilityText(label)
     .onClick(() => {
