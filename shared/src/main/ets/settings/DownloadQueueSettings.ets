@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
+import { util } from '@kit.ArkTS'
 import { fileIo as fs, fileUri, picker } from '@kit.CoreFileKit'
 import {
   DownloadArchiverTask,
@@ -50,6 +51,8 @@ const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
 const NO_MEDIA_MARKER_FILE: string = '.nomedia'
 const ARCHIVE_BOT_SETTINGS_INCOMPLETE: string = 'Archive bot settings are incomplete'
 const DOWNLOAD_PATH_TITLE_MAX_LENGTH: number = 96
+const DOWNLOAD_PATH_SEGMENT_MAX_BYTES: number = 255
+const ARCHIVER_PARTIAL_SUFFIX: string = '.part'
 const DOWNLOAD_PERF_APPLY_WARN_MS: number = 16
 const DOWNLOAD_PERF_PERSIST_WARN_MS: number = 24
 const DOWNLOAD_PERF_METADATA_WARN_MS: number = 16
@@ -1066,9 +1069,7 @@ export class DownloadQueueSettings {
       `gid=${resolvedTask.gid} source=${resolvedTask.parseSource} tagHash=${DiagnosticLogger.ownerHash(tag)}`,
     )
     const dir: string = DownloadQueueSettings.ensureArchiverDownloadDir(context)
-    const fileName: string = resolvedTask.fileName.length > 0
-      ? resolvedTask.fileName
-      : DownloadQueueSettings.archiverFileName(resolvedTask)
+    const fileName: string = DownloadQueueSettings.resolvedArchiverFileName(resolvedTask)
     const filePath: string = `${dir}/${fileName}`
     const partialPath: string = DownloadQueueSettings.archiverPartialPath(filePath)
     const partialBytes: number = DownloadQueueSettings.downloadedFileSize(partialPath)
@@ -2396,7 +2397,11 @@ export class DownloadQueueSettings {
 
   private static galleryDirName(gid: string, preferOriginal: boolean, title: string): string {
     const base: string = DownloadQueueSettings.safePathPart(gid)
-    const titlePart: string = DownloadQueueSettings.pathTitlePart(title)
+    const suffix: string = preferOriginal ? '-original' : ''
+    const titlePrefix: string = `${base}-`
+    const titleMaxBytes: number = DOWNLOAD_PATH_SEGMENT_MAX_BYTES -
+      DownloadQueueSettings.utf8ByteLength(titlePrefix) - DownloadQueueSettings.utf8ByteLength(suffix)
+    const titlePart: string = DownloadQueueSettings.pathTitlePart(title, titleMaxBytes)
     const namedBase: string = titlePart.length > 0 ? `${base}-${titlePart}` : base
     return preferOriginal ? `${namedBase}-original` : namedBase
   }
@@ -3153,12 +3158,40 @@ export class DownloadQueueSettings {
     return value.replace(/[/:*"<>|,?\\]/g, '_')
   }
 
-  private static pathTitlePart(value: string): string {
-    const safe: string = DownloadQueueSettings.safePathPart(value).trim().replace(/\s+/g, ' ')
-    if (safe.length <= DOWNLOAD_PATH_TITLE_MAX_LENGTH) {
-      return safe
+  private static utf8ByteLength(value: string): number {
+    return new util.TextEncoder().encodeInto(value).byteLength
+  }
+
+  private static pathTitlePart(value: string, maxBytes: number): string {
+    if (maxBytes <= 0) {
+      return ''
     }
-    return safe.substring(0, DOWNLOAD_PATH_TITLE_MAX_LENGTH).trim()
+    const safe: string = DownloadQueueSettings.safePathPart(value).trim().replace(/\s+/g, ' ')
+    const encoder: util.TextEncoder = new util.TextEncoder()
+    let usedBytes: number = 0
+    let index: number = 0
+    let end: number = 0
+    while (index < safe.length && index < DOWNLOAD_PATH_TITLE_MAX_LENGTH) {
+      let next: number = index + 1
+      const first: number = safe.charCodeAt(index)
+      if (first >= 0xD800 && first <= 0xDBFF && next < safe.length) {
+        const second: number = safe.charCodeAt(next)
+        if (second >= 0xDC00 && second <= 0xDFFF) {
+          next++
+        }
+      }
+      if (next > DOWNLOAD_PATH_TITLE_MAX_LENGTH) {
+        break
+      }
+      const nextBytes: number = encoder.encodeInto(safe.substring(index, next)).byteLength
+      if (usedBytes + nextBytes > maxBytes) {
+        break
+      }
+      usedBytes += nextBytes
+      end = next
+      index = next
+    }
+    return safe.substring(0, end).trim()
   }
 
   private static fileNameForSeed(seed: DownloadImageSeed, imageUrl: string): string {
@@ -3186,21 +3219,35 @@ export class DownloadQueueSettings {
   }
 
   private static archiverFileName(task: DownloadArchiverTask): string {
-    const titlePart: string = DownloadQueueSettings.pathTitlePart(task.title)
+    const base: string = DownloadQueueSettings.safePathPart(task.gid)
     const typePart: string = DownloadQueueSettings.safePathPart(task.dltype)
-    let name: string = DownloadQueueSettings.safePathPart(task.gid)
+    const urlExt: string = DownloadQueueSettings.fileExtFromUrl(task.url)
+    const ext: string = urlExt === '.jpg' ? '.zip' : urlExt
+    const typeSuffix: string = typePart.length > 0 ? `-${typePart}` : ''
+    const titlePrefix: string = `${base}-`
+    const titleSuffix: string = `${typeSuffix}${ext}`
+    const titleMaxBytes: number = DOWNLOAD_PATH_SEGMENT_MAX_BYTES - DownloadQueueSettings.utf8ByteLength(
+      `${titlePrefix}${titleSuffix}${ARCHIVER_PARTIAL_SUFFIX}`,
+    )
+    const titlePart: string = DownloadQueueSettings.pathTitlePart(task.title, titleMaxBytes)
+    let name: string = base
     if (titlePart.length > 0) {
       name = `${name}-${titlePart}`
     }
-    if (typePart.length > 0) {
-      name = `${name}-${typePart}`
+    return `${name}${typeSuffix}${ext}`
+  }
+
+  private static resolvedArchiverFileName(task: DownloadArchiverTask): string {
+    if (task.fileName.length > 0 && DownloadQueueSettings.utf8ByteLength(
+      `${task.fileName}${ARCHIVER_PARTIAL_SUFFIX}`,
+    ) <= DOWNLOAD_PATH_SEGMENT_MAX_BYTES) {
+      return task.fileName
     }
-    const ext: string = DownloadQueueSettings.fileExtFromUrl(task.url)
-    return ext === '.jpg' ? `${name}.zip` : `${name}${ext}`
+    return DownloadQueueSettings.archiverFileName(task)
   }
 
   private static archiverPartialPath(filePath: string): string {
-    return filePath.length > 0 ? `${filePath}.part` : ''
+    return filePath.length > 0 ? `${filePath}${ARCHIVER_PARTIAL_SUFFIX}` : ''
   }
 
   private static normalizeArchiverDownloadUrl(url: string): string {

@@ -655,15 +655,21 @@ export class EhHttpClient {
             req.destroy()
             return
           }
-          if (!prepared) {
-            const mode: number = fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE
-            file = fs.openSync(partialPath, mode)
-            openedTarget = true
-            prepared = true
+          try {
+            if (!prepared) {
+              const mode: number = fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE
+              file = fs.openSync(partialPath, mode)
+              openedTarget = true
+              prepared = true
+            }
+            const len: number = fs.writeSync((file as fs.File).fd, data, { offset: written })
+            written += len
+            emitProgress(written, responseTotal)
+          } catch (error) {
+            const message: string = (error as Error).message
+            streamError = message.length > 0 ? message : 'binary file write failed'
+            req.destroy()
           }
-          const len: number = fs.writeSync((file as fs.File).fd, data, { offset: written })
-          written += len
-          emitProgress(written, responseTotal)
         })
         const code: number = await req.requestInStream(url, {
           method: http.RequestMethod.GET,
