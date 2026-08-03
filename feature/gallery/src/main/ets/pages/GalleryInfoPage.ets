@@ -6,7 +6,6 @@ import {
   GalleryInfoParams,
   SecondaryListScaffold,
   GroupedListSection,
-  ConciseListRow,
   AppStrings,
   immersiveTitleBar,
 } from 'shared'
@@ -60,10 +59,29 @@ export struct GalleryInfoPage {
 
   @Builder
   private infoRow(label: ResourceStr, value: string) {
-    ConciseListRow({
-      title: label,
-      subtitle: value,
-      showChevron: false,
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(label)
+        .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
+        .fontWeight(FontWeight.Regular)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      if (value.length > 0) {
+        Text(value)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+          .wordBreak(WordBreak.BREAK_ALL)
+          .copyOption(CopyOptions.LocalDevice)
+          .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding({
+      left: ThemeConstants.LIST_ROW_TEXT_INDENT,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_SM,
     })
   }
 

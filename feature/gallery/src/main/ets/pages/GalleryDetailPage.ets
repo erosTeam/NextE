@@ -107,6 +107,7 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   ReaderSuperResolutionService,
+  GalleryTitleTranslationService,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -143,12 +144,57 @@ function galleryDetailSheetContentBuilder(params: GalleryDetailSheetContentParam
   GalleryDetailSheetContentHost({ content: params.content })
 }
 
+@ObservedV2
+class GalleryTitleTranslationState {
+  @Trace source: string = ''
+  @Trace text: string = ''
+  @Trace shown: boolean = false
+  @Trace loading: boolean = false
+  private requestId: number = 0
+
+  reset(): void {
+    this.requestId = this.requestId + 1
+    this.source = ''
+    this.text = ''
+    this.shown = false
+    this.loading = false
+  }
+
+  begin(source: string): number {
+    this.requestId = this.requestId + 1
+    this.source = source
+    this.text = ''
+    this.shown = false
+    this.loading = true
+    return this.requestId
+  }
+
+  isCurrent(requestId: number, source: string): boolean {
+    return requestId === this.requestId && source === this.source
+  }
+
+  complete(translated: string): void {
+    this.loading = false
+    this.text = translated
+    this.shown = translated.length > 0
+  }
+
+  fail(): void {
+    this.loading = false
+    this.shown = false
+  }
+}
+
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
 const DETAIL_SHEET_TORRENTS: string = 'torrents'
 const DETAIL_SHEET_ARCHIVER: string = 'archiver'
 const DETAIL_SHEET_DOWNLOAD_UPGRADE: string = 'downloadUpgrade'
 const DETAIL_SHEET_ADD_TAGS: string = 'addTags'
+const TITLE_TRANSLATION_REGULAR: string = 'title'
+const TITLE_TRANSLATION_JAPANESE: string = 'japaneseTitle'
+const TITLE_TRANSLATION_ACTION_SIZE: number = 30
+const TITLE_TRANSLATION_ICON_SIZE: number = 16
 // followOperation touch heuristics: a drag counts as a scroll (→ report the operating side) only once its
 // vertical movement clearly dominates, so a tap on content doesn't yank the floating Read button sideways.
 const FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD: number = 12
@@ -226,6 +272,8 @@ export struct GalleryDetailPage {
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
+  @Local titleTranslation: GalleryTitleTranslationState = new GalleryTitleTranslationState();
+  @Local japaneseTitleTranslation: GalleryTitleTranslationState = new GalleryTitleTranslationState();
   @Local fullPreviewJumpPageText: string = '';
   @Local fullPreviewJumpError: string = '';
   @Local remoteFavoriteSelectedCat: string = '';
@@ -637,6 +685,111 @@ export struct GalleryDetailPage {
 
   private secondaryDetailTitle(): string {
     return this.vm.gallery.secondaryTitle(this.titlePref.japaneseTitleInGalleryPage)
+  }
+
+  private englishDetailTitle(): string {
+    if (this.vm.gallery.englishTitle.length > 0) {
+      return this.vm.gallery.englishTitle
+    }
+    return this.params.title
+  }
+
+  private japaneseDetailTitle(): string {
+    return this.vm.gallery.japaneseTitle
+  }
+
+  private titleTranslationStateFor(kind: string): GalleryTitleTranslationState {
+    return kind === TITLE_TRANSLATION_JAPANESE
+      ? this.japaneseTitleTranslation
+      : this.titleTranslation
+  }
+
+  private titleTranslationTextFor(kind: string): string {
+    return this.titleTranslationStateFor(kind).text
+  }
+
+  private titleTranslationShownFor(kind: string): boolean {
+    const source: string = this.titleSourceFor(kind)
+    const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
+    return source.length > 0 && state.source === source && state.shown
+  }
+
+  private titleTranslationLoadingFor(kind: string): boolean {
+    const source: string = this.titleSourceFor(kind)
+    const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
+    return source.length > 0 && state.source === source && state.loading
+  }
+
+  private titleSourceFor(kind: string): string {
+    return kind === TITLE_TRANSLATION_JAPANESE
+      ? this.japaneseDetailTitle().trim()
+      : this.englishDetailTitle().trim()
+  }
+
+  private resetTitleTranslations(): void {
+    this.titleTranslation.reset()
+    this.japaneseTitleTranslation.reset()
+  }
+
+  private isTitleTranslationRequestCurrent(
+    kind: string,
+    requestId: number,
+    gid: string,
+    token: string,
+    source: string,
+  ): boolean {
+    return this.titleTranslationStateFor(kind).isCurrent(requestId, source) &&
+      gid === this.params.gid &&
+      token === this.params.token &&
+      source === this.titleSourceFor(kind)
+  }
+
+  private failTitleTranslation(kind: string): void {
+    this.titleTranslationStateFor(kind).fail()
+    this.getUIContext()
+      .getPromptAction()
+      .openToast({ message: $r('app.string.detail_title_translation_failed') })
+      .catch((_error: Error) => {})
+  }
+
+  private translateTitle(kind: string, source: string): void {
+    const state: GalleryTitleTranslationState = this.titleTranslationStateFor(kind)
+    const requestId: number = state.begin(source)
+    const gid: string = this.params.gid
+    const token: string = this.params.token
+    GalleryTitleTranslationService.translate(this.ctx(), source)
+      .then((translated: string) => {
+        if (!this.isTitleTranslationRequestCurrent(kind, requestId, gid, token, source)) {
+          return
+        }
+        const result: string = translated.trim()
+        state.complete(result)
+        if (result.length === 0) {
+          this.failTitleTranslation(kind)
+        }
+      })
+      .catch((error: Error) => {
+        if (!this.isTitleTranslationRequestCurrent(kind, requestId, gid, token, source)) {
+          return
+        }
+        DiagnosticLogger.warn('gallery', 'title_translation_failed', `kind=${kind} ${error.message}`)
+        this.failTitleTranslation(kind)
+      })
+  }
+
+  private toggleOrTranslateTitle(kind: string): void {
+    const source: string = this.titleSourceFor(kind)
+    if (source.length === 0 || this.titleTranslationLoadingFor(kind)) {
+      return
+    }
+    if (
+      this.titleTranslationStateFor(kind).source === source &&
+      this.titleTranslationTextFor(kind).length > 0
+    ) {
+      this.titleTranslationStateFor(kind).shown = !this.titleTranslationShownFor(kind)
+      return
+    }
+    this.translateTitle(kind, source)
   }
 
   private fileCountNum(): number {
@@ -1796,7 +1949,7 @@ export struct GalleryDetailPage {
   }
 
   private copyGalleryTitle(): void {
-    this.copyText(this.vm.gallery.title(), $r('app.string.detail_title_copied'))
+    this.copyText(this.primaryDetailTitle(), $r('app.string.detail_title_copied'))
   }
 
   private visiblePreviewComments(): EhGalleryComment[] {
@@ -1804,7 +1957,7 @@ export struct GalleryDetailPage {
   }
 
   private openFullTitleSheet(): void {
-    if (this.primaryDetailTitle().length === 0 && this.secondaryDetailTitle().length === 0) {
+    if (this.englishDetailTitle().length === 0 && this.japaneseDetailTitle().length === 0) {
       return
     }
     this.openDetailSheet(DETAIL_SHEET_FULL_TITLE)
@@ -2047,11 +2200,20 @@ export struct GalleryDetailPage {
       ListItem() {
         GroupedListSection({ inset: 0 }) {
           Column({ space: ThemeConstants.SPACE_MD }) {
-            this.TitleReadBlock($r('app.string.detail_display_title'), this.primaryDetailTitle())
-            if (this.secondaryDetailTitle().length > 0) {
+            if (this.englishDetailTitle().length > 0) {
               this.TitleReadBlock(
-                $r('app.string.detail_alternate_title'),
-                this.secondaryDetailTitle(),
+                $r('app.string.detail_info_title'),
+                this.englishDetailTitle(),
+                $r('app.string.detail_title_translation'),
+                TITLE_TRANSLATION_REGULAR,
+              )
+            }
+            if (this.japaneseDetailTitle().length > 0) {
+              this.TitleReadBlock(
+                $r('app.string.detail_info_jpn_title'),
+                this.japaneseDetailTitle(),
+                $r('app.string.detail_japanese_title_translation'),
+                TITLE_TRANSLATION_JAPANESE,
               )
             }
           }
@@ -2063,21 +2225,80 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private TitleReadBlock(label: ResourceStr, value: string) {
+  private TitleReadBlock(
+    label: ResourceStr,
+    value: string,
+    translationLabel: Resource,
+    kind: string,
+  ) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        Text(label)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+          .layoutWeight(1)
+        this.TitleTranslationAction(kind, translationLabel)
+      }
+      .alignItems(VerticalAlign.Center)
+      .width('100%')
       Text(value)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor($r('sys.color.font_primary'))
         .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+        .copyOption(CopyOptions.LocalDevice)
+        .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
         .width('100%')
+      if (
+        this.titleTranslationShownFor(kind) &&
+        this.titleTranslationTextFor(kind).length > 0
+      ) {
+        Text(translationLabel)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+          .margin({ top: ThemeConstants.SPACE_XS })
+          .width('100%')
+        Text(this.titleTranslationTextFor(kind))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+          .copyOption(CopyOptions.LocalDevice)
+          .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+          .width('100%')
+      }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private TitleTranslationAction(kind: string, label: Resource) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      if (this.titleTranslationLoadingFor(kind)) {
+        LoadingProgress()
+          .width(TITLE_TRANSLATION_ICON_SIZE)
+          .height(TITLE_TRANSLATION_ICON_SIZE)
+      } else {
+        SymbolGlyph($r('sys.symbol.translate'))
+          .fontSize(TITLE_TRANSLATION_ICON_SIZE)
+          .fontColor([
+            this.titleTranslationShownFor(kind) && this.titleTranslationTextFor(kind).length > 0
+              ? ThemeConstants.BRAND_PRIMARY
+              : $r('sys.color.font_tertiary'),
+          ])
+      }
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .backgroundColor(Color.Transparent)
+    .width(TITLE_TRANSLATION_ACTION_SIZE)
+    .height(TITLE_TRANSLATION_ACTION_SIZE)
+    .enabled(!this.titleTranslationLoadingFor(kind))
+    .opacity(1)
+    .accessibilityText(label)
+    .onClick(() => {
+      this.toggleOrTranslateTitle(kind)
+    })
   }
 
   private downloadUpgradeTitle(version: EhGalleryVersion): string {
@@ -2764,6 +2985,7 @@ export struct GalleryDetailPage {
       const p = context.pathInfo.param as GalleryDetailParams
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
+        this.resetTitleTranslations()
         this.vm.setContext(this.ctx())
         const seed: EhGallery = new EhGallery(p.gid, p.token)
         seed.thumbUrl = p.thumbUrl

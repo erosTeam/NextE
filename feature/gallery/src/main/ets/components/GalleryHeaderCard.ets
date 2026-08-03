@@ -85,7 +85,12 @@ export struct GalleryHeaderCard {
                 // / uploader are also shown — the title truncates before metadata overflows.
                 .maxLines(this.titleMaxLines())
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .copyOption(CopyOptions.LocalDevice)
+                .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
                 .width('100%')
+                .onClick(() => {
+                  this.onTitleTap()
+                })
               if (this.secondaryTitle().length > 0) {
                 Text(this.secondaryTitle())
                   .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -93,14 +98,16 @@ export struct GalleryHeaderCard {
                   .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
                   .maxLines(2)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .copyOption(CopyOptions.LocalDevice)
+                  .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
                   .width('100%')
+                  .onClick(() => {
+                    this.onTitleTap()
+                  })
               }
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
-            .onClick(() => {
-              this.onTitleTap()
-            })
             .bindSheet(this.titleSheetShown, this.titleSheetContent(), appSheetOptions({
               detents: [SheetSize.LARGE],
               showClose: false,

@@ -611,6 +611,7 @@ export {
   CommentTranslationQueueTask,
   CommentTranslationService,
 } from './services/CommentTranslationService'
+export { GalleryTitleTranslationService } from './services/GalleryTitleTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
 export { ImageBlockFeedParser } from './services/ImageBlockFeedParser'
 export { ImageBlockService } from './services/ImageBlockService'

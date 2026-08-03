@@ -1061,12 +1061,16 @@
       "value": "Full title"
     },
     {
-      "name": "detail_display_title",
-      "value": "Display title"
+      "name": "detail_title_translation",
+      "value": "Title translation"
     },
     {
-      "name": "detail_alternate_title",
-      "value": "Alternate title"
+      "name": "detail_japanese_title_translation",
+      "value": "Japanese title translation"
+    },
+    {
+      "name": "detail_title_translation_failed",
+      "value": "Title translation failed"
     },
     {
       "name": "detail_link_copied",
@@ -1226,7 +1230,7 @@
     },
     {
       "name": "detail_info_jpn_title",
-      "value": "Jpn Title"
+      "value": "Japanese title"
     },
     {
       "name": "detail_info_thumb",

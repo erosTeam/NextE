@@ -1848,6 +1848,8 @@ export struct GalleryCommentsCard {
       .width('100%')
       .maxLines(4)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .copyOption(CopyOptions.LocalDevice)
+      .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
     } else {
       Text() {
         ForEach(
@@ -1870,6 +1872,8 @@ export struct GalleryCommentsCard {
       }
       .fontSize(ThemeConstants.FONT_SIZE_BODY)
       .fontColor(color)
+      .copyOption(CopyOptions.LocalDevice)
+      .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
       .width('100%')
     }
   }
@@ -1965,6 +1969,8 @@ export struct GalleryCommentsCard {
             }
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor(color)
+            .copyOption(CopyOptions.LocalDevice)
+            .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
             .width('100%')
           }
         },
@@ -2031,6 +2037,8 @@ export struct GalleryCommentsCard {
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(3)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .copyOption(CopyOptions.LocalDevice)
+        .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)

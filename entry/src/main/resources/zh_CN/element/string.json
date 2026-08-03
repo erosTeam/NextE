@@ -1061,12 +1061,16 @@
       "value": "完整标题"
     },
     {
-      "name": "detail_display_title",
-      "value": "显示标题"
+      "name": "detail_title_translation",
+      "value": "标题译文"
     },
     {
-      "name": "detail_alternate_title",
-      "value": "备用标题"
+      "name": "detail_japanese_title_translation",
+      "value": "日文标题译文"
+    },
+    {
+      "name": "detail_title_translation_failed",
+      "value": "标题翻译失败"
     },
     {
       "name": "detail_link_copied",

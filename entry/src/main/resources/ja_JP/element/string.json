@@ -1061,12 +1061,16 @@
       "value": "完全なタイトル"
     },
     {
-      "name": "detail_display_title",
-      "value": "表示タイトル"
+      "name": "detail_title_translation",
+      "value": "タイトルの訳文"
     },
     {
-      "name": "detail_alternate_title",
-      "value": "別タイトル"
+      "name": "detail_japanese_title_translation",
+      "value": "日本語タイトルの訳文"
+    },
+    {
+      "name": "detail_title_translation_failed",
+      "value": "タイトルの翻訳に失敗しました"
     },
     {
       "name": "detail_link_copied",
