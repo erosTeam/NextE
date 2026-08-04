@@ -13,6 +13,7 @@ import {
   ConciseListRow,
   AppModalScaffold,
   AppColorPicker,
+  PageErrorState,
   UserTagStore,
   UserTagSignal,
   connectUserTagSignal,
@@ -46,6 +47,7 @@ const TAG_INFO_IMAGE_FALLBACK_RATIO: number = 3 / 4
 const TAG_INFO_IMAGE_MIN_RATIO: number = 0.42
 const TAG_INFO_IMAGE_MAX_RATIO: number = 1.8
 const TAG_INFO_MANAGE_EPOCH_START: number = 0
+const TAG_INFO_MANAGE_RESOLVE: string = 'resolve'
 const TAG_INFO_MANAGE_EDIT: string = 'edit'
 const TAG_INFO_MANAGE_TAGSET: string = 'tagset'
 const TAG_INFO_MANAGE_ADD: string = 'add'
@@ -224,6 +226,7 @@ export struct GalleryTagsCard {
   private editSourceTag: EhUsertag | null = null;
   private editResolvedTags: EhUsertag[] = [];
   private myTagsRequest: UserTagRequestContext | null = null;
+  private myTagsSheetClosing: boolean = false;
 
   // Member chip background: the user's editable MyTags color, else EH preview fill, else neutral grey.
   // Never namespace.
@@ -311,6 +314,20 @@ export struct GalleryTagsCard {
 
   private discardMyTagsManagement(): void {
     this.tagsetResolveEpoch = this.tagsetResolveEpoch + 1
+    if (this.editSheetShown || this.myTagsSheetClosing) {
+      this.myTagsSheetClosing = true
+      this.editSheetShown = false
+      return
+    }
+    this.clearMyTagsManagementState()
+  }
+
+  private finishMyTagsManagementDismissal(): void {
+    this.tagsetResolveEpoch = this.tagsetResolveEpoch + 1
+    this.clearMyTagsManagementState()
+  }
+
+  private clearMyTagsManagementState(): void {
     this.tagsetLoading = false
     this.tagsetError = ''
     this.tagsetOptions = []
@@ -325,6 +342,7 @@ export struct GalleryTagsCard {
     this.editApiuid = ''
     this.editApikey = ''
     this.myTagsRequest = null
+    this.myTagsSheetClosing = false
   }
 
   @Monitor('auth.memberId')
@@ -512,7 +530,7 @@ export struct GalleryTagsCard {
 
   private openMyTagsForSelectedTag(): void {
     const tagKey: string = this.selectedTagKey()
-    if (tagKey.length === 0) {
+    if (tagKey.length === 0 || this.tagsetLoading) {
       return
     }
     const request: UserTagRequestContext = this.currentMyTagsRequest()
@@ -524,10 +542,12 @@ export struct GalleryTagsCard {
     this.tagsetLoading = true
     this.tagsetError = ''
     this.tagsetOptions = []
-    this.editSheetShown = false
     this.editSourceTag = null
     this.editResolvedTags = []
     this.myTagsRequest = request
+    this.myTagsSheetClosing = false
+    this.manageSheetKind = TAG_INFO_MANAGE_RESOLVE
+    this.editSheetShown = true
     MyTagsTargetService.resolve(request, tagKey).then((result: MyTagsTargetResolveResult | null) => {
       if (epoch !== this.tagsetResolveEpoch) {
         return
@@ -562,8 +582,6 @@ export struct GalleryTagsCard {
       }
       this.tagsetLoading = false
       this.tagsetError = EhErrorText.forUser(err)
-      this.manageSheetKind = TAG_INFO_MANAGE_TAGSET
-      this.editSheetShown = true
     })
   }
 
@@ -1144,6 +1162,11 @@ export struct GalleryTagsCard {
     .bindSheet($$this.editSheetShown, this.ManageUserTagSheet(), appSheetOptions({
       showClose: false,
       keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+      onDisappear: () => {
+        if (this.myTagsRequest !== null || this.manageSheetKind.length > 0 || this.myTagsSheetClosing) {
+          this.finishMyTagsManagementDismissal()
+        }
+      },
     }))
   }
 
@@ -1230,6 +1253,41 @@ export struct GalleryTagsCard {
       }
     }
     .width('100%')
+  }
+
+  @Builder
+  private ResolveUserTagSheet() {
+    AppModalScaffold({
+      title: $r('app.string.tag_info_manage_mytag'),
+      showConfirmAction: false,
+      contentOwnsScrolling: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      closeAction: () => {
+        this.discardMyTagsManagement()
+      },
+    }) {
+      if (this.tagsetLoading) {
+        Column({ space: ThemeConstants.SPACE_SM }) {
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE)
+            .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
+          Text($r('app.string.common_loading'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.tagsetError.length > 0) {
+        PageErrorState({
+          message: this.tagsetError,
+          retryAction: () => {
+            this.openMyTagsForSelectedTag()
+          },
+        })
+      }
+    }
   }
 
   @Builder
@@ -1437,7 +1495,9 @@ export struct GalleryTagsCard {
 
   @Builder
   private ManageUserTagSheet() {
-    if (this.manageSheetKind === TAG_INFO_MANAGE_EDIT) {
+    if (this.manageSheetKind === TAG_INFO_MANAGE_RESOLVE) {
+      this.ResolveUserTagSheet()
+    } else if (this.manageSheetKind === TAG_INFO_MANAGE_EDIT) {
       this.EditUserTagSheet()
     } else if (this.manageSheetKind === TAG_INFO_MANAGE_ADD) {
       this.AddUserTagSheet()
