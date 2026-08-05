@@ -116,6 +116,7 @@ export struct GallerySearchPage {
   private suggestionScroller: Scroller = new Scroller();
   private historyScroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
+  private selectedJumpDate: Date = new Date();
   private historyTranslationRun: number = 0;
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
@@ -190,8 +191,16 @@ export struct GallerySearchPage {
         this.showFilter = true
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': filterInner }]
-    return { 'value': items, 'maxCount': 1 }
+    const dateJumpInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_jump_date_after'),
+      'icon': $r('sys.symbol.clock'),
+      'isEnabled': this.vm.canJumpToDateAfter(),
+      'action': () => {
+        this.openDateJumpAfterDialog()
+      },
+    }
+    const items: Record<string, Object>[] = [{ 'content': filterInner }, { 'content': dateJumpInner }]
+    return { 'value': items, 'maxCount': 2 }
   }
 
   @Monitor('favoriteMutation.version')
@@ -288,6 +297,41 @@ export struct GallerySearchPage {
     const canonicalInput: string = normalizedInput.endsWith('/') ?
       normalizedInput.substring(0, normalizedInput.length - 1) : normalizedInput
     return canonicalInput === extracted ? extracted : ''
+  }
+
+  private static pad2(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`
+  }
+
+  private static formatDate(value: Date): string {
+    const month: number = value.getMonth() + 1
+    const day: number = value.getDate()
+    return `${value.getFullYear()}-${GallerySearchPage.pad2(month)}-${GallerySearchPage.pad2(day)}`
+  }
+
+  private openDateJumpAfterDialog(): void {
+    if (!this.vm.canJumpToDateAfter()) {
+      return
+    }
+    this.getUIContext().showDatePickerDialog({
+      start: new Date(2007, 2, 20),
+      end: new Date(),
+      selected: this.selectedJumpDate,
+      onDateAccept: (value: Date) => {
+        this.selectedJumpDate = value
+        const seek: string = GallerySearchPage.formatDate(value)
+        this.vm.jumpToDateAfter(seek)
+          .then((ok: boolean) => {
+            if (ok) {
+              setTimeout(() => {
+                this.scroller.scrollToIndex(0)
+              }, 50)
+            }
+          })
+          .catch((_error: Error) => {
+          })
+      },
+    })
   }
 
   private formatSuggestionQuery(s: EhTagSuggestion): string {

@@ -45,12 +45,19 @@ export class SearchViewModel {
   @Trace errorMessage: string = ''
   @Trace suggestionCount: number = 0
   @Trace isSuggesting: boolean = false
-  suggestions: EhTagSuggestion[] = []
+  // The list can keep the same row count as its previous query. Track the rows themselves so a
+  // replacement still re-renders the visible suggestion list instead of waiting for it to close.
+  @Trace suggestions: EhTagSuggestion[] = []
   private query: string = ''
   private nextGid: string = ''
+  private prevGid: string = ''
   // Last cursor that successfully made it through loadMore. Mirrors GalleryListViewModel's
   // stale-cursor guard so a failed footer retry never poisons the next manual retry.
   private lastNext: string = ''
+  private lastPrev: string = ''
+  // A date seek lands on a middle page. Pull-to-refresh must then use the previous cursor to
+  // prepend newer results, rather than silently replacing the view with the newest search page.
+  private afterDateJump: boolean = false
   // Generation token: a new search / filter re-apply / refresh bumps it so an in-flight loadMore
   // that resumes afterwards discards its now-stale (old-query) page instead of mixing it in.
   // search() runs without the isLoadingMore guard, so it can overlap a loadMore.
@@ -85,13 +92,13 @@ export class SearchViewModel {
     this.favcat = favcat.length > 0 ? favcat : 'a'
   }
 
-  private buildFavQuery(next: string): FavoritesQuery {
+  private buildFavQuery(next: string, prev: string = '', seek: string = ''): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
-      prev: '',
-      seek: '',
+      prev: prev,
+      seek: seek,
       page: -1,
       from: '',
       search: this.query,
@@ -101,10 +108,10 @@ export class SearchViewModel {
 
   // Fetch one page in the active scope: favorites.php (favorite scope) or the gallery list (normal).
   // Both return GalleryList (.gallerys + .nextGid), so all the dataSource/paging plumbing is shared.
-  private fetchPage(next: string): Promise<GalleryList> {
+  private fetchPage(next: string, prev: string = '', seek: string = ''): Promise<GalleryList> {
     return this.scope === SEARCH_SCOPE_FAVORITE
-      ? EhApiService.getInstance().getFavoritesList(this.buildFavQuery(next))
-      : EhApiService.getInstance().getGalleryList(this.buildQuery(next))
+      ? EhApiService.getInstance().getFavoritesList(this.buildFavQuery(next, prev, seek))
+      : EhApiService.getInstance().getGalleryList(this.buildQuery(next, prev, seek))
   }
 
   private resolveFavoriteSlots(gallerys: EhGallery[], favcats: Favcat[]): void {
@@ -182,14 +189,14 @@ export class SearchViewModel {
     return true
   }
 
-  private buildQuery(next: string): GalleryListQuery {
+  private buildQuery(next: string, prev: string = '', seek: string = ''): GalleryListQuery {
     const f: SearchFilterState = connectSearchFilter()
     return {
       isEx: connectSiteMode().isEx,
       source: this.scope === SEARCH_SCOPE_WATCHED ? 'watched' : '',
       next: next,
-      prev: '',
-      seek: '',
+      prev: prev,
+      seek: seek,
       tl: 0,
       page: 0,
       fCats: f.fCats(),
@@ -333,7 +340,10 @@ export class SearchViewModel {
     // filter sheet may change immediately, but the body must not flash to an empty loading page.
     // Disable old paging until the replacement page succeeds.
     this.nextGid = ''
+    this.prevGid = ''
     this.lastNext = ''
+    this.lastPrev = ''
+    this.afterDateJump = false
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchPage('')
@@ -343,6 +353,7 @@ export class SearchViewModel {
         this.dataSource.setData(rows)
         this.itemCount = this.dataSource.totalCount()
         this.nextGid = list.nextGid
+        this.prevGid = list.prevGid
         this.hasMore = list.nextGid.length > 0
       }
     } catch (err) {
@@ -382,7 +393,10 @@ export class SearchViewModel {
     this.epoch = this.epoch + 1
     this.query = ''
     this.nextGid = ''
+    this.prevGid = ''
     this.lastNext = ''
+    this.lastPrev = ''
+    this.afterDateJump = false
     this.dataSource.clear()
     this.itemCount = 0
     this.isLoading = false
@@ -406,11 +420,17 @@ export class SearchViewModel {
     ) {
       return
     }
+    if (this.afterDateJump && this.prevGid.length > 0) {
+      await this.loadPreviousDateJump()
+      return
+    }
     this.isLoading = true
     this.errorMessage = ''
     this.epoch = this.epoch + 1
     const myEpoch: number = this.epoch
     this.lastNext = ''
+    this.lastPrev = ''
+    this.afterDateJump = false
     try {
       const list: GalleryList = await this.fetchPage('')
       this.resolveFavoriteSlots(list.gallerys, list.favList)
@@ -419,6 +439,7 @@ export class SearchViewModel {
         this.dataSource.setData(rows)
         this.itemCount = this.dataSource.totalCount()
         this.nextGid = list.nextGid
+        this.prevGid = list.prevGid
         this.hasMore = list.nextGid.length > 0
       }
     } catch (err) {
@@ -427,6 +448,87 @@ export class SearchViewModel {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('search', 'search_refresh_failed', e.message)
+    }
+    await this.finishCurrentRequest(myEpoch)
+  }
+
+  canJumpToDateAfter(): boolean {
+    return this.hasSearched && this.query.length > 0 && !this.isLoading && !this.isLoadingMore
+  }
+
+  /** Replace the current search page with the first page at or after the selected EH date. */
+  async jumpToDateAfter(seek: string): Promise<boolean> {
+    const dateText: string = seek.trim()
+    if (!this.canJumpToDateAfter() || dateText.length === 0) {
+      return false
+    }
+    this.clearSuggestions()
+    this.isLoading = true
+    this.errorMessage = ''
+    this.epoch = this.epoch + 1
+    const myEpoch: number = this.epoch
+    this.nextGid = ''
+    this.prevGid = ''
+    this.lastNext = ''
+    this.lastPrev = ''
+    this.afterDateJump = false
+    this.hasMore = false
+    let committed: boolean = false
+    try {
+      const list: GalleryList = await this.fetchPage('', '', dateText)
+      this.resolveFavoriteSlots(list.gallerys, list.favList)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      if (this.epoch === myEpoch) {
+        this.dataSource.setData(rows)
+        this.itemCount = this.dataSource.totalCount()
+        this.nextGid = list.nextGid
+        this.prevGid = list.prevGid
+        this.afterDateJump = true
+        this.hasMore = list.nextGid.length > 0
+        committed = true
+      }
+    } catch (err) {
+      const e = err as Error
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
+      DiagnosticLogger.warn('search', 'date_jump_after_failed', `seek=${dateText} error=${e.message}`)
+    }
+    await this.finishCurrentRequest(myEpoch)
+    return committed
+  }
+
+  /** After a date seek, pull-to-refresh prepends the newer page through EH's previous cursor. */
+  private async loadPreviousDateJump(): Promise<void> {
+    const requestedPrev: string = this.prevGid
+    if (requestedPrev.length === 0 || (requestedPrev === this.lastPrev && this.errorMessage.length === 0)) {
+      return
+    }
+    this.isLoading = true
+    this.errorMessage = ''
+    const myEpoch: number = this.epoch
+    try {
+      const list: GalleryList = await this.fetchPage('', requestedPrev)
+      if (this.epoch !== myEpoch) {
+        return
+      }
+      const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+      if (this.epoch !== myEpoch) {
+        return
+      }
+      this.resolveFavoriteSlots(fresh, list.favList)
+      if (fresh.length > 0) {
+        this.dataSource.prependData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+      }
+      this.prevGid = list.prevGid
+      this.lastPrev = requestedPrev
+    } catch (err) {
+      const e = err as Error
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
+      DiagnosticLogger.warn('search', 'date_jump_load_previous_failed', e.message)
     }
     await this.finishCurrentRequest(myEpoch)
   }
