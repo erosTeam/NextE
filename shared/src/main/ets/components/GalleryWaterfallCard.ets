@@ -55,9 +55,10 @@ export function galleryWaterfallReuseId(gallery: EhGallery): string {
   const ratingShape: string = gallery.ratingFallBack > 0 || gallery.rating > 0
     ? 'rated'
     : 'unrated'
+  const noteShape: string = gallery.favNote.length > 0 ? 'note' : 'no_note'
   const tagShape: string = gallery.simpleTags.length > 0 ? 'tags' : 'no_tags'
   const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
-  return `waterfall_${coverShape}_${favoriteShape}_${ratingShape}_${tagShape}_${languageShape}`
+  return `waterfall_${coverShape}_${favoriteShape}_${ratingShape}_${noteShape}_${tagShape}_${languageShape}`
 }
 
 /** Compact cards have a different conditional subtree and must never enter the regular reuse pool. */
@@ -472,6 +473,11 @@ export struct GalleryWaterfallCard {
           Text(this.gallery.postTime.length > 0 ? this.gallery.postTime : this.gallery.category)
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
             .fontColor($r('sys.color.font_secondary'))
+            .decoration({
+              type: this.gallery.expunged
+                ? TextDecorationType.LineThrough
+                : TextDecorationType.None,
+            })
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
@@ -483,6 +489,14 @@ export struct GalleryWaterfallCard {
           .maxLines(3)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
+        if (this.gallery.favNote.length > 0) {
+          Text($r('app.string.gallery_fav_note', this.gallery.favNote))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+        }
         this.Tags()
       }
       .width('100%')

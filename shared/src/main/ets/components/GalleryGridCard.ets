@@ -124,6 +124,11 @@ export struct GalleryGridCard {
       Text(this.metaText())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor($r('sys.color.font_secondary'))
+        .decoration({
+          type: this.gallery.expunged && this.gallery.postTime.length > 0
+            ? TextDecorationType.LineThrough
+            : TextDecorationType.None,
+        })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .height(ThemeConstants.GALLERY_GRID_META_HEIGHT)
