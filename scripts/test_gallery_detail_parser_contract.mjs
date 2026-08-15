@@ -69,7 +69,7 @@ const RE = {
 }
 
 function parseTags(html) {
-  const list = html.match(/<div id="taglist">([\s\S]*?)<\/table>/)
+  const list = html.match(/<div id="taglist"[^>]*>([\s\S]*?)<\/table>/)
   if (!list) return []
   const groups = []
   for (const r of list[1].matchAll(RE.tagRow)) {
@@ -285,6 +285,20 @@ eq(vt[0].tags[0].text, 'up', 'vote: upvoted tag keeps raw href tag text')
 eq(vt[0].tags[0].vote, 1, 'vote: class="tup" → +1')
 eq(vt[0].tags[1].vote, -1, 'vote: class="tdn" → -1')
 eq(vt[0].tags[2].vote, 0, 'vote: class="" → 0')
+
+// Real-DOM drift (2026-08): galleries with enough tag rows collapse #taglist behind an inline
+// height style (captured on e-hentai.org g/4054387 and g/1985030 as style="height:232px"). The
+// container regex must tolerate attributes or the whole tag card silently disappears.
+const STYLED_TAGLIST = '<div id="taglist" style="height:232px"><table><tr><td class="tc">language:</td><td>' +
+  '<div id="td_language:chinese" class="gt" style="opacity:1.0"><a id="ta_language:chinese" href="https://e-hentai.org/tag/language:chinese" class="" onclick="return toggle_tagmenu(1,\'language:chinese\',this)">chinese</a></div>' +
+  '</td></tr><tr><td class="tc">artist:</td><td>' +
+  '<div id="td_artist:example" class="gt" style="opacity:1.0"><a id="ta_artist:example" href="https://e-hentai.org/tag/artist:example" class="" onclick="return toggle_tagmenu(1,\'artist:example\',this)">example</a></div>' +
+  '</td></tr></table></div>'
+const syl = parseTags(STYLED_TAGLIST)
+eq(syl.length, 2, 'styled taglist: two groups parse through inline height style')
+eq(syl[0].ns, 'language', 'styled taglist: group0 ns')
+eq(syl[0].tags[0].text, 'chinese', 'styled taglist: raw tag text from href')
+eq(syl[1].tags[0].text, 'example', 'styled taglist: artist raw tag text')
 
 // Rating colour variant: #rating_image class "ir" = community (orange, colorRating ''); "ir irb" etc =
 // personally rated (blue/green/red). Captured fixtures are all plain "ir"; this synthetic covers the variant.

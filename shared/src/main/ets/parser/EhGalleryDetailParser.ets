@@ -176,7 +176,9 @@ export class EhGalleryDetailParser {
 
   /** Parse #taglist into namespace-grouped tags. */
   private static parseTags(html: string): TagGroup[] {
-    const listM: RegExpMatchArray | null = html.match(/<div id="taglist">([\s\S]*?)<\/table>/)
+    // EH emits an inline height style on #taglist when the tag rows exceed its collapsed height
+    // (e.g. style="height:232px"); tolerate any attributes on the container.
+    const listM: RegExpMatchArray | null = html.match(/<div id="taglist"[^>]*>([\s\S]*?)<\/table>/)
     if (listM === null || listM[1] === undefined) {
       return []
     }
