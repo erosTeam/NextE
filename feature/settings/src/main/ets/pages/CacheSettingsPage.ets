@@ -3,7 +3,6 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
 import { CustomContentDialog, SymbolGlyphModifier } from '@kit.ArkUI'
 import {
-  AppModalScaffold,
   AppStrings,
   BackupAppMetadata,
   BackupParseResult,
@@ -20,7 +19,6 @@ import {
   SecondaryListScaffold,
   TagTranslationService,
   ThemeConstants,
-  appSheetOptions,
   connectNavStack,
   NavStackHolder,
   connectSafeMode,
@@ -57,7 +55,6 @@ export struct CacheSettingsPage {
   @Local includeSecrets: boolean = false;
   @Local exportPwd: string = '';
   @Local exportPwd2: string = '';
-  @Local exportSheetShown: boolean = false;
   @Local importPwd: string = '';
   @Local busy: boolean = false;
   @Local safeMode: SafeModeState = connectSafeMode();
@@ -92,6 +89,39 @@ export struct CacheSettingsPage {
     onWillDismiss: (_action: DismissDialogAction) => {
       this.importPwd = ''
       this.pendingImportRaw = ''
+    },
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
+
+  private exportDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.backup_export'),
+      contentBuilder: () => {
+        this.ExportDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeExportDialog()
+          },
+        },
+        {
+          value: $r('app.string.backup_export'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmExport()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    onWillDismiss: (_action: DismissDialogAction) => {
+      this.includeSecrets = false
+      this.exportPwd = ''
+      this.exportPwd2 = ''
     },
     alignment: DialogAlignment.Center,
     customStyle: false,
@@ -341,7 +371,7 @@ export struct CacheSettingsPage {
     this.includeSecrets = false
     this.exportPwd = ''
     this.exportPwd2 = ''
-    this.exportSheetShown = true
+    this.exportDialogController.open()
   }
 
   private confirmExport(): void {
@@ -366,7 +396,7 @@ export struct CacheSettingsPage {
       this.timeStamp(),
     )
       .then(() => {
-        this.exportSheetShown = false
+        this.closeExportDialog()
         this.exportPwd = ''
         this.exportPwd2 = ''
         this.toast($r('app.string.backup_export_done'))
@@ -448,6 +478,14 @@ export struct CacheSettingsPage {
     this.pendingImportRaw = ''
   }
 
+  private closeExportDialog(): void {
+    try {
+      this.exportDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
   // Restore overwrites the current settings, so confirm first.
   private confirmRestore(result: BackupParseResult): void {
     const envelope = result.envelope
@@ -504,8 +542,8 @@ export struct CacheSettingsPage {
                   })
                 }
               }
-              // Backup & restore stays inlined: export uses a variable-length sheet, while the encrypted
-              // import password is one bounded decision and therefore uses a Dialog.
+              // Backup & restore stays inlined: export and the encrypted-import password both use a
+              // Dialog, keeping the two actions on the same presentation model.
               GroupedListSection() {
                 ConciseListRow({
                   title: $r('app.string.backup_export'),
@@ -516,16 +554,12 @@ export struct CacheSettingsPage {
                   action: () => {
                     this.openExport()
                   },
-                }).bindSheet(
-                  $$this.exportSheetShown,
-                  this.ExportSheet(),
-                  appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-                )
+                })
                 this.rowDivider()
                 ConciseListRow({
                   title: $r('app.string.backup_import'),
                   subtitle: $r('app.string.backup_import_subtitle'),
-                  leadingIcon: $r('sys.symbol.doc_plaintext'),
+                  leadingIcon: $r('sys.symbol.cloud_and_arrow_down'),
                   showChevron: false,
                   isEnabled: !this.busy,
                   action: () => {
@@ -651,58 +685,41 @@ export struct CacheSettingsPage {
   }
 
   @Builder
-  ExportSheet() {
-    AppModalScaffold({
-      title: $r('app.string.backup_export'),
-      confirmIcon: $r('sys.symbol.cloud_and_arrow_up'),
-      confirmText: $r('app.string.backup_export'),
-      confirmEnabled: !this.busy,
-      confirmLoading: this.busy,
-      closeAction: () => {
-        this.exportSheetShown = false
-      },
-      confirmAction: () => {
-        this.confirmExport()
-      },
-    }) {
-      ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          Row({ space: ThemeConstants.SPACE_SM }) {
-            Column({ space: ThemeConstants.SPACE_XS }) {
-              Text($r('app.string.backup_include_secrets'))
-                .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .width('100%')
-              Text($r('app.string.backup_include_secrets_hint'))
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_secondary'))
-                .width('100%')
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-            Toggle({ type: ToggleType.Switch, isOn: this.includeSecrets })
-              .selectedColor(ThemeConstants.BRAND_PRIMARY)
-              .onChange((value: boolean) => {
-                this.includeSecrets = value
-              })
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-          if (this.includeSecrets) {
-            this.PasswordField(this.exportPwd, $r('app.string.backup_password'), (value: string) => {
-              this.exportPwd = value
-            })
-            this.PasswordField(this.exportPwd2, $r('app.string.backup_password_repeat'), (value: string) => {
-              this.exportPwd2 = value
-            })
-          }
+  ExportDialogContent() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Text($r('app.string.backup_include_secrets'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .width('100%')
+          Text($r('app.string.backup_include_secrets_hint'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
         }
-        .width('100%')
+        .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+        Toggle({ type: ToggleType.Switch, isOn: this.includeSecrets })
+          .selectedColor(ThemeConstants.BRAND_PRIMARY)
+          .onChange((value: boolean) => {
+            this.includeSecrets = value
+          })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      if (this.includeSecrets) {
+        this.PasswordField(this.exportPwd, $r('app.string.backup_password'), (value: string) => {
+          this.exportPwd = value
+        })
+        this.PasswordField(this.exportPwd2, $r('app.string.backup_password_repeat'), (value: string) => {
+          this.exportPwd2 = value
+        })
       }
     }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
