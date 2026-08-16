@@ -2965,6 +2965,7 @@ export struct GalleryDetailPage {
                 horizontal: this.thumbMode.horizontalThumbnails,
                 hidden: this.thumbMode.hideGalleryThumbnails,
                 thumbnailReloadToken: this.compactPreviewReloadToken,
+                loadDeferred: !this.vm.postTransitionReady,
                 onOpen: (page0: number) => {
                   this.openReader(page0)
                 },

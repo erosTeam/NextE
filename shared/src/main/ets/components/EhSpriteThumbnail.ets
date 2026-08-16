@@ -69,6 +69,10 @@ export struct EhSpriteThumbnail {
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
   @Param fitHeight: boolean = false;
   @Param radius: number = ThemeConstants.THUMB_RADIUS;
+  // When true (detail-page push transition), the sprite request is deferred: the tile renders its
+  // placeholder until the page releases it, so ~40 sprite tiles do not all build image nodes and fire
+  // their cache-hit callbacks inside the animating frames (measured 16-22ms dirty-node flush).
+  @Param loadDeferred: boolean = false;
   // The sprite sheet's REAL decoded pixel size (from Image.onComplete); 0 until the sheet loads. The sheet
   // is scaled UNIFORMLY by `factor` relative to THESE real pixels — never Fill-stretched to the parsed
   // max-extent — so the cropped thumb is never axis-distorted when the sheet canvas has padding beyond the
@@ -356,6 +360,10 @@ export struct EhSpriteThumbnail {
     if (this.forceImageBlocked || this.imageBlocked) {
       this.blockedThumb()
     } else if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
+      // Crop ONE thumb out of EH's sprite sheet.
+      if (this.loadDeferred && !this.loaded) {
+        this.statusOverlay()
+      } else {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
       // inside a fixed box that clips to `radius`. This is deliberate: on HarmonyOS a backgroundImage is
       // NOT clipped by borderRadius + clip(true) (device-verified — the thumb rendered square), but Image
@@ -393,6 +401,7 @@ export struct EhSpriteThumbnail {
       .height(this.boxHeight())
       .borderRadius(this.radius)
       .clip(true)
+      }
     } else if (this.fitHeight) {
       // No sprite metadata (legacy/large-thumb layout): whole image, height-driven. clip(true) so the
       // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.

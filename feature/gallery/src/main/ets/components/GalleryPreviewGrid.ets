@@ -37,6 +37,10 @@ export struct GalleryPreviewGrid {
   @Param horizontal: boolean = false;
   @Param hidden: boolean = false;
   @Param thumbnailReloadToken: number = 0;
+  // True while the detail push transition runs: preview tiles render their placeholder and defer the
+  // sprite request until the page releases it (postTransitionReady), keeping ~40 image callbacks off
+  // the animating frames.
+  @Param loadDeferred: boolean = false;
   @Local listMode: ListModeState = connectListMode();
   @Local measuredWidth: number = 0;
   @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
@@ -127,6 +131,7 @@ export struct GalleryPreviewGrid {
                 spriteHeight: img.spriteHeight,
                 fitHeight: true,
                 displayHeight: PREVIEW_H,
+                loadDeferred: this.loadDeferred,
                 enableImageBlock: true,
                 reloadToken: this.thumbnailReloadToken,
               })
@@ -209,6 +214,7 @@ export struct GalleryPreviewGrid {
             PreviewThumbTile({
               image: img,
               reloadToken: this.thumbnailReloadToken,
+              loadDeferred: this.loadDeferred,
               onTap: () => {
                 this.onOpen(img.page - 1)
               },

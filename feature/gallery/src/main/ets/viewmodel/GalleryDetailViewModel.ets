@@ -67,6 +67,7 @@ export class GalleryDetailViewModel {
   @Trace loaded: boolean = false
   @Trace error: string = ''
   @Trace cachedDetailApplied: boolean = false
+  @Trace postTransitionReady: boolean = false
   // The detail shows ONLY the first preview page (a peek); previewPageCount drives the "view all"
   // entry → the separate all-thumbnails page owns the rest of the paging (eros_fe firstPageImage).
   @Trace previewPageCount: number = 1
@@ -101,6 +102,13 @@ export class GalleryDetailViewModel {
     }
     const run: GalleryDetailRun = this.beginDetailRun(gid, token)
     this.loadStartedAt = Date.now()
+    // Release deferred preview-thumbnail loads after the push transition window (same budget as the
+    // warm-network refresh). Guarded by run identity so a stale run cannot release a newer page early.
+    setTimeout(() => {
+      if (this.isCurrentDetailRun(run)) {
+        this.postTransitionReady = true
+      }
+    }, GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS)
     this.error = ''
     this.cachedDetailApplied = false
     // Same-process navigation can apply a copied detail snapshot synchronously. This must happen before

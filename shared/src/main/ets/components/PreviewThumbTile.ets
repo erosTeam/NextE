@@ -31,6 +31,7 @@ const FRAME_ASPECT: number = 1.4
 export struct PreviewThumbTile {
   @Require @Param image: EhGalleryImage;
   @Param reloadToken: number = 0;
+  @Param loadDeferred: boolean = false;
   @Event onTap: () => void = () => {};
   @Local measuredWidth: number = 0;
   @Local menuShown: boolean = false;
@@ -180,6 +181,7 @@ export struct PreviewThumbTile {
             spriteHeight: this.image.spriteHeight,
             fitHeight: true,
             displayHeight: this.frameHeight(),
+            loadDeferred: this.loadDeferred,
             enableImageBlock: true,
             forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
@@ -205,6 +207,7 @@ export struct PreviewThumbTile {
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
             displayWidth: this.tileWidth(),
+            loadDeferred: this.loadDeferred,
             enableImageBlock: true,
             forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
