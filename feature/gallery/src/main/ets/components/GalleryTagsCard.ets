@@ -114,58 +114,6 @@ struct TagInfoIntroImage {
 }
 
 /**
- * The system Sheet host must be the actual tag the user long-pressed. Keeping the visibility state
- * local to that chip lets ArkUI retain its native popup placement and transition while the parent
- * still owns the selected-tag data and sheet content.
- */
-@ComponentV2
-struct GalleryTagInfoTrigger {
-  @Require @Param label: string;
-  @Require @Param labelColor: ResourceColor;
-  @Require @Param labelBackground: ResourceColor;
-  @Event onSearch: () => void = () => {};
-  @Event onOpenInfo: () => void = () => {};
-  @BuilderParam sheetContent: (dismiss: () => void) => void;
-  @Local sheetShown: boolean = false;
-
-  private openSheet(): void {
-    this.onOpenInfo()
-    this.sheetShown = true
-  }
-
-  private closeSheet(): void {
-    this.sheetShown = false
-  }
-
-  build() {
-    Text(this.label)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
-      .fontColor(this.labelColor)
-      .backgroundColor(this.labelBackground)
-      .borderRadius(ThemeConstants.CHIP_RADIUS)
-      .padding({ left: 8, right: 8, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
-      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-      .onClick(() => {
-        this.onSearch()
-      })
-      .gesture(
-        LongPressGesture({ repeat: false, duration: 500 })
-          .onAction(() => {
-            this.openSheet()
-          }),
-      )
-      .bindSheet($$this.sheetShown, this.sheetContent(() => {
-        this.closeSheet()
-      }), appSheetOptions({
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        scrollSizeMode: ScrollSizeMode.CONTINUOUS,
-        showClose: false,
-      }))
-  }
-}
-
-/**
  * Detail-page tag groups (namespace label + wrapped chips), one row per namespace. Shares
  * the GroupedListSection card chrome with the header/preview cards.
  *
@@ -186,6 +134,10 @@ export struct GalleryTagsCard {
   @Local selectedTagText: string = '';
   @Local selectedTagDisplay: string = '';
   @Local selectedTagVote: number = 0;
+  // Sheet host lives at the card root instead of per chip: the chips are plain system Text nodes
+  // so the cached-detail first frame builds without per-chip custom components (visual and
+  // interaction unchanged; the tag-info sheet content is identical).
+  @Local tagInfoSheetShown: boolean = false;
   @Local infoLoading: boolean = false;
   @Local infoError: string = '';
   @Local infoName: string = '';
@@ -1558,21 +1510,34 @@ export struct GalleryTagsCard {
                   ForEach(
                     tg.tags,
                     (t: SimpleTag) => {
-                      // Neutral grey unless the USER colored this exact tag (eros_fe getColorCode).
-                      GalleryTagInfoTrigger({
-                        label: this.tagLabel(t),
-                        labelColor: this.chipText(t, tg.namespace),
-                        labelBackground: this.chipBg(t, tg.namespace),
-                        onSearch: () => {
+                      // Plain Text chip (same styles as the removed GalleryTagInfoTrigger); the
+                      // tag-info sheet is hosted once at the card root below.
+                      Text(this.tagLabel(t))
+                        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                        .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
+                        .fontColor(this.chipText(t, tg.namespace))
+                        .backgroundColor(this.chipBg(t, tg.namespace))
+                        .borderRadius(ThemeConstants.CHIP_RADIUS)
+                        .padding({
+                          left: 8,
+                          right: 8,
+                          top: ThemeConstants.CHIP_PADDING_V,
+                          bottom: ThemeConstants.CHIP_PADDING_V,
+                        })
+                        .margin({
+                          right: ThemeConstants.SPACE_XS,
+                          bottom: ThemeConstants.SPACE_XS,
+                        })
+                        .onClick(() => {
                           this.searchTag(tg.namespace, t)
-                        },
-                        onOpenInfo: () => {
-                          this.openTagInfo(tg.namespace, t)
-                        },
-                        sheetContent: (dismiss: () => void) => {
-                          this.TagInfoSheet(dismiss)
-                        },
-                      })
+                        })
+                        .gesture(
+                          LongPressGesture({ repeat: false, duration: 500 })
+                            .onAction(() => {
+                              this.openTagInfo(tg.namespace, t)
+                              this.tagInfoSheetShown = true
+                            }),
+                        )
                     },
                     // version in the key subscribes the card + re-colors chips on a late My Tags load.
                     (t: SimpleTag) =>
@@ -1591,5 +1556,12 @@ export struct GalleryTagsCard {
       }
     }
     .width('100%')
+    .bindSheet($$this.tagInfoSheetShown, this.TagInfoSheet(() => {
+      this.tagInfoSheetShown = false
+    }), appSheetOptions({
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS,
+      showClose: false,
+    }))
   }
 }
