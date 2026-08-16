@@ -158,9 +158,17 @@ must(settings.includes('migrateStarterNames(profiles)') &&
   const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
   must(/SQL_APPLY_CUSTOM_PROFILE[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) > COALESCE\(excluded\.last_edit_time, 0\)[\s\S]*?custom_profiles\.deleted_at/.test(syncAdapter),
     'custom profile sync apply must not overwrite a newer local profile')
-  must(/SQL_APPLY_CUSTOM_PROFILE_SELECTION[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) > COALESCE\(excluded\.updated_at, 0\)[\s\S]*?custom_profile_selection\.deleted_at/.test(syncAdapter),
-    'custom profile selection sync apply must not overwrite a newer local selection')
+  must(!/SQL_SELECT_CUSTOM_PROFILE_SELECTION/.test(syncAdapter) &&
+    !/SQL_APPLY_CUSTOM_PROFILE_SELECTION/.test(syncAdapter) &&
+    !/mergeCustomProfileSelection/.test(syncAdapter) &&
+    !/applyCustomProfileSelection/.test(syncAdapter) &&
+    !/customProfileSelection =/.test(syncAdapter),
+    'custom profile selection must stay device-local: sync adapter must not read, apply, merge, or write it')
 }
+must(
+  !/requestAfterLocalWrite\(context, \'custom_profile_selection\'\)/.test(settings),
+  'switching the selected tab must not schedule a sync run (selection is device-local)',
+)
 must(
   settings.includes('persistChanged') &&
     settings.includes('changedUuids') &&

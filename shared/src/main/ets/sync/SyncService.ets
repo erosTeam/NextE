@@ -385,7 +385,6 @@ export class SyncService {
     }
     if (selection.customProfiles) {
       out.datasets.customProfiles = source.datasets.customProfiles
-      out.datasets.customProfileSelection = source.datasets.customProfileSelection
     }
     return out
   }

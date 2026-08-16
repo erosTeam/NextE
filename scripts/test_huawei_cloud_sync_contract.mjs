@@ -398,6 +398,11 @@ ok('custom profile sync canonicalizes seeded search tabs before uuid-based merge
     /STARTER_ANTHOLOGY_UUID/.test(syncAdapter) &&
     /r\.searchText === 'language:chinese'/.test(syncAdapter) &&
     /r\.searchText === 'other:anthology'/.test(syncAdapter))
+ok('custom profile selection stays device-local and is excluded from the selected cloud subset',
+  /CUSTOM_PROFILES: string\[\] = \['custom_profiles'\]/.test(features) &&
+    !/SQL_SELECT_CUSTOM_PROFILE_SELECTION/.test(syncAdapter) &&
+    !/SQL_APPLY_CUSTOM_PROFILE_SELECTION/.test(syncAdapter) &&
+    !/mergeCustomProfileSelection/.test(syncAdapter))
 ok('read progress repository has no Huawei cloud table rebuild hook',
   !/cleanDirtyAndRebuildForCloud|CloudSyncTableResetRepository|rebuildTablesForCloud/.test(readProgressRepo))
 ok('image block sync uses image_block_user_rules as the user-rule source table',

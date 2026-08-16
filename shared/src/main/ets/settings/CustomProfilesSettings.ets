@@ -298,7 +298,6 @@ export class CustomProfilesSettings {
       await CustomProfilesSettings.enqueueRdbWrite(
         (): Promise<void> => CustomProfilesRepository.saveSelected(context, uuid),
       )
-      SyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
     }

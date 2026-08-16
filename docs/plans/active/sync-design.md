@@ -30,8 +30,16 @@ Sync only durable user-local records with stable keys and timestamps:
 - `image_block_subscriptions` stores community subscription feed metadata. WebDAV/export may carry it
   with the image-block dataset, but Huawei Cloud does not mark or download this table; a stale AGC
   `ImageBlockSubscriptions` record can otherwise fail the entire RDB cloud sync before user rules upload.
-- `custom_profiles`
-- `custom_profile_selection`
+- `custom_profiles` (profile rows only; the selected/last-viewed tab is device-local and never synced)
+
+Custom profile selection (the last-viewed home SubTab) is intentionally NOT syncable: it is a
+per-device reading position, and syncing it lets one device's active tab override another device's
+tab during multi-device reading. `custom_profiles` rows (names, order, filters, display mode) still
+sync. The AGC `CustomProfileSelection` data type stays declared in `cloud_schema.json` for
+schema-version stability, but the client no longer marks it distributed, never includes it in
+selected subsets or explicit runs, and drops legacy selection records from WebDAV write-backs. The
+disable-first pass still applies `autoSync: false` to it so stale `autoSync: true` state from older
+builds is neutralized.
 
 Do not sync disposable cache, generated/downloadable databases, device-local download state, diagnostics,
 or plaintext secrets/provider credentials:
@@ -79,7 +87,7 @@ Huawei Cloud sync reuses the same dataset switches as WebDAV:
 - search history -> `search_history`
 - local hidden-tag/comment-filter settings -> `local_block_settings`, `local_block_rules`
 - image block user rules -> `image_block_user_rules`
-- custom list tabs -> `custom_profiles`, `custom_profile_selection`
+- custom list tabs -> `custom_profiles` (selection stays device-local; the AGC `CustomProfileSelection` type remains declared but is no longer marked or synced)
 
 `HUAWEI_CLOUD_SYNC_BUILD_ENABLED` defaults to true so local development can actually see and test the
 provider. Public release builds that do not configure the matching AGC/HGC cloud schema can run
@@ -228,7 +236,7 @@ Shards are stable hash buckets, not position slices. The bucket key is the datas
 - search history: `scope_key + query_text`
 - local block: `scope_key` for settings and `scope_key + rule_id` for rules
 - image block: `scope_key + feed_id` for subscriptions and `scope_key + rule_id` for rules
-- custom profiles: `scope_key + uuid` for profile records and `scope_key` for selection.
+- custom profiles: `scope_key + uuid` for profile records (the selected tab is device-local and is not exported).
   The app/export model keeps the semantic field name `uuid`, but the local RDB and AGC cloud table
   store it as `profile_uuid` because `uuid` is an AGC reserved field name.
 
@@ -281,7 +289,7 @@ Manual WebDAV sync supports selection for the durable data groups:
 - local favorites (`local_favorites`)
 - search history (`search_history`)
 - block rules (`local_block_settings`, `local_block_rules`, `image_block_subscriptions`, `image_block_user_rules`)
-- custom list tabs (`custom_profiles`, `custom_profile_selection`)
+- custom list tabs (`custom_profiles`)
 
 All groups default to enabled. A disabled group must not be exported from the current device, must not be
 applied to the current device, and must not be erased from WebDAV. The provider simply skips MKCOL/GET/
@@ -300,6 +308,5 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
   rules. Subscription feeds sync as feed metadata; their rule bodies are downloaded from the feed.
 - Custom profiles: newer `last_edit_time` or tombstone wins per semantic `(scope_key, uuid)`;
   the physical RDB/AGC key column is `(scope_key, profile_uuid)`.
-- Custom profile selection: newer `updated_at` or tombstone wins per `scope_key`.
 
 Search and profile order are carried by `position_index` from the winning record.

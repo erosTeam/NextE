@@ -4,6 +4,7 @@ import {
   PROFILE_TYPE_FAVORITE,
   PROFILE_TYPE_GALLERY,
   SyncCustomProfileRecord,
+  SyncCustomProfileSelectionRecord,
   SyncEnvelopeV1,
   SyncLocalDataAdapter,
 } from 'shared'
@@ -25,6 +26,19 @@ function profileRecord(
   record.hidden = hidden
   record.positionIndex = positionIndex
   record.deletedAt = deletedAt
+  return record
+}
+
+function selectionRecord(
+  scopeKey: string,
+  selectedUuid: string,
+  updatedAt: number,
+): SyncCustomProfileSelectionRecord {
+  const record: SyncCustomProfileSelectionRecord = new SyncCustomProfileSelectionRecord()
+  record.scopeKey = scopeKey
+  record.selectedUuid = selectedUuid
+  record.updatedAt = updatedAt
+  record.deletedAt = 0
   return record
 }
 
@@ -82,6 +96,27 @@ export default function customProfileSyncSemanticsTest(): void {
       ]
       merged = SyncLocalDataAdapter.mergeEnvelopes(futureClockTombstone, staleActive)
       expect(merged.datasets.customProfiles[0].deletedAt).assertEqual(901)
+      done()
+    })
+
+    it('keeps the selected tab device-local during WebDAV merge', 0, (done: Function) => {
+      const local: SyncEnvelopeV1 = new SyncEnvelopeV1()
+      local.datasets.customProfiles = [profileRecord('profile-a', 200, 'waterfall', true, 3)]
+      local.datasets.customProfileSelection = [
+        selectionRecord('global', 'profile-a', 200),
+      ]
+
+      const staleRemote: SyncEnvelopeV1 = new SyncEnvelopeV1()
+      staleRemote.datasets.customProfiles = [profileRecord('profile-a', 100, 'grid', false, 0)]
+      staleRemote.datasets.customProfileSelection = [
+        selectionRecord('global', 'profile-b', 500),
+      ]
+
+      const merged: SyncEnvelopeV1 = SyncLocalDataAdapter.mergeEnvelopes(local, staleRemote)
+      expect(merged.datasets.customProfiles.length).assertEqual(1)
+      // The remote (even newer) selection must not flow into the merged envelope: it is
+      // device-local, so one device's last-viewed tab can never override another device's.
+      expect(merged.datasets.customProfileSelection.length).assertEqual(0)
       done()
     })
   })

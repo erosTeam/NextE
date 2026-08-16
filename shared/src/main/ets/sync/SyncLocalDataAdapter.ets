@@ -13,7 +13,6 @@ import {
   SYNC_MIN_SUPPORTED_SCHEMA_VERSION,
   SYNC_SCHEMA_VERSION,
   SyncCustomProfileRecord,
-  SyncCustomProfileSelectionRecord,
   SyncDatasetSelection,
   SyncDatasets,
   SyncEnvelopeV1,
@@ -75,9 +74,6 @@ const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES: string =
   'WHERE source_type = \'subscription\' AND EXISTS (SELECT 1 FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type)'
 const SQL_SELECT_CUSTOM_PROFILES: string =
   'SELECT scope_key, profile_uuid AS uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at FROM custom_profiles'
-const SQL_SELECT_CUSTOM_PROFILE_SELECTION: string =
-  'SELECT scope_key, selected_uuid, updated_at, deleted_at FROM custom_profile_selection'
-
 const SQL_APPLY_READ_PROGRESS: string =
   'INSERT INTO gallery_read_progress (scope_key, gid, page_index, column_mode, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, gid) DO UPDATE SET page_index = excluded.page_index, column_mode = excluded.column_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
@@ -135,12 +131,6 @@ const SQL_APPLY_IMAGE_BLOCK_RULE: string =
 const SQL_APPLY_CUSTOM_PROFILE: string =
   'INSERT INTO custom_profiles (scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.last_edit_time, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.last_edit_time, 0) END >= CASE WHEN COALESCE(custom_profiles.deleted_at, 0) > COALESCE(custom_profiles.last_edit_time, 0) THEN COALESCE(custom_profiles.deleted_at, 0) ELSE COALESCE(custom_profiles.last_edit_time, 0) END'
-const SQL_APPLY_CUSTOM_PROFILE_SELECTION: string =
-  'INSERT INTO custom_profile_selection (scope_key, selected_uuid, updated_at, deleted_at) VALUES (?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
-  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
-  'CASE WHEN COALESCE(custom_profile_selection.deleted_at, 0) > COALESCE(custom_profile_selection.updated_at, 0) THEN COALESCE(custom_profile_selection.deleted_at, 0) ELSE COALESCE(custom_profile_selection.updated_at, 0) END'
-
 export class SyncLocalDataAdapter {
   static async prepareHuaweiCloudTables(
     context: common.UIAbilityContext,
@@ -203,8 +193,6 @@ export class SyncLocalDataAdapter {
     }
     if (selection.customProfiles) {
       envelope.datasets.customProfiles = await SyncLocalDataAdapter.readCustomProfiles(store)
-      envelope.datasets.customProfileSelection =
-        await SyncLocalDataAdapter.readCustomProfileSelection(store)
     }
     return envelope
   }
@@ -225,10 +213,6 @@ export class SyncLocalDataAdapter {
       )
       await SyncLocalDataAdapter.applyImageBlockRules(store, envelope.datasets.imageBlockRules)
       await SyncLocalDataAdapter.applyCustomProfiles(store, envelope.datasets.customProfiles)
-      await SyncLocalDataAdapter.applyCustomProfileSelection(
-        store,
-        envelope.datasets.customProfileSelection,
-      )
       store.commit()
     } catch (error) {
       store.rollBack()
@@ -264,11 +248,6 @@ export class SyncLocalDataAdapter {
       )
     merged.datasets.customProfiles =
       SyncLocalDataAdapter.mergeCustomProfiles(local.datasets.customProfiles, remote.datasets.customProfiles)
-    merged.datasets.customProfileSelection =
-      SyncLocalDataAdapter.mergeCustomProfileSelection(
-        local.datasets.customProfileSelection,
-        remote.datasets.customProfileSelection,
-      )
     return merged
   }
 
@@ -299,8 +278,6 @@ export class SyncLocalDataAdapter {
       selectedMerged.datasets.imageBlockRules : remote.datasets.imageBlockRules
     out.datasets.customProfiles = selection.customProfiles ?
       selectedMerged.datasets.customProfiles : remote.datasets.customProfiles
-    out.datasets.customProfileSelection = selection.customProfiles ?
-      selectedMerged.datasets.customProfileSelection : remote.datasets.customProfileSelection
     return out
   }
 
@@ -570,26 +547,6 @@ export class SyncLocalDataAdapter {
     return out
   }
 
-  private static async readCustomProfileSelection(store: relationalStore.RdbStore): Promise<SyncCustomProfileSelectionRecord[]> {
-    const out: SyncCustomProfileSelectionRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_CUSTOM_PROFILE_SELECTION)
-    try {
-      while (rs.goToNextRow()) {
-        const r: SyncCustomProfileSelectionRecord = new SyncCustomProfileSelectionRecord()
-        r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
-        r.selectedUuid = SyncLocalDataAdapter.stringColumn(rs, 'selected_uuid')
-        r.updatedAt = SyncLocalDataAdapter.numberColumn(rs, 'updated_at')
-        r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
-        if (r.scopeKey.length > 0) {
-          out.push(r)
-        }
-      }
-    } finally {
-      rs.close()
-    }
-    return out
-  }
-
   private static async applyReadProgress(store: relationalStore.RdbStore, records: SyncReadProgressRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncReadProgressRecord = records[i]
@@ -704,17 +661,6 @@ export class SyncLocalDataAdapter {
           r.showExpunged ? 1 : 0, r.disableLanguageFilter ? 1 : 0, r.disableUploaderFilter ? 1 : 0,
           r.disableTagFilter ? 1 : 0, r.favcat, r.toplistTl, r.displayMode, r.hidden ? 1 : 0,
           r.builtin ? 1 : 0, r.lastEditTime, r.deletedAt,
-        ])
-      }
-    }
-  }
-
-  private static async applyCustomProfileSelection(store: relationalStore.RdbStore, records: SyncCustomProfileSelectionRecord[]): Promise<void> {
-    for (let i: number = 0; i < records.length; i++) {
-      const r: SyncCustomProfileSelectionRecord = records[i]
-      if (r.scopeKey.length > 0) {
-        await store.executeSql(SQL_APPLY_CUSTOM_PROFILE_SELECTION, [
-          r.scopeKey, r.selectedUuid, r.updatedAt, r.deletedAt,
         ])
       }
     }
@@ -942,22 +888,6 @@ export class SyncLocalDataAdapter {
       return STARTER_ANTHOLOGY_UUID
     }
     return ''
-  }
-
-  private static mergeCustomProfileSelection(a: SyncCustomProfileSelectionRecord[], b: SyncCustomProfileSelectionRecord[]): SyncCustomProfileSelectionRecord[] {
-    const map: Map<string, SyncCustomProfileSelectionRecord> = new Map<string, SyncCustomProfileSelectionRecord>()
-    a.forEach((r: SyncCustomProfileSelectionRecord) => SyncLocalDataAdapter.keepCustomProfileSelection(map, r))
-    b.forEach((r: SyncCustomProfileSelectionRecord) => SyncLocalDataAdapter.keepCustomProfileSelection(map, r))
-    const out: SyncCustomProfileSelectionRecord[] = []
-    map.forEach((r: SyncCustomProfileSelectionRecord) => out.push(r))
-    return out
-  }
-
-  private static keepCustomProfileSelection(map: Map<string, SyncCustomProfileSelectionRecord>, r: SyncCustomProfileSelectionRecord): void {
-    const prev: SyncCustomProfileSelectionRecord | undefined = map.get(r.scopeKey)
-    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.updatedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.updatedAt, prev.deletedAt)) {
-      map.set(r.scopeKey, r)
-    }
   }
 
   private static effectiveTime(updatedAt: number, deletedAt: number): number {

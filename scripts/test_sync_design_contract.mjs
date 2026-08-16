@@ -24,7 +24,7 @@ ok('sync design lists durable syncable tables',
   /gallery_read_progress/.test(doc) &&
     /image_block_subscriptions/.test(doc) &&
     /image_block_rules/.test(doc) &&
-    /custom_profile_selection/.test(doc) &&
+    /Custom profile selection[\s\S]*?device-local/.test(doc) &&
     /local_block_rules/.test(doc))
 ok('sync design records Huawei Cloud image-block resolution and stale-metadata caveat',
   /tables\[\]\.name = snake_case local table/.test(doc) &&
@@ -329,6 +329,7 @@ ok('Huawei Cloud sync uses the durable RDB cloud table subset',
     !/image_block_subscriptions/.test(cloudFeatures) &&
     !/'image_block_rules'/.test(cloudFeatures) &&
     /custom_profiles/.test(cloudFeatures) &&
+    /CUSTOM_PROFILES: string\[\] = \['custom_profiles'\]/.test(cloudFeatures) &&
     /custom_profile_selection/.test(cloudFeatures) &&
     !/tag_translations|eh_page_cache|comment_translation_cache|comic_translation_document_cache|download_gallery_tasks|download_archiver_tasks/.test(cloudFeatures))
 const cloudAliasByName = new Map(cloudSchema.databases[0].tables.map((table) => [table.name, table.alias]))

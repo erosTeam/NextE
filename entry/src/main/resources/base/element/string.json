@@ -4794,7 +4794,7 @@
     },
     {
       "name": "sync_dataset_custom_profiles_hint",
-      "value": "Custom SubTab profiles and selected item"
+      "value": "Custom SubTab profiles"
     },
     {
       "name": "web_login_captcha",

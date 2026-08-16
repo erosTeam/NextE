@@ -190,7 +190,7 @@ Allowed `Sync` values:
 | image_block_user_rules | local-data | localData | WebDAV+HuaweiCloud | User rules and user overrides |
 | image_block_hash_cache | cache | excluded | excluded | pHash cache |
 | custom_profiles | local-data | localData | WebDAV+HuaweiCloud | Custom home profiles |
-| custom_profile_selection | local-data | localData | WebDAV+HuaweiCloud | Selected custom profile |
+| custom_profile_selection | local-data | localData | excluded | Device-local last-viewed tab; not synced |
 | download_gallery_tasks | download | excluded | excluded | Download queue task state |
 | download_gallery_seeds | download | excluded | excluded | Download queue image seeds |
 | download_archiver_tasks | download | excluded | excluded | Archive bot task state |
