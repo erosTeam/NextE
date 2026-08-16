@@ -467,6 +467,7 @@ export class EhPageCacheService {
       EhPageCacheService.reviveImages(raw.images),
       EhPageCacheService.reviveComments(raw.comments),
       EhPageCacheService.safeNumber(raw.previewPageCount, 1),
+      EhPageCacheService.safeString(raw.tagTranslationVersion),
     )
   }
 
@@ -476,6 +477,7 @@ export class EhPageCacheService {
       detail.images.map((image: EhGalleryImage) => image.copy()),
       EhPageCacheService.copyComments(detail.comments),
       detail.previewPageCount,
+      detail.tagTranslationVersion,
     )
   }
 

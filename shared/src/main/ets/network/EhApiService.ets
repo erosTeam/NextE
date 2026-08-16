@@ -37,17 +37,22 @@ export class GalleryDetailResult {
   images: EhGalleryImage[]
   comments: EhGalleryComment[]
   previewPageCount: number
+  // Translation-library version at cache-write time; lets a cached open skip re-translation when
+  // the library is unchanged. Empty means unknown (legacy cache) -> re-translate once.
+  tagTranslationVersion: string
 
   constructor(
     gallery: EhGallery,
     images: EhGalleryImage[],
     comments: EhGalleryComment[] = [],
     previewPageCount: number = 1,
+    tagTranslationVersion: string = '',
   ) {
     this.gallery = gallery
     this.images = images
     this.comments = comments
     this.previewPageCount = previewPageCount
+    this.tagTranslationVersion = tagTranslationVersion
   }
 }
 

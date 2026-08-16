@@ -131,6 +131,9 @@ export class TagTranslationInfo {
 }
 
 export class TagTranslationService {
+  // In-process memo of the library version row: the meta table changes only via replaceRows (update
+  // import), so a cached open can skip its RDB version query entirely and stay off the transition frame.
+  private static memoizedVersion: string = ''
   static translateFullTag(fullTag: string): string {
     const normalized: string = TagTranslationService.normalize(fullTag)
     return TagTranslationService.fallbackTranslate(normalized)
@@ -419,6 +422,33 @@ export class TagTranslationService {
       }
     }
     return out
+  }
+
+  /** Lightweight translation-library version lookup (single meta row). */
+  static async currentVersion(context: common.UIAbilityContext): Promise<string> {
+    if (TagTranslationService.memoizedVersion.length > 0) {
+      return TagTranslationService.memoizedVersion
+    }
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      const args: relationalStore.ValueType[] = [META_VERSION_KEY]
+      const versionSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TAG_VERSION, args)
+      try {
+        if (versionSet.goToFirstRow()) {
+          const version: string = TagTranslationService.readNullableString(
+            versionSet,
+            versionSet.getColumnIndex('value'),
+          )
+          TagTranslationService.memoizedVersion = version
+          return version
+        }
+      } finally {
+        versionSet.close()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('tag-translation', 'version_lookup_failed', (error as Error).message)
+    }
+    return ''
   }
 
   static async touchSuggestion(
@@ -731,6 +761,7 @@ export class TagTranslationService {
       const metaArgs: relationalStore.ValueType[] = [META_VERSION_KEY, version]
       await store.executeSql(SQL_UPSERT_TAG_VERSION, metaArgs)
       store.commit()
+      TagTranslationService.memoizedVersion = version
     } catch (error) {
       store.rollBack()
       throw error as Error

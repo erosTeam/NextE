@@ -56,6 +56,10 @@ class GalleryDetailRun {
  */
 @ObservedV2
 export class GalleryDetailViewModel {
+  // Cached opens already paint the detail; the push spring transition lasts ~580-600ms on device.
+  // Deferring the warm-network refresh past that window keeps its parse + translation RDB lookup +
+  // replacement off the animating frames (measured 11-87ms lookup + ~100ms parse/apply mid-transition).
+  private static readonly POST_TRANSITION_FETCH_DELAY_MS: number = 700
   @Trace gallery: EhGallery = new EhGallery()
   @Trace images: EhGalleryImage[] = []
   @Trace comments: EhGalleryComment[] = []
@@ -74,9 +78,13 @@ export class GalleryDetailViewModel {
   private context: common.UIAbilityContext | null = null
   private detailRenderVersion: number = 0
   private detailEpoch: number = 0
+  private loadStartedAt: number = 0
   // Only an applied detail run may write a mutation/translation snapshot back to the cache. A newer
   // account/site replacement invalidates this immediately while old content remains on screen.
   private activeDetailRun: GalleryDetailRun | null = null
+  // Translation-library version recorded in the applied cache; used to skip the redundant
+  // cached-open re-translation (and its mid-transition re-render) when the library is unchanged.
+  private cachedTranslationVersion: string = ''
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -92,6 +100,7 @@ export class GalleryDetailViewModel {
       return
     }
     const run: GalleryDetailRun = this.beginDetailRun(gid, token)
+    this.loadStartedAt = Date.now()
     this.error = ''
     this.cachedDetailApplied = false
     // Same-process navigation can apply a copied detail snapshot synchronously. This must happen before
@@ -104,6 +113,17 @@ export class GalleryDetailViewModel {
       }
       if (!this.isCurrentDetailRun(run)) {
         return
+      }
+      // A cached open already paints the detail; let the push transition finish before the warm
+      // network refresh runs, so its parse + translation lookup + replacement never land on an
+      // animating frame. Uncached opens (no gate) keep the current eager fetch.
+      if (this.cachedDetailApplied) {
+        const elapsed: number = Date.now() - this.loadStartedAt
+        if (elapsed < GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS) {
+          await new Promise<void>((resolve: () => void) => {
+            setTimeout(resolve, GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS - elapsed)
+          })
+        }
       }
       await this.fetchAndApply(run, false)
       if (this.isCurrentDetailRun(run)) {
@@ -233,6 +253,7 @@ export class GalleryDetailViewModel {
     this.previewRevision = this.previewRevision + 1
     this.cachedDetailApplied = true
     this.activeDetailRun = run
+    this.cachedTranslationVersion = cached.tagTranslationVersion
     this.translateCachedGalleryLater(this.gallery, renderVersion, run)
     return true
   }
@@ -245,6 +266,17 @@ export class GalleryDetailViewModel {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return
     }
+    // The cache is saved already-translated, so a cached open normally needs no re-translation.
+    // Skip it when the translation library version recorded at cache-write time still matches the
+    // current one and the cache actually carries translated tags (a library updated after the cache
+    // was written re-translates and rewrites the cache; so does the network result afterwards).
+    if (
+      this.cachedTranslationVersion.length > 0 &&
+      this.cachedTranslationVersion === (await TagTranslationService.currentVersion(this.context)) &&
+      this.hasAnyTranslatedTag(gallery)
+    ) {
+      return
+    }
     const translated: EhGallery = await this.translateGallery(gallery)
     if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
       return
@@ -252,6 +284,23 @@ export class GalleryDetailViewModel {
     this.gallery = translated
     this.activeDetailRun = run
     await this.saveDetailCache(run)
+  }
+
+  private hasAnyTranslatedTag(gallery: EhGallery): boolean {
+    for (let i = 0; i < gallery.simpleTags.length; i++) {
+      if (gallery.simpleTags[i].translat.length > 0) {
+        return true
+      }
+    }
+    for (let i = 0; i < gallery.tagGroups.length; i++) {
+      const group: TagGroup = gallery.tagGroups[i]
+      for (let j = 0; j < group.tags.length; j++) {
+        if (group.tags[j].translat.length > 0) {
+          return true
+        }
+      }
+    }
+    return false
   }
 
   private async saveCurrentDetailCache(): Promise<void> {
@@ -271,6 +320,7 @@ export class GalleryDetailViewModel {
       this.images,
       this.comments,
       this.previewPageCount,
+      await TagTranslationService.currentVersion(this.context),
     )
     await EhPageCacheService.saveGalleryDetail(this.context, run.cacheKey, detail)
   }
