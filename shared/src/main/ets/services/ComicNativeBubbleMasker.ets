@@ -1,4 +1,4 @@
-import nativeVision from 'libnexte_super_resolution.so'
+import nativeVision from 'libreader_enhancement.so'
 
 const COMIC_BUBBLE_MASK_MAX_PIXELS: number = 16 * 1024 * 1024
 const COMIC_BUBBLE_MASK_MAX_DETECTIONS: number = 64

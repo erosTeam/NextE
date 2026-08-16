@@ -17,6 +17,7 @@
   "modules": [
     { "name": "entry",    "srcPath": "./entry" },
     { "name": "shared",   "srcPath": "./shared" },
+    { "name": "reader_enhancement", "srcPath": "./third_party/reader-enhancement" },
     { "name": "home",     "srcPath": "./feature/home" },
     { "name": "gallery",  "srcPath": "./feature/gallery" },
     { "name": "search",   "srcPath": "./feature/search" },

@@ -1,4 +1,4 @@
-import nativeSuperResolution from 'libnexte_super_resolution.so'
+import nativeSuperResolution from 'libreader_enhancement.so'
 
 interface NativeSuperResolutionModule {
   prepareModel(

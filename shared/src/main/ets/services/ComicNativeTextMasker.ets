@@ -1,4 +1,4 @@
-import nativeVision from 'libnexte_super_resolution.so'
+import nativeVision from 'libreader_enhancement.so'
 import { image } from '@kit.ImageKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 

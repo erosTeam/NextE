@@ -1,4 +1,4 @@
-import nativeVision from 'libnexte_super_resolution.so'
+import nativeVision from 'libreader_enhancement.so'
 import { image } from '@kit.ImageKit'
 
 const COMIC_NATIVE_MAX_TEXT_CHARS: number = 512
