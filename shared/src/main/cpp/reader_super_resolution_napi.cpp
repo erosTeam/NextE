@@ -1225,6 +1225,10 @@ bool RunMindSporeUpscale(UpscaleTask &task)
         !ValidateMindSporeInput(task, inputs.handle_list[0], contract)) {
         return false;
     }
+    if (task.width <= 0 || task.height <= 0 || task.width > 32768 || task.height > 32768) {
+        task.error = "Image dimensions exceed the maximum allowed size for super-resolution";
+        return false;
+    }
     const size_t outputBytes = static_cast<size_t>(task.width) * kScale * task.height * kScale * 4;
     if (task.modelKind == ModelKind::Luminance) {
         PrepareBilinearRgbaOutput(task);
