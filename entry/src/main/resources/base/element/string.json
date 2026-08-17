@@ -1593,6 +1593,30 @@
       "value": "Updating"
     },
     {
+      "name": "tag_translation_remove",
+      "value": "Remove downloaded database"
+    },
+    {
+      "name": "tag_translation_remove_hint",
+      "value": "Deleting requires re-downloading the database to restore translations."
+    },
+    {
+      "name": "tag_translation_remove_confirm_title",
+      "value": "Delete translation database?"
+    },
+    {
+      "name": "tag_translation_remove_confirm_message",
+      "value": "The downloaded translation data will be removed. Re-download it to restore translations."
+    },
+    {
+      "name": "tag_translation_remove_done",
+      "value": "Translation database removed"
+    },
+    {
+      "name": "tag_translation_remove_failed",
+      "value": "Failed to remove translation database"
+    },
+    {
       "name": "tag_translation_cdn",
       "value": "Use download mirror"
     },
@@ -2039,10 +2063,6 @@
     {
       "name": "cache_comic_translation",
       "value": "Comic translations"
-    },
-    {
-      "name": "cache_tag_translation",
-      "value": "Tag translations"
     },
     {
       "name": "cache_clear_all",

@@ -11,7 +11,6 @@ import { AxiosBinaryResponse, AxiosHttpClient, AxiosTextResponse } from '../netw
 import { SimpleTag } from '../model/SimpleTag'
 import { TagGroup } from '../model/TagGroup'
 import { LocalDataStore } from '../storage/LocalDataStore'
-import { CacheStat } from './CacheStat'
 import {
   TAG_INTRO_IMAGE_DISABLE,
   TAG_INTRO_IMAGE_NON_H,
@@ -53,6 +52,7 @@ const SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE: string =
   "WHERE namespace = ? AND (key LIKE ? ESCAPE '\\' OR name LIKE ? ESCAPE '\\') " +
   'ORDER BY last_use_time DESC, key ASC LIMIT ?'
 const SQL_CLEAR_TAG_TRANSLATIONS: string = 'DELETE FROM tag_translations'
+const SQL_DELETE_TAG_VERSION: string = 'DELETE FROM tag_translation_meta WHERE key = ?'
 const SQL_UPSERT_TAG_VERSION: string =
   'INSERT OR REPLACE INTO tag_translation_meta (key, value) VALUES (?, ?)'
 const SQL_TOUCH_TAG_TRANSLATION: string =
@@ -364,32 +364,13 @@ export class TagTranslationService {
     }
   }
 
-  // Row count + translated-name bytes of the tag-translation table, for the cache page.
-  static async statCache(context: common.UIAbilityContext): Promise<CacheStat> {
-    const out: CacheStat = new CacheStat()
-    try {
-      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-      const rs: relationalStore.ResultSet = await store.querySql(
-        'SELECT COUNT(*) AS c, COALESCE(SUM(LENGTH(name)), 0) AS b FROM tag_translations',
-      )
-      try {
-        if (rs.goToFirstRow()) {
-          out.count = rs.getDouble(rs.getColumnIndex('c'))
-          out.bytes = rs.getDouble(rs.getColumnIndex('b'))
-        }
-      } finally {
-        rs.close()
-      }
-    } catch (error) {
-      DiagnosticLogger.warn('tag-translation', 'stat_failed', (error as Error).message)
-    }
-    return out
-  }
-
   static async clearTranslations(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
       await store.executeSql(SQL_CLEAR_TAG_TRANSLATIONS)
+      const args: relationalStore.ValueType[] = [META_VERSION_KEY]
+      await store.executeSql(SQL_DELETE_TAG_VERSION, args)
+      TagTranslationService.memoizedVersion = ''
     } catch (error) {
       DiagnosticLogger.warn('tag-translation', 'clear_failed', (error as Error).message)
     }

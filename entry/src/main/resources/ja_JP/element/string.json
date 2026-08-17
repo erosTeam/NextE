@@ -1593,6 +1593,30 @@
       "value": "更新中"
     },
     {
+      "name": "tag_translation_remove",
+      "value": "ダウンロード済み翻訳データベースを削除"
+    },
+    {
+      "name": "tag_translation_remove_hint",
+      "value": "削除後、再ダウンロードしないと翻訳を復元できません。"
+    },
+    {
+      "name": "tag_translation_remove_confirm_title",
+      "value": "翻訳データベースを削除しますか？"
+    },
+    {
+      "name": "tag_translation_remove_confirm_message",
+      "value": "ダウンロードした翻訳データは削除されます。復元には再ダウンロードが必要です。"
+    },
+    {
+      "name": "tag_translation_remove_done",
+      "value": "翻訳データベースを削除しました"
+    },
+    {
+      "name": "tag_translation_remove_failed",
+      "value": "翻訳データベースの削除に失敗しました"
+    },
+    {
       "name": "tag_translation_cdn",
       "value": "ミラーからダウンロード"
     },
@@ -2039,10 +2063,6 @@
     {
       "name": "cache_comic_translation",
       "value": "漫画翻訳キャッシュ"
-    },
-    {
-      "name": "cache_tag_translation",
-      "value": "タグ翻訳"
     },
     {
       "name": "cache_clear_all",

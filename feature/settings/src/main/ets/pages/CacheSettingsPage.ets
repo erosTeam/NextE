@@ -17,7 +17,6 @@ import {
   ImagePipelineService,
   ReaderImageCacheSettings,
   SecondaryListScaffold,
-  TagTranslationService,
   ThemeConstants,
   connectNavStack,
   NavStackHolder,
@@ -47,7 +46,6 @@ export struct CacheSettingsPage {
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
-  @Local tagStat: CacheStat = new CacheStat();
   @Local clearing: boolean = false;
   @Local readerCacheLimitMb: number = 1024;
   @Local readerCacheLimitMenuShown: boolean = false;
@@ -160,9 +158,6 @@ export struct CacheSettingsPage {
     ComicTranslationRuntimeService.statGeneratedCache(this.ctx()).then((s: CacheStat) => {
       this.comicTranslationStat = s
     })
-    TagTranslationService.statCache(this.ctx()).then((s: CacheStat) => {
-      this.tagStat = s
-    })
   }
 
   private statFor(key: string): CacheStat {
@@ -178,7 +173,7 @@ export struct CacheSettingsPage {
     if (key === 'comic') {
       return this.comicTranslationStat
     }
-    return this.tagStat
+    return this.pageStat
   }
 
   private clearFor(key: string): Promise<void> {
@@ -194,7 +189,7 @@ export struct CacheSettingsPage {
     if (key === 'comic') {
       return ComicTranslationRuntimeService.clearGeneratedCache(this.ctx())
     }
-    return TagTranslationService.clearTranslations(this.ctx())
+    return Promise.resolve()
   }
 
   private formatBytes(bytes: number): string {
@@ -218,7 +213,7 @@ export struct CacheSettingsPage {
 
   private totalBytes(): number {
     return this.pageStat.bytes + this.imageStat.bytes + this.commentStat.bytes +
-      this.comicTranslationStat.bytes + this.tagStat.bytes
+      this.comicTranslationStat.bytes
   }
 
   private readerCacheLimitLabel(): string {
@@ -296,7 +291,6 @@ export struct CacheSettingsPage {
     await this.clearImageCaches()
     await CommentTranslationService.clear(this.ctx())
     await ComicTranslationRuntimeService.clearGeneratedCache(this.ctx())
-    await TagTranslationService.clearTranslations(this.ctx())
   }
 
   private async clearImageCaches(): Promise<void> {
@@ -614,12 +608,6 @@ export struct CacheSettingsPage {
                   'comic',
                   $r('app.string.cache_comic_translation'),
                   $r('sys.symbol.text_bubble_left_2'),
-                )
-                this.rowDivider()
-                this.CacheRow(
-                  'tag',
-                  $r('app.string.cache_tag_translation'),
-                  $r('sys.symbol.textformat'),
                 )
                 this.rowDivider()
                 ConciseListRow({

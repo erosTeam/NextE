@@ -14,6 +14,7 @@ import {
   TAG_TRANSLATION_UPDATE_EVERY_START,
   TAG_TRANSLATION_UPDATE_MANUAL,
   TagTranslationSettings,
+  TagTranslationService,
   TagTranslationSettingsState,
   ThemeConstants,
   connectTagTranslationSettings,
@@ -24,6 +25,7 @@ import {
 export struct TagTranslationSettingsPage {
   @Local tagSettings: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local updating: boolean = false;
+  @Local removing: boolean = false;
   @Local modeMenuShown: boolean = false;
   @Local introImageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -110,6 +112,46 @@ export struct TagTranslationSettingsPage {
       })
       .finally(() => {
         this.updating = false
+      })
+  }
+
+  private removeDatabase(): void {
+    if (this.updating || this.removing) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.tag_translation_remove_confirm_title'),
+      message: $r('app.string.tag_translation_remove_confirm_message'),
+      primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
+      secondaryButton: {
+        value: $r('app.string.common_remove'),
+        fontColor: Color.Red,
+        action: () => {
+          this.confirmRemoveDatabase()
+        },
+      },
+    })
+  }
+
+  private confirmRemoveDatabase(): void {
+    if (this.updating || this.removing) {
+      return
+    }
+    this.removing = true
+    TagTranslationService.clearTranslations(this.ctx())
+      .then(() => {
+        this.getUIContext().getPromptAction().showToast({
+          message: $r('app.string.tag_translation_remove_done'),
+        })
+        TagTranslationSettings.refreshStatus(this.ctx())
+      })
+      .catch((error: Error) => {
+        this.getUIContext().getPromptAction().showToast({
+          message: `${AppStrings.get('tag_translation_remove_failed')}: ${error.message}`,
+        })
+      })
+      .finally(() => {
+        this.removing = false
       })
   }
 
@@ -218,6 +260,18 @@ export struct TagTranslationSettingsPage {
               isEnabled: !this.updating,
               action: () => {
                 this.updateNow()
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.tag_translation_remove'),
+              subtitle: $r('app.string.tag_translation_remove_hint'),
+              leadingIcon: $r('sys.symbol.trash'),
+              destructive: true,
+              showChevron: false,
+              isEnabled: !this.updating && !this.removing,
+              action: () => {
+                this.removeDatabase()
               },
             })
           }
