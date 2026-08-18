@@ -9,18 +9,6 @@
       "value": "NextE"
     },
     {
-      "name": "entry_desc",
-      "value": "NextE entry module"
-    },
-    {
-      "name": "module_desc",
-      "value": "NextE entry module"
-    },
-    {
-      "name": "tab_home",
-      "value": "Home"
-    },
-    {
       "name": "tab_search",
       "value": "Search"
     },
@@ -47,30 +35,6 @@
     {
       "name": "download_archiver",
       "value": "Archiver"
-    },
-    {
-      "name": "download_gallery_queue",
-      "value": "Gallery queue"
-    },
-    {
-      "name": "download_archiver_queue",
-      "value": "Archiver queue"
-    },
-    {
-      "name": "download_active_tasks",
-      "value": "Active tasks"
-    },
-    {
-      "name": "download_finished_tasks",
-      "value": "Finished tasks"
-    },
-    {
-      "name": "download_status_empty",
-      "value": "Empty"
-    },
-    {
-      "name": "download_status_active",
-      "value": "Active"
     },
     {
       "name": "download_status_queued",
@@ -241,10 +205,6 @@
       "value": "Exporting"
     },
     {
-      "name": "download_export_done",
-      "value": "Export ready"
-    },
-    {
       "name": "download_export_failed",
       "value": "Export failed"
     },
@@ -345,10 +305,6 @@
       "value": "Resampled images or original files"
     },
     {
-      "name": "download_archive_bot_protocol",
-      "value": "Archive Bot"
-    },
-    {
       "name": "download_archive_bot_hint",
       "value": "Resolve original archive links with a third-party service"
     },
@@ -413,10 +369,6 @@
       "value": "Unable to restore downloads"
     },
     {
-      "name": "download_not_configured",
-      "value": "Not configured"
-    },
-    {
       "name": "download_upgrade_newer",
       "value": "Download newer version"
     },
@@ -441,10 +393,6 @@
       "value": "Settings"
     },
     {
-      "name": "tab_me",
-      "value": "Me"
-    },
-    {
       "name": "home_source_default",
       "value": "Default"
     },
@@ -455,10 +403,6 @@
     {
       "name": "home_source_watched",
       "value": "Watched"
-    },
-    {
-      "name": "home_source_toplist",
-      "value": "Toplist"
     },
     {
       "name": "tab_seed_chinese",
@@ -569,16 +513,8 @@
       "value": "Exclude (NOT)"
     },
     {
-      "name": "filter_disable_group",
-      "value": "Ignore my default filters"
-    },
-    {
       "name": "tab_section_basic",
       "value": "Basics"
-    },
-    {
-      "name": "tag_compose_empty_hint",
-      "value": "Search tags above to filter this tab"
     },
     {
       "name": "view_follow_global",
@@ -615,10 +551,6 @@
     {
       "name": "search_open_image_link",
       "value": "Open image-page link"
-    },
-    {
-      "name": "favorites_login_hint",
-      "value": "Log in to view favorites"
     },
     {
       "name": "common_loading",
@@ -813,10 +745,6 @@
       "value": "Pinch the grid or drag to set items per row"
     },
     {
-      "name": "column_density_unit",
-      "value": "cols"
-    },
-    {
       "name": "column_density_more",
       "value": "Show more"
     },
@@ -913,10 +841,6 @@
       "value": "Enter a valid ranking page number"
     },
     {
-      "name": "preview_load_more",
-      "value": "Load more"
-    },
-    {
       "name": "detail_read",
       "value": "Read"
     },
@@ -961,10 +885,6 @@
       "value": "EH favorite"
     },
     {
-      "name": "detail_remote_favorite_current",
-      "value": "Current remote favorite"
-    },
-    {
       "name": "detail_remote_favorite_none",
       "value": "Not in EH favorites"
     },
@@ -993,16 +913,8 @@
       "value": "Favorite note"
     },
     {
-      "name": "detail_remote_favorite_loading_slots",
-      "value": "Loading favorite folders"
-    },
-    {
       "name": "detail_remote_favorite_no_slots",
       "value": "Unable to load your EH favorite folders"
-    },
-    {
-      "name": "detail_remote_favorite_remove",
-      "value": "Remove from EH favorites"
     },
     {
       "name": "detail_remote_favorite_save",
@@ -1019,10 +931,6 @@
     {
       "name": "detail_rate_current",
       "value": "Current rating: "
-    },
-    {
-      "name": "detail_rate_selected",
-      "value": "Selected"
     },
     {
       "name": "detail_rate_submit",
@@ -1043,10 +951,6 @@
     {
       "name": "detail_rate_write_notice",
       "value": "Choose a rating. Submitting writes your rating to EH."
-    },
-    {
-      "name": "detail_rate_readonly_confirm",
-      "value": "Rating submit is not enabled in NextE yet. Open the gallery web page to rate on EH?"
     },
     {
       "name": "detail_copy_link",
@@ -1119,22 +1023,6 @@
     {
       "name": "tag_vote_down_short",
       "value": "Down"
-    },
-    {
-      "name": "tag_vote_withdraw_short",
-      "value": "Undo"
-    },
-    {
-      "name": "tag_vote_current_none",
-      "value": "No vote on this tag"
-    },
-    {
-      "name": "tag_vote_current_up",
-      "value": "Currently voted up"
-    },
-    {
-      "name": "tag_vote_current_down",
-      "value": "Currently voted down"
     },
     {
       "name": "tag_vote_up_success",
@@ -1303,10 +1191,6 @@
     {
       "name": "detail_similar",
       "value": "Similar"
-    },
-    {
-      "name": "detail_read_with_count",
-      "value": "Read (%sP)"
     },
     {
       "name": "detail_read_resume",
@@ -1521,28 +1405,12 @@
       "value": "EH"
     },
     {
-      "name": "eh_settings_website_settings",
-      "value": "Website settings"
-    },
-    {
-      "name": "eh_settings_website_settings_hint",
-      "value": "Not implemented yet"
-    },
-    {
-      "name": "eh_settings_image_limits",
-      "value": "Image limits"
-    },
-    {
       "name": "eh_settings_toplist_hidden_filter",
       "value": "Hide blocked tags in Toplist"
     },
     {
       "name": "eh_settings_toplist_hidden_filter_hint",
       "value": "Hide galleries carrying tags blocked in My Tags by default"
-    },
-    {
-      "name": "eh_settings_image_limits_hint",
-      "value": "Not implemented yet"
     },
     {
       "name": "tag_translation_title",
@@ -1761,10 +1629,6 @@
       "value": "Failed to copy the resource name"
     },
     {
-      "name": "gallery_meta",
-      "value": "%sP · %s · Favorited %s"
-    },
-    {
       "name": "nav_login",
       "value": "Login"
     },
@@ -1805,20 +1669,12 @@
       "value": "Add account"
     },
     {
-      "name": "account_remove_confirm",
-      "value": "Remove this account?"
-    },
-    {
       "name": "password_login_title",
       "value": "Password login"
     },
     {
       "name": "password_login_hint",
       "value": "Direct login; may be blocked by Cloudflare — if it fails, use the web login."
-    },
-    {
-      "name": "web_login_hint",
-      "value": "Sign in with your E-Hentai forum account"
     },
     {
       "name": "password_login_username",
@@ -1847,10 +1703,6 @@
     {
       "name": "cookie_import_placeholder",
       "value": "ipb_member_id=…; ipb_pass_hash=…"
-    },
-    {
-      "name": "cookie_import_submit",
-      "value": "Import"
     },
     {
       "name": "cookie_import_confirm",
@@ -1993,10 +1845,6 @@
       "value": "Reset action is not available on the current page"
     },
     {
-      "name": "account_remove",
-      "value": "Delete"
-    },
-    {
       "name": "settings_logout",
       "value": "Log out"
     },
@@ -2087,14 +1935,6 @@
     {
       "name": "cache_total",
       "value": "Cache usage"
-    },
-    {
-      "name": "settings_backup",
-      "value": "Backup & restore"
-    },
-    {
-      "name": "backup_hint",
-      "value": "Export your settings to a file, or restore from one."
     },
     {
       "name": "backup_export",
@@ -2251,10 +2091,6 @@
     {
       "name": "common_back_to_top",
       "value": "Back to top"
-    },
-    {
-      "name": "favorites_coming",
-      "value": "Favorites are coming soon"
     },
     {
       "name": "favorites_all",
@@ -2485,40 +2321,12 @@
       "value": "All comments"
     },
     {
-      "name": "comment_vote_up",
-      "value": "Vote up"
-    },
-    {
-      "name": "comment_vote_down",
-      "value": "Vote down"
-    },
-    {
-      "name": "comment_vote_confirm_up",
-      "value": "Vote this comment up?"
-    },
-    {
-      "name": "comment_vote_confirm_down",
-      "value": "Vote this comment down?"
-    },
-    {
-      "name": "comment_vote_cancel_up",
-      "value": "Cancel your up vote?"
-    },
-    {
-      "name": "comment_vote_cancel_down",
-      "value": "Cancel your down vote?"
-    },
-    {
       "name": "comment_vote_up_success",
       "value": "Voted up"
     },
     {
       "name": "comment_vote_down_success",
       "value": "Voted down"
-    },
-    {
-      "name": "comment_vote_cancel_success",
-      "value": "Vote canceled"
     },
     {
       "name": "comment_vote_cancel_up_success",
@@ -2531,22 +2339,6 @@
     {
       "name": "comment_vote_failed",
       "value": "Vote failed"
-    },
-    {
-      "name": "comment_new_title",
-      "value": "New comment"
-    },
-    {
-      "name": "comment_reply_title",
-      "value": "Reply"
-    },
-    {
-      "name": "comment_edit_title",
-      "value": "Edit comment"
-    },
-    {
-      "name": "comment_send",
-      "value": "Send"
     },
     {
       "name": "comment_new_placeholder",
@@ -2569,10 +2361,6 @@
       "value": "Original comment"
     },
     {
-      "name": "comment_min_length_hint",
-      "value": "At least 10 characters."
-    },
-    {
       "name": "comment_post_success",
       "value": "Comment posted"
     },
@@ -2587,10 +2375,6 @@
     {
       "name": "comment_translation_failed",
       "value": "Translation failed"
-    },
-    {
-      "name": "settings_translation",
-      "value": "Translation"
     },
     {
       "name": "comment_translation_settings_title",
@@ -2741,10 +2525,6 @@
       "value": "Could not open Huawei Cloud settings"
     },
     {
-      "name": "sync_now",
-      "value": "Sync now"
-    },
-    {
       "name": "sync_now_done",
       "value": "Sync completed"
     },
@@ -2805,40 +2585,12 @@
       "value": "Skip LLM and use Google directly."
     },
     {
-      "name": "comment_translation_api_url",
-      "value": "API URL"
-    },
-    {
-      "name": "comment_translation_api_url_hint",
-      "value": "https://api.openai.com"
-    },
-    {
-      "name": "comment_translation_api_key",
-      "value": "API key"
-    },
-    {
       "name": "comment_translation_api_key_saved",
       "value": "Saved"
     },
     {
       "name": "comment_translation_api_key_empty",
       "value": "Not set"
-    },
-    {
-      "name": "comment_translation_model",
-      "value": "Model"
-    },
-    {
-      "name": "comment_translation_model_hint",
-      "value": "gpt-4o-mini"
-    },
-    {
-      "name": "comment_translation_fetch_models",
-      "value": "Fetch models"
-    },
-    {
-      "name": "comment_translation_fetch_models_hint",
-      "value": "Read available models from the current LLM service."
     },
     {
       "name": "comment_translation_fetch_models_loading",
@@ -2851,34 +2603,6 @@
     {
       "name": "comment_translation_models_failed",
       "value": "Failed to fetch models: %s"
-    },
-    {
-      "name": "comment_translation_effective_service",
-      "value": "LLM service"
-    },
-    {
-      "name": "comment_translation_validate_api",
-      "value": "Validate API"
-    },
-    {
-      "name": "comment_translation_validate_api_hint",
-      "value": "Send a short test request without caching"
-    },
-    {
-      "name": "comment_translation_validate_google_only_hint",
-      "value": "Disabled while Google-only mode is on"
-    },
-    {
-      "name": "comment_translation_validate_success",
-      "value": "API validation succeeded"
-    },
-    {
-      "name": "comment_translation_validate_missing_key",
-      "value": "Set API Key first"
-    },
-    {
-      "name": "comment_translation_validate_failed",
-      "value": "API validation failed: %s"
     },
     {
       "name": "comment_translation_clear_cache",
@@ -2899,10 +2623,6 @@
     {
       "name": "filter",
       "value": "Filter"
-    },
-    {
-      "name": "filter_scope",
-      "value": "Search scope"
     },
     {
       "name": "search_scope_gallery",
@@ -2929,10 +2649,6 @@
       "value": "Favorite folder"
     },
     {
-      "name": "filter_category",
-      "value": "Categories"
-    },
-    {
       "name": "filter_rating",
       "value": "Min rating"
     },
@@ -2951,10 +2667,6 @@
     {
       "name": "filter_reset",
       "value": "Reset"
-    },
-    {
-      "name": "filter_apply",
-      "value": "Apply"
     },
     {
       "name": "settings_view",
@@ -3141,14 +2853,6 @@
       "value": "Not selected"
     },
     {
-      "name": "settings_reader_super_resolution_models_installed",
-      "value": "Downloaded models"
-    },
-    {
-      "name": "settings_reader_super_resolution_models_available",
-      "value": "Available models"
-    },
-    {
       "name": "settings_reader_super_resolution_models_none_installed",
       "value": "No downloaded models"
     },
@@ -3273,28 +2977,8 @@
       "value": "Real-CUGAN (SE, 2x, conservative)"
     },
     {
-      "name": "settings_reader_super_resolution_realesrgan_download",
-      "value": "Real-ESRGAN (photo, 2x) · Download"
-    },
-    {
-      "name": "settings_reader_super_resolution_realesrgan_downloading",
-      "value": "Real-ESRGAN (photo, 2x) · Downloading"
-    },
-    {
       "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
       "value": "waifu2x (photo, 2x, noise0)"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_download",
-      "value": "waifu2x (photo, 2x, noise0) · Download"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_downloading",
-      "value": "waifu2x (photo, 2x, noise0) · Downloading"
-    },
-    {
-      "name": "settings_reader_super_resolution_model_downloading",
-      "value": "Downloading super-resolution model…"
     },
     {
       "name": "settings_reader_super_resolution_model_downloaded",
@@ -3303,22 +2987,6 @@
     {
       "name": "settings_reader_super_resolution_model_download_failed",
       "value": "Super-resolution model download failed"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend",
-      "value": "Inference backend"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto",
-      "value": "Automatic"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_vulkan",
-      "value": "Automatic (Vulkan)"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_cpu",
-      "value": "Automatic (CPU)"
     },
     {
       "name": "settings_reader_super_resolution_backend_vulkan",
@@ -3617,14 +3285,6 @@
       "value": "Continuous vertical"
     },
     {
-      "name": "read_double_page_a",
-      "value": "Double A"
-    },
-    {
-      "name": "read_double_page_b",
-      "value": "Double B"
-    },
-    {
       "name": "search_history",
       "value": "Recent"
     },
@@ -3671,10 +3331,6 @@
     {
       "name": "search_settings_filter_reset_confirm",
       "value": "Reset saved filter settings?"
-    },
-    {
-      "name": "advanced_diagnostics",
-      "value": "Diagnostics"
     },
     {
       "name": "advanced_diagnostics_hint",
@@ -3773,20 +3429,12 @@
       "value": "Unknown time"
     },
     {
-      "name": "filter_options",
-      "value": "Options"
-    },
-    {
       "name": "filter_require_torrent",
       "value": "With torrent only"
     },
     {
       "name": "filter_show_expunged",
       "value": "Only expunged"
-    },
-    {
-      "name": "filter_disable_default",
-      "value": "Disable default filters"
     },
     {
       "name": "filter_disable_lang",
@@ -3889,24 +3537,12 @@
       "value": "No torrents"
     },
     {
-      "name": "gallery_torrent_share_file",
-      "value": "Share torrent"
-    },
-    {
-      "name": "gallery_torrent_share_magnet",
-      "value": "Share magnet"
-    },
-    {
       "name": "gallery_archiver",
       "value": "Archiver"
     },
     {
       "name": "gallery_archiver_empty",
       "value": "No archive options"
-    },
-    {
-      "name": "gallery_archiver_missing_link",
-      "value": "Archiver parameter was not found. Refresh the gallery detail and try again."
     },
     {
       "name": "gallery_archiver_download",
@@ -3953,10 +3589,6 @@
       "value": "Original archive"
     },
     {
-      "name": "gallery_archiver_bot_free",
-      "value": "Free via Bot"
-    },
-    {
       "name": "gallery_archiver_bot_not_ready",
       "value": "Configure Archive Bot first"
     },
@@ -3999,10 +3631,6 @@
     {
       "name": "image_block_update_default",
       "value": "Update rule subscriptions"
-    },
-    {
-      "name": "image_block_update_default_hint",
-      "value": "Check updates; local rules stay unchanged"
     },
     {
       "name": "image_block_updating",
@@ -4049,14 +3677,6 @@
       "value": "Disabled"
     },
     {
-      "name": "image_block_feed_enabled_hint",
-      "value": "Enabled, used for image blocking"
-    },
-    {
-      "name": "image_block_feed_disabled_hint",
-      "value": "Disabled, ignored for now"
-    },
-    {
       "name": "image_block_default_provider_title",
       "value": "Image rule subscription"
     },
@@ -4097,10 +3717,6 @@
       "value": "Threshold"
     },
     {
-      "name": "image_block_rule_threshold_hint",
-      "value": "Higher values match more similar images"
-    },
-    {
       "name": "image_block_threshold_strict",
       "value": "Strict 0"
     },
@@ -4115,10 +3731,6 @@
     {
       "name": "image_block_rule_enabled",
       "value": "Enable rule"
-    },
-    {
-      "name": "image_block_rule_enabled_hint",
-      "value": "Turn this off to ignore only this rule"
     },
     {
       "name": "image_block_rule_source",
@@ -4143,10 +3755,6 @@
     {
       "name": "image_block_local_rules",
       "value": "Manual block rules"
-    },
-    {
-      "name": "image_block_local_rules_hint",
-      "value": "Added from Reader or thumbnails. Open one to edit"
     },
     {
       "name": "image_block_local_rule_title",
@@ -4817,14 +4425,6 @@
       "value": "Custom SubTab profiles"
     },
     {
-      "name": "web_login_captcha",
-      "value": "Captcha"
-    },
-    {
-      "name": "web_login_wait_captcha",
-      "value": "Waiting for security check"
-    },
-    {
       "name": "tablet_select_detail",
       "value": "Select an item to view details"
     },
@@ -4835,10 +4435,6 @@
     {
       "name": "comic_visual_route",
       "value": "Image processing"
-    },
-    {
-      "name": "comic_visual_route_hint",
-      "value": "Choose on-device, self-hosted, or Torii processing"
     },
     {
       "name": "comic_visual_route_local",
@@ -4945,10 +4541,6 @@
       "value": "Font"
     },
     {
-      "name": "comic_torii_model_hint",
-      "value": "Official Torii catalog snapshot reviewed %s"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API key"
     },
@@ -4973,10 +4565,6 @@
       "value": "Self-hosted"
     },
     {
-      "name": "comic_render_service_summary",
-      "value": "Detect text, remove the original, and place translated text"
-    },
-    {
       "name": "comic_render_service_configured",
       "value": "Configured"
     },
@@ -4987,10 +4575,6 @@
     {
       "name": "comic_render_service_profile",
       "value": "Engine"
-    },
-    {
-      "name": "comic_render_service_profile_hint",
-      "value": "Pinned export and import contract"
     },
     {
       "name": "comic_render_service_detection",
@@ -5093,124 +4677,12 @@
       "value": "On-device workflow, model, and cloud service"
     },
     {
-      "name": "comic_translation_provider",
-      "value": "Provider"
-    },
-    {
-      "name": "comic_translation_provider_hint",
-      "value": "Both routes produce the same page document and keep credentials separate"
-    },
-    {
-      "name": "comic_translation_provider_api",
-      "value": "OpenAI API"
-    },
-    {
-      "name": "comic_translation_provider_codex",
-      "value": "Codex OAuth (experimental)"
-    },
-    {
-      "name": "comic_translation_api_url",
-      "value": "Responses API URL"
-    },
-    {
-      "name": "comic_translation_api_key",
-      "value": "API key"
-    },
-    {
-      "name": "comic_translation_model",
-      "value": "Vision model"
-    },
-    {
-      "name": "comic_translation_model_not_selected",
-      "value": "Not selected"
-    },
-    {
-      "name": "comic_translation_api_direct_title",
-      "value": "Direct mobile connection"
-    },
-    {
-      "name": "comic_translation_api_direct_hint",
-      "value": "The key stays on this device and the app calls the service directly. A private backend proxy is preferred for production use."
-    },
-    {
-      "name": "comic_translation_codex_model",
-      "value": "Codex model"
-    },
-    {
-      "name": "comic_translation_codex_model_hint",
-      "value": "Fetches the models currently available to this ChatGPT account"
-    },
-    {
       "name": "comic_translation_codex_usage",
       "value": "Usage limits"
     },
     {
-      "name": "comic_translation_codex_usage_hint",
-      "value": "Refreshes the current ChatGPT account limits"
-    },
-    {
-      "name": "comic_translation_codex_usage_loading",
-      "value": "Fetching account limits…"
-    },
-    {
-      "name": "comic_translation_codex_usage_plan",
-      "value": "Plan: %s · tap to refresh"
-    },
-    {
-      "name": "comic_translation_codex_usage_failed",
-      "value": "Failed to fetch Codex usage: %s"
-    },
-    {
-      "name": "comic_translation_codex_usage_five_hour",
-      "value": "5-hour limit"
-    },
-    {
-      "name": "comic_translation_codex_usage_weekly",
-      "value": "Weekly limit"
-    },
-    {
-      "name": "comic_translation_codex_usage_remaining",
-      "value": "Remaining"
-    },
-    {
-      "name": "comic_translation_codex_usage_unavailable",
-      "value": "This window was not returned for the account"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_unknown",
-      "value": "Reset time unavailable"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_due",
-      "value": "Reset is due"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_minutes",
-      "value": "Resets in %d min"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_hours_minutes",
-      "value": "Resets in %d h %d min"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_days_hours",
-      "value": "Resets in %d d %d h"
-    },
-    {
-      "name": "comic_translation_codex_status",
-      "value": "Login status"
-    },
-    {
-      "name": "comic_translation_codex_disconnected",
-      "value": "Not signed in"
-    },
-    {
       "name": "comic_translation_codex_connected",
       "value": "Signed in on this device"
-    },
-    {
-      "name": "comic_translation_codex_connected_account",
-      "value": "Signed in · workspace %s"
     },
     {
       "name": "comic_translation_codex_requesting",
@@ -5219,14 +4691,6 @@
     {
       "name": "comic_translation_codex_code",
       "value": "Device code: %s"
-    },
-    {
-      "name": "comic_translation_codex_waiting",
-      "value": "Waiting for browser approval"
-    },
-    {
-      "name": "comic_translation_codex_open_page",
-      "value": "Open Codex login page"
     },
     {
       "name": "comic_translation_codex_open_failed",
@@ -5357,32 +4821,12 @@
       "value": "Show translated page"
     },
     {
-      "name": "reader_comic_translation_result_visible",
-      "value": "Translated page is now displayed"
-    },
-    {
-      "name": "reader_comic_translation_title",
-      "value": "Page %d translation"
-    },
-    {
       "name": "reader_comic_translation_running",
       "value": "Transcribing and translating the current page…"
     },
     {
       "name": "reader_comic_translation_prefetch_running",
       "value": "Finishing pre-translation…"
-    },
-    {
-      "name": "reader_comic_translation_refresh",
-      "value": "Retranslate"
-    },
-    {
-      "name": "reader_comic_translation_refreshing",
-      "value": "Retranslating; the previous result remains visible until it finishes"
-    },
-    {
-      "name": "reader_comic_translation_refresh_failed",
-      "value": "Retranslation failed · %s · showing the previous result"
     },
     {
       "name": "reader_comic_translation_image_unavailable",
@@ -5407,38 +4851,6 @@
     {
       "name": "reader_comic_translation_no_translatable_text",
       "value": "No translatable text was detected on this page"
-    },
-    {
-      "name": "reader_comic_translation_cached",
-      "value": "Cached"
-    },
-    {
-      "name": "reader_comic_translation_review_required",
-      "value": "Needs review"
-    },
-    {
-      "name": "reader_comic_translation_consistency_conflict",
-      "value": "Translation differs from a previous page"
-    },
-    {
-      "name": "reader_comic_translation_block_review_required",
-      "value": "This text block needs review"
-    },
-    {
-      "name": "reader_comic_translation_ready",
-      "value": "Complete"
-    },
-    {
-      "name": "reader_comic_translation_no_text",
-      "value": "No visible text was found on this page"
-    },
-    {
-      "name": "reader_comic_translation_source",
-      "value": "Original: %s"
-    },
-    {
-      "name": "reader_comic_translation_target",
-      "value": "Translation: %s"
     },
     {
       "name": "llm_sources_title",
@@ -5513,10 +4925,6 @@
       "value": "Use for comment translation"
     },
     {
-      "name": "llm_source_support_comments_hint",
-      "value": "Supports Chat Completions text requests"
-    },
-    {
       "name": "llm_source_support_manga",
       "value": "Use for manga translation"
     },
@@ -5527,10 +4935,6 @@
     {
       "name": "llm_source_support_catalog",
       "value": "Model catalog"
-    },
-    {
-      "name": "llm_source_support_catalog_hint",
-      "value": "Allows available models to be queried"
     },
     {
       "name": "llm_source_catalog",

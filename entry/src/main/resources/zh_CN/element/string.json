@@ -9,18 +9,6 @@
       "value": "NextE"
     },
     {
-      "name": "entry_desc",
-      "value": "NextE 入口模块"
-    },
-    {
-      "name": "module_desc",
-      "value": "NextE 入口模块"
-    },
-    {
-      "name": "tab_home",
-      "value": "首页"
-    },
-    {
       "name": "tab_search",
       "value": "搜索"
     },
@@ -47,30 +35,6 @@
     {
       "name": "download_archiver",
       "value": "归档"
-    },
-    {
-      "name": "download_gallery_queue",
-      "value": "画廊队列"
-    },
-    {
-      "name": "download_archiver_queue",
-      "value": "归档队列"
-    },
-    {
-      "name": "download_active_tasks",
-      "value": "进行中任务"
-    },
-    {
-      "name": "download_finished_tasks",
-      "value": "已完成任务"
-    },
-    {
-      "name": "download_status_empty",
-      "value": "空"
-    },
-    {
-      "name": "download_status_active",
-      "value": "进行中"
     },
     {
       "name": "download_status_queued",
@@ -241,10 +205,6 @@
       "value": "正在导出"
     },
     {
-      "name": "download_export_done",
-      "value": "已导出"
-    },
-    {
       "name": "download_export_failed",
       "value": "导出失败"
     },
@@ -345,10 +305,6 @@
       "value": "重采样图片或原始文件"
     },
     {
-      "name": "download_archive_bot_protocol",
-      "value": "归档 Bot"
-    },
-    {
       "name": "download_archive_bot_hint",
       "value": "使用第三方服务解析原图归档链接"
     },
@@ -413,10 +369,6 @@
       "value": "无法恢复下载任务"
     },
     {
-      "name": "download_not_configured",
-      "value": "未配置"
-    },
-    {
       "name": "download_upgrade_newer",
       "value": "下载新版本"
     },
@@ -441,10 +393,6 @@
       "value": "设置"
     },
     {
-      "name": "tab_me",
-      "value": "我的"
-    },
-    {
       "name": "home_source_default",
       "value": "默认"
     },
@@ -455,10 +403,6 @@
     {
       "name": "home_source_watched",
       "value": "订阅"
-    },
-    {
-      "name": "home_source_toplist",
-      "value": "排行"
     },
     {
       "name": "tab_seed_chinese",
@@ -569,16 +513,8 @@
       "value": "排除（否）"
     },
     {
-      "name": "filter_disable_group",
-      "value": "忽略默认过滤"
-    },
-    {
       "name": "tab_section_basic",
       "value": "基础信息"
-    },
-    {
-      "name": "tag_compose_empty_hint",
-      "value": "在上方搜索标签来筛选此标签页"
     },
     {
       "name": "view_follow_global",
@@ -615,10 +551,6 @@
     {
       "name": "search_open_image_link",
       "value": "直接打开图片页链接"
-    },
-    {
-      "name": "favorites_login_hint",
-      "value": "登录后查看收藏"
     },
     {
       "name": "common_loading",
@@ -813,10 +745,6 @@
       "value": "双指缩放列表或拖动滑块调整每行数量"
     },
     {
-      "name": "column_density_unit",
-      "value": "列"
-    },
-    {
       "name": "column_density_more",
       "value": "显示更多内容"
     },
@@ -913,10 +841,6 @@
       "value": "请输入有效的排行榜页码"
     },
     {
-      "name": "preview_load_more",
-      "value": "加载更多"
-    },
-    {
       "name": "detail_read",
       "value": "阅读"
     },
@@ -961,10 +885,6 @@
       "value": "EH 收藏"
     },
     {
-      "name": "detail_remote_favorite_current",
-      "value": "当前远端收藏"
-    },
-    {
       "name": "detail_remote_favorite_none",
       "value": "未加入 EH 收藏"
     },
@@ -993,16 +913,8 @@
       "value": "收藏备注"
     },
     {
-      "name": "detail_remote_favorite_loading_slots",
-      "value": "正在读取收藏夹"
-    },
-    {
       "name": "detail_remote_favorite_no_slots",
       "value": "无法读取你的 EH 收藏夹"
-    },
-    {
-      "name": "detail_remote_favorite_remove",
-      "value": "从 EH 收藏移除"
     },
     {
       "name": "detail_remote_favorite_save",
@@ -1019,10 +931,6 @@
     {
       "name": "detail_rate_current",
       "value": "当前评分："
-    },
-    {
-      "name": "detail_rate_selected",
-      "value": "已选择"
     },
     {
       "name": "detail_rate_submit",
@@ -1043,10 +951,6 @@
     {
       "name": "detail_rate_write_notice",
       "value": "选择评分。提交后会写入你的 EH 评分。"
-    },
-    {
-      "name": "detail_rate_readonly_confirm",
-      "value": "评分提交尚未接入 NextE。要打开应用内网页在 EH 页面评分吗？"
     },
     {
       "name": "detail_copy_link",
@@ -1119,22 +1023,6 @@
     {
       "name": "tag_vote_down_short",
       "value": "反对"
-    },
-    {
-      "name": "tag_vote_withdraw_short",
-      "value": "撤销"
-    },
-    {
-      "name": "tag_vote_current_none",
-      "value": "当前未投票"
-    },
-    {
-      "name": "tag_vote_current_up",
-      "value": "当前已赞成"
-    },
-    {
-      "name": "tag_vote_current_down",
-      "value": "当前已反对"
     },
     {
       "name": "tag_vote_up_success",
@@ -1303,10 +1191,6 @@
     {
       "name": "detail_similar",
       "value": "相似"
-    },
-    {
-      "name": "detail_read_with_count",
-      "value": "阅读 (%sP)"
     },
     {
       "name": "detail_read_resume",
@@ -1521,28 +1405,12 @@
       "value": "EH"
     },
     {
-      "name": "eh_settings_website_settings",
-      "value": "网站设置"
-    },
-    {
-      "name": "eh_settings_website_settings_hint",
-      "value": "暂未实现"
-    },
-    {
-      "name": "eh_settings_image_limits",
-      "value": "图片限制"
-    },
-    {
       "name": "eh_settings_toplist_hidden_filter",
       "value": "排行榜屏蔽隐藏标签"
     },
     {
       "name": "eh_settings_toplist_hidden_filter_hint",
       "value": "默认隐藏带有“我的标签”中屏蔽标签的画廊"
-    },
-    {
-      "name": "eh_settings_image_limits_hint",
-      "value": "暂未实现"
     },
     {
       "name": "tag_translation_title",
@@ -1761,10 +1629,6 @@
       "value": "复制资源名失败"
     },
     {
-      "name": "gallery_meta",
-      "value": "%s页 · %s · 收藏 %s"
-    },
-    {
       "name": "nav_login",
       "value": "登录"
     },
@@ -1805,20 +1669,12 @@
       "value": "添加账号"
     },
     {
-      "name": "account_remove_confirm",
-      "value": "移除此账号？"
-    },
-    {
       "name": "password_login_title",
       "value": "密码登录"
     },
     {
       "name": "password_login_hint",
       "value": "直接登录，可能被 Cloudflare 拦截；失败请改用网页登录。"
-    },
-    {
-      "name": "web_login_hint",
-      "value": "使用 E-Hentai 论坛账号登录"
     },
     {
       "name": "password_login_username",
@@ -1847,10 +1703,6 @@
     {
       "name": "cookie_import_placeholder",
       "value": "ipb_member_id=…; ipb_pass_hash=…"
-    },
-    {
-      "name": "cookie_import_submit",
-      "value": "导入"
     },
     {
       "name": "cookie_import_confirm",
@@ -1993,10 +1845,6 @@
       "value": "当前页面未提供重置入口"
     },
     {
-      "name": "account_remove",
-      "value": "删除"
-    },
-    {
       "name": "settings_logout",
       "value": "退出登录"
     },
@@ -2087,14 +1935,6 @@
     {
       "name": "cache_total",
       "value": "缓存占用"
-    },
-    {
-      "name": "settings_backup",
-      "value": "备份与恢复"
-    },
-    {
-      "name": "backup_hint",
-      "value": "将设置导出为文件,或从文件恢复。"
     },
     {
       "name": "backup_export",
@@ -2251,10 +2091,6 @@
     {
       "name": "common_back_to_top",
       "value": "回到顶部"
-    },
-    {
-      "name": "favorites_coming",
-      "value": "收藏功能即将上线"
     },
     {
       "name": "favorites_all",
@@ -2485,40 +2321,12 @@
       "value": "全部评论"
     },
     {
-      "name": "comment_vote_up",
-      "value": "赞成"
-    },
-    {
-      "name": "comment_vote_down",
-      "value": "反对"
-    },
-    {
-      "name": "comment_vote_confirm_up",
-      "value": "赞成这条评论?"
-    },
-    {
-      "name": "comment_vote_confirm_down",
-      "value": "反对这条评论?"
-    },
-    {
-      "name": "comment_vote_cancel_up",
-      "value": "取消赞成?"
-    },
-    {
-      "name": "comment_vote_cancel_down",
-      "value": "取消反对?"
-    },
-    {
       "name": "comment_vote_up_success",
       "value": "已赞成"
     },
     {
       "name": "comment_vote_down_success",
       "value": "已反对"
-    },
-    {
-      "name": "comment_vote_cancel_success",
-      "value": "已取消投票"
     },
     {
       "name": "comment_vote_cancel_up_success",
@@ -2531,22 +2339,6 @@
     {
       "name": "comment_vote_failed",
       "value": "投票失败"
-    },
-    {
-      "name": "comment_new_title",
-      "value": "新评论"
-    },
-    {
-      "name": "comment_reply_title",
-      "value": "回复"
-    },
-    {
-      "name": "comment_edit_title",
-      "value": "编辑评论"
-    },
-    {
-      "name": "comment_send",
-      "value": "发送"
     },
     {
       "name": "comment_new_placeholder",
@@ -2569,10 +2361,6 @@
       "value": "原评论"
     },
     {
-      "name": "comment_min_length_hint",
-      "value": "至少 10 个字符。"
-    },
-    {
       "name": "comment_post_success",
       "value": "评论已发送"
     },
@@ -2587,10 +2375,6 @@
     {
       "name": "comment_translation_failed",
       "value": "翻译失败"
-    },
-    {
-      "name": "settings_translation",
-      "value": "翻译"
     },
     {
       "name": "comment_translation_settings_title",
@@ -2741,10 +2525,6 @@
       "value": "无法打开华为云空间设置"
     },
     {
-      "name": "sync_now",
-      "value": "立即同步"
-    },
-    {
       "name": "sync_now_done",
       "value": "同步完成"
     },
@@ -2805,40 +2585,12 @@
       "value": "跳过 LLM，直接使用 Google。"
     },
     {
-      "name": "comment_translation_api_url",
-      "value": "API URL"
-    },
-    {
-      "name": "comment_translation_api_url_hint",
-      "value": "https://api.openai.com"
-    },
-    {
-      "name": "comment_translation_api_key",
-      "value": "API Key"
-    },
-    {
       "name": "comment_translation_api_key_saved",
       "value": "已保存"
     },
     {
       "name": "comment_translation_api_key_empty",
       "value": "未设置"
-    },
-    {
-      "name": "comment_translation_model",
-      "value": "模型"
-    },
-    {
-      "name": "comment_translation_model_hint",
-      "value": "gpt-4o-mini"
-    },
-    {
-      "name": "comment_translation_fetch_models",
-      "value": "获取模型"
-    },
-    {
-      "name": "comment_translation_fetch_models_hint",
-      "value": "从当前 LLM 服务读取可用模型。"
     },
     {
       "name": "comment_translation_fetch_models_loading",
@@ -2851,34 +2603,6 @@
     {
       "name": "comment_translation_models_failed",
       "value": "获取模型失败：%s"
-    },
-    {
-      "name": "comment_translation_effective_service",
-      "value": "LLM 服务"
-    },
-    {
-      "name": "comment_translation_validate_api",
-      "value": "验证接口"
-    },
-    {
-      "name": "comment_translation_validate_api_hint",
-      "value": "发送一次短测试请求，不写入缓存"
-    },
-    {
-      "name": "comment_translation_validate_google_only_hint",
-      "value": "Google 兜底模式开启时不可用"
-    },
-    {
-      "name": "comment_translation_validate_success",
-      "value": "接口验证成功"
-    },
-    {
-      "name": "comment_translation_validate_missing_key",
-      "value": "请先设置 API Key"
-    },
-    {
-      "name": "comment_translation_validate_failed",
-      "value": "接口验证失败：%s"
     },
     {
       "name": "comment_translation_clear_cache",
@@ -2899,10 +2623,6 @@
     {
       "name": "filter",
       "value": "筛选"
-    },
-    {
-      "name": "filter_scope",
-      "value": "搜索范围"
     },
     {
       "name": "search_scope_gallery",
@@ -2929,10 +2649,6 @@
       "value": "收藏夹"
     },
     {
-      "name": "filter_category",
-      "value": "分类"
-    },
-    {
       "name": "filter_rating",
       "value": "最低评分"
     },
@@ -2951,10 +2667,6 @@
     {
       "name": "filter_reset",
       "value": "重置"
-    },
-    {
-      "name": "filter_apply",
-      "value": "应用"
     },
     {
       "name": "settings_view",
@@ -3141,14 +2853,6 @@
       "value": "未选择"
     },
     {
-      "name": "settings_reader_super_resolution_models_installed",
-      "value": "已下载"
-    },
-    {
-      "name": "settings_reader_super_resolution_models_available",
-      "value": "可下载"
-    },
-    {
       "name": "settings_reader_super_resolution_models_none_installed",
       "value": "暂无已下载模型"
     },
@@ -3273,28 +2977,8 @@
       "value": "Real-CUGAN (SE, 2x, conservative)"
     },
     {
-      "name": "settings_reader_super_resolution_realesrgan_download",
-      "value": "Real-ESRGAN (photo, 2x) · 下载"
-    },
-    {
-      "name": "settings_reader_super_resolution_realesrgan_downloading",
-      "value": "Real-ESRGAN (photo, 2x) · 下载中"
-    },
-    {
       "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
       "value": "waifu2x (photo, 2x, noise0)"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_download",
-      "value": "waifu2x (photo, 2x, noise0) · 下载"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_downloading",
-      "value": "waifu2x (photo, 2x, noise0) · 下载中"
-    },
-    {
-      "name": "settings_reader_super_resolution_model_downloading",
-      "value": "正在下载超分模型…"
     },
     {
       "name": "settings_reader_super_resolution_model_downloaded",
@@ -3303,22 +2987,6 @@
     {
       "name": "settings_reader_super_resolution_model_download_failed",
       "value": "超分模型下载失败"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend",
-      "value": "推理后端"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto",
-      "value": "自动"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_vulkan",
-      "value": "自动（Vulkan）"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_cpu",
-      "value": "自动（CPU）"
     },
     {
       "name": "settings_reader_super_resolution_backend_vulkan",
@@ -3617,14 +3285,6 @@
       "value": "连续纵向"
     },
     {
-      "name": "read_double_page_a",
-      "value": "双页 A"
-    },
-    {
-      "name": "read_double_page_b",
-      "value": "双页 B"
-    },
-    {
       "name": "search_history",
       "value": "搜索历史"
     },
@@ -3671,10 +3331,6 @@
     {
       "name": "search_settings_filter_reset_confirm",
       "value": "重置已保存的筛选设置？"
-    },
-    {
-      "name": "advanced_diagnostics",
-      "value": "诊断"
     },
     {
       "name": "advanced_diagnostics_hint",
@@ -3773,20 +3429,12 @@
       "value": "未知时间"
     },
     {
-      "name": "filter_options",
-      "value": "选项"
-    },
-    {
       "name": "filter_require_torrent",
       "value": "仅含种子"
     },
     {
       "name": "filter_show_expunged",
       "value": "仅搜索已删除"
-    },
-    {
-      "name": "filter_disable_default",
-      "value": "禁用默认过滤"
     },
     {
       "name": "filter_disable_lang",
@@ -3889,24 +3537,12 @@
       "value": "暂无种子"
     },
     {
-      "name": "gallery_torrent_share_file",
-      "value": "分享种子"
-    },
-    {
-      "name": "gallery_torrent_share_magnet",
-      "value": "分享磁链"
-    },
-    {
       "name": "gallery_archiver",
       "value": "归档"
     },
     {
       "name": "gallery_archiver_empty",
       "value": "暂无归档选项"
-    },
-    {
-      "name": "gallery_archiver_missing_link",
-      "value": "未获取到归档参数，请刷新详情页后重试"
     },
     {
       "name": "gallery_archiver_download",
@@ -3953,10 +3589,6 @@
       "value": "原图归档"
     },
     {
-      "name": "gallery_archiver_bot_free",
-      "value": "Bot 免费解析"
-    },
-    {
       "name": "gallery_archiver_bot_not_ready",
       "value": "请先配置归档 Bot"
     },
@@ -3999,10 +3631,6 @@
     {
       "name": "image_block_update_default",
       "value": "更新规则订阅"
-    },
-    {
-      "name": "image_block_update_default_hint",
-      "value": "检查更新，本地规则不变"
     },
     {
       "name": "image_block_updating",
@@ -4049,14 +3677,6 @@
       "value": "已停用"
     },
     {
-      "name": "image_block_feed_enabled_hint",
-      "value": "已启用，会参与图片屏蔽"
-    },
-    {
-      "name": "image_block_feed_disabled_hint",
-      "value": "已停用，暂时不会生效"
-    },
-    {
       "name": "image_block_default_provider_title",
       "value": "图片规则订阅"
     },
@@ -4097,10 +3717,6 @@
       "value": "阈值"
     },
     {
-      "name": "image_block_rule_threshold_hint",
-      "value": "数值越大，越容易命中相似图片"
-    },
-    {
       "name": "image_block_threshold_strict",
       "value": "严格 0"
     },
@@ -4115,10 +3731,6 @@
     {
       "name": "image_block_rule_enabled",
       "value": "启用规则"
-    },
-    {
-      "name": "image_block_rule_enabled_hint",
-      "value": "关闭后只停用这一条规则"
     },
     {
       "name": "image_block_rule_source",
@@ -4143,10 +3755,6 @@
     {
       "name": "image_block_local_rules",
       "value": "本地手动屏蔽"
-    },
-    {
-      "name": "image_block_local_rules_hint",
-      "value": "阅读器或缩略图添加，点开单条可修改"
     },
     {
       "name": "image_block_local_rule_title",
@@ -4817,14 +4425,6 @@
       "value": "自定义 SubTab 配置"
     },
     {
-      "name": "web_login_captcha",
-      "value": "验证码"
-    },
-    {
-      "name": "web_login_wait_captcha",
-      "value": "等待安全验证"
-    },
-    {
       "name": "tablet_select_detail",
       "value": "选择一项以查看详情"
     },
@@ -4835,10 +4435,6 @@
     {
       "name": "comic_visual_route",
       "value": "制图方式"
-    },
-    {
-      "name": "comic_visual_route_hint",
-      "value": "选择端侧、自部署或 Torii 处理"
     },
     {
       "name": "comic_visual_route_local",
@@ -4945,10 +4541,6 @@
       "value": "字体"
     },
     {
-      "name": "comic_torii_model_hint",
-      "value": "Torii 官方目录快照，复核于 %s"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API Key"
     },
@@ -4973,10 +4565,6 @@
       "value": "自部署"
     },
     {
-      "name": "comic_render_service_summary",
-      "value": "检测文字、消除原文并回填译文"
-    },
-    {
       "name": "comic_render_service_configured",
       "value": "已配置"
     },
@@ -4987,10 +4575,6 @@
     {
       "name": "comic_render_service_profile",
       "value": "引擎"
-    },
-    {
-      "name": "comic_render_service_profile_hint",
-      "value": "固定的导出与回填协议"
     },
     {
       "name": "comic_render_service_detection",
@@ -5093,124 +4677,12 @@
       "value": "端侧工作流、模型与云端服务"
     },
     {
-      "name": "comic_translation_provider",
-      "value": "当前通道"
-    },
-    {
-      "name": "comic_translation_provider_hint",
-      "value": "两条通道输出相同页面文档，凭据互不混用"
-    },
-    {
-      "name": "comic_translation_provider_api",
-      "value": "OpenAI API"
-    },
-    {
-      "name": "comic_translation_provider_codex",
-      "value": "Codex OAuth（实验）"
-    },
-    {
-      "name": "comic_translation_api_url",
-      "value": "Responses API 地址"
-    },
-    {
-      "name": "comic_translation_api_key",
-      "value": "API Key"
-    },
-    {
-      "name": "comic_translation_model",
-      "value": "视觉模型"
-    },
-    {
-      "name": "comic_translation_model_not_selected",
-      "value": "尚未选择"
-    },
-    {
-      "name": "comic_translation_api_direct_title",
-      "value": "移动端直连风险"
-    },
-    {
-      "name": "comic_translation_api_direct_hint",
-      "value": "密钥保存在本机并由应用直连服务；生产使用更推荐自有后端代理。"
-    },
-    {
-      "name": "comic_translation_codex_model",
-      "value": "Codex 模型"
-    },
-    {
-      "name": "comic_translation_codex_model_hint",
-      "value": "查询当前 ChatGPT 账号可用的模型"
-    },
-    {
       "name": "comic_translation_codex_usage",
       "value": "用量限额"
     },
     {
-      "name": "comic_translation_codex_usage_hint",
-      "value": "刷新当前 ChatGPT 账号的限额"
-    },
-    {
-      "name": "comic_translation_codex_usage_loading",
-      "value": "正在查询账号限额…"
-    },
-    {
-      "name": "comic_translation_codex_usage_plan",
-      "value": "套餐：%s · 点击刷新"
-    },
-    {
-      "name": "comic_translation_codex_usage_failed",
-      "value": "Codex 用量查询失败：%s"
-    },
-    {
-      "name": "comic_translation_codex_usage_five_hour",
-      "value": "5 小时限额"
-    },
-    {
-      "name": "comic_translation_codex_usage_weekly",
-      "value": "周限额"
-    },
-    {
-      "name": "comic_translation_codex_usage_remaining",
-      "value": "剩余"
-    },
-    {
-      "name": "comic_translation_codex_usage_unavailable",
-      "value": "当前账号未返回该窗口"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_unknown",
-      "value": "暂时没有重置时间"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_due",
-      "value": "即将重置"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_minutes",
-      "value": "%d 分钟后重置"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_hours_minutes",
-      "value": "%d 小时 %d 分钟后重置"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_days_hours",
-      "value": "%d 天 %d 小时后重置"
-    },
-    {
-      "name": "comic_translation_codex_status",
-      "value": "登录状态"
-    },
-    {
-      "name": "comic_translation_codex_disconnected",
-      "value": "尚未登录"
-    },
-    {
       "name": "comic_translation_codex_connected",
       "value": "已在本设备登录"
-    },
-    {
-      "name": "comic_translation_codex_connected_account",
-      "value": "已登录 · 工作区 %s"
     },
     {
       "name": "comic_translation_codex_requesting",
@@ -5219,14 +4691,6 @@
     {
       "name": "comic_translation_codex_code",
       "value": "设备登录码：%s"
-    },
-    {
-      "name": "comic_translation_codex_waiting",
-      "value": "等待浏览器确认"
-    },
-    {
-      "name": "comic_translation_codex_open_page",
-      "value": "打开 Codex 登录页面"
     },
     {
       "name": "comic_translation_codex_open_failed",
@@ -5357,32 +4821,12 @@
       "value": "显示译图"
     },
     {
-      "name": "reader_comic_translation_result_visible",
-      "value": "已显示译图"
-    },
-    {
-      "name": "reader_comic_translation_title",
-      "value": "第 %d 页翻译"
-    },
-    {
       "name": "reader_comic_translation_running",
       "value": "正在转录并翻译当前页…"
     },
     {
       "name": "reader_comic_translation_prefetch_running",
       "value": "正在完成预翻译…"
-    },
-    {
-      "name": "reader_comic_translation_refresh",
-      "value": "重新翻译"
-    },
-    {
-      "name": "reader_comic_translation_refreshing",
-      "value": "正在重新翻译，完成前继续显示上次结果"
-    },
-    {
-      "name": "reader_comic_translation_refresh_failed",
-      "value": "重新翻译失败 · %s · 继续显示上次结果"
     },
     {
       "name": "reader_comic_translation_image_unavailable",
@@ -5407,38 +4851,6 @@
     {
       "name": "reader_comic_translation_no_translatable_text",
       "value": "当前页未检测到可翻译文字"
-    },
-    {
-      "name": "reader_comic_translation_cached",
-      "value": "缓存"
-    },
-    {
-      "name": "reader_comic_translation_review_required",
-      "value": "待复核"
-    },
-    {
-      "name": "reader_comic_translation_consistency_conflict",
-      "value": "与前页译法不一致"
-    },
-    {
-      "name": "reader_comic_translation_block_review_required",
-      "value": "此文本块需要复核"
-    },
-    {
-      "name": "reader_comic_translation_ready",
-      "value": "已完成"
-    },
-    {
-      "name": "reader_comic_translation_no_text",
-      "value": "当前页未识别到可见文字"
-    },
-    {
-      "name": "reader_comic_translation_source",
-      "value": "原文：%s"
-    },
-    {
-      "name": "reader_comic_translation_target",
-      "value": "译文：%s"
     },
     {
       "name": "llm_sources_title",
@@ -5513,10 +4925,6 @@
       "value": "用于评论翻译"
     },
     {
-      "name": "llm_source_support_comments_hint",
-      "value": "支持 Chat Completions 文本请求"
-    },
-    {
       "name": "llm_source_support_manga",
       "value": "用于漫画翻译"
     },
@@ -5527,10 +4935,6 @@
     {
       "name": "llm_source_support_catalog",
       "value": "模型列表"
-    },
-    {
-      "name": "llm_source_support_catalog_hint",
-      "value": "允许查询当前账号可用模型"
     },
     {
       "name": "llm_source_catalog",

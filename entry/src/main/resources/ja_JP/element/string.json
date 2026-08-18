@@ -9,18 +9,6 @@
       "value": "NextE"
     },
     {
-      "name": "entry_desc",
-      "value": "NextE エントリモジュール"
-    },
-    {
-      "name": "module_desc",
-      "value": "NextE エントリモジュール"
-    },
-    {
-      "name": "tab_home",
-      "value": "ホーム"
-    },
-    {
       "name": "tab_search",
       "value": "検索"
     },
@@ -47,30 +35,6 @@
     {
       "name": "download_archiver",
       "value": "アーカイブ"
-    },
-    {
-      "name": "download_gallery_queue",
-      "value": "ギャラリーキュー"
-    },
-    {
-      "name": "download_archiver_queue",
-      "value": "アーカイブキュー"
-    },
-    {
-      "name": "download_active_tasks",
-      "value": "実行中のタスク"
-    },
-    {
-      "name": "download_finished_tasks",
-      "value": "完了したタスク"
-    },
-    {
-      "name": "download_status_empty",
-      "value": "空"
-    },
-    {
-      "name": "download_status_active",
-      "value": "進行中"
     },
     {
       "name": "download_status_queued",
@@ -241,10 +205,6 @@
       "value": "エクスポート中"
     },
     {
-      "name": "download_export_done",
-      "value": "エクスポート準備完了"
-    },
-    {
       "name": "download_export_failed",
       "value": "エクスポートに失敗しました"
     },
@@ -345,10 +305,6 @@
       "value": "リサンプル画像または元画像"
     },
     {
-      "name": "download_archive_bot_protocol",
-      "value": "Archive Bot"
-    },
-    {
       "name": "download_archive_bot_hint",
       "value": "サードパーティサービスで元画像アーカイブリンクを解析します"
     },
@@ -413,10 +369,6 @@
       "value": "ダウンロードを復元できません"
     },
     {
-      "name": "download_not_configured",
-      "value": "未設定"
-    },
-    {
       "name": "download_upgrade_newer",
       "value": "新しい版をダウンロード"
     },
@@ -441,10 +393,6 @@
       "value": "設定"
     },
     {
-      "name": "tab_me",
-      "value": "マイ"
-    },
-    {
       "name": "home_source_default",
       "value": "デフォルト"
     },
@@ -455,10 +403,6 @@
     {
       "name": "home_source_watched",
       "value": "購読"
-    },
-    {
-      "name": "home_source_toplist",
-      "value": "ランキング"
     },
     {
       "name": "tab_seed_chinese",
@@ -569,16 +513,8 @@
       "value": "除外（否）"
     },
     {
-      "name": "filter_disable_group",
-      "value": "デフォルトフィルターを無視"
-    },
-    {
       "name": "tab_section_basic",
       "value": "基本"
-    },
-    {
-      "name": "tag_compose_empty_hint",
-      "value": "上でタグを検索して絞り込み"
     },
     {
       "name": "view_follow_global",
@@ -615,10 +551,6 @@
     {
       "name": "search_open_image_link",
       "value": "画像ページリンクを開く"
-    },
-    {
-      "name": "favorites_login_hint",
-      "value": "ログインしてお気に入りを表示"
     },
     {
       "name": "common_loading",
@@ -813,10 +745,6 @@
       "value": "リストをピンチまたはドラッグして列数を調整"
     },
     {
-      "name": "column_density_unit",
-      "value": "列"
-    },
-    {
       "name": "column_density_more",
       "value": "表示を増やす"
     },
@@ -913,10 +841,6 @@
       "value": "有効なランキングページ番号を入力してください"
     },
     {
-      "name": "preview_load_more",
-      "value": "もっと読み込む"
-    },
-    {
       "name": "detail_read",
       "value": "読む"
     },
@@ -961,10 +885,6 @@
       "value": "EH お気に入り"
     },
     {
-      "name": "detail_remote_favorite_current",
-      "value": "現在のリモートお気に入り"
-    },
-    {
       "name": "detail_remote_favorite_none",
       "value": "EH お気に入り未登録"
     },
@@ -993,16 +913,8 @@
       "value": "お気に入りメモ"
     },
     {
-      "name": "detail_remote_favorite_loading_slots",
-      "value": "お気に入りフォルダを読み込み中"
-    },
-    {
       "name": "detail_remote_favorite_no_slots",
       "value": "EH のお気に入りフォルダを読み込めません"
-    },
-    {
-      "name": "detail_remote_favorite_remove",
-      "value": "EH お気に入りから削除"
     },
     {
       "name": "detail_remote_favorite_save",
@@ -1019,10 +931,6 @@
     {
       "name": "detail_rate_current",
       "value": "現在の評価: "
-    },
-    {
-      "name": "detail_rate_selected",
-      "value": "選択中"
     },
     {
       "name": "detail_rate_submit",
@@ -1043,10 +951,6 @@
     {
       "name": "detail_rate_write_notice",
       "value": "評価を選択してください。送信すると EH に評価を書き込みます。"
-    },
-    {
-      "name": "detail_rate_readonly_confirm",
-      "value": "NextE では評価の送信はまだ有効になっていません。EH のページをアプリ内Webで開いて評価しますか？"
     },
     {
       "name": "detail_copy_link",
@@ -1119,22 +1023,6 @@
     {
       "name": "tag_vote_down_short",
       "value": "反対"
-    },
-    {
-      "name": "tag_vote_withdraw_short",
-      "value": "取消"
-    },
-    {
-      "name": "tag_vote_current_none",
-      "value": "このタグには未投票です"
-    },
-    {
-      "name": "tag_vote_current_up",
-      "value": "現在は賛成済み"
-    },
-    {
-      "name": "tag_vote_current_down",
-      "value": "現在は反対済み"
     },
     {
       "name": "tag_vote_up_success",
@@ -1303,10 +1191,6 @@
     {
       "name": "detail_similar",
       "value": "類似"
-    },
-    {
-      "name": "detail_read_with_count",
-      "value": "読む (%sP)"
     },
     {
       "name": "detail_read_resume",
@@ -1521,28 +1405,12 @@
       "value": "EH"
     },
     {
-      "name": "eh_settings_website_settings",
-      "value": "ウェブサイト設定"
-    },
-    {
-      "name": "eh_settings_website_settings_hint",
-      "value": "未実装"
-    },
-    {
-      "name": "eh_settings_image_limits",
-      "value": "画像制限"
-    },
-    {
       "name": "eh_settings_toplist_hidden_filter",
       "value": "ランキングで非表示タグを隠す"
     },
     {
       "name": "eh_settings_toplist_hidden_filter_hint",
       "value": "My Tags で非表示にしたタグを含むギャラリーを標準で隠します"
-    },
-    {
-      "name": "eh_settings_image_limits_hint",
-      "value": "未実装"
     },
     {
       "name": "tag_translation_title",
@@ -1761,10 +1629,6 @@
       "value": "リソース名をコピーできませんでした"
     },
     {
-      "name": "gallery_meta",
-      "value": "%sページ · %s · お気に入り %s"
-    },
-    {
       "name": "nav_login",
       "value": "ログイン"
     },
@@ -1805,20 +1669,12 @@
       "value": "アカウントを追加"
     },
     {
-      "name": "account_remove_confirm",
-      "value": "このアカウントを削除しますか？"
-    },
-    {
       "name": "password_login_title",
       "value": "パスワードログイン"
     },
     {
       "name": "password_login_hint",
       "value": "直接ログイン。Cloudflare にブロックされる場合があります。失敗時はウェブログインをご利用ください。"
-    },
-    {
-      "name": "web_login_hint",
-      "value": "E-Hentai フォーラムのアカウントでログイン"
     },
     {
       "name": "password_login_username",
@@ -1847,10 +1703,6 @@
     {
       "name": "cookie_import_placeholder",
       "value": "ipb_member_id=…; ipb_pass_hash=…"
-    },
-    {
-      "name": "cookie_import_submit",
-      "value": "インポート"
     },
     {
       "name": "cookie_import_confirm",
@@ -1993,10 +1845,6 @@
       "value": "現在のページにリセット操作がありません"
     },
     {
-      "name": "account_remove",
-      "value": "削除"
-    },
-    {
       "name": "settings_logout",
       "value": "ログアウト"
     },
@@ -2087,14 +1935,6 @@
     {
       "name": "cache_total",
       "value": "キャッシュ使用量"
-    },
-    {
-      "name": "settings_backup",
-      "value": "バックアップと復元"
-    },
-    {
-      "name": "backup_hint",
-      "value": "設定をファイルに書き出す、またはファイルから復元します。"
     },
     {
       "name": "backup_export",
@@ -2251,10 +2091,6 @@
     {
       "name": "common_back_to_top",
       "value": "先頭へ戻る"
-    },
-    {
-      "name": "favorites_coming",
-      "value": "お気に入りは近日公開"
     },
     {
       "name": "favorites_all",
@@ -2485,40 +2321,12 @@
       "value": "すべてのコメント"
     },
     {
-      "name": "comment_vote_up",
-      "value": "賛成"
-    },
-    {
-      "name": "comment_vote_down",
-      "value": "反対"
-    },
-    {
-      "name": "comment_vote_confirm_up",
-      "value": "このコメントに賛成しますか?"
-    },
-    {
-      "name": "comment_vote_confirm_down",
-      "value": "このコメントに反対しますか?"
-    },
-    {
-      "name": "comment_vote_cancel_up",
-      "value": "賛成を取り消しますか?"
-    },
-    {
-      "name": "comment_vote_cancel_down",
-      "value": "反対を取り消しますか?"
-    },
-    {
       "name": "comment_vote_up_success",
       "value": "賛成しました"
     },
     {
       "name": "comment_vote_down_success",
       "value": "反対しました"
-    },
-    {
-      "name": "comment_vote_cancel_success",
-      "value": "投票を取り消しました"
     },
     {
       "name": "comment_vote_cancel_up_success",
@@ -2531,22 +2339,6 @@
     {
       "name": "comment_vote_failed",
       "value": "投票に失敗しました"
-    },
-    {
-      "name": "comment_new_title",
-      "value": "新しいコメント"
-    },
-    {
-      "name": "comment_reply_title",
-      "value": "返信"
-    },
-    {
-      "name": "comment_edit_title",
-      "value": "コメントを編集"
-    },
-    {
-      "name": "comment_send",
-      "value": "送信"
     },
     {
       "name": "comment_new_placeholder",
@@ -2569,10 +2361,6 @@
       "value": "元のコメント"
     },
     {
-      "name": "comment_min_length_hint",
-      "value": "10文字以上入力してください。"
-    },
-    {
       "name": "comment_post_success",
       "value": "コメントを投稿しました"
     },
@@ -2587,10 +2375,6 @@
     {
       "name": "comment_translation_failed",
       "value": "翻訳に失敗しました"
-    },
-    {
-      "name": "settings_translation",
-      "value": "翻訳"
     },
     {
       "name": "comment_translation_settings_title",
@@ -2741,10 +2525,6 @@
       "value": "Huawei Cloud設定を開けませんでした"
     },
     {
-      "name": "sync_now",
-      "value": "今すぐ同期"
-    },
-    {
       "name": "sync_now_done",
       "value": "同期しました"
     },
@@ -2805,40 +2585,12 @@
       "value": "LLMを使わずGoogleを直接使用します。"
     },
     {
-      "name": "comment_translation_api_url",
-      "value": "API URL"
-    },
-    {
-      "name": "comment_translation_api_url_hint",
-      "value": "https://api.openai.com"
-    },
-    {
-      "name": "comment_translation_api_key",
-      "value": "APIキー"
-    },
-    {
       "name": "comment_translation_api_key_saved",
       "value": "保存済み"
     },
     {
       "name": "comment_translation_api_key_empty",
       "value": "未設定"
-    },
-    {
-      "name": "comment_translation_model",
-      "value": "モデル"
-    },
-    {
-      "name": "comment_translation_model_hint",
-      "value": "gpt-4o-mini"
-    },
-    {
-      "name": "comment_translation_fetch_models",
-      "value": "モデルを取得"
-    },
-    {
-      "name": "comment_translation_fetch_models_hint",
-      "value": "現在のLLMサービスから利用可能なモデルを読み込みます。"
     },
     {
       "name": "comment_translation_fetch_models_loading",
@@ -2851,34 +2603,6 @@
     {
       "name": "comment_translation_models_failed",
       "value": "モデル取得に失敗しました：%s"
-    },
-    {
-      "name": "comment_translation_effective_service",
-      "value": "LLMサービス"
-    },
-    {
-      "name": "comment_translation_validate_api",
-      "value": "APIを検証"
-    },
-    {
-      "name": "comment_translation_validate_api_hint",
-      "value": "短いテストリクエストを送信します。キャッシュは保存しません"
-    },
-    {
-      "name": "comment_translation_validate_google_only_hint",
-      "value": "Googleのみモードでは利用できません"
-    },
-    {
-      "name": "comment_translation_validate_success",
-      "value": "API検証に成功しました"
-    },
-    {
-      "name": "comment_translation_validate_missing_key",
-      "value": "先にAPI Keyを設定してください"
-    },
-    {
-      "name": "comment_translation_validate_failed",
-      "value": "API検証に失敗しました：%s"
     },
     {
       "name": "comment_translation_clear_cache",
@@ -2899,10 +2623,6 @@
     {
       "name": "filter",
       "value": "絞り込み"
-    },
-    {
-      "name": "filter_scope",
-      "value": "検索範囲"
     },
     {
       "name": "search_scope_gallery",
@@ -2929,10 +2649,6 @@
       "value": "お気に入りフォルダ"
     },
     {
-      "name": "filter_category",
-      "value": "カテゴリ"
-    },
-    {
       "name": "filter_rating",
       "value": "最低評価"
     },
@@ -2951,10 +2667,6 @@
     {
       "name": "filter_reset",
       "value": "リセット"
-    },
-    {
-      "name": "filter_apply",
-      "value": "適用"
     },
     {
       "name": "settings_view",
@@ -3141,14 +2853,6 @@
       "value": "未選択"
     },
     {
-      "name": "settings_reader_super_resolution_models_installed",
-      "value": "ダウンロード済み"
-    },
-    {
-      "name": "settings_reader_super_resolution_models_available",
-      "value": "ダウンロード可能"
-    },
-    {
       "name": "settings_reader_super_resolution_models_none_installed",
       "value": "ダウンロード済みモデルはありません"
     },
@@ -3273,28 +2977,8 @@
       "value": "Real-CUGAN (SE, 2x, conservative)"
     },
     {
-      "name": "settings_reader_super_resolution_realesrgan_download",
-      "value": "Real-ESRGAN (photo, 2x) · ダウンロード"
-    },
-    {
-      "name": "settings_reader_super_resolution_realesrgan_downloading",
-      "value": "Real-ESRGAN (photo, 2x) · ダウンロード中"
-    },
-    {
       "name": "settings_reader_super_resolution_waifu2x_photo_noise0_2x",
       "value": "waifu2x (photo, 2x, noise0)"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_download",
-      "value": "waifu2x (photo, 2x, noise0) · ダウンロード"
-    },
-    {
-      "name": "settings_reader_super_resolution_waifu2x_downloading",
-      "value": "waifu2x (photo, 2x, noise0) · ダウンロード中"
-    },
-    {
-      "name": "settings_reader_super_resolution_model_downloading",
-      "value": "超解像モデルをダウンロード中…"
     },
     {
       "name": "settings_reader_super_resolution_model_downloaded",
@@ -3303,22 +2987,6 @@
     {
       "name": "settings_reader_super_resolution_model_download_failed",
       "value": "超解像モデルのダウンロードに失敗しました"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend",
-      "value": "推論バックエンド"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto",
-      "value": "自動"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_vulkan",
-      "value": "自動（Vulkan）"
-    },
-    {
-      "name": "settings_reader_super_resolution_backend_auto_cpu",
-      "value": "自動（CPU）"
     },
     {
       "name": "settings_reader_super_resolution_backend_vulkan",
@@ -3617,14 +3285,6 @@
       "value": "縦スクロール"
     },
     {
-      "name": "read_double_page_a",
-      "value": "両ページ A"
-    },
-    {
-      "name": "read_double_page_b",
-      "value": "両ページ B"
-    },
-    {
       "name": "search_history",
       "value": "検索履歴"
     },
@@ -3671,10 +3331,6 @@
     {
       "name": "search_settings_filter_reset_confirm",
       "value": "保存済みのフィルタ設定をリセットしますか？"
-    },
-    {
-      "name": "advanced_diagnostics",
-      "value": "診断"
     },
     {
       "name": "advanced_diagnostics_hint",
@@ -3773,20 +3429,12 @@
       "value": "時刻不明"
     },
     {
-      "name": "filter_options",
-      "value": "オプション"
-    },
-    {
       "name": "filter_require_torrent",
       "value": "トレントのみ"
     },
     {
       "name": "filter_show_expunged",
       "value": "削除済みのみ検索"
-    },
-    {
-      "name": "filter_disable_default",
-      "value": "デフォルトフィルタ無効"
     },
     {
       "name": "filter_disable_lang",
@@ -3889,24 +3537,12 @@
       "value": "トレントはありません"
     },
     {
-      "name": "gallery_torrent_share_file",
-      "value": "トレントを共有"
-    },
-    {
-      "name": "gallery_torrent_share_magnet",
-      "value": "マグネットを共有"
-    },
-    {
       "name": "gallery_archiver",
       "value": "アーカイブ"
     },
     {
       "name": "gallery_archiver_empty",
       "value": "アーカイブオプションはありません"
-    },
-    {
-      "name": "gallery_archiver_missing_link",
-      "value": "アーカイブパラメータを取得できませんでした。ギャラリー詳細を更新してからもう一度お試しください。"
     },
     {
       "name": "gallery_archiver_download",
@@ -3953,10 +3589,6 @@
       "value": "元画像アーカイブ"
     },
     {
-      "name": "gallery_archiver_bot_free",
-      "value": "Bot で無料解析"
-    },
-    {
       "name": "gallery_archiver_bot_not_ready",
       "value": "先に Archive Bot を設定してください"
     },
@@ -3999,10 +3631,6 @@
     {
       "name": "image_block_update_default",
       "value": "ルール購読を更新"
-    },
-    {
-      "name": "image_block_update_default_hint",
-      "value": "更新を確認します。ローカルルールは変更しません"
     },
     {
       "name": "image_block_updating",
@@ -4049,14 +3677,6 @@
       "value": "無効"
     },
     {
-      "name": "image_block_feed_enabled_hint",
-      "value": "有効。画像ブロックに使用します"
-    },
-    {
-      "name": "image_block_feed_disabled_hint",
-      "value": "無効。現在は使用しません"
-    },
-    {
       "name": "image_block_default_provider_title",
       "value": "画像ルール購読"
     },
@@ -4097,10 +3717,6 @@
       "value": "しきい値"
     },
     {
-      "name": "image_block_rule_threshold_hint",
-      "value": "値が大きいほど似た画像にも一致しやすくなります"
-    },
-    {
       "name": "image_block_threshold_strict",
       "value": "厳格 0"
     },
@@ -4115,10 +3731,6 @@
     {
       "name": "image_block_rule_enabled",
       "value": "ルールを有効化"
-    },
-    {
-      "name": "image_block_rule_enabled_hint",
-      "value": "オフにすると、このルールだけを無視します"
     },
     {
       "name": "image_block_rule_source",
@@ -4143,10 +3755,6 @@
     {
       "name": "image_block_local_rules",
       "value": "手動ブロック"
-    },
-    {
-      "name": "image_block_local_rules_hint",
-      "value": "リーダーまたはサムネイルから追加。開くと編集できます"
     },
     {
       "name": "image_block_local_rule_title",
@@ -4817,14 +4425,6 @@
       "value": "カスタム SubTab 設定"
     },
     {
-      "name": "web_login_captcha",
-      "value": "認証コード"
-    },
-    {
-      "name": "web_login_wait_captcha",
-      "value": "安全確認を待機中"
-    },
-    {
       "name": "tablet_select_detail",
       "value": "項目を選択して詳細を表示"
     },
@@ -4835,10 +4435,6 @@
     {
       "name": "comic_visual_route",
       "value": "画像処理方式"
-    },
-    {
-      "name": "comic_visual_route_hint",
-      "value": "端末内・セルフホスト・Torii から処理方式を選択"
     },
     {
       "name": "comic_visual_route_local",
@@ -4945,10 +4541,6 @@
       "value": "フォント"
     },
     {
-      "name": "comic_torii_model_hint",
-      "value": "Torii 公式カタログのスナップショット（確認日 %s）"
-    },
-    {
       "name": "comic_torii_api_key",
       "value": "Torii API Key"
     },
@@ -4973,10 +4565,6 @@
       "value": "セルフホスト"
     },
     {
-      "name": "comic_render_service_summary",
-      "value": "文字を検出し、原文を消去して翻訳文を配置"
-    },
-    {
       "name": "comic_render_service_configured",
       "value": "設定済み"
     },
@@ -4987,10 +4575,6 @@
     {
       "name": "comic_render_service_profile",
       "value": "エンジン"
-    },
-    {
-      "name": "comic_render_service_profile_hint",
-      "value": "固定されたエクスポート・インポート契約"
     },
     {
       "name": "comic_render_service_detection",
@@ -5093,124 +4677,12 @@
       "value": "端末ワークフロー、モデル、クラウドサービス"
     },
     {
-      "name": "comic_translation_provider",
-      "value": "プロバイダー"
-    },
-    {
-      "name": "comic_translation_provider_hint",
-      "value": "両方の経路は同じページ文書を生成し、認証情報は分離されます"
-    },
-    {
-      "name": "comic_translation_provider_api",
-      "value": "OpenAI API"
-    },
-    {
-      "name": "comic_translation_provider_codex",
-      "value": "Codex OAuth（実験）"
-    },
-    {
-      "name": "comic_translation_api_url",
-      "value": "Responses API URL"
-    },
-    {
-      "name": "comic_translation_api_key",
-      "value": "API キー"
-    },
-    {
-      "name": "comic_translation_model",
-      "value": "画像対応モデル"
-    },
-    {
-      "name": "comic_translation_model_not_selected",
-      "value": "未選択"
-    },
-    {
-      "name": "comic_translation_api_direct_title",
-      "value": "モバイルからの直接接続"
-    },
-    {
-      "name": "comic_translation_api_direct_hint",
-      "value": "キーはこの端末に保存され、アプリがサービスへ直接接続します。本番利用では専用バックエンドプロキシを推奨します。"
-    },
-    {
-      "name": "comic_translation_codex_model",
-      "value": "Codex モデル"
-    },
-    {
-      "name": "comic_translation_codex_model_hint",
-      "value": "この ChatGPT アカウントで現在利用可能なモデルを取得します"
-    },
-    {
       "name": "comic_translation_codex_usage",
       "value": "利用上限"
     },
     {
-      "name": "comic_translation_codex_usage_hint",
-      "value": "現在の ChatGPT アカウントの上限を更新します"
-    },
-    {
-      "name": "comic_translation_codex_usage_loading",
-      "value": "アカウント上限を取得中…"
-    },
-    {
-      "name": "comic_translation_codex_usage_plan",
-      "value": "プラン：%s · タップして更新"
-    },
-    {
-      "name": "comic_translation_codex_usage_failed",
-      "value": "Codex 利用状況の取得に失敗しました：%s"
-    },
-    {
-      "name": "comic_translation_codex_usage_five_hour",
-      "value": "5 時間上限"
-    },
-    {
-      "name": "comic_translation_codex_usage_weekly",
-      "value": "週間上限"
-    },
-    {
-      "name": "comic_translation_codex_usage_remaining",
-      "value": "残り"
-    },
-    {
-      "name": "comic_translation_codex_usage_unavailable",
-      "value": "このアカウントではこの期間が返されませんでした"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_unknown",
-      "value": "リセット時刻を取得できません"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_due",
-      "value": "まもなくリセットされます"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_minutes",
-      "value": "%d 分後にリセット"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_hours_minutes",
-      "value": "%d 時間 %d 分後にリセット"
-    },
-    {
-      "name": "comic_translation_codex_usage_reset_days_hours",
-      "value": "%d 日 %d 時間後にリセット"
-    },
-    {
-      "name": "comic_translation_codex_status",
-      "value": "ログイン状態"
-    },
-    {
-      "name": "comic_translation_codex_disconnected",
-      "value": "未ログイン"
-    },
-    {
       "name": "comic_translation_codex_connected",
       "value": "この端末でログイン済み"
-    },
-    {
-      "name": "comic_translation_codex_connected_account",
-      "value": "ログイン済み · ワークスペース %s"
     },
     {
       "name": "comic_translation_codex_requesting",
@@ -5219,14 +4691,6 @@
     {
       "name": "comic_translation_codex_code",
       "value": "デバイスコード：%s"
-    },
-    {
-      "name": "comic_translation_codex_waiting",
-      "value": "ブラウザーでの承認を待機中"
-    },
-    {
-      "name": "comic_translation_codex_open_page",
-      "value": "Codex ログインページを開く"
     },
     {
       "name": "comic_translation_codex_open_failed",
@@ -5357,32 +4821,12 @@
       "value": "翻訳済みページを表示"
     },
     {
-      "name": "reader_comic_translation_result_visible",
-      "value": "翻訳済みページを表示しました"
-    },
-    {
-      "name": "reader_comic_translation_title",
-      "value": "%d ページの翻訳"
-    },
-    {
       "name": "reader_comic_translation_running",
       "value": "現在のページを文字起こしして翻訳中…"
     },
     {
       "name": "reader_comic_translation_prefetch_running",
       "value": "事前翻訳を完了しています…"
-    },
-    {
-      "name": "reader_comic_translation_refresh",
-      "value": "再翻訳"
-    },
-    {
-      "name": "reader_comic_translation_refreshing",
-      "value": "再翻訳中です。完了するまで前回の結果を表示します"
-    },
-    {
-      "name": "reader_comic_translation_refresh_failed",
-      "value": "再翻訳に失敗しました · %s · 前回の結果を表示しています"
     },
     {
       "name": "reader_comic_translation_image_unavailable",
@@ -5407,38 +4851,6 @@
     {
       "name": "reader_comic_translation_no_translatable_text",
       "value": "このページには翻訳可能な文字が検出されませんでした"
-    },
-    {
-      "name": "reader_comic_translation_cached",
-      "value": "キャッシュ"
-    },
-    {
-      "name": "reader_comic_translation_review_required",
-      "value": "要確認"
-    },
-    {
-      "name": "reader_comic_translation_consistency_conflict",
-      "value": "前のページと翻訳が異なります"
-    },
-    {
-      "name": "reader_comic_translation_block_review_required",
-      "value": "このテキストブロックは確認が必要です"
-    },
-    {
-      "name": "reader_comic_translation_ready",
-      "value": "完了"
-    },
-    {
-      "name": "reader_comic_translation_no_text",
-      "value": "このページに表示テキストは見つかりませんでした"
-    },
-    {
-      "name": "reader_comic_translation_source",
-      "value": "原文：%s"
-    },
-    {
-      "name": "reader_comic_translation_target",
-      "value": "翻訳：%s"
     },
     {
       "name": "llm_sources_title",
@@ -5513,10 +4925,6 @@
       "value": "コメント翻訳に使用"
     },
     {
-      "name": "llm_source_support_comments_hint",
-      "value": "Chat Completions のテキスト要求に対応"
-    },
-    {
       "name": "llm_source_support_manga",
       "value": "漫画翻訳に使用"
     },
@@ -5527,10 +4935,6 @@
     {
       "name": "llm_source_support_catalog",
       "value": "モデル一覧"
-    },
-    {
-      "name": "llm_source_support_catalog_hint",
-      "value": "利用可能なモデルの照会を許可"
     },
     {
       "name": "llm_source_catalog",
