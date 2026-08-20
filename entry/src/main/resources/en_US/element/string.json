@@ -2857,6 +2857,14 @@
       "value": "No downloaded models"
     },
     {
+      "name": "settings_reader_super_resolution_system",
+      "value": "System image super resolution"
+    },
+    {
+      "name": "settings_reader_super_resolution_system_ready",
+      "value": "Ready"
+    },
+    {
       "name": "settings_reader_super_resolution_model_download",
       "value": "Download"
     },
@@ -2945,6 +2953,18 @@
       "value": "Traits: General enhancement for photos and complex textures. Pros: Strong detail recovery. Cons: Large and slower; regular halftones may be flattened as noise and create visible tile differences."
     },
     {
+      "name": "settings_reader_super_resolution_scope_system",
+      "value": "All pages"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_system",
+      "value": "Speed varies by device"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_system",
+      "value": "Uses the system image super-resolution capability. No model download is required; quality and speed vary by device."
+    },
+    {
       "name": "settings_reader_super_resolution_tiling_limit_description",
       "value": "Regular halftones, repeating noise, or areas without line references may be smoothed at different strengths by adjacent tiles, producing visible tile differences."
     },
@@ -2999,6 +3019,10 @@
     {
       "name": "settings_reader_super_resolution_backend_npu",
       "value": "NPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_system",
+      "value": "System AI"
     },
     {
       "name": "settings_reader_super_resolution_max_height",

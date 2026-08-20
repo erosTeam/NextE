@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
-import { zlib } from '@kit.BasicServicesKit'
+import { deviceInfo, zlib } from '@kit.BasicServicesKit'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -77,11 +77,29 @@ export class ReaderSuperResolutionModelService {
   private static directInstallTasks: Map<string, Promise<void>> = new Map<string, Promise<void>>()
 
   static definitions(): ReaderSuperResolutionModelDefinition[] {
-    return ReaderSuperResolutionModelRegistry.all()
+    const definitions: ReaderSuperResolutionModelDefinition[] =
+      ReaderSuperResolutionModelRegistry.all()
+    const available: ReaderSuperResolutionModelDefinition[] = []
+    for (let i: number = 0; i < definitions.length; i++) {
+      if (!definitions[i].systemModel ||
+        ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
+        available.push(definitions[i])
+      }
+    }
+    return available
   }
 
   static userAvailableDefinitions(): ReaderSuperResolutionModelDefinition[] {
-    return ReaderSuperResolutionModelRegistry.userAvailable()
+    const definitions: ReaderSuperResolutionModelDefinition[] =
+      ReaderSuperResolutionModelRegistry.userAvailable()
+    const available: ReaderSuperResolutionModelDefinition[] = []
+    for (let i: number = 0; i < definitions.length; i++) {
+      if (!definitions[i].systemModel ||
+        ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
+        available.push(definitions[i])
+      }
+    }
+    return available
   }
 
   static modelBytes(model: string): number {
@@ -94,6 +112,9 @@ export class ReaderSuperResolutionModelService {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
+      return 0
+    }
+    if (definition.systemModel) {
       return 0
     }
     const paths: ReaderSuperResolutionModelPaths =
@@ -124,6 +145,9 @@ export class ReaderSuperResolutionModelService {
     if (definition === null) {
       return false
     }
+    if (definition.systemModel) {
+      return ReaderSuperResolutionModelService.systemSuperResolutionSupported()
+    }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.paths(context, definition)
     const runtimeInstalled: boolean = ReaderSuperResolutionModelService.validateFile(
@@ -144,7 +168,7 @@ export class ReaderSuperResolutionModelService {
   static async installedModels(context: common.UIAbilityContext): Promise<string[]> {
     const installed: string[] = []
     const definitions: ReaderSuperResolutionModelDefinition[] =
-      ReaderSuperResolutionModelRegistry.userAvailable()
+      ReaderSuperResolutionModelService.userAvailableDefinitions()
     for (let i: number = 0; i < definitions.length; i++) {
       if (await ReaderSuperResolutionModelService.isInstalled(context, definitions[i].id)) {
         installed.push(definitions[i].id)
@@ -160,6 +184,9 @@ export class ReaderSuperResolutionModelService {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
+      return null
+    }
+    if (definition.systemModel) {
       return null
     }
     if (definition.installStrategy ===
@@ -179,6 +206,12 @@ export class ReaderSuperResolutionModelService {
       ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
       throw new Error(`unsupported super-resolution model: ${model}`)
+    }
+    if (definition.systemModel) {
+      if (!ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
+        throw new Error('system super-resolution is unavailable')
+      }
+      return
     }
     if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
       await ReaderSuperResolutionModelService.installWaifu2x(context)
@@ -218,6 +251,9 @@ export class ReaderSuperResolutionModelService {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
+      return
+    }
+    if (definition.systemModel) {
       return
     }
     if (definition.installStrategy ===
@@ -315,7 +351,7 @@ export class ReaderSuperResolutionModelService {
   ): string | null {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
-    if (definition === null) {
+    if (definition === null || definition.systemModel) {
       return null
     }
     const path: string = ReaderSuperResolutionModelService.paths(
@@ -330,6 +366,11 @@ export class ReaderSuperResolutionModelService {
       definition.acceleratedModelBytes,
       definition.acceleratedModelSha256,
     ) ? path : null
+  }
+
+  static systemSuperResolutionSupported(): boolean {
+    return deviceInfo.apiAvailable('26.0.0') &&
+      canIUse('SystemCapability.AI.Vision.VisionBase')
   }
 
   static async installWaifu2x(context: common.UIAbilityContext): Promise<void> {

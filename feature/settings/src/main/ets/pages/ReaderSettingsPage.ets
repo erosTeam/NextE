@@ -313,6 +313,9 @@ export struct ReaderSettingsPage {
   }
 
   private superResolutionModelTitle(model: string): ResourceStr {
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+      return $r('app.string.settings_reader_super_resolution_system')
+    }
     if (model === ReaderSuperResolutionModel.ESPCN_X2) {
       return $r('app.string.settings_reader_super_resolution_espcn_2x')
     }

@@ -117,6 +117,9 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private modelTitle(model: string): ResourceStr {
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+      return $r('app.string.settings_reader_super_resolution_system')
+    }
     if (model === ReaderSuperResolutionModel.ESPCN_X2) {
       return $r('app.string.settings_reader_super_resolution_espcn_2x')
     }
@@ -139,6 +142,9 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private modelTitleText(model: string): string {
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+      return AppStrings.get('settings_reader_super_resolution_system')
+    }
     if (model === ReaderSuperResolutionModel.ESPCN_X2) {
       return AppStrings.get('settings_reader_super_resolution_espcn_2x')
     }
@@ -171,6 +177,9 @@ export struct ReaderSuperResolutionModelsPage {
     const scope: string = AppStrings.get(definition.usageScopeStringKey)
     const performance: string = AppStrings.get(definition.performanceStringKey)
     const details: string = AppStrings.get(definition.detailsStringKey)
+    if (definition.systemModel) {
+      return `${scope} · ${performance}\n${details}`
+    }
     const bytes: number = definition.downloadBytes()
     const size: string = bytes < 1024 * 1024
       ? `${Math.round(bytes / 1024)} KB`
@@ -179,7 +188,7 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {
-    if (state.installed || state.downloading) {
+    if (state.definition.systemModel || state.installed || state.downloading) {
       return
     }
     state.downloading = true
@@ -200,6 +209,9 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private confirmRemoveModel(state: ReaderSuperResolutionModelFileState): void {
+    if (state.definition.systemModel) {
+      return
+    }
     const message: string = AppStrings.get('settings_reader_super_resolution_model_delete_confirm')
       .replace('%s', this.modelTitleText(state.definition.id))
     this.getUIContext().showAlertDialog({
@@ -219,7 +231,7 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   private removeModel(state: ReaderSuperResolutionModelFileState): void {
-    if (!state.installed || state.downloading) {
+    if (state.definition.systemModel || !state.installed || state.downloading) {
       return
     }
     ReaderSuperResolutionModelService.remove(this.context(), state.definition.id)
@@ -254,7 +266,12 @@ export struct ReaderSuperResolutionModelsPage {
 
   @Builder
   private ModelAction(state: ReaderSuperResolutionModelFileState) {
-    if (state.downloading) {
+    if (state.definition.systemModel) {
+      Text($r('app.string.settings_reader_super_resolution_system_ready'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
+        .accessibilityText($r('app.string.settings_reader_super_resolution_system_ready'))
+    } else if (state.downloading) {
       Button({ type: ButtonType.Circle, stateEffect: false }) {
         LoadingProgress()
           .width(ThemeConstants.FONT_SIZE_TITLE)

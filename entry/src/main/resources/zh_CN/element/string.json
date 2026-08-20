@@ -2857,6 +2857,14 @@
       "value": "暂无已下载模型"
     },
     {
+      "name": "settings_reader_super_resolution_system",
+      "value": "系统图像超分"
+    },
+    {
+      "name": "settings_reader_super_resolution_system_ready",
+      "value": "已就绪"
+    },
+    {
       "name": "settings_reader_super_resolution_model_download",
       "value": "下载"
     },
@@ -2945,6 +2953,18 @@
       "value": "特点：照片与复杂纹理通用增强；优点：细节恢复能力强；缺点：体积和耗时较大，规则网点可能被当作噪点抹平并产生明显块差。"
     },
     {
+      "name": "settings_reader_super_resolution_scope_system",
+      "value": "全部页面"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_system",
+      "value": "速度因设备而异"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_system",
+      "value": "使用系统提供的图像超分能力，无需下载模型；效果与速度因设备而异。"
+    },
+    {
       "name": "settings_reader_super_resolution_tiling_limit_description",
       "value": "规则网点、重复噪点或缺少线条参照的区域，可能被相邻分块以不同强度抹平，形成可见块差。"
     },
@@ -2999,6 +3019,10 @@
     {
       "name": "settings_reader_super_resolution_backend_npu",
       "value": "NPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_system",
+      "value": "系统 AI"
     },
     {
       "name": "settings_reader_super_resolution_max_height",

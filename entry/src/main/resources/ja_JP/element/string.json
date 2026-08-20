@@ -2857,6 +2857,14 @@
       "value": "ダウンロード済みモデルはありません"
     },
     {
+      "name": "settings_reader_super_resolution_system",
+      "value": "システム超解像度"
+    },
+    {
+      "name": "settings_reader_super_resolution_system_ready",
+      "value": "利用可能"
+    },
+    {
       "name": "settings_reader_super_resolution_model_download",
       "value": "ダウンロード"
     },
@@ -2945,6 +2953,18 @@
       "value": "特徴：写真と複雑な質感の汎用補正。メリット：細部の復元力が高い。デメリット：大容量で遅く、規則的な網点をノイズとして均し、目立つタイル差が出る場合があります。"
     },
     {
+      "name": "settings_reader_super_resolution_scope_system",
+      "value": "すべてのページ"
+    },
+    {
+      "name": "settings_reader_super_resolution_performance_system",
+      "value": "速度は端末依存"
+    },
+    {
+      "name": "settings_reader_super_resolution_details_system",
+      "value": "システム提供の超解像度機能を使用します。モデルのダウンロードは不要で、品質と速度は端末によって異なります。"
+    },
+    {
       "name": "settings_reader_super_resolution_tiling_limit_description",
       "value": "規則的な網点、反復ノイズ、線の手掛かりがない領域は、隣接タイルごとに異なる強さで均され、目立つタイル差が生じる場合があります。"
     },
@@ -2999,6 +3019,10 @@
     {
       "name": "settings_reader_super_resolution_backend_npu",
       "value": "NPU"
+    },
+    {
+      "name": "settings_reader_super_resolution_backend_system",
+      "value": "システム AI"
     },
     {
       "name": "settings_reader_super_resolution_max_height",

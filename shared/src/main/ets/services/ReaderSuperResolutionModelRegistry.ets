@@ -35,6 +35,7 @@ export class ReaderSuperResolutionModelDefinition {
   inputName: string = 'Input1'
   outputName: string = 'Eltwise4'
   effectStrengthPercent: number = 100
+  systemModel: boolean = false
   usageScopeStringKey: string = ''
   performanceStringKey: string = ''
   detailsStringKey: string = ''
@@ -67,6 +68,19 @@ export class ReaderSuperResolutionModelDefinition {
     config.effectStrengthPercent = this.effectStrengthPercent
     return config
   }
+}
+
+function systemDefinition(): ReaderSuperResolutionModelDefinition {
+  const definition: ReaderSuperResolutionModelDefinition =
+    new ReaderSuperResolutionModelDefinition()
+  definition.id = ReaderSuperResolutionModel.SYSTEM_CORE_VISION
+  definition.systemModel = true
+  definition.directoryName = 'system-core-vision'
+  definition.pipelineVersion = 'system-core-vision-jpeg-v1'
+  definition.usageScopeStringKey = 'settings_reader_super_resolution_scope_system'
+  definition.performanceStringKey = 'settings_reader_super_resolution_performance_system'
+  definition.detailsStringKey = 'settings_reader_super_resolution_details_system'
+  return definition
 }
 
 const WAIFU2X_REVISION: string = '64914665c45893135c9e50c1c296170a121b9f77'
@@ -382,6 +396,7 @@ function realEsrganPhotoDefinition(): ReaderSuperResolutionModelDefinition {
 }
 
 const MODEL_DEFINITIONS: ReaderSuperResolutionModelDefinition[] = [
+  systemDefinition(),
   espcnDefinition(),
   waifu2xPhotoDefinition(),
   waifu2xArtDefinition(),

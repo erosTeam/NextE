@@ -1028,6 +1028,9 @@ export struct ReaderPage {
   }
 
   private imageEnhancementModelLabel(model: string): string {
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+      return AppStrings.get('settings_reader_super_resolution_system')
+    }
     if (model === ReaderSuperResolutionModel.ESPCN_X2) {
       return AppStrings.get('settings_reader_super_resolution_espcn_2x')
     }
@@ -1053,6 +1056,9 @@ export struct ReaderPage {
   }
 
   private imageEnhancementBackendLabel(reason: string): string {
+    if (reason.endsWith(':system')) {
+      return AppStrings.get('settings_reader_super_resolution_backend_system')
+    }
     if (reason.endsWith(':nnrt')) {
       return AppStrings.get('settings_reader_super_resolution_backend_npu')
     }

@@ -685,6 +685,9 @@ export default function readerSuperResolutionModelIntegrationTest(): void {
         ReaderSuperResolutionModelRegistry.all()
       for (let i: number = 0; i < definitions.length; i++) {
         const definition: ReaderSuperResolutionModelDefinition = definitions[i]
+        if (definition.systemModel) {
+          continue
+        }
         ReaderSuperResolutionModelService.remove(context, definition.id)
         await ReaderSuperResolutionModelService.install(context, definition.id)
         const paths: ReaderSuperResolutionModelPaths | null =

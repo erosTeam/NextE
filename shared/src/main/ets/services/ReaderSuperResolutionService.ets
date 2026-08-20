@@ -31,6 +31,7 @@ import {
   ReaderSuperResolutionModelDefinition,
   ReaderSuperResolutionModelRegistry,
 } from './ReaderSuperResolutionModelRegistry'
+import { ReaderSystemSuperResolutionService } from './ReaderSystemSuperResolutionService'
 
 const CACHE_DIR_NAME: string = 'reader-super-resolution-cache'
 const OUTPUT_SCALE: number = 2
@@ -39,6 +40,9 @@ const OUTPUT_SCALE: number = 2
 const MAX_OUTPUT_EDGE: number = READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT * OUTPUT_SCALE
 const MAX_OUTPUT_PIXELS: number = MAX_OUTPUT_EDGE * MAX_OUTPUT_EDGE
 const MAX_OUTPUT_PIXEL_BYTES: number = MAX_OUTPUT_PIXELS * 4
+const SYSTEM_MAX_OUTPUT_EDGE: number = READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT * 4
+const SYSTEM_MAX_OUTPUT_PIXELS: number = SYSTEM_MAX_OUTPUT_EDGE * SYSTEM_MAX_OUTPUT_EDGE
+const SYSTEM_MAX_OUTPUT_PIXEL_BYTES: number = SYSTEM_MAX_OUTPUT_PIXELS * 4
 const MAX_CACHE_FILE_COUNT: number = 64
 const MAX_CACHE_BYTES: number = 256 * 1024 * 1024
 const HASH_CHUNK_BYTES: number = 256 * 1024
@@ -239,6 +243,12 @@ export class ReaderSuperResolutionService {
     backendPreference: string,
   ): Promise<void> {
     try {
+      if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+        if (ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
+          ReaderSuperResolutionService.setInteractionProtectionRequired(true)
+        }
+        return
+      }
       const nnrtModelPath: string | null =
         ReaderSuperResolutionService.nnrtModelPath(context, model, backendPreference)
       const modelPaths: ReaderSuperResolutionModelPaths | null =
@@ -346,6 +356,11 @@ export class ReaderSuperResolutionService {
       ReaderSuperResolutionService.releaseOwner(ownerKey)
       return ReaderSuperResolutionService.originalResult(sourcePath, 'backend_unavailable')
     }
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION &&
+      !ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
+      ReaderSuperResolutionService.releaseOwner(ownerKey)
+      return ReaderSuperResolutionService.originalResult(sourcePath, 'backend_unavailable')
+    }
     const backendPreference: string = connectReadMode().superResolutionBackend
 
     const sourceStat: fileIo.Stat | null = ReaderSuperResolutionService.fileStat(sourcePath)
@@ -399,13 +414,21 @@ export class ReaderSuperResolutionService {
         ? `cache_hit:${cachedResult.backend}`
         : 'cache_hit'
       let cachedSource: image.ImageSource | undefined = undefined
+      let cachedOutput: image.ImageSource | undefined = undefined
       try {
         cachedSource = image.createImageSource(sourcePath)
         const cachedSourceInfo: image.ImageInfo = await cachedSource.getImageInfo()
         cachedResult.sourceWidth = cachedSourceInfo.size.width
         cachedResult.sourceHeight = cachedSourceInfo.size.height
-        cachedResult.outputWidth = cachedResult.sourceWidth * OUTPUT_SCALE
-        cachedResult.outputHeight = cachedResult.sourceHeight * OUTPUT_SCALE
+        if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+          cachedOutput = image.createImageSource(outputPath)
+          const cachedOutputInfo: image.ImageInfo = await cachedOutput.getImageInfo()
+          cachedResult.outputWidth = cachedOutputInfo.size.width
+          cachedResult.outputHeight = cachedOutputInfo.size.height
+        } else {
+          cachedResult.outputWidth = cachedResult.sourceWidth * OUTPUT_SCALE
+          cachedResult.outputHeight = cachedResult.sourceHeight * OUTPUT_SCALE
+        }
       } catch (error) {
         DiagnosticLogger.warn(
           'reader-super-resolution',
@@ -415,6 +438,9 @@ export class ReaderSuperResolutionService {
       } finally {
         if (cachedSource !== undefined) {
           await cachedSource.release()
+        }
+        if (cachedOutput !== undefined) {
+          await cachedOutput.release()
         }
       }
       return cachedResult
@@ -453,16 +479,25 @@ export class ReaderSuperResolutionService {
       )
     inFlight.promise = task
     inFlight.startAction = (): Promise<ReaderSuperResolutionResult> =>
-      ReaderSuperResolutionService.processNow(
-        context,
-        sourcePath,
-        sourceKey,
-        outputPath,
-        maxHeight,
-        model,
-        backendPreference,
-        inFlight,
-    )
+      model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION
+        ? ReaderSuperResolutionService.processNowSystem(
+          context,
+          sourcePath,
+          sourceKey,
+          outputPath,
+          maxHeight,
+          inFlight,
+        )
+        : ReaderSuperResolutionService.processNow(
+          context,
+          sourcePath,
+          sourceKey,
+          outputPath,
+          maxHeight,
+          model,
+          backendPreference,
+          inFlight,
+        )
     ReaderSuperResolutionService.inFlight.set(outputPath, inFlight)
     onTaskState(ReaderSuperResolutionTaskState.QUEUED)
     DiagnosticLogger.info(
@@ -703,6 +738,210 @@ export class ReaderSuperResolutionService {
       await new Promise<void>((resolve: () => void): void => {
         setTimeout((): void => resolve(), 20)
       })
+    }
+  }
+
+  private static async processNowSystem(
+    context: common.UIAbilityContext,
+    sourcePath: string,
+    sourceKey: string,
+    outputPath: string,
+    maxHeight: number,
+    inFlight: ReaderSuperResolutionInFlightTask,
+  ): Promise<ReaderSuperResolutionResult> {
+    const startedAt: number = Date.now()
+    const eventLoopProbe: ReaderSuperResolutionEventLoopProbe =
+      new ReaderSuperResolutionEventLoopProbe()
+    eventLoopProbe.start()
+    let source: image.ImageSource | undefined = undefined
+    let outputPixelMap: image.PixelMap | undefined = undefined
+    let normalizedPixelMap: image.PixelMap | undefined = undefined
+    let packer: image.ImagePacker | undefined = undefined
+    let outputFile: fileIo.File | null = null
+    const tmpPath: string = `${outputPath}.part`
+    let sourceWidth: number = 0
+    let sourceHeight: number = 0
+    let processingStage: string = 'system_source'
+    try {
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
+      source = image.createImageSource(sourcePath)
+      const sourceInfo: image.ImageInfo = await source.getImageInfo()
+      sourceWidth = sourceInfo.size.width
+      sourceHeight = sourceInfo.size.height
+      if (sourceWidth <= 0 || sourceHeight <= 0) {
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'invalid_dimensions',
+        )
+      }
+      if (sourceHeight > maxHeight) {
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'height_limit',
+        )
+      }
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'process_start',
+        `model=${ReaderSuperResolutionModel.SYSTEM_CORE_VISION} ` +
+          `source=${sourceWidth}x${sourceHeight} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      )
+      processingStage = 'system_process'
+      outputPixelMap = await ReaderSystemSuperResolutionService.process(sourcePath, maxHeight)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
+      if (outputPixelMap === undefined) {
+        throw new Error('system image super-resolution returned no output')
+      }
+      const outputInfo: image.ImageInfo = await outputPixelMap.getImageInfo()
+      const outputWidth: number = outputInfo.size.width
+      const outputHeight: number = outputInfo.size.height
+      const outputPixels: number = outputWidth * outputHeight
+      if (outputWidth <= 0 || outputHeight <= 0) {
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'invalid_dimensions',
+        )
+      }
+      if (outputWidth > SYSTEM_MAX_OUTPUT_EDGE || outputHeight > SYSTEM_MAX_OUTPUT_EDGE ||
+        outputPixels > SYSTEM_MAX_OUTPUT_PIXELS ||
+        outputPixels * 4 > SYSTEM_MAX_OUTPUT_PIXEL_BYTES) {
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'device_size_limit',
+        )
+      }
+      // Core Vision may return an internal hardware layout that ImagePacker cannot encode.
+      processingStage = 'system_normalize'
+      const normalizedBuffer: ArrayBuffer = new ArrayBuffer(outputPixels * 4)
+      await outputPixelMap.readPixelsToBuffer(normalizedBuffer)
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
+      const normalizedOptions: image.InitializationOptions = {
+        size: { width: outputWidth, height: outputHeight },
+        srcPixelFormat: image.PixelMapFormat.RGBA_8888,
+        pixelFormat: image.PixelMapFormat.RGBA_8888,
+        editable: false,
+      }
+      normalizedPixelMap = await image.createPixelMap(normalizedBuffer, normalizedOptions)
+      ReaderSuperResolutionService.removeIfExists(tmpPath)
+      processingStage = 'output_file'
+      outputFile = fileIo.openSync(
+        tmpPath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
+      packer = image.createImagePacker()
+      processingStage = 'output_pack'
+      await packer.packToFile(normalizedPixelMap, outputFile.fd, {
+        format: 'image/jpeg',
+        quality: 98,
+      })
+      ReaderSuperResolutionService.ensureTaskActive(inFlight)
+      fileIo.closeSync(outputFile)
+      outputFile = null
+      ReaderSuperResolutionService.removeIfExists(outputPath)
+      ReaderSuperResolutionService.removeIfExists(
+        ReaderSuperResolutionService.backendMetadataPath(outputPath),
+      )
+      fileIo.renameSync(tmpPath, outputPath)
+      ReaderSuperResolutionService.writeBackendMetadata(outputPath, 'system')
+      const outputBytes: number = ReaderSuperResolutionService.fileSize(outputPath)
+      if (outputBytes <= 0) {
+        throw new Error('enhanced image file is empty')
+      }
+      ReaderSuperResolutionService.touch(outputPath)
+      const elapsedMs: number = Date.now() - startedAt
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'process_success',
+        `model=${ReaderSuperResolutionModel.SYSTEM_CORE_VISION} ` +
+          `source=${sourceWidth}x${sourceHeight} output=${outputWidth}x${outputHeight} ` +
+          `backend=system bytes=${outputBytes} elapsedMs=${elapsedMs} ` +
+          `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      )
+      await ReaderSuperResolutionService.pruneToLimit(context, outputPath)
+      const result: ReaderSuperResolutionResult = new ReaderSuperResolutionResult()
+      result.filePath = outputPath
+      result.displayUri = ReaderSuperResolutionService.displayUri(outputPath)
+      result.applied = true
+      result.sourceWidth = sourceWidth
+      result.sourceHeight = sourceHeight
+      result.outputWidth = outputWidth
+      result.outputHeight = outputHeight
+      result.elapsedMs = elapsedMs
+      result.backend = 'system'
+      result.reason = 'processed:system'
+      return result
+    } catch (error) {
+      ReaderSuperResolutionService.removeIfExists(tmpPath)
+      const message: string = (error as Error).message
+      if (message === SUPER_RESOLUTION_SUPERSEDED_ERROR ||
+        !ReaderSuperResolutionService.hasActiveOwner(inFlight)) {
+        DiagnosticLogger.info(
+          'reader-super-resolution',
+          'process_superseded',
+          `request=${inFlight.requestId} keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+        )
+        return ReaderSuperResolutionService.skipResult(
+          sourcePath,
+          sourceWidth,
+          sourceHeight,
+          startedAt,
+          'superseded',
+        )
+      }
+      DiagnosticLogger.warn(
+        'reader-super-resolution',
+        'process_failed',
+        `stage=${processingStage} message=${message} ` +
+          `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      )
+      return ReaderSuperResolutionService.originalResult(sourcePath, 'processing_failed')
+    } finally {
+      eventLoopProbe.stop()
+      DiagnosticLogger.info(
+        'reader-super-resolution',
+        'event_loop_probe',
+        `samples=${eventLoopProbe.sampleCount()} ` +
+          `p95DelayMs=${eventLoopProbe.percentile95DelayMs()} ` +
+          `maxDelayMs=${eventLoopProbe.maximumDelayMs()} ` +
+          `keyHash=${DiagnosticLogger.ownerHash(sourceKey)}`,
+      )
+      if (outputFile !== null) {
+        try {
+          fileIo.closeSync(outputFile)
+        } catch (_error) {}
+      }
+      if (packer !== undefined) {
+        try {
+          await packer.release()
+        } catch (_releaseError) {}
+      }
+      if (normalizedPixelMap !== undefined) {
+        try {
+          await normalizedPixelMap.release()
+        } catch (_releaseError) {}
+      }
+      if (outputPixelMap !== undefined) {
+        try {
+          await outputPixelMap.release()
+        } catch (_releaseError) {}
+      }
+      if (source !== undefined) {
+        try {
+          await source.release()
+        } catch (_releaseError) {}
+      }
     }
   }
 
@@ -987,8 +1226,11 @@ export class ReaderSuperResolutionService {
   private static pipelineVersion(model: string): string {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
-    return definition === null
-      ? 'unsupported'
+    if (definition === null) {
+      return 'unsupported'
+    }
+    return definition.systemModel
+      ? definition.pipelineVersion
       : `${definition.pipelineVersion}|runtime=${NATIVE_PIPELINE_VERSION}`
   }
 
@@ -1205,7 +1447,7 @@ export class ReaderSuperResolutionService {
   }
 
   private static writeBackendMetadata(outputPath: string, backend: string): void {
-    if (backend !== 'vulkan' && backend !== 'cpu') {
+    if (backend !== 'vulkan' && backend !== 'cpu' && backend !== 'system') {
       return
     }
     const path: string = ReaderSuperResolutionService.backendMetadataPath(outputPath)
@@ -1237,7 +1479,7 @@ export class ReaderSuperResolutionService {
       const value: string = fileIo.readTextSync(
         ReaderSuperResolutionService.backendMetadataPath(outputPath),
       ).trim()
-      return value === 'vulkan' || value === 'cpu' ? value : ''
+      return value === 'vulkan' || value === 'cpu' || value === 'system' ? value : ''
     } catch (_error) {
       return ''
     }
