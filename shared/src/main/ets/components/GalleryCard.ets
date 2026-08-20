@@ -160,7 +160,7 @@ export struct GalleryCard {
               .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .constraintSize({ maxWidth: 160 })
+              .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
               .onClick(() => {
                 this.searchTag(t)
               })

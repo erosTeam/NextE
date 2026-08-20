@@ -278,7 +278,7 @@ export struct GalleryWaterfallCard {
         .padding({ left: 6, right: 6, top: 3, bottom: 3 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .constraintSize({ maxWidth: 150 })
+        .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
         .onClick(this.tagClickHandlers[index])
     }
   }
@@ -293,7 +293,7 @@ export struct GalleryWaterfallCard {
         .textShadow(this.compactTagTextShadowsAt(index))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .constraintSize({ maxWidth: 150 })
+        .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
         .onClick(this.tagClickHandlers[index])
     }
   }
