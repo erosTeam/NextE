@@ -10,6 +10,7 @@
  *     deferred persistence can reject an old snapshot that finishes after a newer page turn.
  *   • serialize ⇄ parse round-trips; parse is defensive (bad JSON / shape / fields → dropped).
  *   • the detail READ button resumes at, and labels with, the saved page (resumeIndex>0).
+ *   • Reader persists every page, while Detail freezes its button until the Reader exit starts.
  *   • a resumed start index that overshoots the loaded page count is clamped (ReaderViewModel.init).
  * If the .ets logic changes, mirror it here.
  *
@@ -468,6 +469,24 @@ const ok = (name, cond) => {
   ok('no progress → plain read', usesResumeLabel(0) === false)
   ok('progress → resume', usesResumeLabel(4) === true)
   ok('1-based page label', resumePageLabel(4) === 5)
+
+  const syncDetailSnapshot = (state) => state.getIndex('g')
+  const p1State = new ProgressStore()
+  p1State.setIndex('g', 4, 100)
+  let p1Displayed = syncDetailSnapshot(p1State)
+  p1State.setIndex('g', 0, 101)
+  ok('page 1 is recorded while Reader is open', p1State.getIndex('g') === 0)
+  ok('page 1 live persistence does not change the covered Detail button', p1Displayed === 4)
+  p1Displayed = syncDetailSnapshot(p1State)
+  ok('page 1 exit reveals the plain read label', usesResumeLabel(p1Displayed) === false)
+
+  const p5State = new ProgressStore()
+  let p5Displayed = syncDetailSnapshot(p5State)
+  p5State.setIndex('g', 4, 101)
+  ok('page 5 is recorded through the same live path', p5State.getIndex('g') === 4)
+  ok('page 5 live persistence does not change the covered Detail button', p5Displayed === 0)
+  p5Displayed = syncDetailSnapshot(p5State)
+  ok('page 5 exit reveals the resume label', usesResumeLabel(p5Displayed) === true)
 }
 
 // 7. durable progress is restored at startup
@@ -510,6 +529,40 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets'),
     'utf8',
   )
+  const readerPageSrc = readFileSync(
+    join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'),
+    'utf8',
+  )
+  const detailPageSrc = readFileSync(
+    join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
+    'utf8',
+  )
+  const overlayStateSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/state/ReaderOverlayNavigationState.ets'),
+    'utf8',
+  )
+  const sessionMethod = readerPageSrc.match(/private startReaderSession\([\s\S]*?\n  }\n\n  private requestReaderKeyFocus/)?.[0] ?? ''
+  const pageChangedMethod = readerPageSrc.match(/onPageChanged\(\): void \{[\s\S]*?\n  }\n\n  @Monitor\('readMode\.superResolutionEnabled'/)?.[0] ?? ''
+  ok('reader session explicitly publishes page 1 and every selected initial page',
+    /this\.readerReady = true[\s\S]*?this\.publishReaderProgress\(targetIndex\)/.test(sessionMethod))
+  ok('reader page changes persist during the live session',
+    /this\.publishReaderProgress\(this\.vm\.currentIndex\)/.test(pageChangedMethod))
+  ok('reader de-duplicates only identical consecutive progress writes',
+    /private publishReaderProgress\(index: number\): void \{[\s\S]*?this\.lastPublishedProgressIndex === index[\s\S]*?this\.lastPublishedProgressIndex = index[\s\S]*?GalleryReadProgressSettings\.setIndex/.test(readerPageSrc))
+  ok('detail button reads a frozen display snapshot',
+    /@Local displayedResumeIndex: number = 0/.test(detailPageSrc) &&
+    /private resumeIndex\(\): number \{\s*return this\.displayedResumeIndex\s*\}/.test(detailPageSrc))
+  ok('detail ignores live progress while Reader is visible and syncs when exit starts',
+    /@Monitor\('readProgress\.revision'\)[\s\S]*?if \(!this\.readerOverlay\.visible\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc) &&
+    /@Monitor\('readerOverlay\.closing'\)[\s\S]*?if \(this\.readerOverlay\.closing\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc))
+  ok('overlay publishes closing before its animated pop',
+    /@Trace closing: boolean = false/.test(overlayStateSrc) &&
+    /close\(\): void \{[\s\S]*?this\.closing = true\s*this\.stack\.pop\(true\)/.test(overlayStateSrc))
+  ok('page-index persistence starts immediately instead of waiting for the metadata debounce',
+    /static setIndex\([\s\S]*?markDirty\(state, gid\)[\s\S]*?requestImmediatePersist\(context\)/.test(settingsSrc) &&
+    /private static async drainImmediatePersists\([\s\S]*?while \(GalleryReadProgressSettings\.immediatePersistRequested\)[\s\S]*?await GalleryReadProgressSettings\.persist/.test(settingsSrc))
+  ok('reader disappearance still drains the final dirty snapshot',
+    /aboutToDisappear\(\): void \{[\s\S]*?GalleryReadProgressSettings\.flush\(this\.hostContext\(\)\)/.test(readerPageSrc))
   ok('reader init clamps the start index', /const total: number = this\.totalPages\(\)[\s\S]*this\.currentIndex = total > 0 \? Math\.min\(startIndex, total - 1\) : 0/.test(vmSrc))
 }
 

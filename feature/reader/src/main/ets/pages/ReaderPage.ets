@@ -336,6 +336,7 @@ export struct ReaderPage {
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private readerClosing: boolean = false;
+  private lastPublishedProgressIndex: number = -1;
   private readerStatusBarHideTimerId: number = -1;
   private readerRouteEpoch: number = 0;
   private sliderSyncToken: number = 0;
@@ -486,6 +487,7 @@ export struct ReaderPage {
       if (p !== undefined && p.gid.length > 0) {
         this.clearPendingEntryStatusBarHide()
         this.readerClosing = false
+        this.lastPublishedProgressIndex = -1
         this.readerReady = false
         this.stopAutoRead()
         this.resetReaderGalleryState()
@@ -601,6 +603,9 @@ export struct ReaderPage {
         this.verticalVisibleStart = targetIndex
         this.verticalVisibleEnd = targetIndex
         this.readerReady = true
+        // Publish the selected thumbnail even when it is page 1 (0 -> 0 does not trigger the
+        // currentIndex Monitor). Detail freezes its button while Reader is visible.
+        this.publishReaderProgress(targetIndex)
         if (this.isContinuousVerticalMode()) {
           setTimeout(() => {
             if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
@@ -836,6 +841,18 @@ export struct ReaderPage {
 
   private hostContext(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private publishReaderProgress(index: number): void {
+    if (this.params.gid.length === 0 || index < 0 || this.lastPublishedProgressIndex === index) {
+      return
+    }
+    this.lastPublishedProgressIndex = index
+    GalleryReadProgressSettings.setIndex(
+      this.hostContext(),
+      this.params.gid,
+      index,
+    )
   }
 
   private isReaderRouteCurrent(
@@ -2569,7 +2586,8 @@ export struct ReaderPage {
   }
 
   // Keep the slider thumb on the live page when the user swipes (not while they drag the slider),
-  // and persist the reading position (eros_fe saveLastIndex: memory now, disk on a 3s debounce).
+  // Keep the slider thumb on the live page and persist every settled reading position. Detail owns
+  // a frozen display snapshot while Reader is visible, so persistence never controls button timing.
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
     if (this.comicTranslationPageIndex >= 0 &&
@@ -2595,13 +2613,7 @@ export struct ReaderPage {
     }
     this.readerPagerIndex = this.readerPagerIndexFor(this.vm.currentIndex)
     this.scrollThumbStripTo(this.vm.currentIndex, true)
-    if (this.params.gid.length > 0) {
-      GalleryReadProgressSettings.setIndex(
-        this.hostContext(),
-        this.params.gid,
-        this.vm.currentIndex,
-      )
-    }
+    this.publishReaderProgress(this.vm.currentIndex)
     this.syncCurrentImageBlockFile()
     this.scheduleComicTranslationAutoForCurrentPage()
     setTimeout((): void => {

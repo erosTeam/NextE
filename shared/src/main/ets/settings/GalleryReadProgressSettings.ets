@@ -11,18 +11,16 @@ import { ReadProgressRepository } from '../storage/ReadProgressRepository'
 import { SyncScheduler } from '../sync/SyncScheduler'
 import { ReadColumnMode } from '../state/ReadModeState'
 
-// eros_fe debounces the persistent write 3s after the index settles (view_state.dart) so paging
-// fast doesn't hammer the store; the in-memory value updates immediately on every page change.
+// Non-page metadata keeps the legacy debounce. Reader indexes use the coalescing immediate writer
+// below so a process kill does not leave an artificial multi-second durability window.
 const FLUSH_DEBOUNCE_MS: number = 3000
 
 /**
  * Persists per-gallery reading progress + is the single writer of GalleryReadProgressState.
  *
- * Two-tier, mirroring eros_fe (view_state `ever`+`debounce` over GalleryCacheController.setIndex):
- *   • setIndex(): update the in-memory holder NOW (so the detail READ button reflects it at once),
- *     then (re)schedule a single debounced disk flush ~3s later.
- *   • flush(): persist immediately + cancel the pending timer — called when the reader closes so the
- *     last page is never lost to an unfired debounce.
+ * setIndex() updates memory immediately and starts a coalescing RDB writer immediately. If more page
+ * changes arrive while one transaction is running, the next transaction writes only the latest dirty
+ * snapshot. Detail controls when that live state becomes visible; persistence does not own UI timing.
  * RDB is the durable source; the settings layer keeps only the latest unflushed record for each gid.
  */
 export class GalleryReadProgressSettings {
@@ -33,6 +31,8 @@ export class GalleryReadProgressSettings {
   // Keep every RDB mutation ordered. In particular, a backup restore must not be overtaken by a
   // saveEntries() batch that had already started when the restore UI was opened.
   private static rdbWriteTail: Promise<void> = Promise.resolve()
+  private static immediatePersistRequested: boolean = false
+  private static immediatePersistLoop: Promise<void> | null = null
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
     const state = connectGalleryReadProgress()
@@ -50,7 +50,7 @@ export class GalleryReadProgressSettings {
     }
   }
 
-  /** Record the current page for a gallery: memory now, disk on a debounce. */
+  /** Record the current page for a gallery: memory now, coalesced durable write immediately. */
   static setIndex(context: common.UIAbilityContext, gid: string, index: number): void {
     if (gid.length === 0 || index < 0) {
       return
@@ -58,7 +58,7 @@ export class GalleryReadProgressSettings {
     const state = connectGalleryReadProgress()
     state.setIndex(gid, index, Date.now())
     GalleryReadProgressSettings.markDirty(state, gid)
-    GalleryReadProgressSettings.schedulePersist(context)
+    GalleryReadProgressSettings.requestImmediatePersist(context)
   }
 
   static setColumnMode(context: common.UIAbilityContext, gid: string, columnMode: string): void {
@@ -74,13 +74,13 @@ export class GalleryReadProgressSettings {
     GalleryReadProgressSettings.schedulePersist(context)
   }
 
-  /** Force-persist now (reader exit) so a pending debounced write isn't lost. */
+  /** Drain the latest dirty snapshot now (also catches non-page debounced metadata on exit). */
   static flush(context: common.UIAbilityContext): void {
     if (GalleryReadProgressSettings.flushTimer >= 0) {
       clearTimeout(GalleryReadProgressSettings.flushTimer)
       GalleryReadProgressSettings.flushTimer = -1
     }
-    GalleryReadProgressSettings.persist(context)
+    GalleryReadProgressSettings.requestImmediatePersist(context)
   }
 
   /** Persist active reader state before a sync without scheduling that same provider again. */
@@ -89,7 +89,7 @@ export class GalleryReadProgressSettings {
       clearTimeout(GalleryReadProgressSettings.flushTimer)
       GalleryReadProgressSettings.flushTimer = -1
     }
-    await GalleryReadProgressSettings.persist(context, false)
+    await GalleryReadProgressSettings.requestImmediatePersist(context, false)
   }
 
   /**
@@ -125,7 +125,7 @@ export class GalleryReadProgressSettings {
         const persisted: ReadProgressEntry[] = await ReadProgressRepository.saveEntries(context, entries)
         // Do this in the queued work, after a successful SQL write. A newer page turn may have
         // replaced this gid in dirtyEntries while the batch was awaiting RDB; leave that newer
-        // entry alone so its already-scheduled flush receives its own logical timestamp.
+        // entry alone so the immediate drain gives it its own logical timestamp next.
         GalleryReadProgressSettings.reconcilePersisted(state, entries, persisted)
       })
       if (scheduleSync) {
@@ -134,6 +134,29 @@ export class GalleryReadProgressSettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_save_failed', (error as Error).message)
     }
+  }
+
+  private static requestImmediatePersist(
+    context: common.UIAbilityContext,
+    scheduleSync: boolean = true,
+  ): Promise<void> {
+    GalleryReadProgressSettings.immediatePersistRequested = true
+    if (GalleryReadProgressSettings.immediatePersistLoop === null) {
+      GalleryReadProgressSettings.immediatePersistLoop =
+        GalleryReadProgressSettings.drainImmediatePersists(context, scheduleSync)
+    }
+    return GalleryReadProgressSettings.immediatePersistLoop
+  }
+
+  private static async drainImmediatePersists(
+    context: common.UIAbilityContext,
+    scheduleSync: boolean,
+  ): Promise<void> {
+    while (GalleryReadProgressSettings.immediatePersistRequested) {
+      GalleryReadProgressSettings.immediatePersistRequested = false
+      await GalleryReadProgressSettings.persist(context, scheduleSync)
+    }
+    GalleryReadProgressSettings.immediatePersistLoop = null
   }
 
   private static markDirty(state: GalleryReadProgressState, gid: string): void {
@@ -164,7 +187,7 @@ export class GalleryReadProgressSettings {
   /**
    * Keep the in-memory clock aligned with the timestamp RDB actually accepted. A dirty record is
    * removed only when it is the same mutation that was written; a newer page turn remains dirty
-   * and its existing debounce will write it after this batch.
+   * and the immediate drain will write it after this batch.
    */
   private static reconcilePersisted(
     state: GalleryReadProgressState,

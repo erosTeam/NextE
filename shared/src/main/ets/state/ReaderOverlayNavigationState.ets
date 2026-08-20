@@ -11,8 +11,10 @@ import { ReaderParams } from '../model/RouteParams'
 export class ReaderOverlayNavigationState {
   @Trace visible: boolean = false
   @Trace stack: NavPathStack = new NavPathStack()
+  // Detail observes the start of the exit transition so it can reveal the already-persisted final
+  // progress without reacting to Reader's live writes while the overlay is open.
+  @Trace closing: boolean = false
   private pendingReader: ReaderParams | null = null
-  private closing: boolean = false
 
   open(params: ReaderParams): void {
     this.stack.clear(false)
