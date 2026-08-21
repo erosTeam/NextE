@@ -59,6 +59,16 @@ class CommentTextSegment {
   }
 }
 
+class CommentMentionRange {
+  start: number = 0
+  end: number = 0
+
+  constructor(start: number = 0, end: number = 0) {
+    this.start = start
+    this.end = end
+  }
+}
+
 @ComponentV2
 struct GalleryCommentInlineImage {
   @Require @Param image: EhGalleryCommentInlineImage = new EhGalleryCommentInlineImage();
@@ -550,17 +560,6 @@ export struct GalleryCommentsCard {
     return at >= 0 ? segment.substring(at + 1).trim() : ''
   }
 
-  private mentionToken(segment: string): string {
-    const tail: string = this.mentionTail(segment)
-    for (let i = 0; i < tail.length; i++) {
-      const ch: string = tail.charAt(i)
-      if (ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r') {
-        return tail.substring(0, i)
-      }
-    }
-    return tail
-  }
-
   private isNameSeparator(ch: string): boolean {
     return (
       ch === ' ' ||
@@ -597,18 +596,6 @@ export struct GalleryCommentsCard {
 
   private normalizedName(name: string): string {
     return this.nameParts(name).join(' ')
-  }
-
-  private findByAuthor(candidates: EhGalleryComment[], name: string): EhGalleryComment | undefined {
-    if (name.length === 0) {
-      return undefined
-    }
-    for (let i = 0; i < candidates.length; i++) {
-      if (candidates[i].author === name) {
-        return candidates[i]
-      }
-    }
-    return undefined
   }
 
   private findBySpaceAuthor(
@@ -666,6 +653,21 @@ export struct GalleryCommentsCard {
     return 0
   }
 
+  private matchedAuthorNameLength(author: string, segment: string): number {
+    const authorParts: string[] = this.nameParts(author)
+    if (authorParts.length === 0) {
+      return 0
+    }
+    const tail: string = this.mentionTail(segment)
+    const prefixLength: number = this.namePartsPrefixLength(tail, authorParts.length)
+    if (prefixLength <= 0) {
+      return 0
+    }
+    return this.normalizedName(tail.substring(0, prefixLength)) === this.normalizedName(author)
+      ? prefixLength
+      : 0
+  }
+
   private replyTargetId(segment: string): string {
     const hashId: string = this.hashReplyId(segment)
     if (hashId.length > 0) {
@@ -711,14 +713,6 @@ export struct GalleryCommentsCard {
         this.pushReply(out, c, this.commentById(id))
         continue
       }
-      const tokenReply: EhGalleryComment | undefined = this.findByAuthor(
-        candidates,
-        this.mentionToken(segment),
-      )
-      if (tokenReply !== undefined) {
-        this.pushReply(out, c, tokenReply)
-        continue
-      }
       this.pushReply(out, c, this.findBySpaceAuthor(candidates, segment))
     }
     if (c.commentId.length > 0) {
@@ -729,17 +723,58 @@ export struct GalleryCommentsCard {
 
   private mentionHighlightLength(c: EhGalleryComment, segment: string): number {
     const id: string = this.replyTargetId(segment)
-    if (id.length > 0 && this.commentById(id) !== undefined) {
-      const token: string = this.mentionToken(segment)
-      return token.length > 0 ? token.length + 1 : 1
+    if (id.length > 0) {
+      const target: EhGalleryComment | undefined = this.commentById(id)
+      if (target !== undefined) {
+        const targetNameLength: number = this.matchedAuthorNameLength(target.author, segment)
+        if (targetNameLength > 0) {
+          return targetNameLength + 1
+        }
+      }
     }
     const candidates: EhGalleryComment[] = this.candidateComments(c)
-    const token: string = this.mentionToken(segment)
-    if (this.findByAuthor(candidates, token) !== undefined) {
-      return token.length + 1
-    }
     const nameLength: number = this.matchedMentionNameLength(candidates, segment)
     return nameLength > 0 ? nameLength + 1 : 0
+  }
+
+  private resolvedMentionRanges(c: EhGalleryComment, text: string): CommentMentionRange[] {
+    const out: CommentMentionRange[] = []
+    let cursor: number = 0
+    while (cursor < text.length) {
+      const at: number = text.indexOf('@', cursor)
+      if (at < 0) {
+        break
+      }
+      const length: number = this.mentionHighlightLength(c, text.substring(at))
+      if (length > 1) {
+        out.push(new CommentMentionRange(at, Math.min(text.length, at + length)))
+        cursor = at + length
+      } else {
+        cursor = at + 1
+      }
+    }
+    return out
+  }
+
+  private protectResolvedMentionText(c: EhGalleryComment, text: string): string {
+    const ranges: CommentMentionRange[] = this.resolvedMentionRanges(c, text)
+    if (ranges.length === 0) {
+      return text
+    }
+    let out: string = ''
+    let cursor: number = 0
+    for (let i = 0; i < ranges.length; i++) {
+      const range: CommentMentionRange = ranges[i]
+      if (range.start > cursor) {
+        out += text.substring(cursor, range.start)
+      }
+      out += CommentTranslationService.protectMentionText(text.substring(range.start, range.end))
+      cursor = range.end
+    }
+    if (cursor < text.length) {
+      out += text.substring(cursor)
+    }
+    return out
   }
 
   private displayContentText(c: EhGalleryComment): string {
@@ -803,13 +838,7 @@ export struct GalleryCommentsCard {
 
   private translationSourceText(c: EhGalleryComment): string {
     const source: string = this.displayContentText(c)
-    const segments: CommentTextSegment[] = this.commentTextSegments(source, c)
-    let out: string = ''
-    for (let i = 0; i < segments.length; i++) {
-      const seg: CommentTextSegment = segments[i]
-      out += seg.emphasized ? CommentTranslationService.protectMentionText(seg.text) : seg.text
-    }
-    return out
+    return this.protectResolvedMentionText(c, source)
   }
 
   private isTranslationLoading(c: EhGalleryComment): boolean {
@@ -1338,6 +1367,80 @@ export struct GalleryCommentsCard {
     }
     if (out.length === 0) {
       out.push(new CommentTextSegment('t0', text))
+    }
+    return this.emphasizeResolvedMentionRanges(out, text, c)
+  }
+
+  private segmentPart(
+    segment: CommentTextSegment,
+    key: string,
+    text: string,
+    emphasized: boolean,
+  ): CommentTextSegment {
+    return new CommentTextSegment(
+      key,
+      text,
+      segment.url,
+      segment.emphasized || emphasized,
+      segment.bold,
+      segment.italic,
+      segment.underline,
+      segment.strike,
+      segment.color,
+    )
+  }
+
+  private emphasizeResolvedMentionRanges(
+    segments: CommentTextSegment[],
+    text: string,
+    c: EhGalleryComment,
+  ): CommentTextSegment[] {
+    const ranges: CommentMentionRange[] = this.resolvedMentionRanges(c, text)
+    if (ranges.length === 0) {
+      return segments
+    }
+    const out: CommentTextSegment[] = []
+    let textCursor: number = 0
+    let sequence: number = 0
+    for (let i = 0; i < segments.length; i++) {
+      const segment: CommentTextSegment = segments[i]
+      const segmentStart: number = textCursor
+      const segmentEnd: number = segmentStart + segment.text.length
+      let partStart: number = segmentStart
+      for (let j = 0; j < ranges.length; j++) {
+        const range: CommentMentionRange = ranges[j]
+        if (range.end <= partStart || range.start >= segmentEnd) {
+          continue
+        }
+        if (range.start > partStart) {
+          out.push(this.segmentPart(
+            segment,
+            `${segment.key}_${sequence++}`,
+            text.substring(partStart, range.start),
+            false,
+          ))
+        }
+        const emphasizedStart: number = Math.max(partStart, range.start)
+        const emphasizedEnd: number = Math.min(segmentEnd, range.end)
+        if (emphasizedEnd > emphasizedStart) {
+          out.push(this.segmentPart(
+            segment,
+            `${segment.key}_${sequence++}`,
+            text.substring(emphasizedStart, emphasizedEnd),
+            true,
+          ))
+          partStart = emphasizedEnd
+        }
+      }
+      if (partStart < segmentEnd) {
+        out.push(this.segmentPart(
+          segment,
+          `${segment.key}_${sequence++}`,
+          text.substring(partStart, segmentEnd),
+          false,
+        ))
+      }
+      textCursor = segmentEnd
     }
     return out
   }

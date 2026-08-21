@@ -339,6 +339,15 @@ if (imageOnly.length !== 1 || imageOnly[0].contentImages.length !== 1 || imageOn
 const spaPlaceholder = parse(`<a name="c10"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=1001">i</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_15">before<div id="spa">hidden<img src="https://images.example/hidden.png"/></div>after</div></div>`)
 if (spaPlaceholder[0] && (spaPlaceholder[0].contentText !== 'beforeafter' || spaPlaceholder[0].contentImages.length !== 0)) fail(`spa placeholder must not leak content: ${JSON.stringify(spaPlaceholder[0])}`)
 
+// EH can end a profile link before the complete visible username. The parser must preserve the full
+// plain-text mention while retaining the narrower HTML span; the renderer then resolves the mention
+// from the full text and overlays that semantic range across both source spans.
+const splitMention = parse(`<a name="c11"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=1101">reply</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_16"><a href="https://forums.e-hentai.org/index.php?showuser=1102">@Raizel</a>X body</div></div>`)
+if (splitMention[0] && splitMention[0].contentText !== '@RaizelX body') fail(`split mention text must stay complete: ${JSON.stringify(splitMention[0])}`)
+if (splitMention[0] && JSON.stringify(splitMention[0].contentSpans) !== JSON.stringify([
+  { start: 0, end: 7, url: 'https://forums.e-hentai.org/index.php?showuser=1102', bold: false, italic: false, underline: false, strike: false, color: '' },
+])) fail(`split mention source span must retain the server boundary: ${JSON.stringify(splitMention[0])}`)
+
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)
 if (fs.existsSync(realPath)) {
@@ -362,6 +371,7 @@ if (fs.existsSync(realPath)) {
 
 const modelSrc = fs.readFileSync(new URL('../shared/src/main/ets/model/EhGalleryComment.ets', import.meta.url), 'utf8')
 const parserSrc = fs.readFileSync(new URL('../shared/src/main/ets/parser/EhCommentParser.ets', import.meta.url), 'utf8')
+const commentsCardSrc = fs.readFileSync(new URL('../feature/gallery/src/main/ets/components/GalleryCommentsCard.ets', import.meta.url), 'utf8')
 for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails', 'contentLinks', 'contentImages']) {
   if (!new RegExp(`${field}:`).test(modelSrc)) fail(`model missing ${field}`)
 }
@@ -373,6 +383,11 @@ if (!/appendInlineImage/.test(parserSrc) || !/name === 'img'/.test(parserSrc)) {
 }
 if (!/attrValue\(tag, 'id'\) === 'spa'/.test(parserSrc)) {
   fail('parser must omit spa placeholder subtrees')
+}
+if (!/resolvedMentionRanges\(c, text\)/.test(commentsCardSrc) ||
+  !/protectResolvedMentionText\(c, source\)/.test(commentsCardSrc) ||
+  !/emphasizeResolvedMentionRanges\(out, text, c\)/.test(commentsCardSrc)) {
+  fail('comment rendering and translation must consume full-text mention ranges')
 }
 
 if (failures === 0) { console.log('✓ comment parser contract: all cases pass'); process.exit(0) }
