@@ -69,7 +69,7 @@
         ]
       }
     ],
-    "deviceTypes": ["phone", "tablet"],
+    "deviceTypes": ["phone", "tablet", "2in1"],
     "deliveryWithInstall": true,
     "pages": "$profile:main_pages"
   }
