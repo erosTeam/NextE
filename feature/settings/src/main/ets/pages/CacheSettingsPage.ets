@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
 import { CustomContentDialog, SymbolGlyphModifier } from '@kit.ArkUI'
@@ -48,7 +47,6 @@ export struct CacheSettingsPage {
   private stack: NavPathStack = connectNavStack().stack;
   @Local clearing: boolean = false;
   @Local readerCacheLimitMb: number = 1024;
-  @Local readerCacheLimitMenuShown: boolean = false;
   // Backup state.
   @Local includeSecrets: boolean = false;
   @Local exportPwd: string = '';
@@ -239,7 +237,6 @@ export struct CacheSettingsPage {
         : undefined,
     })
       .onClick(() => {
-        this.readerCacheLimitMenuShown = false
         this.setReaderCacheLimit(limitMb)
       })
   }
@@ -562,23 +559,16 @@ export struct CacheSettingsPage {
                 })
               }
               GroupedListSection() {
-                Column() {
-                  ConciseListRow({
-                    title: $r('app.string.cache_reader_image_limit'),
-                    leadingIcon: $r('sys.symbol.externaldrive'),
-                    trailingText: this.readerCacheLimitLabel(),
-                    trailingDropdown: true,
-                    action: () => {
-                      this.readerCacheLimitMenuShown = true
-                    },
-                  })
-                }
-                .bindMenu(this.readerCacheLimitMenuShown, this.ReaderCacheLimitMenu, appMenuOptions({
-                  placement: Placement.BottomRight,
-                  onDisappear: () => {
-                    this.readerCacheLimitMenuShown = false
+                ConciseListRow({
+                  title: $r('app.string.cache_reader_image_limit'),
+                  leadingIcon: $r('sys.symbol.externaldrive'),
+                  trailingText: this.readerCacheLimitLabel(),
+                  trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuBuilder: () => {
+                    this.ReaderCacheLimitMenu()
                   },
-                }))
+                })
               }
               // Total usage header.
               Row({ space: ThemeConstants.SPACE_XS }) {

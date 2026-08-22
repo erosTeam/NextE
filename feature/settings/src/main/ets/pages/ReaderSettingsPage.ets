@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -40,16 +39,6 @@ export struct ReaderSettingsPage {
   @Param sheetPresentation: boolean = false;
   @Event closeSheet?: () => void;
   @Local readMode: ReadModeState = connectReadMode();
-  @Local dirMenuShown: boolean = false;
-  @Local spreadLayoutMenuShown: boolean = false;
-  @Local autoPageMenuShown: boolean = false;
-  @Local preloadPageMenuShown: boolean = false;
-  @Local tapZoneMenuShown: boolean = false;
-  @Local tapZoneInvertMenuShown: boolean = false;
-  @Local backgroundMenuShown: boolean = false;
-  @Local imageScalingQualityMenuShown: boolean = false;
-  @Local superResolutionModelMenuShown: boolean = false;
-  @Local superResolutionMaxHeightMenuShown: boolean = false;
   @Local installedSuperResolutionModels: string[] = [];
   @Local superResolutionModelsPanelShown: boolean = false;
   @Local sheetPanelWidth: number = 0;
@@ -363,7 +352,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setMode(ReadMode.LTR)
-        this.dirMenuShown = false
       })
       MenuItem({
         content: $r('app.string.read_mode_rtl'),
@@ -374,7 +362,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setMode(ReadMode.RTL)
-        this.dirMenuShown = false
       })
       MenuItem({
         content: $r('app.string.read_mode_ttb'),
@@ -385,7 +372,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setMode(ReadMode.TOP_TO_BOTTOM)
-        this.dirMenuShown = false
       })
       MenuItem({
         content: $r('app.string.read_mode_vertical'),
@@ -396,7 +382,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setMode(ReadMode.VERTICAL)
-        this.dirMenuShown = false
       })
     }
   }
@@ -412,7 +397,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setAutoPageSeconds(2)
-        this.autoPageMenuShown = false
       })
       MenuItem({
         content: '3s',
@@ -422,7 +406,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setAutoPageSeconds(3)
-        this.autoPageMenuShown = false
       })
       MenuItem({
         content: '5s',
@@ -432,7 +415,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setAutoPageSeconds(5)
-        this.autoPageMenuShown = false
       })
       MenuItem({
         content: '8s',
@@ -442,7 +424,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setAutoPageSeconds(8)
-        this.autoPageMenuShown = false
       })
       MenuItem({
         content: '10s',
@@ -452,7 +433,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setAutoPageSeconds(10)
-        this.autoPageMenuShown = false
       })
     }
   }
@@ -468,7 +448,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
-        this.spreadLayoutMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_spread_layout_split'),
@@ -478,7 +457,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
-        this.spreadLayoutMenuShown = false
       })
     }
   }
@@ -494,7 +472,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(0)
-        this.preloadPageMenuShown = false
       })
       MenuItem({
         content: '1',
@@ -504,7 +481,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(1)
-        this.preloadPageMenuShown = false
       })
       MenuItem({
         content: '2',
@@ -514,7 +490,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(2)
-        this.preloadPageMenuShown = false
       })
       MenuItem({
         content: '3',
@@ -524,7 +499,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(3)
-        this.preloadPageMenuShown = false
       })
       MenuItem({
         content: '4',
@@ -534,7 +508,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(4)
-        this.preloadPageMenuShown = false
       })
       MenuItem({
         content: '5',
@@ -544,7 +517,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setPreloadPages(5)
-        this.preloadPageMenuShown = false
       })
     }
   }
@@ -560,7 +532,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneLayout(ReaderTapZoneLayout.RIGHT_LEFT)
-        this.tapZoneMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_l_shaped'),
@@ -570,7 +541,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneLayout(ReaderTapZoneLayout.L_SHAPED)
-        this.tapZoneMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_kindle'),
@@ -580,7 +550,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneLayout(ReaderTapZoneLayout.KINDLE)
-        this.tapZoneMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_edge'),
@@ -590,7 +559,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneLayout(ReaderTapZoneLayout.EDGE)
-        this.tapZoneMenuShown = false
       })
     }
   }
@@ -606,7 +574,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneInvert(ReaderTapZoneInvert.NONE)
-        this.tapZoneInvertMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_horizontal'),
@@ -616,7 +583,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneInvert(ReaderTapZoneInvert.HORIZONTAL)
-        this.tapZoneInvertMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_vertical'),
@@ -626,7 +592,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneInvert(ReaderTapZoneInvert.VERTICAL)
-        this.tapZoneInvertMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_both'),
@@ -636,7 +601,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setTapZoneInvert(ReaderTapZoneInvert.BOTH)
-        this.tapZoneInvertMenuShown = false
       })
     }
   }
@@ -652,7 +616,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setBackgroundMode(ReaderBackgroundMode.BLACK)
-        this.backgroundMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_gray'),
@@ -662,7 +625,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setBackgroundMode(ReaderBackgroundMode.GRAY)
-        this.backgroundMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_white'),
@@ -672,7 +634,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setBackgroundMode(ReaderBackgroundMode.WHITE)
-        this.backgroundMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_auto'),
@@ -682,7 +643,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setBackgroundMode(ReaderBackgroundMode.AUTO)
-        this.backgroundMenuShown = false
       })
     }
   }
@@ -698,7 +658,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
-        this.imageScalingQualityMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_image_scaling_quality_optimized'),
@@ -708,7 +667,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
-        this.imageScalingQualityMenuShown = false
       })
       MenuItem({
         content: $r('app.string.settings_reader_image_scaling_quality_high'),
@@ -718,7 +676,6 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
-        this.imageScalingQualityMenuShown = false
       })
     }
   }
@@ -735,7 +692,6 @@ export struct ReaderSettingsPage {
               : undefined,
         }).onClick(() => {
           this.setSuperResolutionModel(model)
-          this.superResolutionModelMenuShown = false
         })
       }, (model: string): string => model)
     }
@@ -753,7 +709,6 @@ export struct ReaderSettingsPage {
               : undefined,
         }).onClick(() => {
           this.setSuperResolutionMaxHeight(maxHeight)
-          this.superResolutionMaxHeightMenuShown = false
         })
       }, (maxHeight: number): string => `${maxHeight}`)
     }
@@ -770,22 +725,15 @@ export struct ReaderSettingsPage {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_layout') })
         GroupedListSection() {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_direction'),
-              trailingText: this.modeLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.dirMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.dirMenuShown, this.DirMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.dirMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_direction'),
+            trailingText: this.modeLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.DirMenu()
             },
-          }))
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_double_page'),
@@ -805,25 +753,16 @@ export struct ReaderSettingsPage {
             },
           })
           this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_spread_layout'),
-              trailingText: this.spreadLayoutLabel(),
-              trailingDropdown: true,
-              isEnabled: this.doublePageAvailable(),
-              action: () => {
-                if (this.doublePageAvailable()) {
-                  this.spreadLayoutMenuShown = true
-                }
-              },
-            })
-          }
-          .bindMenu(this.spreadLayoutMenuShown, this.SpreadLayoutMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.spreadLayoutMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_spread_layout'),
+            trailingText: this.spreadLayoutLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.SpreadLayoutMenu()
             },
-          }))
+            isEnabled: this.doublePageAvailable(),
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_page_turn_animation'),
@@ -845,39 +784,25 @@ export struct ReaderSettingsPage {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_tap_zones') })
         GroupedListSection() {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_tap_zones'),
-              trailingText: this.tapZoneLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.tapZoneMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.tapZoneMenuShown, this.TapZoneMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.tapZoneMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_tap_zones'),
+            trailingText: this.tapZoneLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.TapZoneMenu()
             },
-          }))
+          })
           this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_tap_zone_invert'),
-              trailingText: this.tapZoneInvertLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.tapZoneInvertMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.tapZoneInvertMenuShown, this.TapZoneInvertMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.tapZoneInvertMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_tap_zone_invert'),
+            trailingText: this.tapZoneInvertLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.TapZoneInvertMenu()
             },
-          }))
+          })
         }
       }
     }
@@ -886,41 +811,27 @@ export struct ReaderSettingsPage {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_display') })
         GroupedListSection() {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_background'),
-              trailingText: this.backgroundModeLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.backgroundMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.backgroundMenuShown, this.BackgroundMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.backgroundMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_background'),
+            trailingText: this.backgroundModeLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.BackgroundMenu()
             },
-          }))
+          })
           this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_image_scaling_quality'),
-              subtitle: $r('app.string.settings_reader_image_scaling_quality_hint'),
-              subtitleMaxLines: 3,
-              trailingText: this.imageScalingQualityLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.imageScalingQualityMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.imageScalingQualityMenuShown, this.ImageScalingQualityMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.imageScalingQualityMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_image_scaling_quality'),
+            subtitle: $r('app.string.settings_reader_image_scaling_quality_hint'),
+            subtitleMaxLines: 3,
+            trailingText: this.imageScalingQualityLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.ImageScalingQualityMenu()
             },
-          }))
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_show_page_number'),
@@ -984,25 +895,16 @@ export struct ReaderSettingsPage {
             },
           })
           this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_super_resolution_model'),
-              trailingText: this.superResolutionModelLabel(),
-              trailingDropdown: true,
-              isEnabled: this.installedSuperResolutionModels.length > 0,
-              action: () => {
-                if (this.installedSuperResolutionModels.length > 0) {
-                  this.superResolutionModelMenuShown = true
-                }
-              },
-            })
-          }
-          .bindMenu(this.superResolutionModelMenuShown, this.SuperResolutionModelMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.superResolutionModelMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_super_resolution_model'),
+            trailingText: this.superResolutionModelLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.SuperResolutionModelMenu()
             },
-          }))
+            isEnabled: this.installedSuperResolutionModels.length > 0,
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_super_resolution_models'),
@@ -1011,29 +913,19 @@ export struct ReaderSettingsPage {
             },
           })
           this.rowDivider()
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_super_resolution_max_height'),
-              subtitle: $r('app.string.settings_reader_super_resolution_max_height_hint'),
-              subtitleMaxLines: 3,
-              trailingText: this.superResolutionMaxHeightLabel(),
-              trailingDropdown: true,
-              isEnabled: this.readMode.superResolutionEnabled &&
-                this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
-              action: () => {
-                if (this.readMode.superResolutionEnabled &&
-                  this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE) {
-                  this.superResolutionMaxHeightMenuShown = true
-                }
-              },
-            })
-          }
-          .bindMenu(this.superResolutionMaxHeightMenuShown, this.SuperResolutionMaxHeightMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.superResolutionMaxHeightMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_super_resolution_max_height'),
+            subtitle: $r('app.string.settings_reader_super_resolution_max_height_hint'),
+            subtitleMaxLines: 3,
+            trailingText: this.superResolutionMaxHeightLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.SuperResolutionMaxHeightMenu()
             },
-          }))
+            isEnabled: this.readMode.superResolutionEnabled &&
+              this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
+          })
         }
       }
     }
@@ -1042,22 +934,15 @@ export struct ReaderSettingsPage {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_controls') })
         GroupedListSection() {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_auto_page_interval'),
-              trailingText: this.autoPageLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.autoPageMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.autoPageMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_auto_page_interval'),
+            trailingText: this.autoPageLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.AutoPageMenu()
             },
-          }))
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_volume_key'),
@@ -1081,22 +966,15 @@ export struct ReaderSettingsPage {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_loading') })
         GroupedListSection() {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.settings_reader_preload_pages'),
-              trailingText: this.preloadPageLabel(),
-              trailingDropdown: true,
-              action: () => {
-                this.preloadPageMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.preloadPageMenuShown, this.PreloadPageMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.preloadPageMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.settings_reader_preload_pages'),
+            trailingText: this.preloadPageLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.PreloadPageMenu()
             },
-          }))
+          })
         }
       }
     }

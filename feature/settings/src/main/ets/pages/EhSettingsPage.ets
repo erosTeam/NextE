@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -55,7 +54,6 @@ export struct EhSettingsPage {
   @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
-  @Local siteMenuShown: boolean = false;
   @Local clipboardSaving: boolean = false;
   // Keep the latest explicit site choice separate from the in-flight access check. A delayed
   // uconfig response may unlock Ex only while the same account still wants ExHentai.
@@ -78,7 +76,6 @@ export struct EhSettingsPage {
   // Selecting a site from the dropdown (not a tap-to-cycle toggle). E-Hentai is always allowed;
   // ExHentai requires login + a real igneous, fetched on demand the first time (eros_fe getExIgneous).
   private selectSite(toEx: boolean): void {
-    this.siteMenuShown = false
     this.desiredSiteIsEx = toEx
     const ctx: common.UIAbilityContext = this.ctx()
     if (!toEx) {
@@ -190,23 +187,16 @@ export struct EhSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.settings_site'),
-                leadingIcon: $r('sys.symbol.house'),
-                trailingText: this.siteLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.siteMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.siteMenuShown, this.SiteMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.siteMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.settings_site'),
+              leadingIcon: $r('sys.symbol.house'),
+              trailingText: this.siteLabel(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.SiteMenu()
               },
-            }))
+            })
           }
         }
         if (ClipboardLinkBuildFlag.CLIPBOARD_LINK_BUILD_ENABLED) {

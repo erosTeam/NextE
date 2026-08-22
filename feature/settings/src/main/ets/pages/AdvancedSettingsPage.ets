@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { pasteboard } from '@kit.BasicServicesKit'
@@ -29,7 +28,6 @@ export struct AdvancedSettingsPage {
   @Local private diagnostics: DiagnosticsState = connectDiagnostics();
   @Local private logCount: number = 0;
   @Local private logFiles: DiagnosticsLogFileInfo[] = [];
-  @Local private levelMenuShown: boolean = false;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
@@ -62,7 +60,6 @@ export struct AdvancedSettingsPage {
   }
 
   private updateMinLevel(level: string): void {
-    this.levelMenuShown = false
     const snapshot = DiagnosticsSettings.current()
     snapshot.minLevel = DiagnosticsSettings.normalizeLevel(level)
     DiagnosticsSettings.save(this.ctx(), snapshot)
@@ -244,24 +241,17 @@ export struct AdvancedSettingsPage {
         },
       })
       this.rowDivider()
-      Column() {
-        ConciseListRow({
-          title: $r('app.string.diagnostics_min_level'),
-          subtitle: $r('app.string.diagnostics_min_level_hint'),
-          leadingIcon: $r('sys.symbol.textformat'),
-          trailingText: this.levelLabel(this.diagnostics.minLevel),
-          trailingDropdown: true,
-          action: () => {
-            this.levelMenuShown = true
-          },
-        })
-      }
-      .bindMenu(this.levelMenuShown, this.LevelMenu, appMenuOptions({
-        placement: Placement.BottomRight,
-        onDisappear: () => {
-          this.levelMenuShown = false
+      ConciseListRow({
+        title: $r('app.string.diagnostics_min_level'),
+        subtitle: $r('app.string.diagnostics_min_level_hint'),
+        leadingIcon: $r('sys.symbol.textformat'),
+        trailingText: this.levelLabel(this.diagnostics.minLevel),
+        trailingDropdown: true,
+        dropdownMenuEnabled: true,
+        dropdownMenuBuilder: () => {
+          this.LevelMenu()
         },
-      }))
+      })
     }
   }
 

@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -32,9 +31,6 @@ import {
 export struct CommentTranslationSettingsPage {
   @Local private settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local private llmSources: LlmSourceProfilesState = connectLlmSourceProfiles();
-  @Local private displayMenuShown: boolean = false;
-  @Local private sourceMenuShown: boolean = false;
-  @Local private modelMenuShown: boolean = false;
   @Local private fetchingModels: boolean = false;
   @Local private modelOptions: string[] = [];
   @Local private selectedSourceId: string = '';
@@ -91,7 +87,6 @@ export struct CommentTranslationSettingsPage {
     const snapshot: CommentTranslationSettingsSnapshot = this.snapshot()
     snapshot.displayMode = value
     this.save(snapshot)
-    this.displayMenuShown = false
   }
 
   private displayModeText(): ResourceStr {
@@ -141,11 +136,9 @@ export struct CommentTranslationSettingsPage {
       this.stack.pushPathByName('LlmSourceManager', null)
       return
     }
-    this.sourceMenuShown = true
   }
 
   private selectSource(sourceProfileId: string): void {
-    this.sourceMenuShown = false
     if (sourceProfileId === this.selectedSourceId) {
       return
     }
@@ -156,7 +149,7 @@ export struct CommentTranslationSettingsPage {
     this.fetchModels()
   }
 
-  private fetchModels(): void {
+  private fetchModels(openMenu?: () => void): void {
     if (this.fetchingModels || this.selectedSourceId.length === 0) {
       return
     }
@@ -168,7 +161,9 @@ export struct CommentTranslationSettingsPage {
           this.toast($r('app.string.comment_translation_models_empty'))
           return
         }
-        this.modelMenuShown = true
+        if (openMenu) {
+          openMenu()
+        }
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('comment-translation', 'model_catalog_failed', error.message)
@@ -187,7 +182,6 @@ export struct CommentTranslationSettingsPage {
     LlmSourceProfileRepository.saveBinding(this.ctx(), binding)
       .then(() => {
         this.selectedModelId = modelId
-        this.modelMenuShown = false
       })
       .catch((error: Error) => {
         this.toast($r('app.string.llm_binding_save_failed', error.message))
@@ -342,24 +336,17 @@ export struct CommentTranslationSettingsPage {
               },
             })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.comment_translation_display_mode'),
-                leadingIcon: $r('sys.symbol.textformat'),
-                trailingText: this.displayModeText(),
-                trailingDropdown: true,
-                isEnabled: this.settings.enabled,
-                action: () => {
-                  this.displayMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.displayMenuShown, this.DisplayModeMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.displayMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.comment_translation_display_mode'),
+              leadingIcon: $r('sys.symbol.textformat'),
+              trailingText: this.displayModeText(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.DisplayModeMenu()
               },
-            }))
+              isEnabled: this.settings.enabled,
+            })
           }
         }
         ListItem() {
@@ -376,51 +363,44 @@ export struct CommentTranslationSettingsPage {
               },
             })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.llm_binding_source'),
-                subtitle: this.compatibleSources().length === 0
-                  ? $r('app.string.llm_binding_no_compatible_source')
-                  : $r('app.string.llm_binding_source_hint'),
-                leadingIcon: $r('sys.symbol.externaldrive'),
-                trailingText: this.selectedSourceText(),
-                trailingDropdown: this.compatibleSources().length > 0,
-                showChevron: this.compatibleSources().length === 0,
-                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly,
-                action: () => {
-                  this.openSourceSelector()
-                },
-              })
-            }
-            .bindMenu(this.sourceMenuShown, this.SourceMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.sourceMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.llm_binding_source'),
+              subtitle: this.compatibleSources().length === 0
+                ? $r('app.string.llm_binding_no_compatible_source')
+                : $r('app.string.llm_binding_source_hint'),
+              leadingIcon: $r('sys.symbol.externaldrive'),
+              trailingText: this.selectedSourceText(),
+              trailingDropdown: this.compatibleSources().length > 0,
+              showChevron: this.compatibleSources().length === 0,
+              dropdownMenuEnabled: this.compatibleSources().length > 0,
+              dropdownMenuBuilder: () => {
+                this.SourceMenu()
               },
-            }))
+              isEnabled: this.settings.enabled && !this.settings.useGoogleOnly,
+              action: () => {
+                this.openSourceSelector()
+              },
+            })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.llm_binding_model'),
-                subtitle: this.fetchingModels
-                  ? $r('app.string.comment_translation_fetch_models_loading')
-                  : $r('app.string.llm_binding_model_hint'),
-                leadingIcon: $r('sys.symbol.arrow_down_circle'),
-                trailingText: this.selectedModelText(),
-                trailingDropdown: true,
-                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly &&
-                  this.selectedSourceId.length > 0 && !this.fetchingModels,
-                action: () => {
-                  this.fetchModels()
-                },
-              })
-            }
-            .bindMenu(this.modelMenuShown, this.ModelMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.modelMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.llm_binding_model'),
+              subtitle: this.fetchingModels
+                ? $r('app.string.comment_translation_fetch_models_loading')
+                : $r('app.string.llm_binding_model_hint'),
+              leadingIcon: $r('sys.symbol.arrow_down_circle'),
+              trailingText: this.selectedModelText(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.ModelMenu()
               },
-            }))
+              dropdownMenuDeferredOpen: true,
+              dropdownMenuOpenAction: (openMenu: () => void) => {
+                this.fetchModels(openMenu)
+              },
+              isEnabled: this.settings.enabled && !this.settings.useGoogleOnly &&
+                this.selectedSourceId.length > 0 && !this.fetchingModels,
+            })
           }
         }
         ListItem() {

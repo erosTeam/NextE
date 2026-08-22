@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -28,8 +27,6 @@ export struct LocalBlockSettingsPage {
   @Local block: LocalBlockState = connectLocalBlock();
   @Local ruleSheetShown: boolean = false;
   @Local newRuleSheetShown: boolean = false;
-  @Local typeMenuShown: boolean = false;
-  @Local commentDisplayMenuShown: boolean = false;
   @Local editingRuleId: string = '';
   @Local draftType: string = LOCAL_BLOCK_TYPE_TITLE;
   @Local draftText: string = '';
@@ -228,7 +225,6 @@ export struct LocalBlockSettingsPage {
         : undefined,
     }).onClick(() => {
       this.draftType = type
-      this.typeMenuShown = false
     })
   }
 
@@ -249,7 +245,6 @@ export struct LocalBlockSettingsPage {
         : undefined,
     }).onClick(() => {
       this.setCommentDisplayMode(mode)
-      this.commentDisplayMenuShown = false
     })
   }
 
@@ -347,24 +342,17 @@ export struct LocalBlockSettingsPage {
               },
             })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.local_block_comment_display'),
-                subtitle: $r('app.string.local_block_comment_display_hint'),
-                leadingIcon: $r('sys.symbol.text_bubble_left_2'),
-                trailingText: this.commentDisplayText(this.block.commentDisplayMode),
-                trailingDropdown: true,
-                action: () => {
-                  this.commentDisplayMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.commentDisplayMenuShown, this.CommentDisplayMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.commentDisplayMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.local_block_comment_display'),
+              subtitle: $r('app.string.local_block_comment_display_hint'),
+              leadingIcon: $r('sys.symbol.text_bubble_left_2'),
+              trailingText: this.commentDisplayText(this.block.commentDisplayMode),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.CommentDisplayMenu()
               },
-            }))
+            })
           }
         }
         this.RuleSection(LOCAL_BLOCK_TYPE_TITLE)
@@ -401,23 +389,16 @@ export struct LocalBlockSettingsPage {
     }) {
       ListItem() {
         GroupedListSection({ inset: 0 }) {
-          Column() {
-            ConciseListRow({
-              title: $r('app.string.local_block_rule_type'),
-              leadingIcon: this.typeIcon(this.draftType),
-              trailingText: this.typeText(this.draftType),
-              trailingDropdown: true,
-              action: () => {
-                this.typeMenuShown = true
-              },
-            })
-          }
-          .bindMenu(this.typeMenuShown, this.TypeMenu, appMenuOptions({
-            placement: Placement.BottomRight,
-            onDisappear: () => {
-              this.typeMenuShown = false
+          ConciseListRow({
+            title: $r('app.string.local_block_rule_type'),
+            leadingIcon: this.typeIcon(this.draftType),
+            trailingText: this.typeText(this.draftType),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: () => {
+              this.TypeMenu()
             },
-          }))
+          })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.local_block_rule_enabled'),

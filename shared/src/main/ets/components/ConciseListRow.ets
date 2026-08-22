@@ -33,7 +33,9 @@ export struct ConciseListRow {
   @Param showChevron: boolean = true;
   @Param trailingDropdown: boolean = false;
   @Param dropdownMenuEnabled: boolean = false;
-  @Param dropdownMenuShown: boolean = false;
+  @Param dropdownMenuDeferredOpen: boolean = false;
+  // Menu visibility and the real suffix anchor are owned here; settings pages only supply menu content.
+  @Local private dropdownMenuShown: boolean = false;
   @Param hasSwitch: boolean = false;
   @Param hasCounter: boolean = false;
   @Param counterValue: string = '';
@@ -50,7 +52,7 @@ export struct ConciseListRow {
   @BuilderParam suffixBuilderParam?: () => void;
   @BuilderParam prefixBuilderParam?: () => void;
   @BuilderParam dropdownMenuBuilder: () => void = this.EmptyDropdownMenu;
-  @Event dropdownMenuOnDisappear?: () => void;
+  @Event dropdownMenuOpenAction?: (openMenu: () => void) => void;
   @Event switchAction?: (value: boolean) => void;
   @Event counterDecreaseAction?: () => void;
   @Event counterIncreaseAction?: () => void;
@@ -111,9 +113,7 @@ export struct ConciseListRow {
       .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
-          if (this.dropdownMenuOnDisappear) {
-            this.dropdownMenuOnDisappear()
-          }
+          this.dropdownMenuShown = false
         },
       }))
     } else {
@@ -265,9 +265,7 @@ export struct ConciseListRow {
       .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
-          if (this.dropdownMenuOnDisappear) {
-            this.dropdownMenuOnDisappear()
-          }
+          this.dropdownMenuShown = false
         },
       }))
     } else {
@@ -343,8 +341,19 @@ export struct ConciseListRow {
         accessibilitySelected: this.selected,
       },
       onClick: () => {
-        if (this.isEnabled && this.action) {
-          this.action()
+        if (this.isEnabled) {
+          if (this.dropdownMenuEnabled) {
+            if (this.dropdownMenuDeferredOpen && this.dropdownMenuOpenAction) {
+              this.dropdownMenuOpenAction(() => {
+                this.dropdownMenuShown = true
+              })
+            } else {
+              this.dropdownMenuShown = true
+            }
+          }
+          if (this.action) {
+            this.action()
+          }
         }
       },
     })

@@ -47,17 +47,12 @@ import { ToriiWholePageLiveEvaluationRouteParams } from './ToriiWholePageLiveEva
 @ComponentV2
 export struct ComicTranslationSettingsPage {
   @Local private llmSources: LlmSourceProfilesState = connectLlmSourceProfiles();
-  @Local private sourceMenuShown: boolean = false;
-  @Local private modelMenuShown: boolean = false;
   @Local private fetchingModels: boolean = false;
   @Local private modelOptions: string[] = [];
   @Local private selectedSourceId: string = '';
   @Local private selectedModelId: string = '';
   @Local private liveEvaluationRunning: boolean = false;
   @Local private liveEvaluationReport: ComicTranslationLiveEvaluationReport | null = null;
-  @Local private visualRouteMenuShown: boolean = false;
-  @Local private toriiModelMenuShown: boolean = false;
-  @Local private toriiFontMenuShown: boolean = false;
   @Local private visualRoute: string = COMIC_VISUAL_ROUTE_LOCAL;
   @Local private multimodalTranslationEnabled: boolean = true;
   @Local private toriiModelId: string = TORII_DEFAULT_MODEL_ID;
@@ -249,7 +244,6 @@ export struct ComicTranslationSettingsPage {
   }
 
   private selectVisualRoute(route: string): void {
-    this.visualRouteMenuShown = false
     if (route === this.visualRoute) {
       return
     }
@@ -319,7 +313,6 @@ export struct ComicTranslationSettingsPage {
 
   private selectToriiModel(modelId: string): void {
     this.toriiModelId = modelId
-    this.toriiModelMenuShown = false
     this.persistVisualSettings(true)
   }
 
@@ -341,7 +334,6 @@ export struct ComicTranslationSettingsPage {
       return
     }
     this.toriiFontId = fontId
-    this.toriiFontMenuShown = false
     this.persistVisualSettings(true)
   }
 
@@ -530,11 +522,9 @@ export struct ComicTranslationSettingsPage {
       this.stack.pushPathByName('LlmSourceManager', null)
       return
     }
-    this.sourceMenuShown = true
   }
 
   private selectSource(sourceProfileId: string): void {
-    this.sourceMenuShown = false
     if (sourceProfileId === this.selectedSourceId) {
       return
     }
@@ -559,7 +549,7 @@ export struct ComicTranslationSettingsPage {
     this.persistVisualSettings(true)
   }
 
-  private fetchModels(): void {
+  private fetchModels(openMenu?: () => void): void {
     if (this.fetchingModels || this.selectedSourceId.length === 0) {
       return
     }
@@ -571,7 +561,9 @@ export struct ComicTranslationSettingsPage {
           this.toast($r('app.string.comment_translation_models_empty'))
           return
         }
-        this.modelMenuShown = true
+        if (openMenu) {
+          openMenu()
+        }
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('comic-translation', 'model_catalog_failed', error.message)
@@ -590,7 +582,6 @@ export struct ComicTranslationSettingsPage {
     LlmSourceProfileRepository.saveBinding(this.ctx(), binding)
       .then(() => {
         this.selectedModelId = modelId
-        this.modelMenuShown = false
         this.liveEvaluationReport = null
       })
       .catch((error: Error) => {
@@ -851,15 +842,8 @@ export struct ComicTranslationSettingsPage {
               trailingText: this.visualRouteText(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuShown: this.visualRouteMenuShown,
               dropdownMenuBuilder: () => {
                 this.VisualRouteMenu()
-              },
-              dropdownMenuOnDisappear: () => {
-                this.visualRouteMenuShown = false
-              },
-              action: () => {
-                this.visualRouteMenuShown = true
               },
             })
           }
@@ -915,12 +899,8 @@ export struct ComicTranslationSettingsPage {
                 trailingDropdown: this.compatibleSources().length > 0,
                 showChevron: this.compatibleSources().length === 0,
                 dropdownMenuEnabled: this.compatibleSources().length > 0,
-                dropdownMenuShown: this.sourceMenuShown,
                 dropdownMenuBuilder: () => {
                   this.SourceMenu()
-                },
-                dropdownMenuOnDisappear: () => {
-                  this.sourceMenuShown = false
                 },
                 action: () => {
                   this.openSourceSelector()
@@ -933,17 +913,14 @@ export struct ComicTranslationSettingsPage {
                 trailingText: this.selectedModelText(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuShown: this.modelMenuShown,
                 dropdownMenuBuilder: () => {
                   this.ModelMenu()
                 },
-                dropdownMenuOnDisappear: () => {
-                  this.modelMenuShown = false
+                dropdownMenuDeferredOpen: true,
+                dropdownMenuOpenAction: (openMenu: () => void) => {
+                  this.fetchModels(openMenu)
                 },
                 isEnabled: this.selectedSourceId.length > 0 && !this.fetchingModels,
-                action: () => {
-                  this.fetchModels()
-                },
               })
               this.rowDivider()
               ConciseListRow({
@@ -995,15 +972,8 @@ export struct ComicTranslationSettingsPage {
                 trailingText: this.toriiModelText(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuShown: this.toriiModelMenuShown,
                 dropdownMenuBuilder: () => {
                   this.ToriiModelMenu()
-                },
-                dropdownMenuOnDisappear: () => {
-                  this.toriiModelMenuShown = false
-                },
-                action: () => {
-                  this.toriiModelMenuShown = true
                 },
               })
               this.rowDivider()
@@ -1013,15 +983,8 @@ export struct ComicTranslationSettingsPage {
                 trailingText: this.toriiFontText(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuShown: this.toriiFontMenuShown,
                 dropdownMenuBuilder: () => {
                   this.ToriiFontMenu()
-                },
-                dropdownMenuOnDisappear: () => {
-                  this.toriiFontMenuShown = false
-                },
-                action: () => {
-                  this.toriiFontMenuShown = true
                 },
               })
               this.rowDivider()

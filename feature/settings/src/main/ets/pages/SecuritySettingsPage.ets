@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -23,7 +22,6 @@ import {
 @ComponentV2
 export struct SecuritySettingsPage {
   @Local securitySettings: SecuritySettingsState = connectSecuritySettings();
-  @Local autoLockMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -59,7 +57,6 @@ export struct SecuritySettingsPage {
   }
 
   private setAutoLock(seconds: number): void {
-    this.autoLockMenuShown = false
     SecuritySettings.setAutoLockSecondsWithBoundaryAuth(this.ctx(), seconds).then((result: SecurityAuthResult) => {
       if (result === SecurityAuthResult.UNAVAILABLE) {
         this.toast($r('app.string.security_auth_unavailable'))
@@ -122,24 +119,17 @@ export struct SecuritySettingsPage {
                 },
               })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.security_auto_lock'),
-                  subtitle: $r('app.string.security_auto_lock_hint'),
-                  leadingIcon: $r('sys.symbol.lock'),
-                  trailingText: this.autoLockLabel(this.securitySettings.autoLockSeconds),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.autoLockMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.autoLockMenuShown, this.AutoLockMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.autoLockMenuShown = false
+              ConciseListRow({
+                title: $r('app.string.security_auto_lock'),
+                subtitle: $r('app.string.security_auto_lock_hint'),
+                leadingIcon: $r('sys.symbol.lock'),
+                trailingText: this.autoLockLabel(this.securitySettings.autoLockSeconds),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuBuilder: () => {
+                  this.AutoLockMenu()
                 },
-              }))
+              })
             }
           }
         }

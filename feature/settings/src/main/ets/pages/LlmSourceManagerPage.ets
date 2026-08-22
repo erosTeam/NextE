@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -26,7 +25,6 @@ export class LlmSourceDetailRouteParams {
 @ComponentV2
 export struct LlmSourceManagerPage {
   @Local private sources: LlmSourceProfilesState = connectLlmSourceProfiles();
-  @Local private addMenuShown: boolean = false;
   @Local private creating: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
@@ -55,7 +53,6 @@ export struct LlmSourceManagerPage {
     if (this.creating) {
       return
     }
-    this.addMenuShown = false
     this.creating = true
     const profile: LlmSourceProfile = new LlmSourceProfile()
     profile.sourceProfileId = generateLlmSourceProfileId()
@@ -155,24 +152,17 @@ export struct LlmSourceManagerPage {
         }
         ListItem() {
           GroupedListSection() {
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.llm_source_add'),
-                subtitle: $r('app.string.llm_source_add_hint'),
-                leadingIcon: $r('sys.symbol.plus'),
-                trailingDropdown: true,
-                isEnabled: !this.creating,
-                action: () => {
-                  this.addMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.addMenuShown, this.AddSourceMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.addMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.llm_source_add'),
+              subtitle: $r('app.string.llm_source_add_hint'),
+              leadingIcon: $r('sys.symbol.plus'),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.AddSourceMenu()
               },
-            }))
+              isEnabled: !this.creating,
+            })
           }
         }
       }

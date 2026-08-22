@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import {
   ColorMetrics,
@@ -1257,14 +1256,13 @@ export struct EhProfileSettingsPage {
   }
 }
 
-/** A label + dropdown row bound to a uconfig radio group (ConciseListRow + bindMenu, app-standard). */
+/** A label + dropdown row bound to a uconfig radio group. */
 @ComponentV2
 struct UcSelectRow {
   @Param title: ResourceStr = '';
   @Param options: UcOption[] = [];
   @Param current: number = 0;
   @Event onPick: (value: number) => void = () => {};
-  @Local menuShown: boolean = false;
 
   private currentLabel(): ResourceStr {
     for (let i: number = 0; i < this.options.length; i++) {
@@ -1276,22 +1274,15 @@ struct UcSelectRow {
   }
 
   build() {
-    Column() {
-      ConciseListRow({
-        title: this.title,
-        trailingText: this.currentLabel(),
-        trailingDropdown: true,
-        action: () => {
-          this.menuShown = true
-        },
-      })
-    }
-    .bindMenu(this.menuShown, this.OptionMenu, appMenuOptions({
-      placement: Placement.BottomRight,
-      onDisappear: () => {
-        this.menuShown = false
+    ConciseListRow({
+      title: this.title,
+      trailingText: this.currentLabel(),
+      trailingDropdown: true,
+      dropdownMenuEnabled: true,
+      dropdownMenuBuilder: () => {
+        this.OptionMenu()
       },
-    }))
+    })
   }
 
   @Builder
@@ -1305,7 +1296,6 @@ struct UcSelectRow {
             selected: option.value === this.current,
             selectAction: () => {
               this.onPick(option.value)
-              this.menuShown = false
             },
           })
         },

@@ -1,4 +1,3 @@
-import { appMenuOptions } from './AppMenuOptions'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { AppStrings } from '../i18n/AppStrings'
 import { SearchFilterState } from '../state/SearchFilterState'
@@ -32,7 +31,6 @@ class RatingOption {
 export struct AdvancedSearchControls {
   @Param filter: SearchFilterState = new SearchFilterState();
   @Event onChanged?: () => void;
-  @Local private ratingMenuShown: boolean = false;
 
   private changed(): void {
     if (this.onChanged) {
@@ -92,22 +90,15 @@ export struct AdvancedSearchControls {
       })
       if (this.filter.advancedEnabled) {
         this.rowDivider()
-        Column() {
-          ConciseListRow({
-            title: $r('app.string.filter_rating'),
-            trailingText: this.ratingLabel(),
-            trailingDropdown: true,
-            action: () => {
-              this.ratingMenuShown = true
-            },
-          })
-        }
-        .bindMenu(this.ratingMenuShown, this.RatingMenu, appMenuOptions({
-          placement: Placement.BottomRight,
-          onDisappear: () => {
-            this.ratingMenuShown = false
+        ConciseListRow({
+          title: $r('app.string.filter_rating'),
+          trailingText: this.ratingLabel(),
+          trailingDropdown: true,
+          dropdownMenuEnabled: true,
+          dropdownMenuBuilder: () => {
+            this.RatingMenu()
           },
-        }))
+        })
         this.rowDivider()
         ConciseListRow({
           title: $r('app.string.filter_pages'),
@@ -183,7 +174,6 @@ export struct AdvancedSearchControls {
             selected: opt.value === this.filter.minRating,
             selectAction: () => {
               this.setRating(opt.value)
-              this.ratingMenuShown = false
             },
           })
         },

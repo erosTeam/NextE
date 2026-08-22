@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -42,8 +41,6 @@ export struct MangaRenderingServiceSettingsPage {
   @Local private connectionFailure: string = '';
   @Local private detectionProfile: string = MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL;
   @Local private inpaintingProfile: string = MANGA_TRANSLATOR_UI_INPAINTER_QUALITY;
-  @Local private detectionMenuShown: boolean = false;
-  @Local private inpaintingMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
   private loadedCredential: MangaRenderingServiceCredential =
     new MangaRenderingServiceCredential();
@@ -212,14 +209,12 @@ export struct MangaRenderingServiceSettingsPage {
 
   private selectDetectionProfile(value: string): void {
     this.detectionProfile = value
-    this.detectionMenuShown = false
     this.connectionState = CONNECTION_IDLE
     this.persist(true)
   }
 
   private selectInpaintingProfile(value: string): void {
     this.inpaintingProfile = value
-    this.inpaintingMenuShown = false
     this.connectionState = CONNECTION_IDLE
     this.persist(true)
   }
@@ -359,41 +354,27 @@ export struct MangaRenderingServiceSettingsPage {
                 showChevron: false,
               })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.comic_render_service_detection'),
-                  leadingIcon: $r('sys.symbol.character_viewfinder'),
-                  trailingText: this.detectionProfileText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.detectionMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.detectionMenuShown, this.DetectionProfileMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.detectionMenuShown = false
+              ConciseListRow({
+                title: $r('app.string.comic_render_service_detection'),
+                leadingIcon: $r('sys.symbol.character_viewfinder'),
+                trailingText: this.detectionProfileText(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuBuilder: () => {
+                  this.DetectionProfileMenu()
                 },
-              }))
+              })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.comic_render_service_inpainting'),
-                  leadingIcon: $r('sys.symbol.picture'),
-                  trailingText: this.inpaintingProfileText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.inpaintingMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.inpaintingMenuShown, this.InpaintingProfileMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.inpaintingMenuShown = false
+              ConciseListRow({
+                title: $r('app.string.comic_render_service_inpainting'),
+                leadingIcon: $r('sys.symbol.picture'),
+                trailingText: this.inpaintingProfileText(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuBuilder: () => {
+                  this.InpaintingProfileMenu()
                 },
-              }))
+              })
               this.rowDivider()
               this.TextInputRow(
                 $r('app.string.comic_render_service_url'),

@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, Want } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
@@ -33,7 +32,6 @@ const ARCHIVE_AT_HOME_BOT_URL: string = 'https://t.me/ArchiveAtHome_bot'
 @ComponentV2
 export struct DownloadSettingsPage {
   @Local downloadSettings: DownloadSettingsState = connectDownloadSettings();
-  @Local originalMenuShown: boolean = false;
   @Local archiveBotApiKeyDraft: string = '';
   @Local archiveBotBalanceBusy: boolean = false;
   @Local archiveBotBalanceStatus: string = '';
@@ -218,7 +216,6 @@ export struct DownloadSettingsPage {
           : undefined,
       }).onClick(() => {
         this.setOriginalMode(DownloadOriginalMode.OFF)
-        this.originalMenuShown = false
       })
       MenuItem({
         content: $r('app.string.download_original_ask'),
@@ -227,7 +224,6 @@ export struct DownloadSettingsPage {
           : undefined,
       }).onClick(() => {
         this.setOriginalMode(DownloadOriginalMode.ASK)
-        this.originalMenuShown = false
       })
       MenuItem({
         content: $r('app.string.download_original_always'),
@@ -236,7 +232,6 @@ export struct DownloadSettingsPage {
           : undefined,
       }).onClick(() => {
         this.setOriginalMode(DownloadOriginalMode.ALWAYS)
-        this.originalMenuShown = false
       })
     }
   }
@@ -411,24 +406,17 @@ export struct DownloadSettingsPage {
                 },
               })
               this.rowDivider()
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.download_original_images'),
-                  subtitle: $r('app.string.download_original_hint'),
-                  leadingIcon: $r('sys.symbol.picture'),
-                  trailingText: this.originalModeLabel(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.originalMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.originalMenuShown, this.OriginalModeMenu, appMenuOptions({
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.originalMenuShown = false
+              ConciseListRow({
+                title: $r('app.string.download_original_images'),
+                subtitle: $r('app.string.download_original_hint'),
+                leadingIcon: $r('sys.symbol.picture'),
+                trailingText: this.originalModeLabel(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuBuilder: () => {
+                  this.OriginalModeMenu()
                 },
-              }))
+              })
             }
           }
         }

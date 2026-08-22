@@ -79,19 +79,10 @@ export struct LayoutSettingsPage {
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
   @Local tabletLayout: TabletLayoutState = connectTabletLayout();
-  @Local viewMenuShown: boolean = false;
-  @Local actionAlignMenuShown: boolean = false;
-  @Local readButtonStyleMenuShown: boolean = false;
-  @Local screenOrientationMenuShown: boolean = false;
-  @Local tabletLayoutMenuShown: boolean = false;
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local themeColor: ThemeColorState = connectThemeColor();
   @Local language: LanguageState = connectLanguageState();
-  @Local themeMenuShown: boolean = false;
-  @Local themeColorMenuShown: boolean = false;
-  @Local languageMenuShown: boolean = false;
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
-  @Local immersiveMaterialMenuShown: boolean = false;
   @Local colorPickerShown: boolean = false;
   @Local draftCustomColor: string = '#3377FF';
   @Local navStackHolder: NavStackHolder = connectNavStack();
@@ -134,17 +125,14 @@ export struct LayoutSettingsPage {
   }
 
   private setTheme(mode: string): void {
-    this.themeMenuShown = false
     ThemeSettings.setMode(this.ctx(), mode)
   }
 
   private setThemeColor(color: string): void {
-    this.themeColorMenuShown = false
     ThemeColorSettings.setColor(this.ctx(), color)
   }
 
   private setImmersiveMaterial(level: string): void {
-    this.immersiveMaterialMenuShown = false
     ImmersiveMaterialSettings.setLevel(this.ctx(), level)
   }
 
@@ -176,7 +164,6 @@ export struct LayoutSettingsPage {
   // The 自定义 menu item opens the shared AppColorPicker in a half-modal, seeded from the current accent.
   // colorChange previews live (apply, no persist); the sheet confirm persists, its close reverts.
   private openColorPicker(): void {
-    this.themeColorMenuShown = false
     this.prevColor = this.themeColor.color
     this.draftCustomColor = ThemeColorSettings.customSeed(this.themeColor.color)
     this.colorPickerShown = true
@@ -212,7 +199,6 @@ export struct LayoutSettingsPage {
   }
 
   private setLanguage(mode: string): void {
-    this.languageMenuShown = false
     LanguageSettings.setMode(this.ctx(), mode)
   }
 
@@ -429,7 +415,6 @@ export struct LayoutSettingsPage {
   private setActionAlignmentMode(mode: string): void {
     ActionAlignmentSettings.save(this.ctx(), mode)
     MotionHandStateService.applyAlignmentMode(mode)
-    this.actionAlignMenuShown = false
   }
 
   private readButtonStyleLabel(): ResourceStr {
@@ -438,7 +423,6 @@ export struct LayoutSettingsPage {
 
   private setReadButtonStyle(style: string): void {
     ReadButtonStyleSettings.setStyle(this.ctx(), style)
-    this.readButtonStyleMenuShown = false
   }
 
   private screenOrientationLabel(): ResourceStr {
@@ -447,7 +431,6 @@ export struct LayoutSettingsPage {
 
   private setScreenOrientation(mode: string): void {
     ScreenOrientationSettings.setMode(this.ctx(), mode)
-    this.screenOrientationMenuShown = false
   }
 
   private tabletLayoutLabel(): ResourceStr {
@@ -456,7 +439,6 @@ export struct LayoutSettingsPage {
 
   private setTabletLayout(mode: string): void {
     TabletLayoutSettings.setMode(this.ctx(), mode)
-    this.tabletLayoutMenuShown = false
   }
 
   private setHorizontalThumbnails(value: boolean): void {
@@ -475,7 +457,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.LIST)
-          this.viewMenuShown = false
         })
       MenuItem({
         content: $r('app.string.view_simple'),
@@ -486,7 +467,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.SIMPLE_LIST)
-          this.viewMenuShown = false
         })
       MenuItem({
         content: $r('app.string.view_grid'),
@@ -497,7 +477,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.GRID)
-          this.viewMenuShown = false
         })
       MenuItem({
         content: $r('app.string.view_waterfall'),
@@ -508,7 +487,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.WATERFALL)
-          this.viewMenuShown = false
         })
       MenuItem({
         content: $r('app.string.view_waterfall_compact'),
@@ -519,7 +497,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.WATERFALL_COMPACT)
-          this.viewMenuShown = false
         })
       MenuItem({
         content: $r('app.string.view_cover_wall'),
@@ -530,7 +507,6 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.COVER_WALL)
-          this.viewMenuShown = false
         })
     }
   }
@@ -652,15 +628,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.themeModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.themeMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ThemeMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.themeMenuShown = false
-                  },
-                  action: () => {
-                    this.themeMenuShown = true
                   },
                 })
               }
@@ -674,15 +643,8 @@ export struct LayoutSettingsPage {
                     this.ThemeColorSuffix()
                   },
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.themeColorMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ThemeColorMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.themeColorMenuShown = false
-                  },
-                  action: () => {
-                    this.themeColorMenuShown = true
                   },
                 })
               }
@@ -698,15 +660,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.immersiveMaterialLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.immersiveMaterialMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ImmersiveMaterialMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.immersiveMaterialMenuShown = false
-                  },
-                  action: () => {
-                    this.immersiveMaterialMenuShown = true
                   },
                 })
               }
@@ -718,15 +673,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.languageModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.languageMenuShown,
                   dropdownMenuBuilder: () => {
                     this.LanguageMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.languageMenuShown = false
-                  },
-                  action: () => {
-                    this.languageMenuShown = true
                   },
                 })
               }
@@ -742,15 +690,8 @@ export struct LayoutSettingsPage {
                 trailingText: this.screenOrientationLabel(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuShown: this.screenOrientationMenuShown,
                 dropdownMenuBuilder: () => {
                   this.ScreenOrientationMenu()
-                },
-                dropdownMenuOnDisappear: () => {
-                  this.screenOrientationMenuShown = false
-                },
-                action: () => {
-                  this.screenOrientationMenuShown = true
                 },
               })
             }
@@ -764,15 +705,8 @@ export struct LayoutSettingsPage {
               trailingText: this.tabletLayoutLabel(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuShown: this.tabletLayoutMenuShown,
               dropdownMenuBuilder: () => {
                 this.TabletLayoutMenu()
-              },
-              dropdownMenuOnDisappear: () => {
-                this.tabletLayoutMenuShown = false
-              },
-              action: () => {
-                this.tabletLayoutMenuShown = true
               },
             })
           }
@@ -787,15 +721,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.viewModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.viewMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ViewModeMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.viewMenuShown = false
-                  },
-                  action: () => {
-                    this.viewMenuShown = true
                   },
                 })
               }
@@ -862,15 +789,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.actionAlignmentLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.actionAlignMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ActionAlignmentMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.actionAlignMenuShown = false
-                  },
-                  action: () => {
-                    this.actionAlignMenuShown = true
                   },
                 })
               }
@@ -883,15 +803,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.readButtonStyleLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuShown: this.readButtonStyleMenuShown,
                   dropdownMenuBuilder: () => {
                     this.ReadButtonStyleMenu()
-                  },
-                  dropdownMenuOnDisappear: () => {
-                    this.readButtonStyleMenuShown = false
-                  },
-                  action: () => {
-                    this.readButtonStyleMenuShown = true
                   },
                 })
               }

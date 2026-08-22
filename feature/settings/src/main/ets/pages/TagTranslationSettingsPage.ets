@@ -1,4 +1,3 @@
-import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -26,8 +25,6 @@ export struct TagTranslationSettingsPage {
   @Local tagSettings: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local updating: boolean = false;
   @Local removing: boolean = false;
-  @Local modeMenuShown: boolean = false;
-  @Local introImageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -83,12 +80,10 @@ export struct TagTranslationSettingsPage {
 
   private setUpdateMode(mode: string): void {
     TagTranslationSettings.setUpdateMode(this.ctx(), mode)
-    this.modeMenuShown = false
   }
 
   private setIntroImageLevel(level: string): void {
     TagTranslationSettings.setIntroImageLevel(this.ctx(), level)
-    this.introImageMenuShown = false
   }
 
   private updateNow(): void {
@@ -289,42 +284,28 @@ export struct TagTranslationSettingsPage {
               },
             })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.tag_translation_update_mode'),
-                leadingIcon: $r('sys.symbol.clock'),
-                trailingText: this.updateModeText(),
-                trailingDropdown: true,
-                action: () => {
-                  this.modeMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.modeMenuShown, this.UpdateModeMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.modeMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.tag_translation_update_mode'),
+              leadingIcon: $r('sys.symbol.clock'),
+              trailingText: this.updateModeText(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.UpdateModeMenu()
               },
-            }))
+            })
             this.rowDivider()
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.tag_translation_intro_image_level'),
-                subtitle: $r('app.string.tag_translation_intro_image_level_hint'),
-                leadingIcon: $r('sys.symbol.textformat'),
-                trailingText: this.introImageLevelText(),
-                trailingDropdown: true,
-                action: () => {
-                  this.introImageMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.introImageMenuShown, this.IntroImageMenu, appMenuOptions({
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.introImageMenuShown = false
+            ConciseListRow({
+              title: $r('app.string.tag_translation_intro_image_level'),
+              subtitle: $r('app.string.tag_translation_intro_image_level_hint'),
+              leadingIcon: $r('sys.symbol.textformat'),
+              trailingText: this.introImageLevelText(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuBuilder: () => {
+                this.IntroImageMenu()
               },
-            }))
+            })
           }
         }
       }
