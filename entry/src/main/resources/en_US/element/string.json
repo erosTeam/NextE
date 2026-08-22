@@ -2117,6 +2117,10 @@
       "value": "Safe mode unlocked"
     },
     {
+      "name": "safe_mode_locked",
+      "value": "Safe mode locked"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "This account has no ExHentai access"
     },

@@ -42,4 +42,21 @@ export class SafeModeSettings {
       DiagnosticLogger.warn('settings', 'safe_mode_save_failed', (error as Error).message)
     }
   }
+
+  static async lock(context: common.UIAbilityContext): Promise<void> {
+    if (!SAFE_MODE_BUILD_ENABLED) {
+      return
+    }
+    SafeModeSettings.apply(false)
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.SAFE_MODE_UNLOCKED, false)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'safe_mode_save_failed', (error as Error).message)
+    }
+  }
 }

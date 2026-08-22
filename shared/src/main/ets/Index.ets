@@ -670,7 +670,14 @@ export {
 export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
 export { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './sync/HuaweiCloudSyncBuildFlag'
 export { SAFE_MODE_BUILD_ENABLED } from './safe/SafeModeBuildFlag'
-export { SAFE_MODE_PROFILE_NAME, SAFE_MODE_PROFILE_UUID, SafeModeGate } from './safe/SafeModeGate'
+export {
+  SAFE_MODE_NON_H_CATEGORY,
+  SAFE_MODE_NON_H_EXCLUDED_CATS,
+  SAFE_MODE_NON_H_SELECTED_CATS,
+  SAFE_MODE_PROFILE_NAME,
+  SAFE_MODE_PROFILE_UUID,
+  SafeModeGate,
+} from './safe/SafeModeGate'
 export { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './sync/CloudSyncFeatures'
 export { HuaweiCloudSyncService } from './sync/HuaweiCloudSyncService'
 export { HuaweiCloudSyncScheduler } from './sync/HuaweiCloudSyncScheduler'

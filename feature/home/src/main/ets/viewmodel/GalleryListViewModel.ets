@@ -22,6 +22,9 @@ import {
   PROFILE_TYPE_WATCHED,
   PROFILE_TYPE_TOPLIST,
   PROFILE_TYPE_FAVORITE,
+  SafeModeGate,
+  SAFE_MODE_NON_H_CATEGORY,
+  SAFE_MODE_NON_H_EXCLUDED_CATS,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { UIContext } from '@kit.ArkUI'
@@ -189,9 +192,30 @@ export class GalleryListViewModel {
     if (!this.isCurrentPagingRun(run)) {
       return null
     }
-    this.resolveFavoriteSlots(list.gallerys)
-    const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+    const visibleRows: EhGallery[] = this.safeModeRows(list.gallerys)
+    this.resolveFavoriteSlots(visibleRows)
+    const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(visibleRows))
     return this.isCurrentPagingRun(run) ? fresh : null
+  }
+
+  private safeModeRows(rows: EhGallery[]): EhGallery[] {
+    if (!SafeModeGate.restricted()) {
+      return rows
+    }
+    return rows.filter((gallery: EhGallery) => gallery.category === SAFE_MODE_NON_H_CATEGORY)
+  }
+
+  private safeModeList(list: GalleryList): GalleryList {
+    if (!SafeModeGate.restricted()) {
+      return list
+    }
+    const visible: GalleryList = list.copy()
+    visible.gallerys = this.safeModeRows(visible.gallerys)
+    return visible
+  }
+
+  private safeModeCacheScope(value: string): string {
+    return SafeModeGate.restricted() ? `${value}:safe-mode-noh` : value
   }
 
   // EH 'popular' is a single fixed snapshot with no cursor — it never pages (eros_fe popular tab).
@@ -235,7 +259,9 @@ export class GalleryListViewModel {
       seek: seek,
       tl: this.isToplist() ? this.toplistTl : 0,
       page: page,
-      fCats: useProfile ? p!.fCats() : 0,
+      fCats: SafeModeGate.restricted()
+        ? SAFE_MODE_NON_H_EXCLUDED_CATS
+        : (useProfile ? p!.fCats() : 0),
       search: useProfile ? p!.searchText : '',
       advancedEnabled: useProfile ? p!.advancedEnabled : false,
       minRating: useProfile ? p!.minRating : 0,
@@ -256,11 +282,15 @@ export class GalleryListViewModel {
     if (this.profileUuid.length > 0) {
       return EhPageCacheService.homeProfileKey(
         connectSiteMode().isEx,
-        this.profileUuid,
+        this.safeModeCacheScope(this.profileUuid),
         this.profileContentRevision(),
       )
     }
-    return EhPageCacheService.homeListKey(connectSiteMode().isEx, this.source, this.toplistTl)
+    return EhPageCacheService.homeListKey(
+      connectSiteMode().isEx,
+      this.safeModeCacheScope(this.source),
+      this.toplistTl,
+    )
   }
 
   /** Map a profile listType to the existing GalleryListQuery.source vocabulary. */
@@ -348,7 +378,8 @@ export class GalleryListViewModel {
     if (cached === null || cached.gallerys.length === 0) {
       return
     }
-    const visibleCached: GalleryList = LocalBlockService.filterGalleryList(cached.copy())
+    const safeCached: GalleryList = this.safeModeList(cached.copy())
+    const visibleCached: GalleryList = LocalBlockService.filterGalleryList(safeCached)
     this.resolveFavoriteSlots(visibleCached.gallerys)
     const rows: EhGallery[] = visibleCached.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
@@ -366,7 +397,7 @@ export class GalleryListViewModel {
     this.afterDateJump = false
     this.hasMore = this.firstPageHasMore(cached)
     this.loaded = true
-    this.translateCachedRowsLater(rows, renderVersion, run, cached)
+    this.translateCachedRowsLater(rows, renderVersion, run, safeCached)
   }
 
   private async translateCachedRowsLater(
@@ -404,13 +435,14 @@ export class GalleryListViewModel {
     if (!this.isCurrentFirstPageRun(run)) {
       return false
     }
-    const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
+    const visibleList: GalleryList = this.safeModeList(list)
+    const displayRows: EhGallery[] = visibleList.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
     DiagnosticLogger.info(
       'home-list-anchor',
       'render_first_page',
-      `${this.debugState()} incoming=${list.gallerys.length} oldCount=${this.itemCount} deferTranslation=${deferTranslation}`,
+      `${this.debugState()} incoming=${visibleList.gallerys.length} oldCount=${this.itemCount} deferTranslation=${deferTranslation}`,
     )
     if (connectTagTranslationSettings().enabled && !deferTranslation) {
       const translated: EhGallery[] = await this.translateRows(displayRows)
@@ -420,7 +452,7 @@ export class GalleryListViewModel {
       this.dataSource.setData(translated)
       this.itemCount = this.dataSource.totalCount()
       if (saveCache) {
-        const snapshot: GalleryList = list.copy()
+        const snapshot: GalleryList = visibleList.copy()
         snapshot.gallerys = translated
         await this.saveFirstPageCache(snapshot, run)
       }
@@ -432,9 +464,9 @@ export class GalleryListViewModel {
     this.dataSource.setData(displayRows)
     this.itemCount = this.dataSource.totalCount()
     if (connectTagTranslationSettings().enabled) {
-      this.translateCachedRowsLater(displayRows, renderVersion, run, saveCache ? list : null)
+      this.translateCachedRowsLater(displayRows, renderVersion, run, saveCache ? visibleList : null)
     } else if (saveCache) {
-      await this.saveFirstPageCache(list, run)
+      await this.saveFirstPageCache(visibleList, run)
     }
     return this.isCurrentFirstPageRun(run)
   }

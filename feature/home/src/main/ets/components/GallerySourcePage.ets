@@ -12,10 +12,8 @@ import {
   connectCustomProfiles,
   CustomProfilesState,
   CustomProfile,
-  SafeModeGate,
   SafeModeState,
   connectSafeMode,
-  SAFE_MODE_PROFILE_UUID,
   DiagnosticLogger,
   HomeSourceState,
   connectHomeSource,
@@ -84,9 +82,6 @@ export struct GallerySourcePage {
   }
 
   private profileForSource(): CustomProfile | null {
-    if (this.safeMode.restricted() || this.sourceKey === SAFE_MODE_PROFILE_UUID) {
-      return SafeModeGate.safeProfile()
-    }
     return connectCustomProfiles().findByUuid(this.sourceKey)
   }
 
@@ -117,9 +112,6 @@ export struct GallerySourcePage {
   // mutations, which must not trigger a refetch here.
   @Monitor('profilesState.profiles')
   onProfileEdited(): void {
-    if (this.safeMode.restricted() || this.sourceKey === SAFE_MODE_PROFILE_UUID) {
-      return
-    }
     const profile: CustomProfile | null = this.profilesState.findByUuid(this.sourceKey)
     if (profile === null) {
       return
@@ -254,6 +246,14 @@ export struct GallerySourcePage {
   onSiteChange(): void {
     if (this.loadedOnce) {
       DiagnosticLogger.info('home-list-anchor', 'source_site_reload', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
+      this.vm.reload(true)
+    }
+  }
+
+  @Monitor('safeMode.unlocked')
+  onSafeModeChange(): void {
+    if (this.loadedOnce) {
+      DiagnosticLogger.info('home-list-anchor', 'source_safe_mode_reload', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
       this.vm.reload(true)
     }
   }

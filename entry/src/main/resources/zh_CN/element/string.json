@@ -2117,6 +2117,10 @@
       "value": "安全模式已关闭"
     },
     {
+      "name": "safe_mode_locked",
+      "value": "安全模式已重新开启"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "该账号没有 ExHentai 访问权限"
     },

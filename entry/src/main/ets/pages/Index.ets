@@ -603,11 +603,23 @@ struct Index {
   }
 
   @Monitor('safeMode.unlocked')
-  onSafeModeUnlocked(): void {
-    if (!this.safeMode.restricted() && (this.currentTab === 1 || this.currentTab === 2)) {
-      const target: number = this.currentTab === 1 ? 3 : 4
+  onSafeModeChanged(): void {
+    let target: number = this.currentTab
+    if (this.safeMode.restricted()) {
+      if (this.currentTab === 3) {
+        target = 1
+      } else if (this.currentTab === 4) {
+        target = 2
+      } else if (this.currentTab === 1 || this.currentTab === 2) {
+        target = 0
+      }
+    } else if (this.currentTab === 1 || this.currentTab === 2) {
+      target = this.currentTab === 1 ? 3 : 4
+    }
+    if (target !== this.currentTab) {
       this.currentTab = target
       this.titleScroller = this.homeTabScrollers[target]
+      this.syncDownloadQueuePageActive()
       setTimeout((): void => {
         this.tabsController.changeIndex(target)
       }, 0)

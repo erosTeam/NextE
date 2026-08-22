@@ -2117,6 +2117,10 @@
       "value": "セーフモードを解除しました"
     },
     {
+      "name": "safe_mode_locked",
+      "value": "セーフモードを再び有効にしました"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "このアカウントは ExHentai にアクセスできません"
     },

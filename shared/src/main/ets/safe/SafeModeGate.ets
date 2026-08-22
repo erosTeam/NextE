@@ -7,7 +7,9 @@ import { connectSafeMode } from '../state/SafeModeState'
 
 export const SAFE_MODE_PROFILE_UUID: string = 'safe-mode-noh'
 export const SAFE_MODE_PROFILE_NAME: string = 'NoH'
-const SAFE_MODE_NON_H_SELECTED_CATS: number = 256
+export const SAFE_MODE_NON_H_SELECTED_CATS: number = 256
+export const SAFE_MODE_NON_H_EXCLUDED_CATS: number = 767
+export const SAFE_MODE_NON_H_CATEGORY: string = 'Non-H'
 
 export class SafeModeGate {
   static restricted(): boolean {
@@ -46,7 +48,6 @@ export class SafeModeGate {
       name === 'EhProfileSettings' ||
       name === 'Account' ||
       name === 'AccountLogin' ||
-      name === 'DownloadSettings' ||
       name === 'LocalBlockSettings' ||
       name === 'TagTranslationSettings' ||
       name === 'CommentTranslationSettings' ||

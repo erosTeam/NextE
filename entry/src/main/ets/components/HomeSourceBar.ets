@@ -12,8 +12,6 @@ import {
   ThemeConstants,
   SafeModeState,
   connectSafeMode,
-  SAFE_MODE_PROFILE_NAME,
-  SAFE_MODE_PROFILE_UUID,
   ThemeDisplayState,
   connectThemeDisplay,
   SubtabTransitionBridge,
@@ -41,9 +39,6 @@ export struct HomeSourceBar {
   // non-hidden profiles, login-gated (watched/favorite need an account). The TabItem label is the
   // profile name (a plain string), so a rename produces a new label → SubTabBar redraws.
   private tabs(): TabItem[] {
-    if (this.safeMode.restricted()) {
-      return [new TabItem(SAFE_MODE_PROFILE_UUID, SAFE_MODE_PROFILE_NAME)]
-    }
     const items: TabItem[] = []
     this.profiles.profiles.forEach((p: CustomProfile) => {
       if (!p.hidden && !(p.requiresLogin() && !this.auth.isLogin)) {
@@ -54,9 +49,6 @@ export struct HomeSourceBar {
   }
 
   private selectedIndex(): number {
-    if (this.safeMode.restricted()) {
-      return 0
-    }
     const items: TabItem[] = this.tabs()
     const index: number = items.findIndex((item: TabItem) => item.key === this.profiles.selectedUuid)
     return index < 0 ? 0 : index
@@ -73,9 +65,6 @@ export struct HomeSourceBar {
         visualIndex: this.visual.value,
         selectedIndex: this.selectedIndex(),
         onSelect: (index: number) => {
-          if (this.safeMode.restricted()) {
-            return
-          }
           const items: TabItem[] = this.tabs()
           if (index >= 0 && index < items.length && items[index].key !== this.profiles.selectedUuid) {
             SubtabTransitionBridge.request(SUBTAB_TRANSITION_SCOPE_HOME, items[index].key)

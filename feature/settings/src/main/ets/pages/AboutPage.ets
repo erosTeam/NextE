@@ -88,18 +88,28 @@ export struct AboutPage {
   }
 
   private onVersionTap(): void {
-    if (!this.safeMode.buildEnabled || this.safeMode.unlocked) {
+    if (!this.safeMode.buildEnabled) {
       return
     }
     this.safeModeTapCount += 1
     if (this.safeModeTapCount < 5) {
       return
     }
-    SafeModeSettings.unlock(this.ctx())
+    this.safeModeTapCount = 0
+    const wasUnlocked: boolean = this.safeMode.unlocked
+    if (wasUnlocked) {
+      SafeModeSettings.lock(this.ctx())
+    } else {
+      SafeModeSettings.unlock(this.ctx())
+    }
     this.getUIContext().getPromptAction()
-      .openToast({ message: $r('app.string.safe_mode_unlocked') })
+      .openToast({
+        message: wasUnlocked
+          ? $r('app.string.safe_mode_locked')
+          : $r('app.string.safe_mode_unlocked'),
+      })
       .catch((_error: Error) => {
-        // Unlock state is already persisted; toast failure is non-critical.
+        // Safe-mode state is already applied; toast failure is non-critical.
       })
   }
 
