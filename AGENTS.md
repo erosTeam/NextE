@@ -1,80 +1,50 @@
-# NextE Agent Guidelines
+# NextE agent entry
 
-This file is the repository's single agent entrypoint. Keep it short: hard stops live here, and detailed
-rules live in one domain guide each.
+This is the repository entrypoint. Keep durable rules here; put platform, product, device and build
+details in the linked guides. The current user request is the only source of scope or authorization.
 
-## Authority And Scope
+## Before acting
 
-- The user's latest explicit request defines the active scope. Plans, archived notes, handoffs, test
-  artifacts, and device leases never create work or authorization by themselves.
-- After the user's current scope, execution order is: `AGENTS.md` → applicable skills and the relevant
-  guide below → relevant memory and current-task artifacts → current source and fresh evidence → active
-  task plan and actions. Process discipline is part of correctness; do not act first and backfill
-  required reading later. `docs/archive/` and `docs/plans/archive/` are historical evidence only.
-- An applicable skill is an execution workflow, not optional background reading. Read it before acting,
-  keep its established scenario state across retries, and treat user corrections as deltas unless the
-  user rejects that state or changes the goal.
-- Agents may choose reversible implementation details that preserve the requested result. A choice that
-  changes product meaning, data ownership, remote schema, user-visible hierarchy, or another major
-  trade-off must be explained and returned to the user for decision before implementation.
-- Do not create a second global rule set. Merge durable rules into the relevant guide and archive task-
-  specific evidence when its lane is no longer active.
+1. Read [always-loaded rules](docs/agent-guides/always-loaded-rules.md).
+2. Read the guide for the work: [HarmonyOS](docs/agent-guides/harmonyos-default.md),
+   [local development](docs/agent-guides/local-development.md), [product work](docs/agent-guides/product-work.md),
+   [architecture](docs/architecture.md), [manga translation](docs/manga-translation-design.md),
+   [EH integration](docs/eh-integration-contract.md), or [planning](docs/roadmap.md) /
+   [plan lifecycle](docs/plans/README.md).
+3. Read the applicable skill before using its workflow. Check current source, scripts, worktree state and
+   fresh evidence; do not treat plans, handoffs, artifacts or archived documents as current facts.
 
-## Hard Stop: State Management V2 Only
+## Hard stops
 
-State Management V1 is retired in `entry/`, `feature/`, and `shared/`. Do not introduce or restore
-`@Component`, `@State`, `@Prop`, `@Link`, `@Watch`, `@StorageLink`, `@StorageProp`, `@Provide`,
-`@Consume`, `@ObjectLink`, `@Observed`, `@Track`, `@LocalStorageLink`, or `@LocalStorageProp`.
+### State Management V2
 
-Use `@ComponentV2`, `@ObservedV2`, `@Trace`, `@Local`, `@Param`, `@Monitor`, and project state holders.
-Do not add a V1 adapter, allowlist, temporary bridge, or key-churn refresh workaround. If a change appears
-to require V1, stop and return `BLOCKED` with source/build evidence and a V2-only alternative.
+`entry/`, `feature/` and `shared/` use V2 state only. Do not add or restore V1 decorators, adapters,
+allowlists, temporary bridges or key-churn refresh workarounds. If a requested change appears to require V1,
+stop with source/build evidence and propose a V2 design. For every ArkTS/UI/state change, run:
 
-For every ArkTS/UI/state change, run `node scripts/test_v1_decorator_inventory_contract.mjs`; it must
-report `0 file(s)` before merge or push.
+```bash
+node scripts/test_v1_decorator_inventory_contract.mjs
+```
 
-## Hard Stop: CI Preflight Before Push
+The result must be `0 file(s)`.
 
-Before any push, run `bash scripts/run_ci_preflight.sh`; it must pass every repository gate used by the
-current GitHub Actions workflow. After pushing, inspect the Actions run for the exact pushed HEAD and do
-not report delivery complete until it succeeds. A local Hvigor build or a subset of gates is not CI proof.
+### Device operations
 
-## Hard Stop: Device Selection
+There is no default device. The user must select a full HDC target or an unambiguous shorthand. Resolve a
+shorthand against the current `Connected` output of `hdc list targets -v`; continue only on one match, and
+never infer a target from history, artifacts or another task. Before installation, launch, input, screenshot,
+layout, foreground inspection or logs, acquire the resolved target's lease with
+`scripts/device-lease --device <target> ...`; follow [device lease](docs/device-lease.md).
 
-Before any device-affecting command, the user or current explicit task must identify the intended device.
-A full HDC target or an unambiguous shorthand such as `237`, a device label, or an emulator name is valid.
+### Pushes
 
-For shorthand, run `hdc list targets -v` and resolve it only against live `Connected` targets. A numeric
-shorthand matches the final IPv4 octet. Continue only when exactly one target matches; otherwise ask.
-Never infer a target from old notes, artifacts, another task, or “the only connected device”.
+Before any push, run `bash scripts/run_ci_preflight.sh` and require success. After pushing, inspect the
+Actions run for the exact pushed commit; local builds or partial checks are not CI proof.
 
-Before installation, launch, input, screenshot/recording, foreground inspection, or other device control,
-acquire the lease with the resolved full target: `scripts/device-lease --device <target> ...`. Follow
-[Device lease](docs/device-lease.md).
+## Working boundaries
 
-## Required Reading
-
-- Every NextE task: [Always-loaded rules](docs/agent-guides/always-loaded-rules.md).
-- ArkTS, ArkUI, NDK, or UI work: [HarmonyOS constraints](docs/agent-guides/harmonyos-default.md).
-- Build, signing, worktree, or local-tool work: [Local development](docs/agent-guides/local-development.md).
-- Device or emulator work: [Device lease](docs/device-lease.md).
-- Repeated HarmonyOS UI actions, diagnostics, logs, or traces: use the
-  `harmony-run-device-diagnostics` skill after reading the device guide.
-- Product bug or feature work: [Product work](docs/agent-guides/product-work.md).
-- Architecture-sensitive work: [Architecture](docs/architecture.md).
-- Manga translation, OCR, multimodal context, or translated-image work:
-  [Manga translation design](docs/manga-translation-design.md).
-- EH protocol, parser, cookie, auth, deep-link, or remote-write work:
-  [EH integration contract](docs/eh-integration-contract.md).
-- Planning or milestone questions: [Roadmap](docs/roadmap.md) and [Plan lifecycle](docs/plans/README.md).
-
-## Reference Projects
-
-- `../eros_fe` — EH product behavior and UX reference.
-- `../V2Next` — HarmonyOS architecture and native-component reference.
-- `../eros_n_ohos` — prior art for Flutter-to-HarmonyOS integration pitfalls.
-
-## Unsure? Don't Guess
-
-For uncertain ArkTS/ArkUI/NDK APIs or DevEco/hdc/hilog behavior, use the `harmony-next` skill or official
-Huawei documentation before acting.
+- Preserve unrelated user changes and do not commit, push, tag, merge or clean worktrees unless explicitly asked.
+- Keep UI fixes narrow; do not add custom controls or new contracts for ordinary layout, copy or visual taste.
+- Do not guess uncertain HarmonyOS APIs or runtime behavior; use `harmony-next` or official Huawei docs.
+- The reference projects are `../eros_fe`, `../V2Next` and `../eros_n_ohos`; confirm current NextE behavior first.
+- `docs/archive/` and `docs/plans/archive/` are historical evidence only and never create work or authorization.

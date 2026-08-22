@@ -1,7 +1,12 @@
 # Tablet Adaptive Layout
 
-Status: implemented candidate on `codex/tablet-adaptive-layout`; targeted IP 103 regression complete,
-broader compact/orientation matrix still pending.
+Status: implemented on `main`; targeted API 23/IP 103 regression complete, broader compact/orientation
+matrix still pending.
+Last refreshed: 2026-08-23.
+
+This plan records the remaining acceptance matrix and the evidence already collected. The worktree and device
+values below are historical evidence, not current branch, device selection or authorization. For a new run use
+the current user request, `AGENTS.md` and `docs/device-lease.md`.
 
 ## Five-line grounding
 
@@ -13,7 +18,7 @@ broader compact/orientation matrix still pending.
 
 ## Tablet layout policy extension (2026-07-13)
 
-Status: implemented / pending device acceptance.
+Status: implemented / pending broader device acceptance.
 
 - Product source: retain the same stable large-screen shell from `eros_fe/lib/pages/tab/view/home_page_large.dart:44-104`; this setting changes when that shell may present, not its navigation semantics.
 - Primary information: users can keep the current automatic large-screen layout, disable all tablet-only two-column presentations, or permit them only while the actual app window is horizontal.
@@ -23,10 +28,9 @@ Status: implemented / pending device acceptance.
 
 ## Technical validation facts
 
-- Worktree: `/Users/honjow/git/NextE-wt/tablet-adaptive-layout`.
-- Device target: `192.168.50.103:12345`, model `MLR-AL00`, API 23 tablet.
-- Device-control boundary: this is the only authorized real-device target for this tablet lane. Do not
-  substitute a default, historical, or other-task target; if it is unavailable, stop and ask the user.
+- Historical worktree: `/Users/honjow/git/NextE-wt/tablet-adaptive-layout`.
+- Historical validation target: `192.168.50.103:12345`, model `MLR-AL00`, API 23 tablet. This target is not
+  a default for future validation.
 - Landscape display: `2560 x 1600 px`, density `2.375`, approximately `1077 x 673 vp`.
 - Baseline signed build succeeds and the current app renders one full-width root surface on the tablet.
 - `HdsNavigation.splitPlaceholder(ComponentContent)` is available on API 23 and is passive UI only.

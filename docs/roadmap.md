@@ -1,6 +1,6 @@
 # NextE Planning Index
 
-Last reviewed: 2026-07-28.
+Last reviewed: 2026-08-23.
 
 This file is a planning index, not a priority queue. The user's latest explicit request decides what to work on.
 The old milestone snapshot is archived at
@@ -31,8 +31,8 @@ The old milestone snapshot is archived at
   used by the persistence contract.
 - [Image Block Community Rules](plans/active/image-block-community-rules.md) — current client protocol and open
   follow-ups; full implementation ledger is archived.
-- [Tablet Adaptive Layout](plans/active/tablet-adaptive-layout.md) — recent implementation candidate with a
-  remaining broader device/orientation matrix.
+- [Tablet Adaptive Layout](plans/active/tablet-adaptive-layout.md) — implemented on `main`; targeted API 23
+  regression is complete and the broader compact/orientation matrix remains open.
 
 Product gaps and reference research live under [`docs/research/`](research/). Historical, parked and replaced
 plans live under [`docs/plans/archive/`](plans/archive/); they do not create work or authorization.

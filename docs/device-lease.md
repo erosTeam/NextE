@@ -2,8 +2,8 @@
 
 ## 没有默认设备：选择意图与完整 target 是两个条件
 
-NextE 不设默认真机。用户当前指令或当前任务的 active plan 必须先明确选择哪台设备，但选择
-不要求用户手写完整 HDC target。以下两种形式都有效：
+NextE 不设默认真机。用户当前指令必须先明确选择哪台设备，但选择不要求用户手写完整 HDC
+target。以下两种形式都有效：
 
 - 完整 target，例如 `192.168.50.237:12345`；
 - 能通过当前在线设备唯一解析的短名，例如 `237`、设备标签或模拟器名称。
@@ -37,7 +37,7 @@ lease 是 agent 间的协作锁，不是设备授权。获取 lease 不构成用
 
 ## 短名解析规则
 
-1. 先取得用户当前指令或 active plan 中的设备 selector。
+1. 先取得用户当前指令中明确选择的设备 selector；历史计划只能提供背景，不能创建授权。
 2. 完整 target 可直接作为解析结果；连接前仍应核对实际状态。
 3. 短名必须对 `hdc list targets -v` 的当前 `Connected` 结果做精确、可解释的匹配。
 4. `1` 到 `3` 位纯数字按 IPv4 最后一段匹配，例如 `237` 可匹配
@@ -113,7 +113,7 @@ scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 ## Agent 提示必带规则
 
 ```text
-设备操作前，用户或 active plan 必须先选择设备。完整 target 和可实时唯一解析的短名都有效；
+设备操作前，用户必须先选择设备。完整 target 和可实时唯一解析的短名都有效；
 短名先用 hdc list targets -v 在当前 Connected 设备中解析，唯一匹配后回显完整 target 并直接
 继续，只有零匹配或多匹配才询问。禁止从历史地址、默认值、交接或 lease 记录选择/解析设备。
 所有设备控制使用 scripts/device-lease --device "$TARGET" 协调占用；lease 不扩大用户授权。

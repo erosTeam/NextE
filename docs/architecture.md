@@ -1,96 +1,81 @@
 # NextE 架构
 
-NextE 是原生 HarmonyOS NEXT(ArkTS/ArkUI)的 **E-Hentai / ExHentai 客户端**:移植 Flutter 应用 [eros_fe](https://github.com/3003h/Eros-FE) 的功能与交互,采用成熟 HarmonyOS 应用 V2Next 的工程架构与规范。SDK 26.0.0(API 26),包名 `com.erosteam.nexte`。
+NextE 是原生 HarmonyOS NEXT（ArkTS/ArkUI）的 E-Hentai / ExHentai 客户端，包名为
+`com.erosteam.nexte`。产品行为参考 `../eros_fe`，平台架构参考 `../V2Next`；参考项目只用于语义和写法，
+当前 NextE 源码才是事实来源。
 
-## 模块布局(Hvigor 多模块,镜像 V2Next 的 7 模块 HAR monorepo)
+## 工程拓扑
 
-`build-profile.json5` `modules[]`(单向依赖:`entry → shared + 所有 feature`;`feature/* → shared`;feature 之间**绝不互相导入**;`shared` 是零依赖叶子):
+当前 `build-profile.json5` 注册 10 个模块：`entry`、`shared`、`reader_enhancement`，以及
+`home`、`gallery`、`search`、`reader`、`download`、`user`、`settings` 7 个 feature HAR。
 
-```
-            ┌──────────── entry (type: entry) ────────────┐
-            │ 导航壳: Tabs + Navigation/NavPathStack      │
-            │ EhRouteCoordinator(name→family 路由表)      │
-            │ EntryAbility(深链、引导启动)                │
-            │ 跨 feature 页: WebLogin / ImageSearch /     │
-            │ Comment / AddTag / AllThumbnails / About    │
-            └──┬────┬────┬────┬────┬────┬────┬────────────┘
-  依赖 shared │    │    │    │    │    │    │ (file: 链接全部 7 个 feature)
-  + 全部 feature ▼  ▼    ▼    ▼    ▼    ▼    ▼
-  home  gallery  search  reader  download  user  settings   (各为 type: har)
-    └──────┴───────┴───────┴────────┴────────┴──────┘
-                       │ 每个 feature 仅依赖:
-                       ▼
-                 shared (type: har, 零依赖)
-   network · parser · model · state · settings · components
-   theme · services · utils · constants · cache · storage · diagnostics · i18n
+```text
+entry
+├── shared ── reader_enhancement（third_party/reader-enhancement）
+└── home / gallery / search / reader / download / user / settings
+                         └── shared
 ```
 
-### feature 模块职责(对照 V2Next / eros_fe)
+- `entry` 是唯一导航壳和跨 feature 编排层。
+- 7 个 feature 只依赖 `shared`，彼此不互相 import。
+- `shared` 依赖 `reader_enhancement`，因此不是零依赖叶子。
+- `reader_enhancement` 提供 native image decode、超分辨率和漫画视觉能力；它不是业务 feature。
+- 默认产品的 `targetSdkVersion` 为 `26.0.0`、`compatibleSdkVersion` 为 `6.1.0(23)`；release 产品将
+  target 提升到 `6.1.1(24)`，以 `build-profile.json5` 为准。
 
-| 模块 | 导出(barrel `Index.ets`) | 职责 | 对照 |
-|---|---|---|---|
-| **home** | `HomePage` `HomeViewModel` `GalleryListViewModel` | 多源画廊列表(画廊/关注/热门/Toplist/收藏/历史),共享列表脚手架,每源一个 VM | V2Next `feed` |
-| **gallery** | `GalleryDetailPage` `GalleryDetailViewModel` | 画廊详情(封面/标签/评分/分类/操作行/缩略图/评论预览/懒加载预览) | V2Next `detail` |
-| **search** | `GallerySearchPage` `SearchViewModel` `AdvancedSearchSheet` | 基础+高级搜索、`f_*` 构建、标签自动补全、快速搜索 | — |
-| **reader** | `ReaderPage` `ReaderViewModel` | **独立 HAR**:翻页+竖滑双模、缩放矩阵、点击区、双页、自动翻页、音量键、预取、缩略图条——最重最高风险,隔离便于专项契约测试 | eros_fe view_controller(~1500 行) |
-| **download** | `DownloadQueuePage` `DownloadViewModel` `ArchiverViewModel` | 队列/并发/续传状态机 + `@ohos.request.agent` 后台传输 + 离线读 | — |
-| **user** | `FavoritesPage` `MyTagsPage` `UserProfileViewModel` | 远程 10 favcat + 本地收藏 + MyTags 管理 + 用户资料/限额 | V2Next `user` |
-| **settings** | `SettingsPage` + 各子页 | ~14 个子设置页 + EH `uconfig` 同步 | V2Next `settings` |
+## 模块职责
 
-`entry` 内部分层(同 V2Next):`pages/`(导航壳 + 跨 feature 页)、`model/`(各种 `Coordinator` 纯逻辑,保持 `build()` 轻薄)、`components/`、`viewmodel/`。全应用只有一个 `pages` profile = `["pages/Index"]`,其余页面均为命名路由,经 `stack.pushPathByName('GalleryDetail', params)` 压栈。
+| 模块 | 当前职责 |
+| --- | --- |
+| `entry` | `Index.ets` 导航壳、HDS 根布局、深链、跨 feature 路由与 Reader 全窗口 overlay。 |
+| `home` | 画廊、订阅、热门、Toplist、历史和自定义 SubTab 列表。 |
+| `gallery` | 详情、标签、评分、缩略图、评论、种子、归档和懒加载预览。 |
+| `search` | 基础/高级搜索、搜索范围、标签补全和快速搜索。 |
+| `reader` | 翻页/竖滑阅读、缩放、双页、自动翻页、音量键、预取、缩略图和视觉翻译入口。 |
+| `download` | 画廊/归档下载队列、并发、续传和离线读。 |
+| `user` | 远程收藏、本地收藏、My Tags、历史和用户资料。 |
+| `settings` | 设置首页及 EH、布局、阅读、下载、翻译、同步、安全等子页。 |
+| `shared` | 网络、解析器、模型、V2 state holder、持久化、缓存、主题、组件、服务、i18n 和诊断。 |
+| `reader_enhancement` | 独立 native HAR；由 `shared` 暴露给 Reader/翻译服务。 |
 
-## shared 子系统
+## 导航与状态
 
-| 子系统 | 职责 | 关键文件(规划) |
-|---|---|---|
-| **network** | EH/ExHentai 的 Cookie 鉴权 + 抓取传输 | `EhHttpClient`(超时/退避重试/gzip/getText/302 探测)、`EhApiService`、`EhApiPhpService`(单 JSON POST `/api.php` 按 method 复用)、`EhCookieStore`+`EhCookieInterceptor`、`RateLimitTokenBucket`、`NetworkProxyRequest`、`EhErrorType` |
-| **parser** | 内置正则/DOM 解析,每页型一个静态类,重解析走 TaskPool | `EhGalleryListParser`、`EhGalleryDetailParser`、`EhGalleryImageParser`、`EhImagePageParser`、`EhApiJsonParser`、`EhFavoritesParser`、`EhMyTagsParser`、`EhArchiverParser`… |
-| **model** | 逐字段手写的 ArkTS 值类(禁解构/展开) | `EhGallery`(聚合根,~50 字段,merge/copy)、`EhGalleryImage`、`EhTag`、`EhComment`、`EhUser`、`EhFavcat`、`AdvanceSearch`、`RouteParams` |
-| **state** | AppStorageV2 holder(`@ObservedV2`+`@Trace`+`connectXxx()`),命令总线 | `NavStackHolder`、`SiteModeState`、`AuthIdentityState`、`ListModeState`、`GalleryDetailActionState`、`ReaderActionState`、`PendingEhUrlState` |
-| **theme** | 唯一设计令牌源 + EH 语义色 | `ThemeConstants`、`EhSemanticColors`(catColor/tagColorTagType/favColor) |
-| **components** | 可复用 `@ComponentV2`(HDS 优先) | `GalleryCard*`、`GalleryListScaffold`(下拉刷新+触底分页+视图模式)、`EhThumbnail`、`TagChip`、`RatingBar`、`CommentRichText`… |
-| **settings** | 各 `*Settings`(单 key + 单 apply 写者,双写 preferences + @Trace 镜像) | `SettingsBootstrap`、`SiteModeSettings`、`CookieJarSettings`、`ListModeSettings`、`ReadingSettings`、`DownloadSettings`… |
-| **services** | 应用级单例的跨切流程 | `TagTranslationService`、`DownloadAgentService`、`ImageResolveService`、`AutoLockService` |
-| **utils** | 纯工具 + 路由 | `EhUrlRouter`、`EhRouteNavigator`、`BreakpointSystem`/`FoldScreenUtil`、`DateUtils`、`HtmlEntityUtils` |
-| **constants** | `EhConstants`(hosts/thumb/cats/509/UA/fallback IP)、`StorageKeys` | |
-| **cache** | 图片 + 画廊元数据缓存(磁盘) | `ImageDiskCache`、`GalleryCacheRepository`、`ReaderResumeStore` |
-| **storage** | RDB 本地重数据(schema 预留同步元数据/墓碑) | `LocalDataStore`、`HistoryRepository`、`ReadProgressRepository`、`DownloadTaskRepository` |
-| **diagnostics** | `DiagnosticLogger`(hilog,脱敏) | `DiagnosticLogger`、`DiagnosticsRedactor` |
-| **i18n** | `AppStrings`(基于语言态的覆盖 ResourceManager) | shared 不带本地化资源,字符串在 entry/ + AppScope/ |
+`entry/src/main/ets/pages/Index.ets` 使用 `HdsNavigation` + `HdsTabs`。根 Tab 当前为五项：
+画廊、收藏、排行、下载、设置；搜索是从标题栏进入的命名路由，不是根 Tab。根导航根据窗口策略在
+`NavigationMode.Auto` 与 `NavigationMode.Stack` 间切换，并在宽屏显示 secondary placeholder；Reader
+通过独立 overlay stack 覆盖全窗口。
 
-## 数据流
+命名路由由 `IndexRouteCoordinator`/`routerMap` 统一登记，详情、搜索、设置、评论、缩略图、登录和
+Reader 辅助页均从这里进入。`EntryAbility` 接收 `/g/`、`/s/` 深链，写入 pending URL state，再由 Index
+消费并调用 `EhRouteNavigator`。
 
-`EhHttpClient` → `EhApiService`/`EhApiPhpService` → HTML/JSON **parser** → `Eh*` **model** → feature **ViewModel** → **AppStorageV2 holder** → `@ComponentV2` page。
+所有产品代码使用 State Management V2：`@ComponentV2`、`@ObservedV2`、`@Trace`、`@Local`、`@Param`、
+`@Monitor` 和项目 state holder。不要恢复 V1 decorator、适配器或随机 key 刷新；V1 inventory contract
+是这个边界的机械门禁。
 
-漫画图片分析、跨页翻译、文字区域定位、原文处理、排版渲染及后续制作能力使用独立的
-[漫画翻译设计与演进指南](manga-translation-design.md)。当前产品主线是轻量 Reader 阅读翻译，但交付
-边界必须是视觉译制漫画页，不能降级为原文/译文面板。稳定技术边界是 provider-neutral 的画廊/页面
-翻译文档和可独立缓存的渲染产物；Reader 不直接依赖模型厂商响应格式，也不从图片预取隐式触发模型
-调用。专业编辑、质检与导出在视觉草稿后进入独立分支，不能反向改变 Reader 的主结果。
+## 数据流与持久化
 
-评论翻译与漫画翻译共用 provider-neutral 的 LLM 源档案，而不是分别保存 API URL、API Key、Codex 登录
-和模型目录。源档案只拥有连接、认证、目录与能力；各业务分别保存 `sourceProfileId + modelId` 及自己的
-目标语言、提示词和回退策略。不存在全局“当前 LLM”，删除被引用源也不得静默切换到其他凭据。漫画
-制图 sidecar 属于图像处理 backend，不是 LLM 源。
-
-## 状态管理 V2(硬约束)
-
-唯一允许的状态范式(见 [always-loaded-rules](agent-guides/always-loaded-rules.md))。canonical holder:
-
-```ts
-@ObservedV2
-export class SiteModeState {
-  @Trace isEx: boolean = false   // @Trace 字段即订阅点
-}
-const KEY: string = 'v2_siteMode'
-export function connectSiteMode(): SiteModeState {
-  return AppStorageV2.connect(SiteModeState, KEY, () => new SiteModeState())!
-}
-// 单写者 publish helper 改 holder;读者用 @Monitor('siteMode.isEx') 响应
+```text
+EhHttpClient / EhApiService
+  → HTML/JSON parser
+  → Eh* model
+  → feature ViewModel
+  → AppStorageV2 / repository
+  → @ComponentV2 UI
 ```
 
-跨组件信号 = 单写者命令总线(带时间戳的唯一 payload);高频状态(如 reader 当前页 index)隔离到独立 holder 避免观察者抖动。
+`shared` 负责 EH/ExHentai cookie、限流、解析、RDB、磁盘缓存、备份/同步边界、主题和本地化。图片
+下载流式落盘；跨组件状态由明确 owner 的 holder 或命令总线传递。设置、评论翻译和漫画翻译分别拥有
+自己的业务状态，不通过“全局当前 LLM”互相覆盖。
 
-## 导航
+## 漫画翻译边界
 
-`entry/pages/Index.ets` 是导航壳。**M0 用原生 `Tabs` + `Navigation`/`NavPathStack`(零依赖,保证编译绿)**,4 个底栏(首页/搜索/收藏/我的);命名路由 `GalleryDetail`/`Reader`/`Download` 经 `routerMap` 注册。**M1 升级为 HDS(`HdsNavigation`+`HdsTabs`,来自 `@kit.UIDesignKit`,与 V2Next 一致,已确认 SDK 26 内置可用、无需额外依赖)。** `EntryAbility` 解析 `/g/` `/s/` 深链 → `publishPendingEhUrl` → `Index` 经 `@Monitor` 消费 → `EhRouteNavigator` 压栈。
+Reader 主线的结果是视觉译制漫画页，不是原文/译文面板。provider-neutral 的源档案、上下文、缓存和
+渲染产物可复用，但 Reader 不直接依赖厂商响应格式，也不从预取隐式触发模型调用。专业编辑、质检和
+导出属于后续独立流程；详见[漫画翻译设计](manga-translation-design.md)。
+
+## 维护原则
+
+- 需要确认的 API、设备行为或远端协议以当前源码、脚本、官方文档和新鲜运行证据为准。
+- 架构文档只记录稳定拓扑；任务状态、设备地址、截图目录和一次性结论留在对应计划或 Git 历史。
+- 模块注册、依赖和导航变化后，先更新本文件，再运行对应的静态门禁。
