@@ -35,3 +35,9 @@ build-profile.json5.github
 
 # Local agent incident notes; never commit their contents or per-file index.
 docs/agent-guides/incidents/
+
+# OS junk
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
