@@ -19,6 +19,7 @@ import {
   connectViewedHistory,
   gallerySimpleReuseId,
   immersiveTitleBarOpts,
+  GalleryDetailTransitionCoordinator,
 } from 'shared'
 import {
   ViewedHistoryDayGroup,
@@ -46,6 +47,7 @@ export struct ViewedHistoryPage {
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
+  private galleryDetailTransitionScope: string = GalleryDetailTransitionCoordinator.allocateScope('history');
   @Local pinnedDayHeaderState: HistoryPinnedDayHeaderState = new HistoryPinnedDayHeaderState()
   private pinnedDayHeaderContent: ComponentContent<HistoryPinnedDayHeaderState> | null = null;
   private dayRolloverTimer: number = -1
@@ -81,9 +83,24 @@ export struct ViewedHistoryPage {
     if (gallery.gid.length === 0 || gallery.token.length === 0) {
       return
     }
-    this.stack.pushPathByName(
-      'GalleryDetail',
-      new GalleryDetailParams(gallery.gid, gallery.token, gallery.thumbUrl, this.titleFor(gallery)),
+    GalleryDetailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.galleryDetailSourceId(gallery),
+      gallery.gid,
+      () => {
+        this.stack.pushPathByName(
+          'GalleryDetail',
+          new GalleryDetailParams(gallery.gid, gallery.token, gallery.thumbUrl, this.titleFor(gallery)),
+        )
+      },
+    )
+  }
+
+  private galleryDetailSourceId(gallery: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceId(
+      this.galleryDetailTransitionScope,
+      'history',
+      gallery.gid,
     )
   }
 
@@ -305,6 +322,7 @@ export struct ViewedHistoryPage {
                     ),
                   })
               }
+              .id(this.galleryDetailSourceId(row.gallery))
               .swipeAction({
                 end: () => {
                   this.DeleteSwipe(row.gallery.gid)

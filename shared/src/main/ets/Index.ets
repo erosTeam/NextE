@@ -872,6 +872,15 @@ export {
   GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
 } from './state/GalleryDetailBackToTopState'
 export {
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
+} from './state/GalleryDetailTransitionState'
+export {
+  GalleryDetailTransitionSettingsState,
+  connectGalleryDetailTransitionSettings,
+} from './state/GalleryDetailTransitionSettingsState'
+export { GalleryDetailTransitionCoordinator } from './navigation/GalleryDetailTransitionCoordinator'
+export {
   ReaderOverlayNavigationState,
   connectReaderOverlayNavigation,
 } from './state/ReaderOverlayNavigationState'
@@ -1108,6 +1117,7 @@ export { AccountListSettings } from './settings/AccountListSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'
 export { ClipboardLinkSettings } from './settings/ClipboardLinkSettings'
 export { ListModeSettings } from './settings/ListModeSettings'
+export { GalleryDetailTransitionSettings } from './settings/GalleryDetailTransitionSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'

@@ -8,6 +8,8 @@ import {
   ListMode,
   ListModeSettings,
   ListModeState,
+  GalleryDetailTransitionSettings,
+  GalleryDetailTransitionSettingsState,
   SecondaryListScaffold,
   ThemeConstants,
   GalleryTitleSettings,
@@ -23,6 +25,7 @@ import {
   CoverBackgroundSettings,
   CoverBackgroundState,
   connectListMode,
+  connectGalleryDetailTransitionSettings,
   connectThumbnailMode,
   connectCoverBackground,
   ActionAlignmentSettings,
@@ -71,6 +74,8 @@ import {
 @ComponentV2
 export struct LayoutSettingsPage {
   @Local listMode: ListModeState = connectListMode();
+  @Local galleryDetailTransitionSettings: GalleryDetailTransitionSettingsState =
+    connectGalleryDetailTransitionSettings();
   @Local galleryTitle: GalleryTitleState = connectGalleryTitle();
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   @Local coverBg: CoverBackgroundState = connectCoverBackground();
@@ -376,6 +381,10 @@ export struct LayoutSettingsPage {
 
   private setFixedHeight(value: boolean): void {
     ListModeSettings.setFixedHeight(this.ctx(), value)
+  }
+
+  private setGalleryDetailTransitionEnabled(value: boolean): void {
+    GalleryDetailTransitionSettings.setEnabled(this.ctx(), value)
   }
 
   // --- Column-width (grid density) control: slider + live preview, only for grid-like modes ---
@@ -737,6 +746,17 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_gallery_detail_transition'),
+                subtitle: $r('app.string.settings_gallery_detail_transition_hint'),
+                leadingIcon: $r('sys.symbol.arrowtriangle_2_inward_square'),
+                hasSwitch: true,
+                checked: this.galleryDetailTransitionSettings.enabled,
+                switchAction: (value: boolean) => {
+                  this.setGalleryDetailTransitionEnabled(value)
+                },
+              })
               this.rowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_list_fixed_height'),

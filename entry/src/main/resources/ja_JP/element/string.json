@@ -665,6 +665,14 @@
       "value": "縦横比が異なる表紙の背景を、色グラデーションの代わりにぼかします"
     },
     {
+      "name": "settings_gallery_detail_transition",
+      "value": "シームレス詳細トランジション"
+    },
+    {
+      "name": "settings_gallery_detail_transition_hint",
+      "value": "選択したカードから詳細を展開し、戻ると元の位置に縮小します"
+    },
+    {
       "name": "settings_action_alignment",
       "value": "読むボタンの配置"
     },

@@ -665,6 +665,14 @@
       "value": "对比例不匹配的封面用模糊背景代替取色渐变"
     },
     {
+      "name": "settings_gallery_detail_transition",
+      "value": "一镜到底转场"
+    },
+    {
+      "name": "settings_gallery_detail_transition_hint",
+      "value": "从所选卡片展开详情，返回时缩回原位置"
+    },
+    {
       "name": "settings_action_alignment",
       "value": "阅读按钮对齐"
     },

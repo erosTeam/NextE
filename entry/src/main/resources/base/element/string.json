@@ -665,6 +665,14 @@
       "value": "Blur off-aspect covers' background instead of a color gradient"
     },
     {
+      "name": "settings_gallery_detail_transition",
+      "value": "Seamless detail transition"
+    },
+    {
+      "name": "settings_gallery_detail_transition_hint",
+      "value": "Expand details from the selected card and shrink them back on return"
+    },
+    {
       "name": "settings_action_alignment",
       "value": "Read button alignment"
     },

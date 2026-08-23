@@ -67,6 +67,7 @@ import {
   appSheetOptions,
   LocalBlockState,
   connectLocalBlock,
+  GalleryDetailTransitionCoordinator,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -116,6 +117,7 @@ export struct GallerySearchPage {
   private suggestionScroller: Scroller = new Scroller();
   private historyScroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
+  private galleryDetailTransitionScope: string = GalleryDetailTransitionCoordinator.allocateScope('search');
   private selectedJumpDate: Date = new Date();
   private historyTranslationRun: number = 0;
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
@@ -436,6 +438,36 @@ export struct GallerySearchPage {
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private galleryDetailSourceId(g: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceId(
+      this.galleryDetailTransitionScope,
+      this.listMode.mode,
+      g.gid,
+    )
+  }
+
+  private openGalleryDetail(g: EhGallery): void {
+    GalleryDetailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.galleryDetailSourceId(g),
+      g.gid,
+      () => {
+        this.stack.pushPathByName(
+          'GalleryDetail',
+          new GalleryDetailParams(
+            g.gid,
+            g.token,
+            g.thumbUrl,
+            g.title(),
+            g.fileCount,
+            g.imgWidth,
+            g.imgHeight,
+          ),
+        )
+      },
+    )
   }
 
   private recordHistory(query: string): void {
@@ -1014,22 +1046,12 @@ export struct GallerySearchPage {
                     GalleryGridCard({ gallery: g })
                       .reuse({ reuseId: () => galleryGridReuseId(g) })
                   }
+                  .id(this.galleryDetailSourceId(g))
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
                   .onClick(() => {
-                    this.stack.pushPathByName(
-                      'GalleryDetail',
-                      new GalleryDetailParams(
-                        g.gid,
-                        g.token,
-                        g.thumbUrl,
-                        g.title(),
-                        g.fileCount,
-                        g.imgWidth,
-                        g.imgHeight,
-                      ),
-                    )
+                    this.openGalleryDetail(g)
                   })
                 },
                 (g: EhGallery) => g.renderKey(),
@@ -1089,22 +1111,12 @@ export struct GallerySearchPage {
                       .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
                   }
                   .width('100%')
+                  .id(this.galleryDetailSourceId(g))
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
                   .onClick(() => {
-                    this.stack.pushPathByName(
-                      'GalleryDetail',
-                      new GalleryDetailParams(
-                        g.gid,
-                        g.token,
-                        g.thumbUrl,
-                        g.title(),
-                        g.fileCount,
-                        g.imgWidth,
-                        g.imgHeight,
-                      ),
-                    )
+                    this.openGalleryDetail(g)
                   })
                 },
                 (g: EhGallery) => g.renderKey(),
@@ -1165,22 +1177,12 @@ export struct GallerySearchPage {
                       .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
                   }
                   .width('100%')
+                  .id(this.galleryDetailSourceId(g))
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
                   .onClick(() => {
-                    this.stack.pushPathByName(
-                      'GalleryDetail',
-                      new GalleryDetailParams(
-                        g.gid,
-                        g.token,
-                        g.thumbUrl,
-                        g.title(),
-                        g.fileCount,
-                        g.imgWidth,
-                        g.imgHeight,
-                      ),
-                    )
+                    this.openGalleryDetail(g)
                   })
                 },
                 (g: EhGallery) => g.renderKey(),
@@ -1235,22 +1237,12 @@ export struct GallerySearchPage {
                       .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
                   }
                   .width('100%')
+                  .id(this.galleryDetailSourceId(g))
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
                   .onClick(() => {
-                    this.stack.pushPathByName(
-                      'GalleryDetail',
-                      new GalleryDetailParams(
-                        g.gid,
-                        g.token,
-                        g.thumbUrl,
-                        g.title(),
-                        g.fileCount,
-                        g.imgWidth,
-                        g.imgHeight,
-                      ),
-                    )
+                    this.openGalleryDetail(g)
                   })
                 },
                 (g: EhGallery) => g.renderKey(),
@@ -1300,22 +1292,12 @@ export struct GallerySearchPage {
                       })
                     }
                   }
+                  .id(this.galleryDetailSourceId(g))
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
                   .onClick(() => {
-                    this.stack.pushPathByName(
-                      'GalleryDetail',
-                      new GalleryDetailParams(
-                        g.gid,
-                        g.token,
-                        g.thumbUrl,
-                        g.title(),
-                        g.fileCount,
-                        g.imgWidth,
-                        g.imgHeight,
-                      ),
-                    )
+                    this.openGalleryDetail(g)
                   })
                 },
                 (g: EhGallery) => g.renderKey(),

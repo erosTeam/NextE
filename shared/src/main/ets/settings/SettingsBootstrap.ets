@@ -4,6 +4,7 @@ import { EhConstants } from '../constants/EhConstants'
 import { CookieJarSettings } from './CookieJarSettings'
 import { SiteModeSettings } from './SiteModeSettings'
 import { ListModeSettings } from './ListModeSettings'
+import { GalleryDetailTransitionSettings } from './GalleryDetailTransitionSettings'
 import { GalleryTitleSettings } from './GalleryTitleSettings'
 import { ReadModeSettings } from './ReadModeSettings'
 import { ThumbnailModeSettings } from './ThumbnailModeSettings'
@@ -79,6 +80,7 @@ export class SettingsBootstrap {
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)
       await ListModeSettings.restore(context)
+      await GalleryDetailTransitionSettings.restore(context)
       await GalleryTitleSettings.restore(context)
       await ReadModeSettings.restore(context)
       await ReaderImageCacheSettings.restore(context)

@@ -15,7 +15,7 @@ import {
   SnackBarOperationType,
   SnackBarStyleOptions,
 } from '@kit.UIDesignKit'
-import { ComponentContent } from '@kit.ArkUI'
+import { ComponentContent, curves } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
   connectNavStack,
@@ -80,6 +80,8 @@ import {
   connectTabletLayout,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
   ThemeDisplayState,
   connectThemeDisplay,
 } from 'shared'
@@ -140,6 +142,48 @@ import { CoverFallbackProbePage } from './CoverFallbackProbePage'
 import { ReaderGestureProbePage } from './ReaderGestureProbePage'
 import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
 import { GalleryWebPage } from './GalleryWebPage'
+
+const GALLERY_DETAIL_OPEN_CURVE: curves.ICurve = curves.cubicBezierCurve(0.2, 0, 0, 1)
+const GALLERY_DETAIL_CLOSE_CURVE: curves.ICurve = curves.cubicBezierCurve(0.3, 0, 0.2, 1)
+// Crossfade thresholds describe spatial window progress, not elapsed time. Curve changes therefore
+// keep the card/detail handoff at the same visible window size.
+const GALLERY_DETAIL_OPEN_CARD_EXIT_START_PROGRESS: number = 0
+const GALLERY_DETAIL_OPEN_CARD_EXIT_END_PROGRESS: number = 0.55
+const GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_PROGRESS: number = 0.55
+const GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_PROGRESS: number = 0.9
+const GALLERY_DETAIL_CURVE_INVERSE_ITERATIONS: number = 16
+
+function galleryDetailTimeAtProgress(curve: curves.ICurve, targetProgress: number): number {
+  const boundedTarget: number = Math.max(0, Math.min(1, targetProgress))
+  let lower: number = 0
+  let upper: number = 1
+  for (let index: number = 0; index < GALLERY_DETAIL_CURVE_INVERSE_ITERATIONS; index += 1) {
+    const candidate: number = (lower + upper) / 2
+    if (curve.interpolate(candidate) < boundedTarget) {
+      lower = candidate
+    } else {
+      upper = candidate
+    }
+  }
+  return (lower + upper) / 2
+}
+
+const GALLERY_DETAIL_OPEN_CARD_EXIT_START_TIME: number = galleryDetailTimeAtProgress(
+  GALLERY_DETAIL_OPEN_CURVE,
+  GALLERY_DETAIL_OPEN_CARD_EXIT_START_PROGRESS,
+)
+const GALLERY_DETAIL_OPEN_CARD_EXIT_END_TIME: number = galleryDetailTimeAtProgress(
+  GALLERY_DETAIL_OPEN_CURVE,
+  GALLERY_DETAIL_OPEN_CARD_EXIT_END_PROGRESS,
+)
+const GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME: number = galleryDetailTimeAtProgress(
+  GALLERY_DETAIL_CLOSE_CURVE,
+  GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_PROGRESS,
+)
+const GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_TIME: number = galleryDetailTimeAtProgress(
+  GALLERY_DETAIL_CLOSE_CURVE,
+  GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_PROGRESS,
+)
 
 @Builder
 function IndexEmptyDestinationRoute() {
@@ -439,6 +483,7 @@ function IndexSplitPlaceholderCCBuilder(_state: Object) {
 @ComponentV2
 struct Index {
   @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local tabletLayout: TabletLayoutState = connectTabletLayout();
   @Local layoutSafeArea: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
@@ -1411,8 +1456,86 @@ struct Index {
     }
   }
 
+  private galleryDetailNavTransition(
+    from: NavContentInfo,
+    to: NavContentInfo,
+    operation: NavigationOperation,
+  ): NavigationAnimatedTransition | undefined {
+    if (this.navStackHolder.isSplitMode || !this.galleryDetailTransition.eligible) {
+      return undefined
+    }
+    const isPush: boolean = operation === NavigationOperation.PUSH && to.name === 'GalleryDetail'
+    const isPop: boolean = operation === NavigationOperation.POP &&
+      this.galleryDetailTransition.active && from.name === 'GalleryDetail'
+    if (!isPush && !isPop) {
+      return undefined
+    }
+    return {
+      timeout: ThemeConstants.ANIM_DURATION * 12,
+      transition: (proxy: NavigationTransitionProxy): void => {
+        if (isPush) {
+          this.getUIContext().animateTo({
+            duration: ThemeConstants.ANIM_DURATION,
+            curve: GALLERY_DETAIL_OPEN_CURVE,
+            onFinish: (): void => {
+              proxy.finishTransition()
+            },
+          }, (): void => {
+            this.galleryDetailTransition.expandWindow()
+          })
+          this.getUIContext().animateTo({
+            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_OPEN_CARD_EXIT_START_TIME,
+            duration: ThemeConstants.ANIM_DURATION * (
+              GALLERY_DETAIL_OPEN_CARD_EXIT_END_TIME - GALLERY_DETAIL_OPEN_CARD_EXIT_START_TIME
+            ),
+            curve: Curve.Linear,
+          }, (): void => {
+            this.galleryDetailTransition.crossfadeToDetail()
+          })
+          return
+        }
+        this.getUIContext().animateTo({
+          duration: ThemeConstants.ANIM_DURATION,
+          curve: GALLERY_DETAIL_CLOSE_CURVE,
+          onFinish: (): void => {
+            proxy.finishTransition()
+          },
+        }, (): void => {
+          this.galleryDetailTransition.collapseWindow(ThemeConstants.RADIUS_CARD)
+        })
+        this.getUIContext().animateTo({
+          delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME,
+          duration: ThemeConstants.ANIM_DURATION * (
+            GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_TIME - GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME
+          ),
+          curve: Curve.Linear,
+        }, (): void => {
+          this.galleryDetailTransition.crossfadeToCard()
+        })
+      },
+      onTransitionEnd: (success: boolean): void => {
+        if (isPush) {
+          this.galleryDetailTransition.markPushSettled(success)
+        } else {
+          this.galleryDetailTransition.reset()
+        }
+      },
+    }
+  }
+
   build() {
     Stack() {
+      if (
+        this.galleryDetailTransition.eligible &&
+        this.galleryDetailTransition.sourceSnapshot !== undefined
+      ) {
+        Image(this.galleryDetailTransition.sourceSnapshot)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+          .hitTestBehavior(HitTestMode.None)
+      }
       HdsNavigation(this.stack) {
         HdsTabs({ controller: this.tabsController }) {
           TabContent() {
@@ -1511,6 +1634,7 @@ struct Index {
         .onChange((index: number) => {
           const changed: boolean = index !== this.currentTab
           if (changed && this.stack.getAllPathName().length > 0) {
+            this.galleryDetailTransition.reset()
             this.stack.clear(false)
             this.navStackHolder.clearSecondaryEntry()
           }
@@ -1524,6 +1648,13 @@ struct Index {
         })
       }
       .navDestination(this.routerMap)
+      .customNavContentTransition((
+        from: NavContentInfo,
+        to: NavContentInfo,
+        operation: NavigationOperation,
+      ): NavigationAnimatedTransition | undefined => {
+        return this.galleryDetailNavTransition(from, to, operation)
+      })
       // The root shell owns the adaptive split. Its geometry depends only on available width; changing
       // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
       .mode(this.rootNavigationMode())
@@ -1556,6 +1687,12 @@ struct Index {
       .bindToScrollable([this.titleScroller])
       .width('100%')
       .height('100%')
+      .backgroundColor(
+        this.galleryDetailTransition.eligible
+          ? Color.Transparent
+          : $r('sys.color.ohos_id_color_sub_background'),
+      )
+      .id('nexte-root-navigation')
       if (this.readerOverlay.visible) {
         HdsNavigation(this.readerOverlay.stack) {
           Column() {}

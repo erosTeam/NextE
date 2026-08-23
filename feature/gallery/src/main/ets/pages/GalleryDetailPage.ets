@@ -99,6 +99,8 @@ import {
   connectSafeMode,
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
   GALLERY_DETAIL_BACK_TO_TOP_METADATA,
   GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
   TabletLayoutSettings,
@@ -327,6 +329,7 @@ export struct GalleryDetailPage {
   @Local downloadUpgradeBusyGid: string = '';
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local isFirstSecondaryDetail: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private navigationDestinationId: string = '';
@@ -3087,6 +3090,20 @@ export struct GalleryDetailPage {
   build() {
     HdsNavDestination() {
       Stack() {
+        Column() {}
+          .width('100%')
+          .height('100%')
+          .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+          .opacity(this.galleryDetailTransition.surfaceOpacity)
+        if (this.galleryDetailTransition.cardSnapshot !== undefined) {
+          Image(this.galleryDetailTransition.cardSnapshot)
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Fill)
+            .syncLoad(true)
+            .opacity(this.galleryDetailTransition.cardOpacity)
+            .hitTestBehavior(HitTestMode.None)
+        }
         Stack() {
           if (this.usesSplitDetailLayout()) {
           Row() {
@@ -3146,13 +3163,31 @@ export struct GalleryDetailPage {
           this.DetailSheet(),
           this.detailSheetOptions(this.detailSheetKind),
         )
+        .opacity(this.galleryDetailTransition.contentOpacity)
       }
       .width('100%')
       .height('100%')
     }
     .titleBar(this.detailTitleBar())
+    .hideTitleBar(this.galleryDetailTransition.eligible && !this.galleryDetailTransition.chromeVisible, false)
     .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDetail)
-    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .backgroundColor(
+      this.galleryDetailTransition.eligible
+        ? '#00000000'
+        : $r('sys.color.ohos_id_color_sub_background'),
+    )
+    .scale({
+      x: this.galleryDetailTransition.scaleX,
+      y: this.galleryDetailTransition.scaleY,
+      centerX: '50%',
+      centerY: '50%',
+    })
+    .translate({
+      x: this.galleryDetailTransition.translateX,
+      y: this.galleryDetailTransition.translateY,
+    })
+    .borderRadius(this.galleryDetailTransition.radius)
+    .clip(this.galleryDetailTransition.eligible)
     .onDisAppear(() => {
       this.releaseGalleryDetailBackToTopWorkspace()
     })

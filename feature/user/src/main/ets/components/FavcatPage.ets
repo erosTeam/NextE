@@ -56,6 +56,7 @@ import {
   connectAuth,
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
+  GalleryDetailTransitionCoordinator,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { CustomContentDialog } from '@kit.ArkUI'
@@ -98,6 +99,8 @@ export struct FavcatPage {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
+  private galleryDetailTransitionScope: string =
+    GalleryDetailTransitionCoordinator.allocateScope('favorites');
   private loadedOnce: boolean = false;
   private jumpSubmitting: boolean = false;
   private selectedJumpDate: Date = new Date();
@@ -558,6 +561,25 @@ export struct FavcatPage {
     selectGalleryDetailFromPeerList(this.stack, params)
   }
 
+  private galleryDetailSourceId(g: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceId(
+      this.galleryDetailTransitionScope,
+      this.listMode.mode,
+      g.gid,
+    )
+  }
+
+  private openGalleryDetail(g: EhGallery): void {
+    GalleryDetailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.galleryDetailSourceId(g),
+      g.gid,
+      () => {
+        this.openDetail(g)
+      },
+    )
+  }
+
   private isGallerySelected(gallery: EhGallery): boolean {
     return this.navStackHolder.isPrimaryPaneGallerySelected(gallery.gid, gallery.token)
   }
@@ -652,11 +674,12 @@ export struct FavcatPage {
                 GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -726,11 +749,12 @@ export struct FavcatPage {
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -801,11 +825,12 @@ export struct FavcatPage {
                   .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -869,11 +894,12 @@ export struct FavcatPage {
                   .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -932,11 +958,12 @@ export struct FavcatPage {
                   })
                 }
               }
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),

@@ -35,6 +35,7 @@ import {
   RootRefreshRegistry,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  GalleryDetailTransitionCoordinator,
   DiagnosticLogger,
   requestGalleryCoverRetry,
   connectTagTranslationSettings,
@@ -79,6 +80,7 @@ export struct GalleryListBody {
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
   private appeared: boolean = false;
+  private galleryDetailTransitionScope: string = GalleryDetailTransitionCoordinator.allocateScope('primary');
 
   // Re-tapping the active bottom tab refreshes this list: the nav shell looks the action up by this list's
   // Scroller (it tracks each tab's active sub-tab Scroller) and fires it. Used by Gallery + Toplist tabs.
@@ -156,6 +158,25 @@ export struct GalleryListBody {
       g.imgHeight,
     )
     selectGalleryDetailFromPeerList(this.stack, params)
+  }
+
+  private galleryDetailSourceId(g: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceId(
+      this.galleryDetailTransitionScope,
+      this.effectiveMode(),
+      g.gid,
+    )
+  }
+
+  private openGalleryDetail(g: EhGallery): void {
+    GalleryDetailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.galleryDetailSourceId(g),
+      g.gid,
+      () => {
+        this.openDetail(g)
+      },
+    )
   }
 
   private isGallerySelected(gallery: EhGallery): boolean {
@@ -325,11 +346,12 @@ export struct GalleryListBody {
                 GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -401,11 +423,12 @@ export struct GalleryListBody {
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -478,11 +501,12 @@ export struct GalleryListBody {
                   .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -548,11 +572,12 @@ export struct GalleryListBody {
                   .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
               }
               .width('100%')
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
@@ -613,11 +638,12 @@ export struct GalleryListBody {
                   })
                 }
               }
+              .id(this.galleryDetailSourceId(g))
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
               .onClick(() => {
-                this.openDetail(g)
+                this.openGalleryDetail(g)
               })
             },
             (g: EhGallery) => g.renderKey(),
