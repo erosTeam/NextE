@@ -95,8 +95,8 @@ export struct AdvancedSearchControls {
           trailingText: this.ratingLabel(),
           trailingDropdown: true,
           dropdownMenuEnabled: true,
-          dropdownMenuBuilder: () => {
-            this.RatingMenu()
+          dropdownMenuBuilder: (select: (action: () => void) => void) => {
+            this.RatingMenu(select)
           },
         })
         this.rowDivider()
@@ -164,7 +164,7 @@ export struct AdvancedSearchControls {
   }
 
   @Builder
-  private RatingMenu() {
+  private RatingMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         this.ratingOptions(),
@@ -173,7 +173,9 @@ export struct AdvancedSearchControls {
             label: opt.label,
             selected: opt.value === this.filter.minRating,
             selectAction: () => {
-              this.setRating(opt.value)
+              select(() => {
+                this.setRating(opt.value)
+              })
             },
           })
         },

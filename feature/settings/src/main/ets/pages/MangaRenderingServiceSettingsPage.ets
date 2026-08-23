@@ -294,7 +294,7 @@ export struct MangaRenderingServiceSettingsPage {
   }
 
   @Builder
-  private DetectionProfileMenu() {
+  private DetectionProfileMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.comic_render_service_detection_high_recall'),
@@ -302,7 +302,9 @@ export struct MangaRenderingServiceSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL)
+        select(() => {
+          this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL)
+        })
       })
       MenuItem({
         content: $r('app.string.comic_render_service_detection_balanced'),
@@ -310,13 +312,15 @@ export struct MangaRenderingServiceSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_BALANCED)
+        select(() => {
+          this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_BALANCED)
+        })
       })
     }
   }
 
   @Builder
-  private InpaintingProfileMenu() {
+  private InpaintingProfileMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.comic_render_service_inpainting_quality'),
@@ -324,7 +328,9 @@ export struct MangaRenderingServiceSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
+        select(() => {
+          this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
+        })
       })
       MenuItem({
         content: $r('app.string.comic_render_service_inpainting_fast'),
@@ -332,7 +338,9 @@ export struct MangaRenderingServiceSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_FAST)
+        select(() => {
+          this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_FAST)
+        })
       })
     }
   }
@@ -360,8 +368,8 @@ export struct MangaRenderingServiceSettingsPage {
                 trailingText: this.detectionProfileText(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuBuilder: () => {
-                  this.DetectionProfileMenu()
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.DetectionProfileMenu(select)
                 },
               })
               this.rowDivider()
@@ -371,8 +379,8 @@ export struct MangaRenderingServiceSettingsPage {
                 trailingText: this.inpaintingProfileText(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuBuilder: () => {
-                  this.InpaintingProfileMenu()
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.InpaintingProfileMenu(select)
                 },
               })
               this.rowDivider()

@@ -207,7 +207,7 @@ export struct DownloadSettingsPage {
   }
 
   @Builder
-  OriginalModeMenu() {
+  OriginalModeMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.common_off'),
@@ -215,7 +215,9 @@ export struct DownloadSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setOriginalMode(DownloadOriginalMode.OFF)
+        select(() => {
+          this.setOriginalMode(DownloadOriginalMode.OFF)
+        })
       })
       MenuItem({
         content: $r('app.string.download_original_ask'),
@@ -223,7 +225,9 @@ export struct DownloadSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setOriginalMode(DownloadOriginalMode.ASK)
+        select(() => {
+          this.setOriginalMode(DownloadOriginalMode.ASK)
+        })
       })
       MenuItem({
         content: $r('app.string.download_original_always'),
@@ -231,7 +235,9 @@ export struct DownloadSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setOriginalMode(DownloadOriginalMode.ALWAYS)
+        select(() => {
+          this.setOriginalMode(DownloadOriginalMode.ALWAYS)
+        })
       })
     }
   }
@@ -413,8 +419,8 @@ export struct DownloadSettingsPage {
                 trailingText: this.originalModeLabel(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuBuilder: () => {
-                  this.OriginalModeMenu()
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.OriginalModeMenu(select)
                 },
               })
             }

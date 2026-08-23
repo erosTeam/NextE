@@ -94,17 +94,21 @@ export struct LlmSourceManagerPage {
   }
 
   @Builder
-  private AddSourceMenu() {
+  private AddSourceMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.llm_source_type_api'),
       }).onClick(() => {
-        this.createSource(LLM_SOURCE_TYPE_OPENAI_COMPATIBLE)
+        select(() => {
+          this.createSource(LLM_SOURCE_TYPE_OPENAI_COMPATIBLE)
+        })
       })
       MenuItem({
         content: $r('app.string.llm_source_type_codex'),
       }).onClick(() => {
-        this.createSource(LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL)
+        select(() => {
+          this.createSource(LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL)
+        })
       })
     }
   }
@@ -158,8 +162,8 @@ export struct LlmSourceManagerPage {
               leadingIcon: $r('sys.symbol.plus'),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.AddSourceMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.AddSourceMenu(select)
               },
               isEnabled: !this.creating,
             })

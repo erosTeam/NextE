@@ -126,7 +126,7 @@ export struct EhSettingsPage {
   }
 
   @Builder
-  SiteMenu() {
+  SiteMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: 'E-Hentai',
@@ -135,7 +135,9 @@ export struct EhSettingsPage {
           : undefined,
       })
         .onClick(() => {
-          this.selectSite(false)
+          select(() => {
+            this.selectSite(false)
+          })
         })
       MenuItem({
         content: 'ExHentai',
@@ -144,7 +146,9 @@ export struct EhSettingsPage {
           : undefined,
       })
         .onClick(() => {
-          this.selectSite(true)
+          select(() => {
+            this.selectSite(true)
+          })
         })
     }
   }
@@ -193,8 +197,8 @@ export struct EhSettingsPage {
               trailingText: this.siteLabel(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.SiteMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.SiteMenu(select)
               },
             })
           }

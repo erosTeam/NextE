@@ -341,7 +341,7 @@ export struct ReaderSettingsPage {
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
   // mode (V2Next TopicDetailComponents.ets:192-227). Selecting one persists via ReadModeSettings + closes.
   @Builder
-  DirMenu() {
+  DirMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.read_mode_ltr'),
@@ -351,7 +351,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setMode(ReadMode.LTR)
+        select(() => {
+          this.setMode(ReadMode.LTR)
+        })
       })
       MenuItem({
         content: $r('app.string.read_mode_rtl'),
@@ -361,7 +363,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setMode(ReadMode.RTL)
+        select(() => {
+          this.setMode(ReadMode.RTL)
+        })
       })
       MenuItem({
         content: $r('app.string.read_mode_ttb'),
@@ -371,7 +375,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setMode(ReadMode.TOP_TO_BOTTOM)
+        select(() => {
+          this.setMode(ReadMode.TOP_TO_BOTTOM)
+        })
       })
       MenuItem({
         content: $r('app.string.read_mode_vertical'),
@@ -381,13 +387,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setMode(ReadMode.VERTICAL)
+        select(() => {
+          this.setMode(ReadMode.VERTICAL)
+        })
       })
     }
   }
 
   @Builder
-  AutoPageMenu() {
+  AutoPageMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: '2s',
@@ -396,7 +404,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setAutoPageSeconds(2)
+        select(() => {
+          this.setAutoPageSeconds(2)
+        })
       })
       MenuItem({
         content: '3s',
@@ -405,7 +415,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setAutoPageSeconds(3)
+        select(() => {
+          this.setAutoPageSeconds(3)
+        })
       })
       MenuItem({
         content: '5s',
@@ -414,7 +426,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setAutoPageSeconds(5)
+        select(() => {
+          this.setAutoPageSeconds(5)
+        })
       })
       MenuItem({
         content: '8s',
@@ -423,7 +437,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setAutoPageSeconds(8)
+        select(() => {
+          this.setAutoPageSeconds(8)
+        })
       })
       MenuItem({
         content: '10s',
@@ -432,13 +448,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setAutoPageSeconds(10)
+        select(() => {
+          this.setAutoPageSeconds(10)
+        })
       })
     }
   }
 
   @Builder
-  SpreadLayoutMenu() {
+  SpreadLayoutMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_spread_layout_joined'),
@@ -447,7 +465,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
+        select(() => {
+          this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_spread_layout_split'),
@@ -456,13 +476,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
+        select(() => {
+          this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
+        })
       })
     }
   }
 
   @Builder
-  PreloadPageMenu() {
+  PreloadPageMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: '0',
@@ -471,7 +493,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(0)
+        select(() => {
+          this.setPreloadPages(0)
+        })
       })
       MenuItem({
         content: '1',
@@ -480,7 +504,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(1)
+        select(() => {
+          this.setPreloadPages(1)
+        })
       })
       MenuItem({
         content: '2',
@@ -489,7 +515,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(2)
+        select(() => {
+          this.setPreloadPages(2)
+        })
       })
       MenuItem({
         content: '3',
@@ -498,7 +526,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(3)
+        select(() => {
+          this.setPreloadPages(3)
+        })
       })
       MenuItem({
         content: '4',
@@ -507,7 +537,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(4)
+        select(() => {
+          this.setPreloadPages(4)
+        })
       })
       MenuItem({
         content: '5',
@@ -516,13 +548,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setPreloadPages(5)
+        select(() => {
+          this.setPreloadPages(5)
+        })
       })
     }
   }
 
   @Builder
-  TapZoneMenu() {
+  TapZoneMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_right_left'),
@@ -531,7 +565,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneLayout(ReaderTapZoneLayout.RIGHT_LEFT)
+        select(() => {
+          this.setTapZoneLayout(ReaderTapZoneLayout.RIGHT_LEFT)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_l_shaped'),
@@ -540,7 +576,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneLayout(ReaderTapZoneLayout.L_SHAPED)
+        select(() => {
+          this.setTapZoneLayout(ReaderTapZoneLayout.L_SHAPED)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_kindle'),
@@ -549,7 +587,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneLayout(ReaderTapZoneLayout.KINDLE)
+        select(() => {
+          this.setTapZoneLayout(ReaderTapZoneLayout.KINDLE)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_edge'),
@@ -558,13 +598,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneLayout(ReaderTapZoneLayout.EDGE)
+        select(() => {
+          this.setTapZoneLayout(ReaderTapZoneLayout.EDGE)
+        })
       })
     }
   }
 
   @Builder
-  TapZoneInvertMenu() {
+  TapZoneInvertMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_none'),
@@ -573,7 +615,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneInvert(ReaderTapZoneInvert.NONE)
+        select(() => {
+          this.setTapZoneInvert(ReaderTapZoneInvert.NONE)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_horizontal'),
@@ -582,7 +626,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneInvert(ReaderTapZoneInvert.HORIZONTAL)
+        select(() => {
+          this.setTapZoneInvert(ReaderTapZoneInvert.HORIZONTAL)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_vertical'),
@@ -591,7 +637,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneInvert(ReaderTapZoneInvert.VERTICAL)
+        select(() => {
+          this.setTapZoneInvert(ReaderTapZoneInvert.VERTICAL)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_both'),
@@ -600,13 +648,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setTapZoneInvert(ReaderTapZoneInvert.BOTH)
+        select(() => {
+          this.setTapZoneInvert(ReaderTapZoneInvert.BOTH)
+        })
       })
     }
   }
 
   @Builder
-  BackgroundMenu() {
+  BackgroundMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_background_black'),
@@ -615,7 +665,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setBackgroundMode(ReaderBackgroundMode.BLACK)
+        select(() => {
+          this.setBackgroundMode(ReaderBackgroundMode.BLACK)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_gray'),
@@ -624,7 +676,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setBackgroundMode(ReaderBackgroundMode.GRAY)
+        select(() => {
+          this.setBackgroundMode(ReaderBackgroundMode.GRAY)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_white'),
@@ -633,7 +687,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setBackgroundMode(ReaderBackgroundMode.WHITE)
+        select(() => {
+          this.setBackgroundMode(ReaderBackgroundMode.WHITE)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_background_auto'),
@@ -642,13 +698,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setBackgroundMode(ReaderBackgroundMode.AUTO)
+        select(() => {
+          this.setBackgroundMode(ReaderBackgroundMode.AUTO)
+        })
       })
     }
   }
 
   @Builder
-  ImageScalingQualityMenu() {
+  ImageScalingQualityMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_image_scaling_quality_standard'),
@@ -657,7 +715,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
+        select(() => {
+          this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_image_scaling_quality_optimized'),
@@ -666,7 +726,9 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
+        select(() => {
+          this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
+        })
       })
       MenuItem({
         content: $r('app.string.settings_reader_image_scaling_quality_high'),
@@ -675,13 +737,15 @@ export struct ReaderSettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
-        this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
+        select(() => {
+          this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
+        })
       })
     }
   }
 
   @Builder
-  SuperResolutionModelMenu() {
+  SuperResolutionModelMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(this.installedSuperResolutionModels, (model: string) => {
         MenuItem({
@@ -691,14 +755,16 @@ export struct ReaderSettingsPage {
               ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
               : undefined,
         }).onClick(() => {
-          this.setSuperResolutionModel(model)
+          select(() => {
+            this.setSuperResolutionModel(model)
+          })
         })
       }, (model: string): string => model)
     }
   }
 
   @Builder
-  SuperResolutionMaxHeightMenu() {
+  SuperResolutionMaxHeightMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach([1000, 1500, READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT], (maxHeight: number) => {
         MenuItem({
@@ -708,7 +774,9 @@ export struct ReaderSettingsPage {
               ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
               : undefined,
         }).onClick(() => {
-          this.setSuperResolutionMaxHeight(maxHeight)
+          select(() => {
+            this.setSuperResolutionMaxHeight(maxHeight)
+          })
         })
       }, (maxHeight: number): string => `${maxHeight}`)
     }
@@ -730,8 +798,8 @@ export struct ReaderSettingsPage {
             trailingText: this.modeLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.DirMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.DirMenu(select)
             },
           })
           this.rowDivider()
@@ -758,8 +826,8 @@ export struct ReaderSettingsPage {
             trailingText: this.spreadLayoutLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.SpreadLayoutMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.SpreadLayoutMenu(select)
             },
             isEnabled: this.doublePageAvailable(),
           })
@@ -789,8 +857,8 @@ export struct ReaderSettingsPage {
             trailingText: this.tapZoneLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.TapZoneMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.TapZoneMenu(select)
             },
           })
           this.rowDivider()
@@ -799,8 +867,8 @@ export struct ReaderSettingsPage {
             trailingText: this.tapZoneInvertLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.TapZoneInvertMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.TapZoneInvertMenu(select)
             },
           })
         }
@@ -816,8 +884,8 @@ export struct ReaderSettingsPage {
             trailingText: this.backgroundModeLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.BackgroundMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.BackgroundMenu(select)
             },
           })
           this.rowDivider()
@@ -828,8 +896,8 @@ export struct ReaderSettingsPage {
             trailingText: this.imageScalingQualityLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.ImageScalingQualityMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.ImageScalingQualityMenu(select)
             },
           })
           this.rowDivider()
@@ -900,8 +968,8 @@ export struct ReaderSettingsPage {
             trailingText: this.superResolutionModelLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.SuperResolutionModelMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.SuperResolutionModelMenu(select)
             },
             isEnabled: this.installedSuperResolutionModels.length > 0,
           })
@@ -920,8 +988,8 @@ export struct ReaderSettingsPage {
             trailingText: this.superResolutionMaxHeightLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.SuperResolutionMaxHeightMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.SuperResolutionMaxHeightMenu(select)
             },
             isEnabled: this.readMode.superResolutionEnabled &&
               this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE,
@@ -939,8 +1007,8 @@ export struct ReaderSettingsPage {
             trailingText: this.autoPageLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.AutoPageMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.AutoPageMenu(select)
             },
           })
           this.rowDivider()
@@ -971,8 +1039,8 @@ export struct ReaderSettingsPage {
             trailingText: this.preloadPageLabel(),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.PreloadPageMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.PreloadPageMenu(select)
             },
           })
         }

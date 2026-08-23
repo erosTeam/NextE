@@ -1279,14 +1279,14 @@ struct UcSelectRow {
       trailingText: this.currentLabel(),
       trailingDropdown: true,
       dropdownMenuEnabled: true,
-      dropdownMenuBuilder: () => {
-        this.OptionMenu()
+      dropdownMenuBuilder: (select: (action: () => void) => void) => {
+        this.OptionMenu(select)
       },
     })
   }
 
   @Builder
-  OptionMenu() {
+  OptionMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         this.options,
@@ -1295,7 +1295,9 @@ struct UcSelectRow {
             label: option.label,
             selected: option.value === this.current,
             selectAction: () => {
-              this.onPick(option.value)
+              select(() => {
+                this.onPick(option.value)
+              })
             },
           })
         },

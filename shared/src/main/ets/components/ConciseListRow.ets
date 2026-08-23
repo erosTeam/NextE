@@ -34,7 +34,6 @@ export struct ConciseListRow {
   @Param trailingDropdown: boolean = false;
   @Param dropdownMenuEnabled: boolean = false;
   @Param dropdownMenuDeferredOpen: boolean = false;
-  // Menu visibility and the real suffix anchor are owned here; settings pages only supply menu content.
   @Local private dropdownMenuShown: boolean = false;
   @Param hasSwitch: boolean = false;
   @Param hasCounter: boolean = false;
@@ -51,7 +50,8 @@ export struct ConciseListRow {
   @Event action?: () => void;
   @BuilderParam suffixBuilderParam?: () => void;
   @BuilderParam prefixBuilderParam?: () => void;
-  @BuilderParam dropdownMenuBuilder: () => void = this.EmptyDropdownMenu;
+  @BuilderParam dropdownMenuBuilder: (select: (action: () => void) => void) => void =
+    this.EmptyDropdownMenu;
   @Event dropdownMenuOpenAction?: (openMenu: () => void) => void;
   @Event switchAction?: (value: boolean) => void;
   @Event counterDecreaseAction?: () => void;
@@ -110,7 +110,7 @@ export struct ConciseListRow {
         }
       }
       .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
-      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
+      .bindMenu(this.dropdownMenuShown, this.BoundDropdownMenu, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           this.dropdownMenuShown = false
@@ -240,7 +240,23 @@ export struct ConciseListRow {
   }
 
   @Builder
-  private EmptyDropdownMenu() {}
+  private EmptyDropdownMenu(_select: (action: () => void) => void) {}
+
+  private selectDropdownItem(action: () => void): void {
+    // Let the MenuItem click dispatch finish before removing the overlay. Closing it in the
+    // active click handler can expose the row underneath to the same pointer event.
+    setTimeout((): void => {
+      this.dropdownMenuShown = false
+      action()
+    }, 0)
+  }
+
+  @Builder
+  private BoundDropdownMenu() {
+    this.dropdownMenuBuilder((action: () => void) => {
+      this.selectDropdownItem(action)
+    })
+  }
 
   @Builder
   private DropdownSuffixContent() {
@@ -262,7 +278,7 @@ export struct ConciseListRow {
         this.DropdownSuffixContent()
       }
       .alignItems(VerticalAlign.Center)
-      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, appMenuOptions({
+      .bindMenu(this.dropdownMenuShown, this.BoundDropdownMenu, appMenuOptions({
         placement: Placement.BottomRight,
         onDisappear: () => {
           this.dropdownMenuShown = false

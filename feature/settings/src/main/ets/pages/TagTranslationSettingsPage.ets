@@ -159,7 +159,7 @@ export struct TagTranslationSettingsPage {
   }
 
   @Builder
-  private UpdateModeMenu() {
+  private UpdateModeMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.tag_translation_update_manual'),
@@ -167,7 +167,9 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setUpdateMode(TAG_TRANSLATION_UPDATE_MANUAL)
+        select(() => {
+          this.setUpdateMode(TAG_TRANSLATION_UPDATE_MANUAL)
+        })
       })
       MenuItem({
         content: $r('app.string.tag_translation_update_every_start'),
@@ -175,13 +177,15 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setUpdateMode(TAG_TRANSLATION_UPDATE_EVERY_START)
+        select(() => {
+          this.setUpdateMode(TAG_TRANSLATION_UPDATE_EVERY_START)
+        })
       })
     }
   }
 
   @Builder
-  private IntroImageMenu() {
+  private IntroImageMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.tag_translation_intro_image_disable'),
@@ -189,7 +193,9 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setIntroImageLevel(TAG_INTRO_IMAGE_DISABLE)
+        select(() => {
+          this.setIntroImageLevel(TAG_INTRO_IMAGE_DISABLE)
+        })
       })
       MenuItem({
         content: $r('app.string.tag_translation_intro_image_nonh'),
@@ -197,7 +203,9 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setIntroImageLevel(TAG_INTRO_IMAGE_NON_H)
+        select(() => {
+          this.setIntroImageLevel(TAG_INTRO_IMAGE_NON_H)
+        })
       })
       MenuItem({
         content: $r('app.string.tag_translation_intro_image_r18'),
@@ -205,7 +213,9 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setIntroImageLevel(TAG_INTRO_IMAGE_R18)
+        select(() => {
+          this.setIntroImageLevel(TAG_INTRO_IMAGE_R18)
+        })
       })
       MenuItem({
         content: $r('app.string.tag_translation_intro_image_r18g'),
@@ -213,7 +223,9 @@ export struct TagTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setIntroImageLevel(TAG_INTRO_IMAGE_R18G)
+        select(() => {
+          this.setIntroImageLevel(TAG_INTRO_IMAGE_R18G)
+        })
       })
     }
   }
@@ -290,8 +302,8 @@ export struct TagTranslationSettingsPage {
               trailingText: this.updateModeText(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.UpdateModeMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.UpdateModeMenu(select)
               },
             })
             this.rowDivider()
@@ -302,8 +314,8 @@ export struct TagTranslationSettingsPage {
               trailingText: this.introImageLevelText(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.IntroImageMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.IntroImageMenu(select)
               },
             })
           }

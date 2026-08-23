@@ -184,17 +184,17 @@ export struct AdvancedSettingsPage {
   }
 
   @Builder
-  private LevelMenu() {
+  private LevelMenu(select: (action: () => void) => void) {
     Menu() {
-      this.LevelMenuItem(DiagnosticsSettings.LEVEL_DEBUG)
-      this.LevelMenuItem(DiagnosticsSettings.LEVEL_INFO)
-      this.LevelMenuItem(DiagnosticsSettings.LEVEL_WARN)
-      this.LevelMenuItem(DiagnosticsSettings.LEVEL_ERROR)
+      this.LevelMenuItem(DiagnosticsSettings.LEVEL_DEBUG, select)
+      this.LevelMenuItem(DiagnosticsSettings.LEVEL_INFO, select)
+      this.LevelMenuItem(DiagnosticsSettings.LEVEL_WARN, select)
+      this.LevelMenuItem(DiagnosticsSettings.LEVEL_ERROR, select)
     }
   }
 
   @Builder
-  private LevelMenuItem(level: string) {
+  private LevelMenuItem(level: string, select: (action: () => void) => void) {
     MenuItem({
       content: this.levelLabel(level),
       symbolEndIcon: this.diagnostics.minLevel === level
@@ -202,7 +202,9 @@ export struct AdvancedSettingsPage {
         : undefined,
     })
       .onClick(() => {
-        this.updateMinLevel(level)
+        select(() => {
+          this.updateMinLevel(level)
+        })
       })
   }
 
@@ -248,8 +250,8 @@ export struct AdvancedSettingsPage {
         trailingText: this.levelLabel(this.diagnostics.minLevel),
         trailingDropdown: true,
         dropdownMenuEnabled: true,
-        dropdownMenuBuilder: () => {
-          this.LevelMenu()
+        dropdownMenuBuilder: (select: (action: () => void) => void) => {
+          this.LevelMenu(select)
         },
       })
     }

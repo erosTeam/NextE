@@ -207,44 +207,48 @@ export struct LocalBlockSettingsPage {
   }
 
   @Builder
-  private TypeMenu() {
+  private TypeMenu(select: (action: () => void) => void) {
     Menu() {
-      this.TypeMenuItem(LOCAL_BLOCK_TYPE_TITLE)
-      this.TypeMenuItem(LOCAL_BLOCK_TYPE_UPLOADER)
-      this.TypeMenuItem(LOCAL_BLOCK_TYPE_COMMENTATOR)
-      this.TypeMenuItem(LOCAL_BLOCK_TYPE_COMMENT)
+      this.TypeMenuItem(LOCAL_BLOCK_TYPE_TITLE, select)
+      this.TypeMenuItem(LOCAL_BLOCK_TYPE_UPLOADER, select)
+      this.TypeMenuItem(LOCAL_BLOCK_TYPE_COMMENTATOR, select)
+      this.TypeMenuItem(LOCAL_BLOCK_TYPE_COMMENT, select)
     }
   }
 
   @Builder
-  private TypeMenuItem(type: string) {
+  private TypeMenuItem(type: string, select: (action: () => void) => void) {
     MenuItem({
       content: this.typeText(type),
       symbolEndIcon: this.draftType === type
         ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
         : undefined,
     }).onClick(() => {
-      this.draftType = type
+      select(() => {
+        this.draftType = type
+      })
     })
   }
 
   @Builder
-  private CommentDisplayMenu() {
+  private CommentDisplayMenu(select: (action: () => void) => void) {
     Menu() {
-      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_HIDE)
-      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE)
+      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_HIDE, select)
+      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE, select)
     }
   }
 
   @Builder
-  private CommentDisplayMenuItem(mode: string) {
+  private CommentDisplayMenuItem(mode: string, select: (action: () => void) => void) {
     MenuItem({
       content: this.commentDisplayText(mode),
       symbolEndIcon: LocalBlockSettings.normalizeCommentDisplayMode(this.block.commentDisplayMode) === mode
         ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
         : undefined,
     }).onClick(() => {
-      this.setCommentDisplayMode(mode)
+      select(() => {
+        this.setCommentDisplayMode(mode)
+      })
     })
   }
 
@@ -349,8 +353,8 @@ export struct LocalBlockSettingsPage {
               trailingText: this.commentDisplayText(this.block.commentDisplayMode),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.CommentDisplayMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.CommentDisplayMenu(select)
               },
             })
           }
@@ -395,8 +399,8 @@ export struct LocalBlockSettingsPage {
             trailingText: this.typeText(this.draftType),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
-            dropdownMenuBuilder: () => {
-              this.TypeMenu()
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.TypeMenu(select)
             },
           })
           this.rowDivider()

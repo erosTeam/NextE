@@ -146,7 +146,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  ImmersiveMaterialMenu() {
+  ImmersiveMaterialMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         ImmersiveMaterialSettings.options(),
@@ -158,7 +158,9 @@ export struct LayoutSettingsPage {
                 ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
                 : undefined,
           }).onClick(() => {
-            this.setImmersiveMaterial(option.value)
+            select(() => {
+              this.setImmersiveMaterial(option.value)
+            })
           })
         },
         (option: ImmersiveMaterialOption) => option.value,
@@ -208,7 +210,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  ThemeMenu() {
+  ThemeMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.appearance_follow_system'),
@@ -218,7 +220,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setTheme(ThemeSettings.MODE_SYSTEM)
+          select(() => {
+            this.setTheme(ThemeSettings.MODE_SYSTEM)
+          })
         })
       MenuItem({
         content: $r('app.string.theme_light'),
@@ -228,7 +232,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setTheme(ThemeSettings.MODE_LIGHT)
+          select(() => {
+            this.setTheme(ThemeSettings.MODE_LIGHT)
+          })
         })
       MenuItem({
         content: $r('app.string.theme_dark'),
@@ -238,7 +244,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setTheme(ThemeSettings.MODE_DARK)
+          select(() => {
+            this.setTheme(ThemeSettings.MODE_DARK)
+          })
         })
     }
   }
@@ -267,28 +275,30 @@ export struct LayoutSettingsPage {
   // checkmark when selected). The platform MenuItem scrolls when items overflow, so the 自定义 entry fits
   // in the same dropdown as the presets.
   @Builder
-  ThemeColorMenu() {
+  ThemeColorMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         ThemeColorSettings.options(),
         (option: ThemeColorOption) => {
-          this.ThemeColorMenuItem(option)
+          this.ThemeColorMenuItem(option, select)
         },
         (option: ThemeColorOption) => option.value,
       )
-      this.CustomColorMenuItem()
+      this.CustomColorMenuItem(select)
     }
   }
 
   @Builder
-  ThemeColorMenuItem(option: ThemeColorOption) {
+  ThemeColorMenuItem(option: ThemeColorOption, select: (action: () => void) => void) {
     SettingsCheckedMenuItem({
       label: option.label,
       selected: ThemeColorSettings.normalize(this.themeColor.color) === option.value,
       showColorDot: true,
       color: option.color,
       selectAction: () => {
-        this.setThemeColor(option.value)
+        select(() => {
+          this.setThemeColor(option.value)
+        })
       },
     })
   }
@@ -296,7 +306,7 @@ export struct LayoutSettingsPage {
   // NextE-only entry (V2Next has presets only): a 自定义 item in the SAME dropdown that opens the
   // AppColorPicker half-modal. Its dot shows the live custom color when a custom accent is active.
   @Builder
-  CustomColorMenuItem() {
+  CustomColorMenuItem(select: (action: () => void) => void) {
     SettingsCheckedMenuItem({
       label: $r('app.string.theme_color_custom'),
       selected: ThemeColorSettings.isCustom(this.themeColor.color),
@@ -305,13 +315,15 @@ export struct LayoutSettingsPage {
         ? ThemeColorSettings.currentColor()
         : $r('sys.color.font_tertiary'),
       selectAction: () => {
-        this.openColorPicker()
+        select(() => {
+          this.openColorPicker()
+        })
       },
     })
   }
 
   @Builder
-  LanguageMenu() {
+  LanguageMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.appearance_follow_system'),
@@ -321,7 +333,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setLanguage(LanguageSettings.MODE_SYSTEM)
+          select(() => {
+            this.setLanguage(LanguageSettings.MODE_SYSTEM)
+          })
         })
       MenuItem({
         content: $r('app.string.language_zh'),
@@ -331,7 +345,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setLanguage(LanguageSettings.MODE_ZH_CN)
+          select(() => {
+            this.setLanguage(LanguageSettings.MODE_ZH_CN)
+          })
         })
       MenuItem({
         content: $r('app.string.language_en'),
@@ -341,7 +357,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setLanguage(LanguageSettings.MODE_EN)
+          select(() => {
+            this.setLanguage(LanguageSettings.MODE_EN)
+          })
         })
       MenuItem({
         content: $r('app.string.language_ja'),
@@ -351,7 +369,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setLanguage(LanguageSettings.MODE_JA)
+          select(() => {
+            this.setLanguage(LanguageSettings.MODE_JA)
+          })
         })
     }
   }
@@ -455,7 +475,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  ViewModeMenu() {
+  ViewModeMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.view_list'),
@@ -465,7 +485,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.LIST)
+          select(() => {
+            this.setViewMode(ListMode.LIST)
+          })
         })
       MenuItem({
         content: $r('app.string.view_simple'),
@@ -475,7 +497,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.SIMPLE_LIST)
+          select(() => {
+            this.setViewMode(ListMode.SIMPLE_LIST)
+          })
         })
       MenuItem({
         content: $r('app.string.view_grid'),
@@ -485,7 +509,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.GRID)
+          select(() => {
+            this.setViewMode(ListMode.GRID)
+          })
         })
       MenuItem({
         content: $r('app.string.view_waterfall'),
@@ -495,7 +521,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.WATERFALL)
+          select(() => {
+            this.setViewMode(ListMode.WATERFALL)
+          })
         })
       MenuItem({
         content: $r('app.string.view_waterfall_compact'),
@@ -505,7 +533,9 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.WATERFALL_COMPACT)
+          select(() => {
+            this.setViewMode(ListMode.WATERFALL_COMPACT)
+          })
         })
       MenuItem({
         content: $r('app.string.view_cover_wall'),
@@ -515,13 +545,15 @@ export struct LayoutSettingsPage {
             : undefined,
       })
         .onClick(() => {
-          this.setViewMode(ListMode.COVER_WALL)
+          select(() => {
+            this.setViewMode(ListMode.COVER_WALL)
+          })
         })
     }
   }
 
   @Builder
-  ActionAlignmentMenu() {
+  ActionAlignmentMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         ActionAlignmentSettings.availableOptions(this.actionAlign.holdingHandSupported),
@@ -536,7 +568,9 @@ export struct LayoutSettingsPage {
                 ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
                 : undefined,
           }).onClick(() => {
-            this.setActionAlignmentMode(option.mode)
+            select(() => {
+              this.setActionAlignmentMode(option.mode)
+            })
           })
         },
         (option: ActionAlignmentOption) => option.mode,
@@ -545,7 +579,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  ReadButtonStyleMenu() {
+  ReadButtonStyleMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         ReadButtonStyleSettings.options(),
@@ -557,7 +591,9 @@ export struct LayoutSettingsPage {
                 ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
                 : undefined,
           }).onClick(() => {
-            this.setReadButtonStyle(option.style)
+            select(() => {
+              this.setReadButtonStyle(option.style)
+            })
           })
         },
         (option: ReadButtonStyleOption) => option.style,
@@ -566,7 +602,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  ScreenOrientationMenu() {
+  ScreenOrientationMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         ScreenOrientationSettings.options(),
@@ -578,7 +614,9 @@ export struct LayoutSettingsPage {
                 ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
                 : undefined,
           }).onClick(() => {
-            this.setScreenOrientation(option.mode)
+            select(() => {
+              this.setScreenOrientation(option.mode)
+            })
           })
         },
         (option: ScreenOrientationOption) => option.mode,
@@ -587,7 +625,7 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
-  TabletLayoutMenu() {
+  TabletLayoutMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         TabletLayoutSettings.options(),
@@ -599,7 +637,9 @@ export struct LayoutSettingsPage {
                 ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
                 : undefined,
           }).onClick(() => {
-            this.setTabletLayout(option.mode)
+            select(() => {
+              this.setTabletLayout(option.mode)
+            })
           })
         },
         (option: TabletLayoutOption) => option.mode,
@@ -637,8 +677,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.themeModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ThemeMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ThemeMenu(select)
                   },
                 })
               }
@@ -652,8 +692,8 @@ export struct LayoutSettingsPage {
                     this.ThemeColorSuffix()
                   },
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ThemeColorMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ThemeColorMenu(select)
                   },
                 })
               }
@@ -669,8 +709,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.immersiveMaterialLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ImmersiveMaterialMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ImmersiveMaterialMenu(select)
                   },
                 })
               }
@@ -682,8 +722,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.languageModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.LanguageMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.LanguageMenu(select)
                   },
                 })
               }
@@ -699,8 +739,8 @@ export struct LayoutSettingsPage {
                 trailingText: this.screenOrientationLabel(),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuBuilder: () => {
-                  this.ScreenOrientationMenu()
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.ScreenOrientationMenu(select)
                 },
               })
             }
@@ -714,8 +754,8 @@ export struct LayoutSettingsPage {
               trailingText: this.tabletLayoutLabel(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.TabletLayoutMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.TabletLayoutMenu(select)
               },
             })
           }
@@ -730,8 +770,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.viewModeLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ViewModeMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ViewModeMenu(select)
                   },
                 })
               }
@@ -809,8 +849,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.actionAlignmentLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ActionAlignmentMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ActionAlignmentMenu(select)
                   },
                 })
               }
@@ -823,8 +863,8 @@ export struct LayoutSettingsPage {
                   trailingText: this.readButtonStyleLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ReadButtonStyleMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ReadButtonStyleMenu(select)
                   },
                 })
               }

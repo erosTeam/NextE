@@ -229,7 +229,11 @@ export struct CacheSettingsPage {
   }
 
   @Builder
-  private ReaderCacheLimitMenuItem(limitMb: number, label: string) {
+  private ReaderCacheLimitMenuItem(
+    limitMb: number,
+    label: string,
+    select: (action: () => void) => void,
+  ) {
     MenuItem({
       content: label,
       symbolEndIcon: this.readerCacheLimitMb === limitMb
@@ -237,17 +241,19 @@ export struct CacheSettingsPage {
         : undefined,
     })
       .onClick(() => {
-        this.setReaderCacheLimit(limitMb)
+        select(() => {
+          this.setReaderCacheLimit(limitMb)
+        })
       })
   }
 
   @Builder
-  private ReaderCacheLimitMenu() {
+  private ReaderCacheLimitMenu(select: (action: () => void) => void) {
     Menu() {
-      this.ReaderCacheLimitMenuItem(256, '256 MB')
-      this.ReaderCacheLimitMenuItem(512, '512 MB')
-      this.ReaderCacheLimitMenuItem(1024, '1 GB')
-      this.ReaderCacheLimitMenuItem(2048, '2 GB')
+      this.ReaderCacheLimitMenuItem(256, '256 MB', select)
+      this.ReaderCacheLimitMenuItem(512, '512 MB', select)
+      this.ReaderCacheLimitMenuItem(1024, '1 GB', select)
+      this.ReaderCacheLimitMenuItem(2048, '2 GB', select)
     }
   }
 
@@ -565,8 +571,8 @@ export struct CacheSettingsPage {
                   trailingText: this.readerCacheLimitLabel(),
                   trailingDropdown: true,
                   dropdownMenuEnabled: true,
-                  dropdownMenuBuilder: () => {
-                    this.ReaderCacheLimitMenu()
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.ReaderCacheLimitMenu(select)
                   },
                 })
               }

@@ -83,7 +83,7 @@ export struct SecuritySettingsPage {
   }
 
   @Builder
-  AutoLockMenu() {
+  AutoLockMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(SecuritySettings.autoLockValues(), (seconds: number) => {
         MenuItem({
@@ -92,7 +92,9 @@ export struct SecuritySettingsPage {
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
         }).onClick(() => {
-          this.setAutoLock(seconds)
+          select(() => {
+            this.setAutoLock(seconds)
+          })
         })
       }, (seconds: number) => `${seconds}`)
     }
@@ -126,8 +128,8 @@ export struct SecuritySettingsPage {
                 trailingText: this.autoLockLabel(this.securitySettings.autoLockSeconds),
                 trailingDropdown: true,
                 dropdownMenuEnabled: true,
-                dropdownMenuBuilder: () => {
-                  this.AutoLockMenu()
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.AutoLockMenu(select)
                 },
               })
             }

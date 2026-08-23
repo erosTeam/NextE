@@ -243,7 +243,7 @@ export struct CommentTranslationSettingsPage {
   }
 
   @Builder
-  private DisplayModeMenu() {
+  private DisplayModeMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.comment_translation_display_replace'),
@@ -251,7 +251,9 @@ export struct CommentTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
+        select(() => {
+          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
+        })
       })
       MenuItem({
         content: $r('app.string.comment_translation_display_bilingual'),
@@ -259,13 +261,15 @@ export struct CommentTranslationSettingsPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       }).onClick(() => {
-        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
+        select(() => {
+          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
+        })
       })
     }
   }
 
   @Builder
-  private SourceMenu() {
+  private SourceMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         this.compatibleSources(),
@@ -276,7 +280,9 @@ export struct CommentTranslationSettingsPage {
               ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
               : undefined,
           }).onClick(() => {
-            this.selectSource(profile.sourceProfileId)
+            select(() => {
+              this.selectSource(profile.sourceProfileId)
+            })
           })
         },
         (profile: LlmSourceProfile) => profile.sourceProfileId,
@@ -285,7 +291,7 @@ export struct CommentTranslationSettingsPage {
   }
 
   @Builder
-  private ModelMenu() {
+  private ModelMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
         this.modelOptions,
@@ -296,7 +302,9 @@ export struct CommentTranslationSettingsPage {
               ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
               : undefined,
           }).onClick(() => {
-            this.selectModel(model)
+            select(() => {
+              this.selectModel(model)
+            })
           })
         },
         (model: string) => model,
@@ -342,8 +350,8 @@ export struct CommentTranslationSettingsPage {
               trailingText: this.displayModeText(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.DisplayModeMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.DisplayModeMenu(select)
               },
               isEnabled: this.settings.enabled,
             })
@@ -373,8 +381,8 @@ export struct CommentTranslationSettingsPage {
               trailingDropdown: this.compatibleSources().length > 0,
               showChevron: this.compatibleSources().length === 0,
               dropdownMenuEnabled: this.compatibleSources().length > 0,
-              dropdownMenuBuilder: () => {
-                this.SourceMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.SourceMenu(select)
               },
               isEnabled: this.settings.enabled && !this.settings.useGoogleOnly,
               action: () => {
@@ -391,8 +399,8 @@ export struct CommentTranslationSettingsPage {
               trailingText: this.selectedModelText(),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
-              dropdownMenuBuilder: () => {
-                this.ModelMenu()
+              dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                this.ModelMenu(select)
               },
               dropdownMenuDeferredOpen: true,
               dropdownMenuOpenAction: (openMenu: () => void) => {
