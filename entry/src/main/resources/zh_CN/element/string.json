@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "选择列表进入详情页时的效果；封面展开目前用于瀑布流布局"
+      "value": "选择列表进入详情页及缩略图进入阅读器时的转场效果"
     },
     {
       "name": "settings_gallery_detail_transition_system",

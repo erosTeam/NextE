@@ -111,6 +111,7 @@ import {
   connectLayoutSafeArea,
   ReaderSuperResolutionService,
   GalleryTitleTranslationService,
+  ReaderThumbnailTransitionCoordinator,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -353,6 +354,8 @@ export struct GalleryDetailPage {
   private actionStripScroller: Scroller = new Scroller();
   private fullPreviewScroller: Scroller = new Scroller();
   private fullPreviewRefreshController: PullRefreshController = new PullRefreshController();
+  private readerTransitionScope: string =
+    ReaderThumbnailTransitionCoordinator.allocateScope('gallery-detail');
   private remoteFavoriteSheetContent: ComponentContent<GalleryDetailSheetContentParams> | null = null;
   private fullPreviewJumpSubmitting: boolean = false;
   private fullPreviewJumpDialogController: CustomDialogController = new CustomDialogController({
@@ -959,6 +962,34 @@ export struct GalleryDetailPage {
     connectReaderOverlayNavigation().open(params)
   }
 
+  private openReaderFromThumbnail(img: EhGalleryImage): void {
+    const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
+    const contentLanguage: string = this.vm.gallery.contentLanguage()
+    const params: ReaderParams = new ReaderParams(
+      this.params.gid,
+      this.params.token,
+      pageZeroBased,
+      this.fileCountNum(),
+      this.navTitle(),
+      this.vm.images,
+      this.vm.images.length > 0 ? 1 : 0,
+      this.vm.images.length,
+      [],
+      img.sUrl,
+    )
+    params.sourceLanguage = contentLanguage.length > 0 ? contentLanguage : 'auto'
+    ReaderThumbnailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.readerTransitionScope,
+      this.params.gid,
+      pageZeroBased,
+      img,
+      (animated: boolean) => {
+        connectReaderOverlayNavigation().open(params, animated)
+      },
+    )
+  }
+
   private openFullPreviewReader(img: EhGalleryImage): void {
     if (this.fullPreviewMustReset) {
       return
@@ -981,7 +1012,16 @@ export struct GalleryDetailPage {
     params.sourceLanguage = contentLanguage.length > 0
       ? contentLanguage
       : 'auto'
-    connectReaderOverlayNavigation().open(params)
+    ReaderThumbnailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.readerTransitionScope,
+      this.params.gid,
+      pageZeroBased,
+      img,
+      (animated: boolean) => {
+        connectReaderOverlayNavigation().open(params, animated)
+      },
+    )
   }
 
   private readFabLabel(): ResourceStr {
@@ -3007,8 +3047,9 @@ export struct GalleryDetailPage {
                 hidden: this.thumbMode.hideGalleryThumbnails,
                 thumbnailReloadToken: this.compactPreviewReloadToken,
                 loadDeferred: !this.vm.postTransitionReady,
-                onOpen: (page0: number) => {
-                  this.openReader(page0)
+                transitionScope: this.readerTransitionScope,
+                onOpen: (img: EhGalleryImage) => {
+                  this.openReaderFromThumbnail(img)
                 },
                 onMore: (initialImagePage: number) => {
                   this.openThumbnails(initialImagePage)
@@ -3057,6 +3098,7 @@ export struct GalleryDetailPage {
           vm: this.fullPreviewVm,
           scroller: this.fullPreviewScroller,
           controller: this.fullPreviewRefreshController,
+          transitionScope: this.readerTransitionScope,
           backToTop: this.galleryDetailBackToTop.detailEnabled(
             this.navigationDestinationId,
             GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,

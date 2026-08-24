@@ -33,6 +33,7 @@ const CARD_TAG_LIMIT: number = 8
 export struct GalleryCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
+  @Param transitionCoverId: string = '';
   // Current list content width (vp), measured by PullRefreshListScaffold after horizontal padding. This is
   // pane-local so fold/unfold and split-pane changes recompute in the same app process.
   @Param listContentWidth: number = 0;
@@ -191,6 +192,7 @@ export struct GalleryCard {
           // (Contain) so the whole cover shows, and the cover-color gradient (or blur) fills the gaps.
           containFit: !this.coverFillsSlot(),
           letterboxBackground: true,
+          surfaceId: this.transitionCoverId,
         })
       }
       .width(this.coverWidth())

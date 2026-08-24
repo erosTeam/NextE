@@ -172,9 +172,6 @@ export struct GalleryListBody {
   }
 
   private galleryDetailSourceCoverId(g: EhGallery): string {
-    if (this.effectiveMode() !== ListMode.WATERFALL) {
-      return ''
-    }
     return GalleryDetailTransitionCoordinator.sourceCoverId(
       this.galleryDetailTransitionScope,
       this.effectiveMode(),
@@ -358,7 +355,11 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               GridItem() {
-                GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryGridCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
+                })
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
               .id(this.galleryDetailSourceId(g))
@@ -523,6 +524,7 @@ export struct GalleryListBody {
                   tagSig: this.tagSig,
                   tagTranslation: this.tagTranslation,
                   compact: true,
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
                 })
                   .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
               }
@@ -599,7 +601,11 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryCoverWallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryCoverWallCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
+                })
                   .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
               }
               .width('100%')
@@ -664,13 +670,18 @@ export struct GalleryListBody {
             (g: EhGallery, index: number) => {
               ListItem() {
                 if (this.effectiveMode() === ListMode.SIMPLE_LIST) {
-                  GallerySimpleCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  GallerySimpleCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
                     .reuse({ reuseId: () => gallerySimpleReuseId(g) })
                 } else {
                   GalleryCard({
                     gallery: g,
                     selected: this.isGallerySelected(g),
                     listContentWidth: this.listContentWidth,
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
                   })
                 }
               }

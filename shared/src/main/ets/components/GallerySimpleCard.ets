@@ -31,6 +31,7 @@ export struct GallerySimpleCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
   @Param viewedTime: string = '';
+  @Param transitionCoverId: string = '';
 
   build() {
     Row({ space: ThemeConstants.SPACE_SM }) {
@@ -39,6 +40,7 @@ export struct GallerySimpleCard {
         thumbWidth: SIMPLE_THUMB_W,
         thumbHeight: SIMPLE_THUMB_H,
         radius: ThemeConstants.THUMB_RADIUS,
+        surfaceId: this.transitionCoverId,
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())

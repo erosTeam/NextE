@@ -887,6 +887,12 @@ export {
   connectReaderOverlayNavigation,
 } from './state/ReaderOverlayNavigationState'
 export {
+  ReaderThumbnailTransitionPhase,
+  ReaderThumbnailTransitionState,
+  connectReaderThumbnailTransition,
+} from './state/ReaderThumbnailTransitionState'
+export { ReaderThumbnailTransitionCoordinator } from './navigation/ReaderThumbnailTransitionCoordinator'
+export {
   PendingEhUrlState,
   connectPendingEhUrl,
   publishPendingEhUrl,

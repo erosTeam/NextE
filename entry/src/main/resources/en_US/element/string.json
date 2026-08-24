@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "Choose how lists open details; Cover expand currently applies to Waterfall"
+      "value": "Choose the transition from lists to details and from thumbnails to Reader"
     },
     {
       "name": "settings_gallery_detail_transition_system",

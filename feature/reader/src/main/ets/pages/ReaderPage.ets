@@ -63,6 +63,9 @@ import {
   ComicVisualTranslationRunResult,
   ComicVisualProviderSettings,
   CommentTranslationService,
+  ReaderThumbnailTransitionCoordinator,
+  ReaderThumbnailTransitionState,
+  connectReaderThumbnailTransition,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -315,6 +318,7 @@ export struct ReaderPage {
   @Local imageFileBytes: number[] = [];
   @Local imageFileFormats: string[] = [];
   @Local imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings();
+  @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -447,6 +451,7 @@ export struct ReaderPage {
     })
     .onShown(() => {
       this.readerRouteVisible = true
+      ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext())
       this.scheduleEntryStatusBarVisibility()
       this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
       this.scheduleComicTranslationAutoForCurrentPage()
@@ -835,6 +840,30 @@ export struct ReaderPage {
         return readerDelay(READER_EXIT_STATUS_BAR_LEAD_MS)
       })
       .then(() => {
+        const currentImage: EhGalleryImage | null = this.currentImage()
+        DiagnosticLogger.info(
+          'reader-transition',
+          'close_gate',
+          `index=${this.vm.currentIndex} image=${currentImage !== null} zoomed=${this.imageZoomed} ` +
+            `phase=${this.readerThumbnailTransition.phase}`,
+        )
+        if (
+          currentImage !== null &&
+          !this.imageZoomed &&
+          ReaderThumbnailTransitionCoordinator.close(
+            this.getUIContext(),
+            this.vm.currentIndex,
+            currentImage,
+            this.readerPageSnapshotId(currentImage.page),
+            this.imageMetricWidthForPage(currentImage.page),
+            this.imageMetricHeightForPage(currentImage.page),
+            (animated: boolean) => {
+              connectReaderOverlayNavigation().close(animated)
+            },
+          )
+        ) {
+          return
+        }
         connectReaderOverlayNavigation().close()
       })
   }
@@ -977,6 +1006,10 @@ export struct ReaderPage {
       }
     }
     return 0
+  }
+
+  private readerPageSnapshotId(page: number): string {
+    return `reader-page-snapshot-${page}`
   }
 
   private rememberImageEnhancement(
@@ -2620,6 +2653,12 @@ export struct ReaderPage {
     this.readerPagerIndex = this.readerPagerIndexFor(this.vm.currentIndex)
     this.scrollThumbStripTo(this.vm.currentIndex, true)
     this.publishReaderProgress(this.vm.currentIndex)
+    if (this.vm.hasPreviewAt(this.vm.currentIndex)) {
+      this.readerThumbnailTransition.updateCurrent(
+        this.vm.currentIndex,
+        this.vm.imageAt(this.vm.currentIndex),
+      )
+    }
     this.syncCurrentImageBlockFile()
     this.scheduleComicTranslationAutoForCurrentPage()
     setTimeout((): void => {
@@ -2728,6 +2767,7 @@ export struct ReaderPage {
     if (page <= 0) {
       return
     }
+    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(page)
     this.syncOriginalAvailabilityForPage(page)
     for (let i: number = 0; i < this.loadedPages.length; i++) {
       if (this.loadedPages[i] === page) {
@@ -3112,6 +3152,7 @@ export struct ReaderPage {
           if (this.vm.hasPreviewAt(index)) {
             ReaderImagePage({
               image: this.readerDisplayImage(index),
+              snapshotId: this.readerPageSnapshotId(this.vm.imageAt(index).page),
               localSource: this.readerDisplayLocalSource(index),
               imageKey: `${this.readerImageKey(this.readerDisplayImage(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
               fileCacheKey: this.readerDisplayFileCacheKey(index),
@@ -6319,6 +6360,7 @@ struct ReaderSpreadImageLayer {
     }
     .width('100%')
     .height('100%')
+    .id(`reader-page-snapshot-${this.image.page}`)
   }
 }
 
@@ -6331,6 +6373,7 @@ struct ReaderSpreadImageLayer {
 @ComponentV2
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param snapshotId: string = '';
   @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
@@ -6999,6 +7042,7 @@ struct ReaderImagePage {
     }
     .width('100%')
     .height('100%')
+    .id(this.snapshotId)
     .onAreaChange((_o: Area, n: Area) => {
       this.compW = n.width as number
       this.compH = n.height as number
@@ -7860,6 +7904,7 @@ struct ReaderVerticalImage {
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
+    .id(`reader-page-snapshot-${this.image.page}`)
     .zIndex(this.zoomZIndex())
     .onAreaChange((_o: Area, n: Area) => {
       this.compW = n.width as number

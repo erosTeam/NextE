@@ -572,6 +572,14 @@ export struct FavcatPage {
     )
   }
 
+  private galleryDetailSourceCoverId(g: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceCoverId(
+      this.galleryDetailTransitionScope,
+      this.listMode.mode,
+      g.gid,
+    )
+  }
+
   private openGalleryDetail(g: EhGallery): void {
     GalleryDetailTransitionCoordinator.open(
       this.getUIContext(),
@@ -580,6 +588,7 @@ export struct FavcatPage {
       () => {
         this.openDetail(g)
       },
+      this.galleryDetailSourceCoverId(g),
     )
   }
 
@@ -674,7 +683,11 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               GridItem() {
-                GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryGridCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
+                })
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
               .id(this.galleryDetailSourceId(g))
@@ -753,6 +766,7 @@ export struct FavcatPage {
                   selected: this.isGallerySelected(g),
                   tagSig: this.tagSig,
                   tagTranslation: this.tagTranslation,
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
                 })
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
@@ -834,6 +848,7 @@ export struct FavcatPage {
                   tagSig: this.tagSig,
                   tagTranslation: this.tagTranslation,
                   compact: true,
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
                 })
                   .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
               }
@@ -908,7 +923,11 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryCoverWallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryCoverWallCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
+                })
                   .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
               }
               .width('100%')
@@ -971,13 +990,18 @@ export struct FavcatPage {
             (g: EhGallery, index: number) => {
               ListItem() {
                 if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-                  GallerySimpleCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  GallerySimpleCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
                     .reuse({ reuseId: () => gallerySimpleReuseId(g) })
                 } else {
                   GalleryCard({
                     gallery: g,
                     selected: this.isGallerySelected(g),
                     listContentWidth: this.listContentWidth,
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
                   })
                 }
               }

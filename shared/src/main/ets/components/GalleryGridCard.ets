@@ -47,6 +47,7 @@ export function galleryGridReuseId(gallery: EhGallery): string {
 export struct GalleryGridCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
+  @Param transitionCoverId: string = '';
 
   private metaText(): string {
     if (this.gallery.postTime.length > 0) {
@@ -97,6 +98,7 @@ export struct GalleryGridCard {
         sourceWidth: this.gallery.imgWidth,
         sourceHeight: this.gallery.imgHeight,
         letterboxBackground: true,
+        surfaceId: this.transitionCoverId,
       })
       GalleryCategoryCornerBadge({
         category: this.gallery.category,

@@ -451,6 +451,14 @@ export struct GallerySearchPage {
     )
   }
 
+  private galleryDetailSourceCoverId(g: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceCoverId(
+      this.galleryDetailTransitionScope,
+      this.listMode.mode,
+      g.gid,
+    )
+  }
+
   private openGalleryDetail(g: EhGallery): void {
     GalleryDetailTransitionCoordinator.open(
       this.getUIContext(),
@@ -470,6 +478,7 @@ export struct GallerySearchPage {
           ),
         )
       },
+      this.galleryDetailSourceCoverId(g),
     )
   }
 
@@ -1046,7 +1055,10 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   GridItem() {
-                    GalleryGridCard({ gallery: g })
+                    GalleryGridCard({
+                      gallery: g,
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
+                    })
                       .reuse({ reuseId: () => galleryGridReuseId(g) })
                   }
                   .id(this.galleryDetailSourceId(g))
@@ -1115,6 +1127,7 @@ export struct GallerySearchPage {
                       gallery: g,
                       tagSig: this.tagSig,
                       tagTranslation: this.tagTranslation,
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
                     })
                       .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
                   }
@@ -1186,6 +1199,7 @@ export struct GallerySearchPage {
                       tagSig: this.tagSig,
                       tagTranslation: this.tagTranslation,
                       compact: true,
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
                     })
                       .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
                   }
@@ -1251,7 +1265,10 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   FlowItem() {
-                    GalleryCoverWallCard({ gallery: g })
+                    GalleryCoverWallCard({
+                      gallery: g,
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
+                    })
                       .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
                   }
                   .width('100%')
@@ -1306,12 +1323,16 @@ export struct GallerySearchPage {
                 (g: EhGallery, index: number) => {
                   ListItem() {
                     if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-                      GallerySimpleCard({ gallery: g })
+                      GallerySimpleCard({
+                        gallery: g,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
+                      })
                         .reuse({ reuseId: () => gallerySimpleReuseId(g) })
                     } else {
                       GalleryCard({
                         gallery: g,
                         listContentWidth: this.listContentWidth,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
                       })
                     }
                   }

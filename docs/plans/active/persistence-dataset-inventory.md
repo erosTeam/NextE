@@ -27,6 +27,8 @@ Allowed `Sync` values:
 | StorageKeys.STORE_SETTINGS | store | excluded | excluded | Preferences store name |
 | StorageKeys.SITE_MODE_EX | setting | plaintext | excluded | EH site mode |
 | StorageKeys.LIST_MODE | setting | plaintext | excluded | Gallery list layout |
+| StorageKeys.GALLERY_DETAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Legacy gallery-detail transition compatibility switch |
+| StorageKeys.GALLERY_DETAIL_TRANSITION_MODE | setting | plaintext | excluded | Selected gallery-detail and thumbnail-to-Reader transition mode |
 | StorageKeys.LIST_ITEM_FIXED_HEIGHT | setting | plaintext | excluded | List-row height mode |
 | StorageKeys.GRID_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.WATERFALL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |

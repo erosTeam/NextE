@@ -29,6 +29,7 @@ export function galleryCoverWallReuseId(gallery: EhGallery): string {
 export struct GalleryCoverWallCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
+  @Param transitionCoverId: string = '';
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -66,6 +67,7 @@ export struct GalleryCoverWallCard {
         sourceWidth: this.gallery.imgWidth,
         sourceHeight: this.gallery.imgHeight,
         letterboxBackground: true,
+        surfaceId: this.transitionCoverId,
       })
       .brightness(this.selected ? 0.86 : 1)
       GalleryCategoryCornerBadge({

@@ -96,11 +96,20 @@ export struct ViewedHistoryPage {
           new GalleryDetailParams(gallery.gid, gallery.token, gallery.thumbUrl, this.titleFor(gallery)),
         )
       },
+      this.galleryDetailSourceCoverId(gallery),
     )
   }
 
   private galleryDetailSourceId(gallery: EhGallery): string {
     return GalleryDetailTransitionCoordinator.sourceId(
+      this.galleryDetailTransitionScope,
+      'history',
+      gallery.gid,
+    )
+  }
+
+  private galleryDetailSourceCoverId(gallery: EhGallery): string {
+    return GalleryDetailTransitionCoordinator.sourceCoverId(
       this.galleryDetailTransitionScope,
       'history',
       gallery.gid,
@@ -317,6 +326,7 @@ export struct ViewedHistoryPage {
                 GallerySimpleCard({
                   gallery: row.gallery,
                   viewedTime: this.viewedTimeLabel(row.gallery.lastViewTime),
+                  transitionCoverId: this.galleryDetailSourceCoverId(row.gallery),
                 })
                   .reuse({
                     reuseId: () => gallerySimpleReuseId(

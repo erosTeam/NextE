@@ -13,6 +13,7 @@ import {
   AppStrings,
   ListMode,
   immersiveTitleBarOpts,
+  ReaderThumbnailTransitionCoordinator,
 } from 'shared'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 
@@ -30,6 +31,7 @@ export struct GalleryAllThumbnailsContent {
   // The inline detail workspace grants the native status-bar action to one pane at a time.
   // Standalone all-thumbnails pages keep the default true value.
   @Param backToTop: boolean = true;
+  @Param transitionScope: string = '';
   @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
   @Event onUserScroll?: () => void;
   @Local thumbnailReloadToken: number = 0;
@@ -103,6 +105,10 @@ export struct GalleryAllThumbnailsContent {
             PreviewThumbTile({
               image: img,
               reloadToken: this.thumbnailReloadToken,
+              transitionSourceId: ReaderThumbnailTransitionCoordinator.sourceId(
+                this.transitionScope,
+                img.page - 1,
+              ),
               onTap: () => {
                 this.onOpen(img)
               },
@@ -133,6 +139,8 @@ export struct GalleryAllThumbnailsPage {
   @Local jumpError: string = '';
   private jumpSubmitting: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
+  private readerTransitionScope: string =
+    ReaderThumbnailTransitionCoordinator.allocateScope('all-thumbnails');
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   private jumpDialogController: CustomDialogController = new CustomDialogController({
@@ -178,7 +186,16 @@ export struct GalleryAllThumbnailsPage {
       img.sUrl,
     )
     params.sourceLanguage = this.params.sourceLanguage
-    connectReaderOverlayNavigation().open(params)
+    ReaderThumbnailTransitionCoordinator.open(
+      this.getUIContext(),
+      this.readerTransitionScope,
+      this.params.gid,
+      pageZeroBased,
+      img,
+      (animated: boolean) => {
+        connectReaderOverlayNavigation().open(params, animated)
+      },
+    )
   }
 
   private previewTitleBar(): Record<string, Object> {
@@ -351,6 +368,7 @@ export struct GalleryAllThumbnailsPage {
           vm: this.vm,
           scroller: this.scroller,
           controller: this.refreshController,
+          transitionScope: this.readerTransitionScope,
           onOpen: (img: EhGalleryImage) => {
             this.openReader(img)
           },

@@ -85,6 +85,9 @@ import {
   connectGalleryDetailTransition,
   ThemeDisplayState,
   connectThemeDisplay,
+  EhSpriteThumbnail,
+  ReaderThumbnailTransitionState,
+  connectReaderThumbnailTransition,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -265,6 +268,49 @@ function IndexReaderOverlayBackdropRoute() {
   }
   .hideTitleBar(true)
   .backgroundColor(Color.Transparent)
+}
+
+@ComponentV2
+struct IndexReaderThumbnailTransitionProxy {
+  @Require @Param state: ReaderThumbnailTransitionState;
+
+  build() {
+    if (this.state.targetVisible()) {
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.state.readerSnapshot !== undefined) {
+          Image(this.state.readerSnapshot)
+            .width(this.state.proxyContentWidth())
+            .height(this.state.proxyContentHeight())
+            .objectFit(ImageFit.Fill)
+            .syncLoad(true)
+            .borderRadius(this.state.proxyRadius)
+            .clip(true)
+        } else {
+          EhSpriteThumbnail({
+            url: this.state.image.thumbUrl,
+            thumbWidth: this.state.image.thumbWidth,
+            thumbHeight: this.state.image.thumbHeight,
+            offsetX: this.state.image.thumbOffsetX,
+            imageKey: this.state.image.imgkey,
+            spriteWidth: this.state.image.spriteWidth,
+            spriteHeight: this.state.image.spriteHeight,
+            displayWidth: this.state.proxyWidth,
+            radius: 0,
+          })
+        }
+      }
+      .width(this.state.proxyWidth)
+      .height(this.state.proxyHeight)
+      .position({
+        x: this.state.proxyX,
+        y: this.state.proxyY,
+      })
+      .borderRadius(this.state.proxyRadius)
+      .clip(true)
+      .geometryTransition(this.state.targetGeometryId())
+      .hitTestBehavior(HitTestMode.None)
+    }
+  }
 }
 
 @Builder
@@ -609,6 +655,7 @@ struct Index {
   @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local currentTab: number = 0;
   @Local readerOverlay: ReaderOverlayNavigationState = connectReaderOverlayNavigation();
+  @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private lastHandledSignal: string = '';
   private lastHandledClipboardCandidateSignal: string = '';
   private clipboardSnackBar: HdsSnackBar = new HdsSnackBar(this.getUIContext());
@@ -2011,11 +2058,13 @@ struct Index {
         .width('100%')
         .height('100%')
         .backgroundColor(Color.Transparent)
+        .opacity(this.readerThumbnailTransition.overlayOpacity)
         .onAppear(() => {
           this.readerOverlay.presentPendingReader()
         })
         .id('reader-overlay-navigation')
       }
+      IndexReaderThumbnailTransitionProxy({ state: this.readerThumbnailTransition })
       if (this.securitySettings.locked) {
         SecurityLockOverlay({
           authenticating: this.securitySettings.authenticating,

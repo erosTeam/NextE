@@ -555,9 +555,9 @@ const ok = (name, cond) => {
   ok('detail ignores live progress while Reader is visible and syncs when exit starts',
     /@Monitor\('readProgress\.revision'\)[\s\S]*?if \(!this\.readerOverlay\.visible\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc) &&
     /@Monitor\('readerOverlay\.closing'\)[\s\S]*?if \(this\.readerOverlay\.closing\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc))
-  ok('overlay publishes closing before its animated pop',
+  ok('overlay publishes closing before its configured pop',
     /@Trace closing: boolean = false/.test(overlayStateSrc) &&
-    /close\(\): void \{[\s\S]*?this\.closing = true\s*this\.stack\.pop\(true\)/.test(overlayStateSrc))
+    /close\([^)]*\): void \{[\s\S]*?this\.closing = true\s*this\.stack\.pop\(animated\)/.test(overlayStateSrc))
   ok('page-index persistence starts immediately instead of waiting for the metadata debounce',
     /static setIndex\([\s\S]*?markDirty\(state, gid\)[\s\S]*?requestImmediatePersist\(context\)/.test(settingsSrc) &&
     /private static async drainImmediatePersists\([\s\S]*?while \(GalleryReadProgressSettings\.immediatePersistRequested\)[\s\S]*?await GalleryReadProgressSettings\.persist/.test(settingsSrc))

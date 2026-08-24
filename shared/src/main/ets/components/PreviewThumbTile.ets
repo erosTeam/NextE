@@ -12,6 +12,10 @@ import {
 import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
 import { publishImageBlockRulesChanged } from '../state/ImageBlockRuntimeState'
+import {
+  connectReaderThumbnailTransition,
+  ReaderThumbnailTransitionState,
+} from '../state/ReaderThumbnailTransitionState'
 
 // Tile image-frame aspect (height = width * aspect). A FIXED portrait frame so every tile — and thus
 // every page number below it — sits at the same height regardless of each thumb's true aspect or a
@@ -32,6 +36,7 @@ export struct PreviewThumbTile {
   @Require @Param image: EhGalleryImage;
   @Param reloadToken: number = 0;
   @Param loadDeferred: boolean = false;
+  @Param transitionSourceId: string = '';
   @Event onTap: () => void = () => {};
   @Local measuredWidth: number = 0;
   @Local menuShown: boolean = false;
@@ -39,6 +44,7 @@ export struct PreviewThumbTile {
   @Local imageBlockRevision: number = 0;
   @Local imageBlocked: boolean = false;
   @Local blockDecision: ImageBlockDecision = new ImageBlockDecision();
+  @Local readerTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
 
   private tileWidth(): number {
     return this.measuredWidth > 0 ? this.measuredWidth : ThemeConstants.PREVIEW_THUMB_MIN_W
@@ -144,6 +150,58 @@ export struct PreviewThumbTile {
   }
 
   @Builder
+  private ThumbnailSurface() {
+    if (this.fitByHeight()) {
+      EhSpriteThumbnail({
+        url: this.image.thumbUrl,
+        thumbWidth: this.image.thumbWidth,
+        thumbHeight: this.image.thumbHeight,
+        offsetX: this.image.thumbOffsetX,
+        imageKey: this.image.imgkey,
+        spriteWidth: this.image.spriteWidth,
+        spriteHeight: this.image.spriteHeight,
+        fitHeight: true,
+        displayHeight: this.frameHeight(),
+        loadDeferred: this.loadDeferred,
+        enableImageBlock: true,
+        forceImageBlocked: this.imageBlocked,
+        imageBlockRevision: this.imageBlockRevision,
+        reloadToken: this.reloadToken,
+        onImageBlockStateChange: (blocked: boolean) => {
+          this.imageBlocked = blocked
+        },
+        onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
+          this.blockDecision = decision
+        },
+        radius: ThemeConstants.THUMB_RADIUS,
+      })
+    } else {
+      EhSpriteThumbnail({
+        url: this.image.thumbUrl,
+        thumbWidth: this.image.thumbWidth,
+        thumbHeight: this.image.thumbHeight,
+        offsetX: this.image.thumbOffsetX,
+        imageKey: this.image.imgkey,
+        spriteWidth: this.image.spriteWidth,
+        spriteHeight: this.image.spriteHeight,
+        displayWidth: this.tileWidth(),
+        loadDeferred: this.loadDeferred,
+        enableImageBlock: true,
+        forceImageBlocked: this.imageBlocked,
+        imageBlockRevision: this.imageBlockRevision,
+        reloadToken: this.reloadToken,
+        onImageBlockStateChange: (blocked: boolean) => {
+          this.imageBlocked = blocked
+        },
+        onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
+          this.blockDecision = decision
+        },
+        radius: ThemeConstants.THUMB_RADIUS,
+      })
+    }
+  }
+
+  @Builder
   private ThumbMenu() {
     Menu() {
       if (this.imageBlocked) {
@@ -170,56 +228,16 @@ export struct PreviewThumbTile {
       // The visible sprite/image keeps its real aspect and owns the rounded clip; the slot must not render
       // as a grey letterbox container after the real thumbnail is loaded.
       Stack() {
-        if (this.fitByHeight()) {
-          EhSpriteThumbnail({
-            url: this.image.thumbUrl,
-            thumbWidth: this.image.thumbWidth,
-            thumbHeight: this.image.thumbHeight,
-            offsetX: this.image.thumbOffsetX,
-            imageKey: this.image.imgkey,
-            spriteWidth: this.image.spriteWidth,
-            spriteHeight: this.image.spriteHeight,
-            fitHeight: true,
-            displayHeight: this.frameHeight(),
-            loadDeferred: this.loadDeferred,
-            enableImageBlock: true,
-            forceImageBlocked: this.imageBlocked,
-            imageBlockRevision: this.imageBlockRevision,
-            reloadToken: this.reloadToken,
-            onImageBlockStateChange: (blocked: boolean) => {
-              this.imageBlocked = blocked
-            },
-            onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
-              this.blockDecision = decision
-            },
-            // Radius lives on the SPRITE/IMAGE itself (EhSpriteThumbnail clips its sprite to this radius),
-            // not on a decorative outer layer — so the visible thumb has real rounded corners even when it
-            // fills the frame. Matches the frame's THUMB_RADIUS so the silhouette is one consistent rounded rect.
-            radius: ThemeConstants.THUMB_RADIUS,
-          })
-        } else {
-          EhSpriteThumbnail({
-            url: this.image.thumbUrl,
-            thumbWidth: this.image.thumbWidth,
-            thumbHeight: this.image.thumbHeight,
-            offsetX: this.image.thumbOffsetX,
-            imageKey: this.image.imgkey,
-            spriteWidth: this.image.spriteWidth,
-            spriteHeight: this.image.spriteHeight,
-            displayWidth: this.tileWidth(),
-            loadDeferred: this.loadDeferred,
-            enableImageBlock: true,
-            forceImageBlocked: this.imageBlocked,
-            imageBlockRevision: this.imageBlockRevision,
-            reloadToken: this.reloadToken,
-            onImageBlockStateChange: (blocked: boolean) => {
-              this.imageBlocked = blocked
-            },
-            onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
-              this.blockDecision = decision
-            },
-            radius: ThemeConstants.THUMB_RADIUS,
-          })
+        if (!this.readerTransition.sourceHidden(this.transitionSourceId)) {
+          Stack({ alignContent: Alignment.Center }) {
+            this.ThumbnailSurface()
+          }
+          .id(this.transitionSourceId)
+          .width('100%')
+          .height('100%')
+          .borderRadius(ThemeConstants.THUMB_RADIUS)
+          .clip(true)
+          .geometryTransition(this.readerTransition.sourceGeometryId(this.transitionSourceId))
         }
       }
       .width('100%')

@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "一覧から詳細を開く効果を選択します。表紙展開は現在ウォーターフォールで使用します"
+      "value": "一覧から詳細、およびサムネイルからリーダーへの遷移効果を選択します"
     },
     {
       "name": "settings_gallery_detail_transition_system",

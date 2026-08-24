@@ -1,5 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { ReaderParams } from '../model/RouteParams'
+import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionState'
 
 /**
  * Owns Reader's full-window navigation stack independently of the adaptive root HDS navigation.
@@ -15,11 +16,13 @@ export class ReaderOverlayNavigationState {
   // progress without reacting to Reader's live writes while the overlay is open.
   @Trace closing: boolean = false
   private pendingReader: ReaderParams | null = null
+  private pendingReaderAnimated: boolean = true
 
-  open(params: ReaderParams): void {
+  open(params: ReaderParams, animated: boolean = true): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
     this.pendingReader = params
+    this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
   }
@@ -30,18 +33,20 @@ export class ReaderOverlayNavigationState {
       return
     }
     this.pendingReader = null
-    this.stack.pushPathByName('Reader', params, true)
+    this.stack.pushPathByName('Reader', params, this.pendingReaderAnimated)
+    this.pendingReaderAnimated = true
   }
 
   openGestureProbe(): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderGestureProbe', null, false)
     this.pendingReader = null
+    this.pendingReaderAnimated = true
     this.closing = false
     this.visible = true
   }
 
-  close(): void {
+  close(animated: boolean = true): void {
     if (!this.visible || this.closing) {
       return
     }
@@ -51,7 +56,7 @@ export class ReaderOverlayNavigationState {
       return
     }
     this.closing = true
-    this.stack.pop(true)
+    this.stack.pop(animated)
   }
 
   finishClose(): void {
@@ -61,13 +66,17 @@ export class ReaderOverlayNavigationState {
     this.closing = false
     this.visible = false
     this.stack.clear(false)
+    this.pendingReaderAnimated = true
+    connectReaderThumbnailTransition().reset()
   }
 
   reset(): void {
     this.pendingReader = null
+    this.pendingReaderAnimated = true
     this.closing = false
     this.visible = false
     this.stack.clear(false)
+    connectReaderThumbnailTransition().reset()
   }
 }
 

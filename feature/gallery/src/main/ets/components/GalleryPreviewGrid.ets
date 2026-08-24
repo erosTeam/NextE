@@ -11,6 +11,9 @@ import {
   connectListMode,
   clampColumnWidth,
   galleryWaterfallColumnCount,
+  connectReaderThumbnailTransition,
+  ReaderThumbnailTransitionCoordinator,
+  ReaderThumbnailTransitionState,
 } from 'shared'
 
 // Horizontal-mode row thumb height (eros_fe ThumbHorizontalList ~200 incl. labels): each thumb keeps
@@ -41,9 +44,11 @@ export struct GalleryPreviewGrid {
   // sprite request until the page releases it (postTransitionReady), keeping ~40 image callbacks off
   // the animating frames.
   @Param loadDeferred: boolean = false;
+  @Param transitionScope: string = '';
   @Local listMode: ListModeState = connectListMode();
+  @Local readerTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   @Local measuredWidth: number = 0;
-  @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
+  @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
   @Event onMore: (initialImagePage: number) => void = (_initialImagePage: number) => {};
   private pinchStartW: number = 0;
   private pinchStartCols: number = 0;
@@ -54,6 +59,17 @@ export struct GalleryPreviewGrid {
       return 0
     }
     return this.images[this.images.length - 1].page
+  }
+
+  private horizontalThumbWidth(image: EhGalleryImage): number {
+    if (image.thumbWidth > 0 && image.thumbHeight > 0) {
+      return PREVIEW_H * image.thumbWidth / image.thumbHeight
+    }
+    return PREVIEW_H * 0.7
+  }
+
+  private transitionSourceId(image: EhGalleryImage): string {
+    return ReaderThumbnailTransitionCoordinator.sourceId(this.transitionScope, image.page - 1)
   }
 
   // Centered tappable entry into the all-thumbnails page (eros_fe MorePreviewButton). The label reflects
@@ -121,27 +137,41 @@ export struct GalleryPreviewGrid {
         (img: EhGalleryImage) => {
           ListItem() {
             Column({ space: 2 }) {
-              EhSpriteThumbnail({
-                url: img.thumbUrl,
-                thumbWidth: img.thumbWidth,
-                thumbHeight: img.thumbHeight,
-                offsetX: img.thumbOffsetX,
-                imageKey: img.imgkey,
-                spriteWidth: img.spriteWidth,
-                spriteHeight: img.spriteHeight,
-                fitHeight: true,
-                displayHeight: PREVIEW_H,
-                loadDeferred: this.loadDeferred,
-                enableImageBlock: true,
-                reloadToken: this.thumbnailReloadToken,
-              })
+              Stack({ alignContent: Alignment.Center }) {
+                if (!this.readerTransition.sourceHidden(this.transitionSourceId(img))) {
+                  Stack({ alignContent: Alignment.Center }) {
+                    EhSpriteThumbnail({
+                      url: img.thumbUrl,
+                      thumbWidth: img.thumbWidth,
+                      thumbHeight: img.thumbHeight,
+                      offsetX: img.thumbOffsetX,
+                      imageKey: img.imgkey,
+                      spriteWidth: img.spriteWidth,
+                      spriteHeight: img.spriteHeight,
+                      fitHeight: true,
+                      displayHeight: PREVIEW_H,
+                      loadDeferred: this.loadDeferred,
+                      enableImageBlock: true,
+                      reloadToken: this.thumbnailReloadToken,
+                    })
+                  }
+                  .id(this.transitionSourceId(img))
+                  .width(this.horizontalThumbWidth(img))
+                  .height(PREVIEW_H)
+                  .borderRadius(ThemeConstants.THUMB_RADIUS)
+                  .clip(true)
+                  .geometryTransition(this.readerTransition.sourceGeometryId(this.transitionSourceId(img)))
+                }
+              }
+              .width(this.horizontalThumbWidth(img))
+              .height(PREVIEW_H)
               Text(`${img.page}`)
                 .fontSize(ThemeConstants.FONT_SIZE_TINY)
                 .fontColor($r('sys.color.font_tertiary'))
             }
             .alignItems(HorizontalAlign.Center)
             .onClick(() => {
-              this.onOpen(img.page - 1)
+              this.onOpen(img)
             })
           }
         },
@@ -215,8 +245,9 @@ export struct GalleryPreviewGrid {
               image: img,
               reloadToken: this.thumbnailReloadToken,
               loadDeferred: this.loadDeferred,
+              transitionSourceId: this.transitionSourceId(img),
               onTap: () => {
-                this.onOpen(img.page - 1)
+                this.onOpen(img)
               },
             })
           }
