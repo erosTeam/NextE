@@ -877,6 +877,7 @@ export {
   connectGalleryDetailTransition,
 } from './state/GalleryDetailTransitionState'
 export {
+  GalleryDetailTransitionMode,
   GalleryDetailTransitionSettingsState,
   connectGalleryDetailTransitionSettings,
 } from './state/GalleryDetailTransitionSettingsState'

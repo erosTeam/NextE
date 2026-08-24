@@ -5,6 +5,8 @@ import {
   GroupedListSection,
   GalleryTitleState,
   connectGalleryTitle,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
   appSheetOptions,
 } from 'shared'
 
@@ -21,10 +23,18 @@ export struct GalleryHeaderCard {
   @Require @Param gallery: EhGallery;
   @Event onUploader: (name: string) => void = (_name: string) => {};
   @Event onTitleTap: () => void = () => {};
+  @Param transitionCoverId: string = '';
   @Param titleSheetShown: boolean = false;
   @BuilderParam titleSheetContent: () => void;
   @Event onTitleSheetDisappear: () => void = () => {};
   @Local titlePref: GalleryTitleState = connectGalleryTitle();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
+
+  private transitionCoverMasked(): boolean {
+    return this.transitionCoverId.length > 0 &&
+      this.galleryDetailTransition.targetCoverComponentId === this.transitionCoverId &&
+      this.galleryDetailTransition.coverMaskVisible()
+  }
 
   private primaryTitle(): string {
     return this.gallery.displayTitle(this.titlePref.japaneseTitleInGalleryPage)
@@ -59,17 +69,31 @@ export struct GalleryHeaderCard {
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Row({ space: ThemeConstants.SPACE_MD }) {
-        EhThumbnail({
-          url: this.gallery.thumbUrl,
-          thumbWidth: COVER_W,
-          thumbHeight: COVER_H,
-          radius: ThemeConstants.DETAIL_COVER_RADIUS,
-          sourceWidth: this.gallery.imgWidth,
-          sourceHeight: this.gallery.imgHeight,
-          // Detail cover slot is fixed for the header layout, but the visible image itself keeps the real
-          // EH cover proportion and owns the rounded clip. The slot must not become a grey letterbox box.
-          containFit: true,
-        })
+        Stack({ alignContent: Alignment.Center }) {
+          EhThumbnail({
+            url: this.gallery.thumbUrl,
+            thumbWidth: COVER_W,
+            thumbHeight: COVER_H,
+            radius: ThemeConstants.DETAIL_COVER_RADIUS,
+            sourceWidth: this.gallery.imgWidth,
+            sourceHeight: this.gallery.imgHeight,
+            // Detail cover slot is fixed for the header layout, but the visible image itself keeps the real
+            // EH cover proportion and owns the rounded clip. The slot must not become a grey letterbox box.
+            containFit: true,
+            surfaceId: this.transitionCoverId,
+          })
+          // Keep the real detail image mounted and loaded, but paint over it while the root flight image
+          // owns the cover. A permanent overlay avoids remounting the image at transition settlement.
+          Column() {}
+            .width('100%')
+            .height('100%')
+            .backgroundColor($r('app.color.card_background'))
+            .borderRadius(ThemeConstants.DETAIL_COVER_RADIUS)
+            .opacity(this.transitionCoverMasked() ? 1 : 0)
+            .hitTestBehavior(HitTestMode.None)
+        }
+        .width(COVER_W)
+        .height(COVER_H)
         Column({ space: ThemeConstants.SPACE_XS }) {
           // Flexible text group: fills the cover-height column and clips, so a long title cannot
           // overflow the card. The title line count is budgeted by titleMaxLines() so the JP title +

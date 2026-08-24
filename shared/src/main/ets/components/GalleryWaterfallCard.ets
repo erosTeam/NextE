@@ -79,6 +79,7 @@ export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
   @Param compact: boolean = false;
+  @Param transitionCoverId: string = '';
   // Page-owned shared signals avoid reconnecting AppStorageV2 for every prebuilt/reused card.
   @Require @Param tagSig: UserTagSignal;
   @Require @Param tagTranslation: TagTranslationSettingsState;
@@ -432,6 +433,7 @@ export struct GalleryWaterfallCard {
           sourceWidth: this.gallery.imgWidth,
           sourceHeight: this.gallery.imgHeight,
           letterboxBackground: true,
+          surfaceId: this.transitionCoverId,
         })
         GalleryCategoryCornerBadge({
           category: this.gallery.category,

@@ -2,7 +2,10 @@ import { image } from '@kit.ImageKit'
 import { FrameCallback } from '@kit.ArkUI'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectGalleryDetailTransition } from '../state/GalleryDetailTransitionState'
-import { connectGalleryDetailTransitionSettings } from '../state/GalleryDetailTransitionSettingsState'
+import {
+  connectGalleryDetailTransitionSettings,
+  GalleryDetailTransitionMode,
+} from '../state/GalleryDetailTransitionSettingsState'
 import { connectNavStack } from '../state/NavStackHolder'
 import { ThemeConstants } from '../theme/ThemeConstants'
 
@@ -39,24 +42,32 @@ export class GalleryDetailTransitionCoordinator {
     return `${scope}-${mode}-${galleryId}`
   }
 
+  static sourceCoverId(scope: string, mode: string, galleryId: string): string {
+    return `${GalleryDetailTransitionCoordinator.sourceId(scope, mode, galleryId)}-cover`
+  }
+
   static open(
     uiContext: UIContext,
     componentId: string,
     galleryId: string,
     openDetail: () => void,
+    sourceCoverComponentId: string = '',
   ): void {
     if (GalleryDetailTransitionCoordinator.opening) {
       return
     }
     const transition = connectGalleryDetailTransition()
     transition.reset()
-    if (!connectGalleryDetailTransitionSettings().enabled || connectNavStack().isSplitMode) {
+    const selectedMode: string = connectGalleryDetailTransitionSettings().mode
+    if (selectedMode === GalleryDetailTransitionMode.SYSTEM || connectNavStack().isSplitMode) {
       openDetail()
       return
     }
 
     GalleryDetailTransitionCoordinator.opening = true
+    let transitionMode: string = selectedMode
     let cardSnapshot: image.PixelMap | undefined = undefined
+    let coverSnapshot: image.PixelMap | undefined = undefined
     try {
       const rect = uiContext.getComponentUtils().getRectangleById(componentId)
       const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
@@ -66,23 +77,64 @@ export class GalleryDetailTransitionCoordinator {
       const sourceHeight: number = uiContext.px2vp(rect.size.height)
       const sourceX: number = uiContext.px2vp(rect.windowOffset.x - rootRect.windowOffset.x)
       const sourceY: number = uiContext.px2vp(rect.windowOffset.y - rootRect.windowOffset.y)
+      let coverX: number = sourceX
+      let coverY: number = sourceY
+      let coverWidth: number = sourceWidth
+      let coverHeight: number = sourceHeight
       if (targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
         GalleryDetailTransitionCoordinator.opening = false
         openDetail()
         return
       }
 
+      if (
+        transitionMode === GalleryDetailTransitionMode.COVER_EXPAND &&
+        sourceCoverComponentId.length > 0
+      ) {
+        try {
+          const coverRect = uiContext.getComponentUtils().getRectangleById(sourceCoverComponentId)
+          coverWidth = uiContext.px2vp(coverRect.size.width)
+          coverHeight = uiContext.px2vp(coverRect.size.height)
+          coverX = uiContext.px2vp(coverRect.windowOffset.x - rootRect.windowOffset.x)
+          coverY = uiContext.px2vp(coverRect.windowOffset.y - rootRect.windowOffset.y)
+          if (coverWidth <= 0 || coverHeight <= 0) {
+            transitionMode = GalleryDetailTransitionMode.SEAMLESS
+          } else {
+            coverSnapshot = uiContext.getComponentSnapshot()
+              .getSync(sourceCoverComponentId, { waitUntilRenderFinished: true })
+          }
+        } catch (error) {
+          DiagnosticLogger.info(
+            'gallery-detail-transition',
+            'cover_snapshot_fallback',
+            `gid=${galleryId} source=${sourceCoverComponentId} error=${error}`,
+          )
+          transitionMode = GalleryDetailTransitionMode.SEAMLESS
+        }
+      } else if (transitionMode === GalleryDetailTransitionMode.COVER_EXPAND) {
+        transitionMode = GalleryDetailTransitionMode.SEAMLESS
+      }
+
       cardSnapshot = uiContext.getComponentSnapshot()
         .getSync(componentId, { waitUntilRenderFinished: true })
       transition.beginSourceHandoff(
+        transitionMode,
         componentId,
+        `${componentId}-detail-cover`,
         sourceX,
         sourceY,
         sourceWidth,
         sourceHeight,
         cardSnapshot,
+        coverX,
+        coverY,
+        coverWidth,
+        coverHeight,
+        ThemeConstants.THUMB_RADIUS,
+        coverSnapshot,
       )
       cardSnapshot = undefined
+      coverSnapshot = undefined
       uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback((): void => {
         let sourceSnapshot: image.PixelMap | undefined = undefined
         try {
@@ -95,6 +147,8 @@ export class GalleryDetailTransitionCoordinator {
             sourceX + sourceWidth / 2 - targetWidth / 2,
             sourceY + sourceHeight / 2 - targetHeight / 2,
             ThemeConstants.RADIUS_CARD,
+            targetWidth,
+            targetHeight,
             sourceSnapshot,
           )
           sourceSnapshot = undefined
@@ -121,6 +175,9 @@ export class GalleryDetailTransitionCoordinator {
     } catch (error) {
       if (cardSnapshot !== undefined) {
         cardSnapshot.release().catch((_releaseError: Error) => {})
+      }
+      if (coverSnapshot !== undefined) {
+        coverSnapshot.release().catch((_releaseError: Error) => {})
       }
       DiagnosticLogger.info(
         'gallery-detail-transition',

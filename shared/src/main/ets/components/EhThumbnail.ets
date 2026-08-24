@@ -53,6 +53,9 @@ export struct EhThumbnail {
   @Param containFit: boolean = false;
   @Param sourceWidth: number = 0;
   @Param sourceHeight: number = 0;
+  // Optional transition probe for the actually painted image surface. Callers that animate a cover
+  // must measure/snapshot this node rather than the potentially off-aspect transparent layout slot.
+  @Param surfaceId: string = '';
   // Opt-in: fill an off-aspect (Contain) cover's letterbox gaps with a background instead of leaving them
   // transparent/grey. Only the browsing-list surfaces (list/grid/waterfall cards) pass true; detail header,
   // preview grids, etc. keep the default false so they are untouched. The fill is the cover-color gradient
@@ -314,6 +317,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .id(this.surfaceId)
         this.coverOverlay()
       }
       .width('100%')
@@ -351,6 +355,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .id(this.surfaceId)
         this.coverOverlay()
       }
       .width(this.thumbWidth)

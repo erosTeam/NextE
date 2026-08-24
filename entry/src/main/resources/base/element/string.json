@@ -666,11 +666,23 @@
     },
     {
       "name": "settings_gallery_detail_transition",
-      "value": "Seamless detail transition"
+      "value": "Detail transition"
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "Expand details from the selected card and shrink them back on return"
+      "value": "Choose how lists open details; Cover expand currently applies to Waterfall"
+    },
+    {
+      "name": "settings_gallery_detail_transition_system",
+      "value": "System default"
+    },
+    {
+      "name": "settings_gallery_detail_transition_seamless",
+      "value": "Seamless"
+    },
+    {
+      "name": "settings_gallery_detail_transition_cover_expand",
+      "value": "Cover expand"
     },
     {
       "name": "settings_action_alignment",

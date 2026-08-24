@@ -666,11 +666,23 @@
     },
     {
       "name": "settings_gallery_detail_transition",
-      "value": "一镜到底转场"
+      "value": "详情页转场"
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "从所选卡片展开详情，返回时缩回原位置"
+      "value": "选择列表进入详情页时的效果；封面展开目前用于瀑布流布局"
+    },
+    {
+      "name": "settings_gallery_detail_transition_system",
+      "value": "系统默认"
+    },
+    {
+      "name": "settings_gallery_detail_transition_seamless",
+      "value": "一镜到底"
+    },
+    {
+      "name": "settings_gallery_detail_transition_cover_expand",
+      "value": "封面展开"
     },
     {
       "name": "settings_action_alignment",

@@ -1,6 +1,6 @@
 import { appMenuOptions } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
-import { ComponentContent, CustomContentDialog, FrameNode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { ComponentContent, CustomContentDialog, FrameCallback, FrameNode, SymbolGlyphModifier } from '@kit.ArkUI'
 import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import {
@@ -130,6 +130,21 @@ class GalleryDetailSheetContentParams {
 
   constructor(content: () => void) {
     this.content = content
+  }
+}
+
+class GalleryDetailPreparedPopFrameCallback extends FrameCallback {
+  private action: () => void
+
+  constructor(action: () => void) {
+    super()
+    this.action = action
+  }
+
+  onFrame(_frameTimeInNano: number): void {}
+
+  onIdle(_timeLeftInNano: number): void {
+    this.action()
   }
 }
 
@@ -332,6 +347,7 @@ export struct GalleryDetailPage {
   @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local isFirstSecondaryDetail: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
+  private coverPopDispatching: boolean = false;
   private navigationDestinationId: string = '';
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
   private actionStripScroller: Scroller = new Scroller();
@@ -2921,6 +2937,7 @@ export struct GalleryDetailPage {
         ListItem() {
           GalleryHeaderCard({
             gallery: this.vm.gallery,
+            transitionCoverId: this.transitionCoverTargetId(),
             onTitleTap: () => {
               this.openFullTitleSheet()
             },
@@ -3087,6 +3104,36 @@ export struct GalleryDetailPage {
     this.isFirstSecondaryDetail = pathNames.length === 1 && pathNames[0] === 'GalleryDetail'
   }
 
+  private transitionCoverTargetId(): string {
+    if (
+      !this.galleryDetailTransition.isCoverExpand() ||
+      this.galleryDetailTransition.galleryId !== this.params.gid
+    ) {
+      return ''
+    }
+    return this.galleryDetailTransition.targetCoverComponentId
+  }
+
+  private handleBackPressed(): boolean {
+    if (
+      this.coverPopDispatching ||
+      this.navStackHolder.isSplitMode ||
+      !this.galleryDetailTransition.eligible ||
+      !this.galleryDetailTransition.isCoverExpand()
+    ) {
+      return false
+    }
+    this.coverPopDispatching = true
+    this.galleryDetailTransition.prepareCoverPop()
+    // Let the destination paint its permanent cover mask before Navigation snapshots the POP source.
+    // onIdle provides a rendered-frame boundary without guessing a millisecond delay.
+    this.getUIContext().postFrameCallback(new GalleryDetailPreparedPopFrameCallback((): void => {
+      this.stack.pop()
+      this.coverPopDispatching = false
+    }))
+    return true
+  }
+
   build() {
     HdsNavDestination() {
       Stack() {
@@ -3094,7 +3141,10 @@ export struct GalleryDetailPage {
           .width('100%')
           .height('100%')
           .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-        if (this.galleryDetailTransition.cardSnapshot !== undefined) {
+        if (
+          !this.galleryDetailTransition.isCoverExpand() &&
+          this.galleryDetailTransition.cardSnapshot !== undefined
+        ) {
           Image(this.galleryDetailTransition.cardSnapshot)
             .width('100%')
             .height('100%')
@@ -3170,23 +3220,24 @@ export struct GalleryDetailPage {
     .titleBar(this.detailTitleBar())
     .hideTitleBar(this.galleryDetailTransition.eligible && !this.galleryDetailTransition.chromeVisible, false)
     .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDetail)
+    .onBackPressed(() => this.handleBackPressed())
     .backgroundColor(
       this.galleryDetailTransition.eligible
         ? '#00000000'
         : $r('sys.color.ohos_id_color_sub_background'),
     )
     .scale({
-      x: this.galleryDetailTransition.scaleX,
-      y: this.galleryDetailTransition.scaleY,
+      x: this.galleryDetailTransition.isCoverExpand() ? 1 : this.galleryDetailTransition.scaleX,
+      y: this.galleryDetailTransition.isCoverExpand() ? 1 : this.galleryDetailTransition.scaleY,
       centerX: '50%',
       centerY: '50%',
     })
     .translate({
-      x: this.galleryDetailTransition.translateX,
-      y: this.galleryDetailTransition.translateY,
+      x: this.galleryDetailTransition.isCoverExpand() ? 0 : this.galleryDetailTransition.translateX,
+      y: this.galleryDetailTransition.isCoverExpand() ? 0 : this.galleryDetailTransition.translateY,
     })
-    .borderRadius(this.galleryDetailTransition.radius)
-    .clip(this.galleryDetailTransition.eligible)
+    .borderRadius(this.galleryDetailTransition.isCoverExpand() ? 0 : this.galleryDetailTransition.radius)
+    .clip(this.galleryDetailTransition.eligible && !this.galleryDetailTransition.isCoverExpand())
     .onDisAppear(() => {
       this.releaseGalleryDetailBackToTopWorkspace()
     })

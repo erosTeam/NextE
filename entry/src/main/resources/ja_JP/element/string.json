@@ -666,11 +666,23 @@
     },
     {
       "name": "settings_gallery_detail_transition",
-      "value": "シームレス詳細トランジション"
+      "value": "詳細トランジション"
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "選択したカードから詳細を展開し、戻ると元の位置に縮小します"
+      "value": "一覧から詳細を開く効果を選択します。表紙展開は現在ウォーターフォールで使用します"
+    },
+    {
+      "name": "settings_gallery_detail_transition_system",
+      "value": "システム標準"
+    },
+    {
+      "name": "settings_gallery_detail_transition_seamless",
+      "value": "シームレス"
+    },
+    {
+      "name": "settings_gallery_detail_transition_cover_expand",
+      "value": "表紙展開"
     },
     {
       "name": "settings_action_alignment",

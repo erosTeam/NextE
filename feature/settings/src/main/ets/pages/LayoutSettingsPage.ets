@@ -9,6 +9,7 @@ import {
   ListModeSettings,
   ListModeState,
   GalleryDetailTransitionSettings,
+  GalleryDetailTransitionMode,
   GalleryDetailTransitionSettingsState,
   SecondaryListScaffold,
   ThemeConstants,
@@ -403,8 +404,51 @@ export struct LayoutSettingsPage {
     ListModeSettings.setFixedHeight(this.ctx(), value)
   }
 
-  private setGalleryDetailTransitionEnabled(value: boolean): void {
-    GalleryDetailTransitionSettings.setEnabled(this.ctx(), value)
+  private galleryDetailTransitionLabel(): ResourceStr {
+    if (this.galleryDetailTransitionSettings.mode === GalleryDetailTransitionMode.SYSTEM) {
+      return $r('app.string.settings_gallery_detail_transition_system')
+    }
+    if (this.galleryDetailTransitionSettings.mode === GalleryDetailTransitionMode.COVER_EXPAND) {
+      return $r('app.string.settings_gallery_detail_transition_cover_expand')
+    }
+    return $r('app.string.settings_gallery_detail_transition_seamless')
+  }
+
+  private setGalleryDetailTransitionMode(mode: string): void {
+    GalleryDetailTransitionSettings.setMode(this.ctx(), mode)
+  }
+
+  @Builder
+  GalleryDetailTransitionMenu(select: (action: () => void) => void) {
+    Menu() {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_gallery_detail_transition_system'),
+        selected: this.galleryDetailTransitionSettings.mode === GalleryDetailTransitionMode.SYSTEM,
+        selectAction: () => {
+          select(() => {
+            this.setGalleryDetailTransitionMode(GalleryDetailTransitionMode.SYSTEM)
+          })
+        },
+      })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_gallery_detail_transition_seamless'),
+        selected: this.galleryDetailTransitionSettings.mode === GalleryDetailTransitionMode.SEAMLESS,
+        selectAction: () => {
+          select(() => {
+            this.setGalleryDetailTransitionMode(GalleryDetailTransitionMode.SEAMLESS)
+          })
+        },
+      })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_gallery_detail_transition_cover_expand'),
+        selected: this.galleryDetailTransitionSettings.mode === GalleryDetailTransitionMode.COVER_EXPAND,
+        selectAction: () => {
+          select(() => {
+            this.setGalleryDetailTransitionMode(GalleryDetailTransitionMode.COVER_EXPAND)
+          })
+        },
+      })
+    }
   }
 
   // --- Column-width (grid density) control: slider + live preview, only for grid-like modes ---
@@ -791,10 +835,11 @@ export struct LayoutSettingsPage {
                 title: $r('app.string.settings_gallery_detail_transition'),
                 subtitle: $r('app.string.settings_gallery_detail_transition_hint'),
                 leadingIcon: $r('sys.symbol.arrowtriangle_2_inward_square'),
-                hasSwitch: true,
-                checked: this.galleryDetailTransitionSettings.enabled,
-                switchAction: (value: boolean) => {
-                  this.setGalleryDetailTransitionEnabled(value)
+                trailingText: this.galleryDetailTransitionLabel(),
+                trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                  this.GalleryDetailTransitionMenu(select)
                 },
               })
               this.rowDivider()

@@ -171,6 +171,17 @@ export struct GalleryListBody {
     )
   }
 
+  private galleryDetailSourceCoverId(g: EhGallery): string {
+    if (this.effectiveMode() !== ListMode.WATERFALL) {
+      return ''
+    }
+    return GalleryDetailTransitionCoordinator.sourceCoverId(
+      this.galleryDetailTransitionScope,
+      this.effectiveMode(),
+      g.gid,
+    )
+  }
+
   private openGalleryDetail(g: EhGallery): void {
     GalleryDetailTransitionCoordinator.open(
       this.getUIContext(),
@@ -179,6 +190,7 @@ export struct GalleryListBody {
       () => {
         this.openDetail(g)
       },
+      this.galleryDetailSourceCoverId(g),
     )
   }
 
@@ -427,6 +439,7 @@ export struct GalleryListBody {
                   selected: this.isGallerySelected(g),
                   tagSig: this.tagSig,
                   tagTranslation: this.tagTranslation,
+                  transitionCoverId: this.galleryDetailSourceCoverId(g),
                 })
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
