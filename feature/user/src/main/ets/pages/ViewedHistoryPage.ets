@@ -20,6 +20,8 @@ import {
   gallerySimpleReuseId,
   immersiveTitleBarOpts,
   GalleryDetailTransitionCoordinator,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
 } from 'shared'
 import {
   ViewedHistoryDayGroup,
@@ -44,6 +46,7 @@ export struct ViewedHistoryPage {
   @Local currentDayStart: number = historyLocalDayStart(Date.now());
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -323,6 +326,11 @@ export struct ViewedHistoryPage {
                   })
               }
               .id(this.galleryDetailSourceId(row.gallery))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(row.gallery)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .swipeAction({
                 end: () => {
                   this.DeleteSwipe(row.gallery.gid)

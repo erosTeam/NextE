@@ -3094,7 +3094,6 @@ export struct GalleryDetailPage {
           .width('100%')
           .height('100%')
           .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-          .opacity(this.galleryDetailTransition.surfaceOpacity)
         if (this.galleryDetailTransition.cardSnapshot !== undefined) {
           Image(this.galleryDetailTransition.cardSnapshot)
             .width('100%')

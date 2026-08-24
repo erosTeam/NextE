@@ -68,6 +68,8 @@ import {
   LocalBlockState,
   connectLocalBlock,
   GalleryDetailTransitionCoordinator,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -102,6 +104,7 @@ export struct GallerySearchPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local historyTranslations: Map<string, string> = new Map<string, string>();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
@@ -1047,6 +1050,11 @@ export struct GallerySearchPage {
                       .reuse({ reuseId: () => galleryGridReuseId(g) })
                   }
                   .id(this.galleryDetailSourceId(g))
+                  .visibility(
+                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                      ? Visibility.Hidden
+                      : Visibility.Visible,
+                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1112,6 +1120,11 @@ export struct GallerySearchPage {
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
+                  .visibility(
+                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                      ? Visibility.Hidden
+                      : Visibility.Visible,
+                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1178,6 +1191,11 @@ export struct GallerySearchPage {
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
+                  .visibility(
+                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                      ? Visibility.Hidden
+                      : Visibility.Visible,
+                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1238,6 +1256,11 @@ export struct GallerySearchPage {
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
+                  .visibility(
+                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                      ? Visibility.Hidden
+                      : Visibility.Visible,
+                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1293,6 +1316,11 @@ export struct GallerySearchPage {
                     }
                   }
                   .id(this.galleryDetailSourceId(g))
+                  .visibility(
+                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                      ? Visibility.Hidden
+                      : Visibility.Visible,
+                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })

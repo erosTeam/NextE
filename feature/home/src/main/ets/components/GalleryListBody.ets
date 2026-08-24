@@ -36,6 +36,8 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   GalleryDetailTransitionCoordinator,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
   DiagnosticLogger,
   requestGalleryCoverRetry,
   connectTagTranslationSettings,
@@ -75,6 +77,7 @@ export struct GalleryListBody {
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local listContentWidth: number = 0;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
@@ -347,6 +350,11 @@ export struct GalleryListBody {
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -424,6 +432,11 @@ export struct GalleryListBody {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -502,6 +515,11 @@ export struct GalleryListBody {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -573,6 +591,11 @@ export struct GalleryListBody {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -639,6 +662,11 @@ export struct GalleryListBody {
                 }
               }
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })

@@ -1,10 +1,25 @@
 import { image } from '@kit.ImageKit'
+import { FrameCallback } from '@kit.ArkUI'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectGalleryDetailTransition } from '../state/GalleryDetailTransitionState'
 import { connectGalleryDetailTransitionSettings } from '../state/GalleryDetailTransitionSettingsState'
-import { connectLayoutSafeArea } from '../state/LayoutSafeAreaState'
 import { connectNavStack } from '../state/NavStackHolder'
 import { ThemeConstants } from '../theme/ThemeConstants'
+
+class GalleryDetailCaptureFrameCallback extends FrameCallback {
+  private action: () => void
+
+  constructor(action: () => void) {
+    super()
+    this.action = action
+  }
+
+  onFrame(_frameTimeInNano: number): void {}
+
+  onIdle(_timeLeftInNano: number): void {
+    this.action()
+  }
+}
 
 /**
  * Shared launcher for every gallery-card -> GalleryDetail transition surface. Pages only provide
@@ -41,51 +56,69 @@ export class GalleryDetailTransitionCoordinator {
     }
 
     GalleryDetailTransitionCoordinator.opening = true
-    let sourceSnapshot: image.PixelMap | undefined = undefined
     let cardSnapshot: image.PixelMap | undefined = undefined
     try {
       const rect = uiContext.getComponentUtils().getRectangleById(componentId)
-      const layout = connectLayoutSafeArea()
-      const targetWidth: number = uiContext.px2vp(layout.mainWindowWidthPx)
-      const targetHeight: number = uiContext.px2vp(layout.mainWindowHeightPx)
+      const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
+      const targetWidth: number = uiContext.px2vp(rootRect.size.width)
+      const targetHeight: number = uiContext.px2vp(rootRect.size.height)
       const sourceWidth: number = uiContext.px2vp(rect.size.width)
       const sourceHeight: number = uiContext.px2vp(rect.size.height)
-      const sourceX: number = uiContext.px2vp(rect.windowOffset.x)
-      const sourceY: number = uiContext.px2vp(rect.windowOffset.y)
+      const sourceX: number = uiContext.px2vp(rect.windowOffset.x - rootRect.windowOffset.x)
+      const sourceY: number = uiContext.px2vp(rect.windowOffset.y - rootRect.windowOffset.y)
       if (targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
         GalleryDetailTransitionCoordinator.opening = false
         openDetail()
         return
       }
 
-      sourceSnapshot = uiContext.getComponentSnapshot()
-        .getSync('nexte-root-navigation', { waitUntilRenderFinished: true })
       cardSnapshot = uiContext.getComponentSnapshot()
         .getSync(componentId, { waitUntilRenderFinished: true })
-      transition.prepare(
-        galleryId,
-        Math.max(0.08, Math.min(1, sourceWidth / targetWidth)),
-        Math.max(0.08, Math.min(1, sourceHeight / targetHeight)),
-        sourceX + sourceWidth / 2 - targetWidth / 2,
-        sourceY + sourceHeight / 2 - targetHeight / 2,
-        ThemeConstants.RADIUS_CARD,
-        sourceSnapshot,
+      transition.beginSourceHandoff(
+        componentId,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
         cardSnapshot,
       )
-      sourceSnapshot = undefined
       cardSnapshot = undefined
-      DiagnosticLogger.info(
-        'gallery-detail-transition',
-        'snapshots_ready',
-        `gid=${galleryId} source=${componentId}`,
-      )
-      GalleryDetailTransitionCoordinator.opening = false
-      openDetail()
+      uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback((): void => {
+        let sourceSnapshot: image.PixelMap | undefined = undefined
+        try {
+          sourceSnapshot = uiContext.getComponentSnapshot()
+            .getSync('nexte-root-navigation', { waitUntilRenderFinished: true })
+          transition.prepare(
+            galleryId,
+            Math.max(0.08, Math.min(1, sourceWidth / targetWidth)),
+            Math.max(0.08, Math.min(1, sourceHeight / targetHeight)),
+            sourceX + sourceWidth / 2 - targetWidth / 2,
+            sourceY + sourceHeight / 2 - targetHeight / 2,
+            ThemeConstants.RADIUS_CARD,
+            sourceSnapshot,
+          )
+          sourceSnapshot = undefined
+          DiagnosticLogger.info(
+            'gallery-detail-transition',
+            'snapshots_ready',
+            `gid=${galleryId} source=${componentId}`,
+          )
+        } catch (error) {
+          if (sourceSnapshot !== undefined) {
+            sourceSnapshot.release().catch((_releaseError: Error) => {})
+          }
+          DiagnosticLogger.info(
+            'gallery-detail-transition',
+            'source_snapshot_failed',
+            `gid=${galleryId} source=${componentId} error=${error}`,
+          )
+          transition.reset()
+        }
+        GalleryDetailTransitionCoordinator.opening = false
+        openDetail()
+      }))
       return
     } catch (error) {
-      if (sourceSnapshot !== undefined) {
-        sourceSnapshot.release().catch((_releaseError: Error) => {})
-      }
       if (cardSnapshot !== undefined) {
         cardSnapshot.release().catch((_releaseError: Error) => {})
       }

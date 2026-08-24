@@ -81,6 +81,7 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   GalleryDetailTransitionState,
+  GalleryDetailTransitionPhase,
   connectGalleryDetailTransition,
   ThemeDisplayState,
   connectThemeDisplay,
@@ -486,6 +487,7 @@ struct Index {
   @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local tabletLayout: TabletLayoutState = connectTabletLayout();
   @Local layoutSafeArea: LayoutSafeAreaState = connectLayoutSafeArea();
+  private galleryDetailTransitionSerial: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private tabsController: HdsTabsController = new HdsTabsController();
   private emptyDestinationBuilder: WrappedBuilder<[]> = wrapBuilder<[]>(IndexEmptyDestinationRoute);
@@ -1465,11 +1467,12 @@ struct Index {
       return undefined
     }
     const isPush: boolean = operation === NavigationOperation.PUSH && to.name === 'GalleryDetail'
-    const isPop: boolean = operation === NavigationOperation.POP &&
-      this.galleryDetailTransition.active && from.name === 'GalleryDetail'
+    const isPop: boolean = operation === NavigationOperation.POP && from.name === 'GalleryDetail'
     if (!isPush && !isPop) {
       return undefined
     }
+    this.galleryDetailTransitionSerial += 1
+    const transitionSerial: number = this.galleryDetailTransitionSerial
     return {
       timeout: ThemeConstants.ANIM_DURATION * 12,
       transition: (proxy: NavigationTransitionProxy): void => {
@@ -1478,7 +1481,9 @@ struct Index {
             duration: ThemeConstants.ANIM_DURATION,
             curve: GALLERY_DETAIL_OPEN_CURVE,
             onFinish: (): void => {
-              proxy.finishTransition()
+              if (transitionSerial === this.galleryDetailTransitionSerial) {
+                proxy.finishTransition()
+              }
             },
           }, (): void => {
             this.galleryDetailTransition.expandWindow()
@@ -1494,11 +1499,14 @@ struct Index {
           })
           return
         }
+        this.galleryDetailTransition.beginPop()
         this.getUIContext().animateTo({
           duration: ThemeConstants.ANIM_DURATION,
           curve: GALLERY_DETAIL_CLOSE_CURVE,
           onFinish: (): void => {
-            proxy.finishTransition()
+            if (transitionSerial === this.galleryDetailTransitionSerial) {
+              proxy.finishTransition()
+            }
           },
         }, (): void => {
           this.galleryDetailTransition.collapseWindow(ThemeConstants.RADIUS_CARD)
@@ -1514,10 +1522,13 @@ struct Index {
         })
       },
       onTransitionEnd: (success: boolean): void => {
+        if (transitionSerial !== this.galleryDetailTransitionSerial) {
+          return
+        }
         if (isPush) {
           this.galleryDetailTransition.markPushSettled(success)
         } else {
-          this.galleryDetailTransition.reset()
+          this.galleryDetailTransition.markPopSettled(success)
         }
       },
     }
@@ -1693,6 +1704,21 @@ struct Index {
           : $r('sys.color.ohos_id_color_sub_background'),
       )
       .id('nexte-root-navigation')
+      if (
+        this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING &&
+        this.galleryDetailTransition.cardSnapshot !== undefined
+      ) {
+        Image(this.galleryDetailTransition.cardSnapshot)
+          .width(this.galleryDetailTransition.handoffWidth)
+          .height(this.galleryDetailTransition.handoffHeight)
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+          .position({
+            x: this.galleryDetailTransition.handoffX,
+            y: this.galleryDetailTransition.handoffY,
+          })
+          .hitTestBehavior(HitTestMode.None)
+      }
       if (this.readerOverlay.visible) {
         HdsNavigation(this.readerOverlay.stack) {
           Column() {}

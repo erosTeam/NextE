@@ -872,6 +872,7 @@ export {
   GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
 } from './state/GalleryDetailBackToTopState'
 export {
+  GalleryDetailTransitionPhase,
   GalleryDetailTransitionState,
   connectGalleryDetailTransition,
 } from './state/GalleryDetailTransitionState'

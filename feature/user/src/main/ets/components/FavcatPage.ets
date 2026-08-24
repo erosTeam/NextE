@@ -57,6 +57,8 @@ import {
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
   GalleryDetailTransitionCoordinator,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { CustomContentDialog } from '@kit.ArkUI'
@@ -96,6 +98,7 @@ export struct FavcatPage {
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
   @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -675,6 +678,11 @@ export struct FavcatPage {
                   .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
@@ -750,6 +758,11 @@ export struct FavcatPage {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
@@ -826,6 +839,11 @@ export struct FavcatPage {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
@@ -895,6 +913,11 @@ export struct FavcatPage {
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
@@ -959,6 +982,11 @@ export struct FavcatPage {
                 }
               }
               .id(this.galleryDetailSourceId(g))
+              .visibility(
+                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
+                  ? Visibility.Hidden
+                  : Visibility.Visible,
+              )
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
               })
