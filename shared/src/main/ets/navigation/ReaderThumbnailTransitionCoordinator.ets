@@ -386,15 +386,25 @@ export class ReaderThumbnailTransitionCoordinator {
       readerIntrinsicWidth,
       readerIntrinsicHeight,
     )
+    const closeTargetSnapshot: image.PixelMap | undefined =
+      ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, targetId)
+    if (readerSnapshot === undefined && closeTargetSnapshot === undefined) {
+      DiagnosticLogger.info(
+        'reader-transition',
+        'close_snapshots_unavailable',
+        `index=${currentIndex} component=${readerSnapshotComponentId} target=${targetId}`,
+      )
+      transition.reset()
+      return false
+    }
     if (readerSnapshot === undefined) {
       DiagnosticLogger.info(
         'reader-transition',
-        'close_snapshot_thumbnail_fallback',
-        `index=${currentIndex} component=${readerSnapshotComponentId}`,
+        'close_snapshot_fallback',
+        `index=${currentIndex} component=${readerSnapshotComponentId} ` +
+          `targetSnapshot=${closeTargetSnapshot !== undefined}`,
       )
     }
-    const closeTargetSnapshot: image.PixelMap | undefined =
-      ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, targetId)
     transition.prepareClose(
       targetId,
       currentIndex,

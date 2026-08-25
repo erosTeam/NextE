@@ -380,20 +380,17 @@ export struct ReaderPage {
           .height(this.readerThumbnailTransition.proxyContentHeight())
           .objectFit(ImageFit.Fill)
           .syncLoad(true)
-      } else {
-        EhSpriteThumbnail({
-          url: this.readerThumbnailTransition.image.thumbUrl,
-          thumbWidth: this.readerThumbnailTransition.image.thumbWidth,
-          thumbHeight: this.readerThumbnailTransition.image.thumbHeight,
-          offsetX: this.readerThumbnailTransition.image.thumbOffsetX,
-          imageKey: this.readerThumbnailTransition.image.imgkey,
-          spriteWidth: this.readerThumbnailTransition.image.spriteWidth,
-          spriteHeight: this.readerThumbnailTransition.image.spriteHeight,
-          displayWidth: this.readerThumbnailTransition.proxyWidth,
-          radius: 0,
-        })
+      } else if (this.readerThumbnailTransition.closeTargetSnapshot !== undefined) {
+        // The destination thumbnail is already rendered before close ownership changes. Reuse that
+        // stable bitmap when the Reader image snapshot is unavailable.
+        Image(this.readerThumbnailTransition.closeTargetSnapshot)
+          .width(this.readerThumbnailTransition.proxyContentWidth())
+          .height(this.readerThumbnailTransition.proxyContentHeight())
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
       }
-      if (this.readerThumbnailTransition.closeTargetSnapshot !== undefined) {
+      if (this.readerThumbnailTransition.readerSnapshot !== undefined &&
+        this.readerThumbnailTransition.closeTargetSnapshot !== undefined) {
         Image(this.readerThumbnailTransition.closeTargetSnapshot)
           .width('100%')
           .height('100%')
@@ -926,8 +923,8 @@ export struct ReaderPage {
     if (ReaderThumbnailTransitionCoordinator.reverseOpening(
       this.getUIContext(),
       openingImage === null ? '' : this.readerPageSnapshotId(openingImage.page),
-      openingImage === null ? 0 : this.imageMetricWidthForPage(openingImage.page),
-      openingImage === null ? 0 : this.imageMetricHeightForPage(openingImage.page),
+      openingImage === null ? 0 : this.readerSnapshotWidth(openingImage),
+      openingImage === null ? 0 : this.readerSnapshotHeight(openingImage),
       (animated: boolean) => {
         connectReaderOverlayNavigation().close(animated)
       },
@@ -954,8 +951,8 @@ export struct ReaderPage {
             this.vm.currentIndex,
             currentImage,
             this.readerPageSnapshotId(currentImage.page),
-            this.imageMetricWidthForPage(currentImage.page),
-            this.imageMetricHeightForPage(currentImage.page),
+            this.readerSnapshotWidth(currentImage),
+            this.readerSnapshotHeight(currentImage),
             (animated: boolean) => {
               connectReaderOverlayNavigation().close(animated)
             },
@@ -1105,6 +1102,16 @@ export struct ReaderPage {
       }
     }
     return 0
+  }
+
+  private readerSnapshotWidth(image: EhGalleryImage): number {
+    const metricWidth: number = this.imageMetricWidthForPage(image.page)
+    return metricWidth > 0 ? metricWidth : image.thumbWidth
+  }
+
+  private readerSnapshotHeight(image: EhGalleryImage): number {
+    const metricHeight: number = this.imageMetricHeightForPage(image.page)
+    return metricHeight > 0 ? metricHeight : image.thumbHeight
   }
 
   private readerPageSnapshotId(page: number): string {
