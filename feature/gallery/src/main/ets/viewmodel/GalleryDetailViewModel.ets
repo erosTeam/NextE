@@ -16,6 +16,9 @@ import {
   TagGroup,
   SimpleTag,
   EhPageCacheService,
+  GalleryDetailTransitionPhase,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -56,10 +59,6 @@ class GalleryDetailRun {
  */
 @ObservedV2
 export class GalleryDetailViewModel {
-  // Cached opens already paint the detail; the push spring transition lasts ~580-600ms on device.
-  // Deferring the warm-network refresh past that window keeps its parse + translation RDB lookup +
-  // replacement off the animating frames (measured 11-87ms lookup + ~100ms parse/apply mid-transition).
-  private static readonly POST_TRANSITION_FETCH_DELAY_MS: number = 700
   @Trace gallery: EhGallery = new EhGallery()
   @Trace images: EhGalleryImage[] = []
   @Trace comments: EhGalleryComment[] = []
@@ -67,7 +66,6 @@ export class GalleryDetailViewModel {
   @Trace loaded: boolean = false
   @Trace error: string = ''
   @Trace cachedDetailApplied: boolean = false
-  @Trace postTransitionReady: boolean = false
   // The detail shows ONLY the first preview page (a peek); previewPageCount drives the "view all"
   // entry → the separate all-thumbnails page owns the rest of the paging (eros_fe firstPageImage).
   @Trace previewPageCount: number = 1
@@ -79,10 +77,11 @@ export class GalleryDetailViewModel {
   private context: common.UIAbilityContext | null = null
   private detailRenderVersion: number = 0
   private detailEpoch: number = 0
-  private loadStartedAt: number = 0
   // Only an applied detail run may write a mutation/translation snapshot back to the cache. A newer
   // account/site replacement invalidates this immediately while old content remains on screen.
   private activeDetailRun: GalleryDetailRun | null = null
+  private galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition()
+  private releaseWarmRefreshWait: (() => void) | null = null
   // Translation-library version recorded in the applied cache; used to skip the redundant
   // cached-open re-translation (and its mid-transition re-render) when the library is unchanged.
   private cachedTranslationVersion: string = ''
@@ -101,14 +100,6 @@ export class GalleryDetailViewModel {
       return
     }
     const run: GalleryDetailRun = this.beginDetailRun(gid, token)
-    this.loadStartedAt = Date.now()
-    // Release deferred preview-thumbnail loads after the push transition window (same budget as the
-    // warm-network refresh). Guarded by run identity so a stale run cannot release a newer page early.
-    setTimeout(() => {
-      if (this.isCurrentDetailRun(run)) {
-        this.postTransitionReady = true
-      }
-    }, GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS)
     this.error = ''
     this.cachedDetailApplied = false
     // Same-process navigation can apply a copied detail snapshot synchronously. This must happen before
@@ -122,16 +113,16 @@ export class GalleryDetailViewModel {
       if (!this.isCurrentDetailRun(run)) {
         return
       }
-      // A cached open already paints the detail; let the push transition finish before the warm
-      // network refresh runs, so its parse + translation lookup + replacement never land on an
-      // animating frame. Uncached opens (no gate) keep the current eager fetch.
-      if (this.cachedDetailApplied) {
-        const elapsed: number = Date.now() - this.loadStartedAt
-        if (elapsed < GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS) {
-          await new Promise<void>((resolve: () => void) => {
-            setTimeout(resolve, GalleryDetailViewModel.POST_TRANSITION_FETCH_DELAY_MS - elapsed)
-          })
-        }
+      // Cached content is already usable. Hold only its background network refresh until the real
+      // custom-navigation lifecycle settles, so parse/apply work cannot land on the push frames. This
+      // is event-driven: there is no guessed transition timeout and uncached opens still fetch eagerly.
+      if (this.cachedDetailApplied && this.shouldWaitForGalleryDetailTransition(run)) {
+        await new Promise<void>((resolve: () => void) => {
+          this.releaseWarmRefreshWait = resolve
+        })
+      }
+      if (!this.isCurrentDetailRun(run)) {
+        return
       }
       await this.fetchAndApply(run, false)
       if (this.isCurrentDetailRun(run)) {
@@ -153,6 +144,27 @@ export class GalleryDetailViewModel {
         this.loading = false
       }
     }
+  }
+
+  resumeWarmRefreshAfterTransition(): void {
+    if (
+      this.galleryDetailTransition.phase !== GalleryDetailTransitionPhase.OPEN &&
+      this.galleryDetailTransition.phase !== GalleryDetailTransitionPhase.IDLE
+    ) {
+      return
+    }
+    const release: (() => void) | null = this.releaseWarmRefreshWait
+    this.releaseWarmRefreshWait = null
+    if (release !== null) {
+      release()
+    }
+  }
+
+  private shouldWaitForGalleryDetailTransition(run: GalleryDetailRun): boolean {
+    return this.galleryDetailTransition.eligible &&
+      this.galleryDetailTransition.galleryId === run.gid &&
+      (this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING ||
+        this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.OPENING)
   }
 
   /** Force a replacement after account/site changes without letting an old request own the loading flag. */
@@ -183,6 +195,11 @@ export class GalleryDetailViewModel {
   }
 
   private beginDetailRun(gid: string, token: string): GalleryDetailRun {
+    const release: (() => void) | null = this.releaseWarmRefreshWait
+    this.releaseWarmRefreshWait = null
+    if (release !== null) {
+      release()
+    }
     this.detailEpoch = this.detailEpoch + 1
     // A cache/detail translation that resumes after a replacement must not repaint its former context.
     this.detailRenderVersion = this.detailRenderVersion + 1

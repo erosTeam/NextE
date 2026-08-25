@@ -13,6 +13,11 @@ import {
   ImageBlockRuntimeState,
   connectImageBlockRuntime,
 } from '../state/ImageBlockRuntimeState'
+import {
+  GalleryDetailTransitionPhase,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
+} from '../state/GalleryDetailTransitionState'
 
 /**
  * Renders ONE EH preview thumbnail. EH serves a whole preview page's thumbnails as a single sprite
@@ -26,19 +31,6 @@ import {
  * eros_fe's ThumbHorizontalList uses the fitHeight model (a fixed row height, width follows each thumb's
  * aspect) so portrait/landscape previews sit side by side with no white border.
  */
-// Subset of ArkUI's Image onComplete event we read: the DECODED source pixel size of the sprite sheet.
-// Optional because the callback can fire with no payload (first pass / error).
-class SpriteLoadEvent {
-  loadingStatus: number = 0
-  width?: number
-  height?: number
-
-  constructor(width: number = 0, height: number = 0) {
-    this.width = width
-    this.height = height
-  }
-}
-
 const IMAGE_BLOCK_COMPUTE_DELAY_MS: number = 120
 const SPRITE_THUMB_ERROR_ICON_SIZE: number = 22
 const SPRITE_THUMB_MAX_RETRIES: number = 1
@@ -69,10 +61,9 @@ export struct EhSpriteThumbnail {
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
   @Param fitHeight: boolean = false;
   @Param radius: number = ThemeConstants.THUMB_RADIUS;
-  // When true (detail-page push transition), the sprite request is deferred: the tile renders its
-  // placeholder until the page releases it, so ~40 sprite tiles do not all build image nodes and fire
-  // their cache-hit callbacks inside the animating frames (measured 16-22ms dirty-node flush).
-  @Param loadDeferred: boolean = false;
+  // GalleryPreviewGrid owns its own initial-row/batched mounting policy. Those mounted tiles may load
+  // during the detail push; other sprite-thumbnail callers retain the global transition hold.
+  @Param loadDuringDetailPush: boolean = false;
   // The sprite sheet's REAL decoded pixel size (from Image.onComplete); 0 until the sheet loads. The sheet
   // is scaled UNIFORMLY by `factor` relative to THESE real pixels — never Fill-stretched to the parsed
   // max-extent — so the cropped thumb is never axis-distorted when the sheet canvas has padding beyond the
@@ -83,6 +74,7 @@ export struct EhSpriteThumbnail {
   @Local failed: boolean = false;
   @Local imageBlocked: boolean = false;
   @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   private blockSeq: number = 0;
   private lastBlockKey: string = '';
   private computeTimerId: number = 0;
@@ -220,19 +212,21 @@ export struct EhSpriteThumbnail {
       })
   }
 
-  private onThumbComplete(event?: SpriteLoadEvent): void {
+  private onThumbImageInfo(width: number, height: number): void {
+    if (width <= 0 || height <= 0) {
+      return
+    }
+    if (this.sheetRealW !== width) {
+      this.sheetRealW = width
+    }
+    if (this.sheetRealH !== height) {
+      this.sheetRealH = height
+    }
+  }
+
+  private onThumbComplete(): void {
     this.loaded = true
     this.failed = false
-    if (
-      event !== undefined &&
-      event.width !== undefined &&
-      event.height !== undefined &&
-      event.width > 0 &&
-      event.height > 0
-    ) {
-      this.sheetRealW = event.width
-      this.sheetRealH = event.height
-    }
     this.scheduleImageBlockCompute()
   }
 
@@ -257,6 +251,14 @@ export struct EhSpriteThumbnail {
       clearTimeout(this.computeTimerId)
       this.computeTimerId = 0
     }
+  }
+
+  private holdNativeImageForDetailPush(): boolean {
+    if (this.loadDuringDetailPush || !this.galleryDetailTransition.eligible) {
+      return false
+    }
+    return this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING ||
+      this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.OPENING
   }
 
   @Builder
@@ -300,8 +302,7 @@ export struct EhSpriteThumbnail {
             readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
             reloadToken: this.reloadToken,
             onImageInfo: (width: number, height: number) => {
-              this.sheetRealW = width
-              this.sheetRealH = height
+              this.onThumbImageInfo(width, height)
             },
           })
             .offset({ x: -(this.offsetX * this.factor()), y: 0 })
@@ -359,13 +360,15 @@ export struct EhSpriteThumbnail {
   }
 
   build() {
+    // Building every native sprite node in the first GalleryDetail layout made the navigation frame do
+    // tens of milliseconds of extra list-item measurement. The transition state is the semantic
+    // boundary: keep the image component's own loading surface during PREPARING/OPENING, then mount the
+    // real node as soon as Navigation reports OPEN. No page-owned flag or guessed millisecond delay.
     if (this.forceImageBlocked || this.imageBlocked) {
       this.blockedThumb()
+    } else if (this.holdNativeImageForDetailPush() && !this.loaded) {
+      this.statusOverlay()
     } else if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
-      // Crop ONE thumb out of EH's sprite sheet.
-      if (this.loadDeferred && !this.loaded) {
-        this.statusOverlay()
-      } else {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
       // inside a fixed box that clips to `radius`. This is deliberate: on HarmonyOS a backgroundImage is
       // NOT clipped by borderRadius + clip(true) (device-verified — the thumb rendered square), but Image
@@ -390,7 +393,7 @@ export struct EhSpriteThumbnail {
             this.onThumbComplete()
           },
           onImageInfo: (width: number, height: number) => {
-            this.onThumbComplete(new SpriteLoadEvent(width, height))
+            this.onThumbImageInfo(width, height)
           },
           onError: () => {
             this.onThumbError()
@@ -403,7 +406,6 @@ export struct EhSpriteThumbnail {
       .height(this.boxHeight())
       .borderRadius(this.radius)
       .clip(true)
-      }
     } else if (this.fitHeight) {
       // No sprite metadata (legacy/large-thumb layout): whole image, height-driven. clip(true) so the
       // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.
@@ -425,7 +427,7 @@ export struct EhSpriteThumbnail {
             this.onThumbComplete()
           },
           onImageInfo: (width: number, height: number) => {
-            this.onThumbComplete(new SpriteLoadEvent(width, height))
+            this.onThumbImageInfo(width, height)
           },
           onError: () => {
             this.onThumbError()
@@ -457,7 +459,7 @@ export struct EhSpriteThumbnail {
             this.onThumbComplete()
           },
           onImageInfo: (width: number, height: number) => {
-            this.onThumbComplete(new SpriteLoadEvent(width, height))
+            this.onThumbImageInfo(width, height)
           },
           onError: () => {
             this.onThumbError()

@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit'
+import { FrameCallback } from '@kit.ArkUI'
 import {
   ThemeConstants,
   EhGalleryImage,
@@ -14,11 +15,33 @@ import {
   connectReaderThumbnailTransition,
   ReaderThumbnailTransitionCoordinator,
   ReaderThumbnailTransitionState,
+  EhConstants,
+  ImagePipelineService,
+  EH_IMAGE_PRIORITY_LOW,
+  GalleryDetailTransitionPhase,
+  GalleryDetailTransitionState,
+  connectGalleryDetailTransition,
 } from 'shared'
 
 // Horizontal-mode row thumb height (eros_fe ThumbHorizontalList ~200 incl. labels): each thumb keeps
 // its true aspect at this height so its width varies with no white-border padding.
 const PREVIEW_H: number = 150
+const PREVIEW_RENDER_BATCH_SIZE: number = 3
+
+class GalleryPreviewRenderFrameCallback extends FrameCallback {
+  private action: () => void
+
+  constructor(action: () => void) {
+    super()
+    this.action = action
+  }
+
+  onFrame(_frameTimeInNano: number): void {}
+
+  onIdle(_timeLeftInNano: number): void {
+    this.action()
+  }
+}
 
 /**
  * Detail-page preview section — eros_fe ThumbTile + GalleryBody dispatch, restored to its three modes
@@ -40,19 +63,110 @@ export struct GalleryPreviewGrid {
   @Param horizontal: boolean = false;
   @Param hidden: boolean = false;
   @Param thumbnailReloadToken: number = 0;
-  // True while the detail push transition runs: preview tiles render their placeholder and defer the
-  // sprite request until the page releases it (postTransitionReady), keeping ~40 image callbacks off
-  // the animating frames.
-  @Param loadDeferred: boolean = false;
   @Param transitionScope: string = '';
   @Local listMode: ListModeState = connectListMode();
   @Local readerTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local measuredWidth: number = 0;
+  // Keep one visible row in the initial tree so a cached detail never paints an empty preview card.
+  // Only the remaining tiles wait for the transition boundary and idle-frame batching.
+  @Local renderedImageCount: number = PREVIEW_RENDER_BATCH_SIZE;
   @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
   @Event onMore: (initialImagePage: number) => void = (_initialImagePage: number) => {};
   private pinchStartW: number = 0;
   private pinchStartCols: number = 0;
   private pinchCommitted: boolean = false;
+  private preloadedSpriteUrls: string[] = [];
+  private renderBatchScheduled: boolean = false;
+  private renderBatchEpoch: number = 0;
+
+  aboutToAppear(): void {
+    this.preloadSpriteSheets()
+    this.scheduleNextRenderBatch()
+  }
+
+  aboutToDisappear(): void {
+    this.renderBatchEpoch += 1
+    this.renderBatchScheduled = false
+  }
+
+  @Monitor('images')
+  onPreviewImagesChanged(): void {
+    this.preloadSpriteSheets()
+    this.scheduleNextRenderBatch()
+  }
+
+  @Monitor('hidden')
+  onPreviewVisibilityChanged(): void {
+    this.preloadSpriteSheets()
+    this.scheduleNextRenderBatch()
+  }
+
+  @Monitor('galleryDetailTransition.phase')
+  onGalleryDetailTransitionPhaseChanged(): void {
+    this.scheduleNextRenderBatch()
+  }
+
+  private preloadSpriteSheets(): void {
+    if (this.hidden) {
+      return
+    }
+    // One preview page can contain many tiles backed by only a few sprite sheets. Warm each unique
+    // sheet asynchronously while the detail transition runs; the tile nodes mount after Navigation
+    // settles and reuse ImageKnife's memory/file cache instead of all decoding on the transition frame.
+    this.images.forEach((image: EhGalleryImage) => {
+      const url: string = EhConstants.cdnThumb(image.thumbUrl)
+      if (url.length === 0 || this.preloadedSpriteUrls.includes(url)) {
+        return
+      }
+      this.preloadedSpriteUrls.push(url)
+      ImagePipelineService.preloadCover(url, EH_IMAGE_PRIORITY_LOW)
+    })
+  }
+
+  private transitionAllowsTileRendering(): boolean {
+    if (!this.galleryDetailTransition.eligible) {
+      return true
+    }
+    return this.galleryDetailTransition.phase !== GalleryDetailTransitionPhase.PREPARING &&
+      this.galleryDetailTransition.phase !== GalleryDetailTransitionPhase.OPENING
+  }
+
+  private scheduleNextRenderBatch(): void {
+    if (
+      this.hidden ||
+      !this.transitionAllowsTileRendering() ||
+      this.renderBatchScheduled ||
+      this.renderedImageCount >= this.images.length
+    ) {
+      return
+    }
+    this.renderBatchScheduled = true
+    const epoch: number = this.renderBatchEpoch
+    this.getUIContext().postFrameCallback(new GalleryPreviewRenderFrameCallback((): void => {
+      if (epoch !== this.renderBatchEpoch) {
+        return
+      }
+      this.renderBatchScheduled = false
+      if (!this.transitionAllowsTileRendering()) {
+        return
+      }
+      this.renderedImageCount = Math.min(
+        this.images.length,
+        this.renderedImageCount + PREVIEW_RENDER_BATCH_SIZE,
+      )
+      this.scheduleNextRenderBatch()
+    }))
+  }
+
+  private renderedImages(): EhGalleryImage[] {
+    const out: EhGalleryImage[] = []
+    const count: number = Math.min(this.renderedImageCount, this.images.length)
+    for (let i: number = 0; i < count; i++) {
+      out.push(this.images[i])
+    }
+    return out
+  }
 
   private lastImagePage(): number {
     if (this.images.length === 0) {
@@ -133,7 +247,7 @@ export struct GalleryPreviewGrid {
   horizontalRow() {
     List({ space: ThemeConstants.SPACE_SM }) {
       ForEach(
-        this.images,
+        this.renderedImages(),
         (img: EhGalleryImage) => {
           ListItem() {
             Column({ space: 2 }) {
@@ -149,7 +263,7 @@ export struct GalleryPreviewGrid {
                     spriteHeight: img.spriteHeight,
                     fitHeight: true,
                     displayHeight: PREVIEW_H,
-                    loadDeferred: this.loadDeferred,
+                    loadDuringDetailPush: true,
                     enableImageBlock: true,
                     reloadToken: this.thumbnailReloadToken,
                   })
@@ -240,13 +354,13 @@ export struct GalleryPreviewGrid {
   gridPeek() {
     Grid() {
       ForEach(
-        this.images,
+        this.renderedImages(),
         (img: EhGalleryImage) => {
           GridItem() {
             PreviewThumbTile({
               image: img,
               reloadToken: this.thumbnailReloadToken,
-              loadDeferred: this.loadDeferred,
+              loadDuringDetailPush: true,
               transitionSourceId: this.transitionSourceId(img),
               onTap: () => {
                 this.onOpen(img)

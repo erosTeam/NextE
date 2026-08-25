@@ -656,6 +656,11 @@ export struct GalleryDetailPage {
     this.syncFullPreviewFromDetail()
   }
 
+  @Monitor('galleryDetailTransition.phase')
+  onGalleryDetailTransitionPhaseChanged(): void {
+    this.vm.resumeWarmRefreshAfterTransition()
+  }
+
   private reloadFullPreviewForContext(): void {
     this.fullPreviewMustReset = true
     this.fullPreviewVm.invalidate()
@@ -3027,7 +3032,6 @@ export struct GalleryDetailPage {
                 horizontal: this.thumbMode.horizontalThumbnails,
                 hidden: this.thumbMode.hideGalleryThumbnails,
                 thumbnailReloadToken: this.compactPreviewReloadToken,
-                loadDeferred: !this.vm.postTransitionReady,
                 transitionScope: this.readerTransitionScope,
                 onOpen: (img: EhGalleryImage) => {
                   this.openReaderFromThumbnail(img)
