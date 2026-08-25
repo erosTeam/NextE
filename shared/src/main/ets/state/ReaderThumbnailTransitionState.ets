@@ -317,8 +317,8 @@ export class ReaderThumbnailTransitionState {
     this.proxyRadius = this.sourceRadius
   }
 
-  updateCurrent(index: number, image: EhGalleryImage): void {
-    if (!this.active() || index < 0) {
+  updateCurrent(galleryId: string, index: number, image: EhGalleryImage): void {
+    if (!this.active() || this.galleryId !== galleryId || index < 0) {
       return
     }
     const pageChanged: boolean = this.currentIndex !== index

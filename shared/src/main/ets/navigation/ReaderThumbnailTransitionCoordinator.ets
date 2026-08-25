@@ -204,6 +204,14 @@ export class ReaderThumbnailTransitionCoordinator {
 
   static startOpening(uiContext: UIContext, galleryId: string): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (transition.waitingReader() && transition.galleryId !== galleryId) {
+      DiagnosticLogger.info(
+        'reader-transition',
+        'open_gallery_mismatch',
+        `expected=${transition.galleryId} actual=${galleryId}`,
+      )
+      transition.reset()
+    }
     if (!transition.waitingReader()) {
       // With the default navigation transition there is no flight state. onShown already means the
       // Reader route owns the window; wait one rendered frame before publishing the initial page.
@@ -262,13 +270,14 @@ export class ReaderThumbnailTransitionCoordinator {
 
   static reverseOpening(
     uiContext: UIContext,
+    galleryId: string,
     readerSnapshotComponentId: string,
     readerIntrinsicWidth: number,
     readerIntrinsicHeight: number,
     closeReader: (animated: boolean) => void,
   ): boolean {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
-    if (!transition.openingCanReverse()) {
+    if (!transition.openingCanReverse() || transition.galleryId !== galleryId) {
       return false
     }
     const reverseSnapshot: image.PixelMap | undefined = transition.openingHandoff()
@@ -317,8 +326,11 @@ export class ReaderThumbnailTransitionCoordinator {
     return true
   }
 
-  static notifyReaderImageReady(uiContext: UIContext, page: number): void {
+  static notifyReaderImageReady(uiContext: UIContext, galleryId: string, page: number): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (transition.galleryId !== galleryId) {
+      return
+    }
     if (transition.markReaderImageReady(page)) {
       DiagnosticLogger.info('reader-transition', 'open_handoff_started', `index=${transition.currentIndex}`)
       ReaderThumbnailTransitionCoordinator.startOpeningHandoff(uiContext, transition)
@@ -327,8 +339,10 @@ export class ReaderThumbnailTransitionCoordinator {
 
   static close(
     uiContext: UIContext,
+    galleryId: string,
     currentIndex: number,
     currentImage: EhGalleryImage,
+    readerImageReady: boolean,
     readerSnapshotComponentId: string,
     readerIntrinsicWidth: number,
     readerIntrinsicHeight: number,
@@ -341,6 +355,15 @@ export class ReaderThumbnailTransitionCoordinator {
       `index=${currentIndex} phase=${transition.phase} scope=${transition.sourceScope}`,
     )
     if (!transition.active() || transition.sourceScope.length === 0) {
+      return false
+    }
+    if (transition.galleryId !== galleryId) {
+      DiagnosticLogger.info(
+        'reader-transition',
+        'close_gallery_mismatch',
+        `expected=${transition.galleryId} actual=${galleryId}`,
+      )
+      transition.reset()
       return false
     }
     const targetId: string = ReaderThumbnailTransitionCoordinator.sourceId(
@@ -380,12 +403,14 @@ export class ReaderThumbnailTransitionCoordinator {
       transition.reset()
       return false
     }
-    const readerSnapshot: image.PixelMap | undefined = ReaderThumbnailTransitionCoordinator.captureReaderImage(
-      uiContext,
-      readerSnapshotComponentId,
-      readerIntrinsicWidth,
-      readerIntrinsicHeight,
-    )
+    const readerSnapshot: image.PixelMap | undefined = readerImageReady
+      ? ReaderThumbnailTransitionCoordinator.captureReaderImage(
+        uiContext,
+        readerSnapshotComponentId,
+        readerIntrinsicWidth,
+        readerIntrinsicHeight,
+      )
+      : undefined
     const closeTargetSnapshot: image.PixelMap | undefined =
       ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, targetId)
     if (readerSnapshot === undefined && closeTargetSnapshot === undefined) {
@@ -401,7 +426,7 @@ export class ReaderThumbnailTransitionCoordinator {
       DiagnosticLogger.info(
         'reader-transition',
         'close_snapshot_fallback',
-        `index=${currentIndex} component=${readerSnapshotComponentId} ` +
+        `index=${currentIndex} component=${readerSnapshotComponentId} ready=${readerImageReady} ` +
           `targetSnapshot=${closeTargetSnapshot !== undefined}`,
       )
     }

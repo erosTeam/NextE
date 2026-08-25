@@ -343,6 +343,7 @@ export struct ReaderPage {
   private lastPublishedProgressIndex: number = -1;
   private readerStatusBarHideTimerId: number = -1;
   private readerRouteEpoch: number = 0;
+  private readerSnapshotScope: string = ReaderThumbnailTransitionCoordinator.allocateScope('reader-surface');
   private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
@@ -922,6 +923,7 @@ export struct ReaderPage {
     const openingImage: EhGalleryImage | null = this.currentImage()
     if (ReaderThumbnailTransitionCoordinator.reverseOpening(
       this.getUIContext(),
+      this.params.gid,
       openingImage === null ? '' : this.readerPageSnapshotId(openingImage.page),
       openingImage === null ? 0 : this.readerSnapshotWidth(openingImage),
       openingImage === null ? 0 : this.readerSnapshotHeight(openingImage),
@@ -948,8 +950,10 @@ export struct ReaderPage {
           !this.imageZoomed &&
           ReaderThumbnailTransitionCoordinator.close(
             this.getUIContext(),
+            this.params.gid,
             this.vm.currentIndex,
             currentImage,
+            this.isPageImageLoaded(this.vm.currentIndex),
             this.readerPageSnapshotId(currentImage.page),
             this.readerSnapshotWidth(currentImage),
             this.readerSnapshotHeight(currentImage),
@@ -1115,7 +1119,11 @@ export struct ReaderPage {
   }
 
   private readerPageSnapshotId(page: number): string {
-    return `reader-page-snapshot-${page}`
+    return `${this.readerSnapshotPrefix()}-page-${page}`
+  }
+
+  private readerSnapshotPrefix(): string {
+    return `${this.readerSnapshotScope}-route-${this.readerRouteEpoch}`
   }
 
   private rememberImageEnhancement(
@@ -2773,6 +2781,7 @@ export struct ReaderPage {
     }
     if (this.vm.hasPreviewAt(this.vm.currentIndex)) {
       this.readerThumbnailTransition.updateCurrent(
+        this.params.gid,
         this.vm.currentIndex,
         this.vm.imageAt(this.vm.currentIndex),
       )
@@ -2885,7 +2894,11 @@ export struct ReaderPage {
     if (page <= 0) {
       return
     }
-    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(this.getUIContext(), page)
+    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(
+      this.getUIContext(),
+      this.params.gid,
+      page,
+    )
     this.syncOriginalAvailabilityForPage(page)
     for (let i: number = 0; i < this.loadedPages.length; i++) {
       if (this.loadedPages[i] === page) {
@@ -3481,6 +3494,7 @@ export struct ReaderPage {
             this.ReaderPendingPage(this.missingSpreadPreviewIndex(start))
           } else {
             ReaderSpreadSurface({
+              snapshotPrefix: this.readerSnapshotPrefix(),
               first: this.readerDisplayImage(start),
               localSource: this.isLocalReaderSource(),
               second: this.hasSpreadImage(this.spreadSecondIndex(start))
@@ -3704,6 +3718,7 @@ export struct ReaderPage {
             if (this.vm.hasPreviewAt(index)) {
               ReaderVerticalImage({
                 image: this.readerDisplayImage(index),
+                snapshotId: this.readerPageSnapshotId(this.vm.imageAt(index).page),
                 localSource: this.readerDisplayLocalSource(index),
                 imageKey: `${this.readerImageKey(this.readerDisplayImage(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
                 fileCacheKey: this.readerDisplayFileCacheKey(index),
@@ -5318,6 +5333,7 @@ struct ReaderCacheWarmImage {
 
 @ComponentV2
 struct ReaderSpreadSurface {
+  @Param snapshotPrefix: string = '';
   @Param first: EhGalleryImage = new EhGalleryImage();
   @Param second: EhGalleryImage = new EhGalleryImage();
   @Param localSource: boolean = false;
@@ -5759,6 +5775,7 @@ struct ReaderSpreadSurface {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
+        snapshotId: `${this.snapshotPrefix}-page-${image.page}`,
         localSource: this.localSourceForImage(image),
         imageKey: this.spreadImageKey(image, preferOriginal),
         fileCacheKey: this.fileCacheKeyForPage(image.page),
@@ -5962,6 +5979,7 @@ struct ReaderSpreadSurface {
 @ComponentV2
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param snapshotId: string = '';
   @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
@@ -6449,6 +6467,7 @@ struct ReaderSpreadImageLayer {
             this.retrySourceAutomatically()
           },
         })
+          .id(this.snapshotId)
           // A system Image can paint its light decode placeholder after the file URI is assigned.
           // Keep that surface transparent until the bitmap is ready so the Reader background and
           // loading chrome remain continuous behind a slow thumbnail-to-Reader handoff.
@@ -6485,7 +6504,6 @@ struct ReaderSpreadImageLayer {
     }
     .width('100%')
     .height('100%')
-    .id(`reader-page-snapshot-${this.image.page}`)
   }
 }
 
@@ -7137,6 +7155,7 @@ struct ReaderImagePage {
             this.retrySourceAutomatically()
           },
         })
+          .id(this.snapshotId)
           .opacity(
             this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
           )
@@ -7171,7 +7190,6 @@ struct ReaderImagePage {
     }
     .width('100%')
     .height('100%')
-    .id(this.snapshotId)
     .onAreaChange((_o: Area, n: Area) => {
       this.compW = n.width as number
       this.compH = n.height as number
@@ -7290,6 +7308,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 @ComponentV2
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param snapshotId: string = '';
   @Param localSource: boolean = false;
   @Param imageKey: string = '';
   @Param fileCacheKey: string = '';
@@ -7999,6 +8018,7 @@ struct ReaderVerticalImage {
             this.retrySourceAutomatically()
           },
         })
+          .id(this.snapshotId)
           .opacity(
             this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
           )
@@ -8037,7 +8057,6 @@ struct ReaderVerticalImage {
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
-    .id(`reader-page-snapshot-${this.image.page}`)
     .zIndex(this.zoomZIndex())
     .onAreaChange((_o: Area, n: Area) => {
       this.compW = n.width as number
