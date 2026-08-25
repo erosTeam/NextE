@@ -10,7 +10,8 @@
  *     deferred persistence can reject an old snapshot that finishes after a newer page turn.
  *   • serialize ⇄ parse round-trips; parse is defensive (bad JSON / shape / fields → dropped).
  *   • the detail READ button resumes at, and labels with, the saved page (resumeIndex>0).
- *   • Reader persists every page, while Detail freezes its button until the Reader exit starts.
+ *   • Reader publishes its initialized page (including P1) only after its presentation settles,
+ *     then every later page; Detail follows that accepted publication live.
  *   • a resumed start index that overshoots the loaded page count is clamped (ReaderViewModel.init).
  * If the .ets logic changes, mirror it here.
  *
@@ -470,23 +471,14 @@ const ok = (name, cond) => {
   ok('progress → resume', usesResumeLabel(4) === true)
   ok('1-based page label', resumePageLabel(4) === 5)
 
-  const syncDetailSnapshot = (state) => state.getIndex('g')
   const p1State = new ProgressStore()
   p1State.setIndex('g', 4, 100)
-  let p1Displayed = syncDetailSnapshot(p1State)
   p1State.setIndex('g', 0, 101)
   ok('page 1 is recorded while Reader is open', p1State.getIndex('g') === 0)
-  ok('page 1 live persistence does not change the covered Detail button', p1Displayed === 4)
-  p1Displayed = syncDetailSnapshot(p1State)
-  ok('page 1 exit reveals the plain read label', usesResumeLabel(p1Displayed) === false)
 
   const p5State = new ProgressStore()
-  let p5Displayed = syncDetailSnapshot(p5State)
   p5State.setIndex('g', 4, 101)
   ok('page 5 is recorded through the same live path', p5State.getIndex('g') === 4)
-  ok('page 5 live persistence does not change the covered Detail button', p5Displayed === 0)
-  p5Displayed = syncDetailSnapshot(p5State)
-  ok('page 5 exit reveals the resume label', usesResumeLabel(p5Displayed) === true)
 }
 
 // 7. durable progress is restored at startup
@@ -542,19 +534,25 @@ const ok = (name, cond) => {
     'utf8',
   )
   const sessionMethod = readerPageSrc.match(/private startReaderSession\([\s\S]*?\n  }\n\n  private requestReaderKeyFocus/)?.[0] ?? ''
+  const presentationMethod = readerPageSrc.match(/onReaderPresentationSettled\(\): void \{[\s\S]*?\n  }\n\n  @Monitor\('vm\.currentIndex'/)?.[0] ?? ''
   const pageChangedMethod = readerPageSrc.match(/onPageChanged\(\): void \{[\s\S]*?\n  }\n\n  @Monitor\('readMode\.superResolutionEnabled'/)?.[0] ?? ''
-  ok('reader session explicitly publishes page 1 and every selected initial page',
-    /this\.readerReady = true[\s\S]*?this\.publishReaderProgress\(targetIndex\)/.test(sessionMethod))
-  ok('reader page changes persist during the live session',
-    /this\.publishReaderProgress\(this\.vm\.currentIndex\)/.test(pageChangedMethod))
+  ok('reader session defers page 1 and every selected initial page until presentation settles',
+    /this\.readerReady = true[\s\S]*?presentationSettledFor\(p\.gid\)[\s\S]*?this\.publishReaderProgress\(targetIndex\)/.test(sessionMethod))
+  ok('presentation-settled monitor publishes the initialized page in the middle interval',
+    /@Monitor\('readerThumbnailTransition\.presentationEpoch'\)/.test(readerPageSrc) &&
+    /this\.readerReady[\s\S]*?this\.readerRouteVisible[\s\S]*?!this\.readerClosing[\s\S]*?presentationSettledFor\(this\.params\.gid\)[\s\S]*?publishReaderProgress\(this\.vm\.currentIndex\)/.test(presentationMethod))
+  ok('reader page changes persist only after presentation settles',
+    /presentationSettledFor\(this\.params\.gid\)[\s\S]*?this\.publishReaderProgress\(this\.vm\.currentIndex\)/.test(pageChangedMethod))
   ok('reader de-duplicates only identical consecutive progress writes',
     /private publishReaderProgress\(index: number\): void \{[\s\S]*?this\.lastPublishedProgressIndex === index[\s\S]*?this\.lastPublishedProgressIndex = index[\s\S]*?GalleryReadProgressSettings\.setIndex/.test(readerPageSrc))
-  ok('detail button reads a frozen display snapshot',
-    /@Local displayedResumeIndex: number = 0/.test(detailPageSrc) &&
-    /private resumeIndex\(\): number \{\s*return this\.displayedResumeIndex\s*\}/.test(detailPageSrc))
-  ok('detail ignores live progress while Reader is visible and syncs when exit starts',
-    /@Monitor\('readProgress\.revision'\)[\s\S]*?if \(!this\.readerOverlay\.visible\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc) &&
-    /@Monitor\('readerOverlay\.closing'\)[\s\S]*?if \(this\.readerOverlay\.closing\)[\s\S]*?syncDisplayedReadProgress/.test(detailPageSrc))
+  // Hard timing bans: the writer may publish only after Reader has stably covered Detail and before
+  // close begins. Detail can safely read the reactive state directly because the publisher owns the
+  // timing gate; moving that gate to click/start or close/return previously regressed behavior.
+  ok('detail button follows the gated progress source without owning transition timing',
+    /private resumeIndex\(\): number \{\s*return this\.readProgress\.getIndex\(this\.params\.gid\)\s*\}/.test(detailPageSrc))
+  ok('detail button is not updated by the Reader closing lifecycle',
+    !detailPageSrc.includes("@Monitor('readerOverlay.closing')") &&
+    !/closing[\s\S]{0,400}syncDisplayedReadProgress/.test(detailPageSrc))
   ok('overlay publishes closing before its configured pop',
     /@Trace closing: boolean = false/.test(overlayStateSrc) &&
     /close\([^)]*\): void \{[\s\S]*?this\.closing = true\s*this\.stack\.pop\(animated\)/.test(overlayStateSrc))

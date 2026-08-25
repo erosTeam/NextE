@@ -6,10 +6,11 @@ export enum GalleryDetailTransitionMode {
   COVER_EXPAND = 'coverExpand',
 }
 
-/** Persisted preference that selects the card -> GalleryDetail transition. */
+/** Persisted preferences for GalleryDetail and Reader thumbnail transitions. */
 @ObservedV2
 export class GalleryDetailTransitionSettingsState {
   @Trace mode: string = GalleryDetailTransitionMode.SEAMLESS
+  @Trace readerThumbnailEnabled: boolean = true
 }
 
 const GALLERY_DETAIL_TRANSITION_SETTINGS_KEY: string = 'v2_galleryDetailTransitionSettings'

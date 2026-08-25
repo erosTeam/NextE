@@ -138,30 +138,32 @@ export struct GalleryPreviewGrid {
           ListItem() {
             Column({ space: 2 }) {
               Stack({ alignContent: Alignment.Center }) {
-                if (!this.readerTransition.sourceHidden(this.transitionSourceId(img))) {
-                  Stack({ alignContent: Alignment.Center }) {
-                    EhSpriteThumbnail({
-                      url: img.thumbUrl,
-                      thumbWidth: img.thumbWidth,
-                      thumbHeight: img.thumbHeight,
-                      offsetX: img.thumbOffsetX,
-                      imageKey: img.imgkey,
-                      spriteWidth: img.spriteWidth,
-                      spriteHeight: img.spriteHeight,
-                      fitHeight: true,
-                      displayHeight: PREVIEW_H,
-                      loadDeferred: this.loadDeferred,
-                      enableImageBlock: true,
-                      reloadToken: this.thumbnailReloadToken,
-                    })
-                  }
-                  .id(this.transitionSourceId(img))
-                  .width(this.horizontalThumbWidth(img))
-                  .height(PREVIEW_H)
-                  .borderRadius(ThemeConstants.THUMB_RADIUS)
-                  .clip(true)
-                  .geometryTransition(this.readerTransition.sourceGeometryId(this.transitionSourceId(img)))
+                Stack({ alignContent: Alignment.Center }) {
+                  EhSpriteThumbnail({
+                    url: img.thumbUrl,
+                    thumbWidth: img.thumbWidth,
+                    thumbHeight: img.thumbHeight,
+                    offsetX: img.thumbOffsetX,
+                    imageKey: img.imgkey,
+                    spriteWidth: img.spriteWidth,
+                    spriteHeight: img.spriteHeight,
+                    fitHeight: true,
+                    displayHeight: PREVIEW_H,
+                    loadDeferred: this.loadDeferred,
+                    enableImageBlock: true,
+                    reloadToken: this.thumbnailReloadToken,
+                  })
                 }
+                .id(this.transitionSourceId(img))
+                .width(this.horizontalThumbWidth(img))
+                .height(PREVIEW_H)
+                .borderRadius(ThemeConstants.THUMB_RADIUS)
+                .clip(true)
+                .visibility(
+                  this.readerTransition.sourceHidden(this.transitionSourceId(img))
+                    ? Visibility.Hidden
+                    : Visibility.Visible,
+                )
               }
               .width(this.horizontalThumbWidth(img))
               .height(PREVIEW_H)

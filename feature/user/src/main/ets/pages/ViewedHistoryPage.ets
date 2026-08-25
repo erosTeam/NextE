@@ -97,6 +97,7 @@ export struct ViewedHistoryPage {
         )
       },
       this.galleryDetailSourceCoverId(gallery),
+      gallery.thumbUrl,
     )
   }
 

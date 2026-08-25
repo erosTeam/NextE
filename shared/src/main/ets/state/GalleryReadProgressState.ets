@@ -24,9 +24,9 @@ export class ReadProgressEntry {
 /**
  * Per-gallery reading position (eros_fe `pageState.lastIndex` / GalleryCacheController.gCacheMap).
  *
- * The reader writes the current page here as the user pages (coalesced immediately to disk by
- * GalleryReadProgressSettings, the single writer); gallery detail snapshots it for the READ button
- * and reveals the final snapshot when Reader closes. The actual gid→index map is a plain
+ * After Reader has stably covered Detail, it writes the current page here and then follows later
+ * page changes (coalesced immediately to disk by GalleryReadProgressSettings, the single writer).
+ * Gallery detail reads the revision-backed value for its READ button. The actual gid→index map is a plain
  * Map (a `@Trace` Map wouldn't observe internal mutations); reactivity rides on `revision`, bumped
  * on every write, which `getIndex` touches so a consumer reading it inside build() re-evaluates.
  */
@@ -42,7 +42,7 @@ export class GalleryReadProgressState {
   /** Saved page index for a gallery (0 when none). Reads `revision` so callers subscribe. */
   getIndex(gid: string): number {
     // Always-false guard whose sole purpose is to read `revision`, establishing the reactive
-    // dependency for any build()-scope caller (so returning from the reader updates the label).
+    // dependency for any build()-scope caller (so every accepted Reader publication updates the label).
     if (this.revision < 0) {
       return 0
     }

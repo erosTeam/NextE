@@ -3,12 +3,15 @@ import { image } from '@kit.ImageKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { connectGalleryDetailTransitionSettings } from '../state/GalleryDetailTransitionSettingsState'
-import { GalleryDetailTransitionMode } from '../state/GalleryDetailTransitionSettingsState'
 import {
   connectReaderThumbnailTransition,
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
 import { ThemeConstants } from '../theme/ThemeConstants'
+
+const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
+const READER_CLOSE_TARGET_HANDOFF_START: number = 0.55
+const READER_CLOSE_TARGET_HANDOFF_END: number = 0.90
 
 class ReaderThumbnailTransitionFrameCallback extends FrameCallback {
   private action: () => void
@@ -25,10 +28,9 @@ class ReaderThumbnailTransitionFrameCallback extends FrameCallback {
   }
 }
 
-/** Coordinates the real thumbnail node with a root-level Reader geometry proxy. */
+/** Coordinates the real thumbnail node with one root-level Reader flight proxy. */
 export class ReaderThumbnailTransitionCoordinator {
   private static scopeSeed: number = 0
-  private static geometrySeed: number = 0
 
   static allocateScope(owner: string): string {
     ReaderThumbnailTransitionCoordinator.scopeSeed += 1
@@ -45,6 +47,24 @@ export class ReaderThumbnailTransitionCoordinator {
       return rect.size.width > 0 && rect.size.height > 0
     } catch (_error) {
       return false
+    }
+  }
+
+  private static captureSourceImage(
+    uiContext: UIContext,
+    componentId: string,
+  ): image.PixelMap | undefined {
+    try {
+      return uiContext.getComponentSnapshot().getSync(componentId, {
+        waitUntilRenderFinished: true,
+      })
+    } catch (error) {
+      DiagnosticLogger.info(
+        'reader-transition',
+        'source_snapshot_failed',
+        `component=${componentId} error=${error}`,
+      )
+      return undefined
     }
   }
 
@@ -90,6 +110,26 @@ export class ReaderThumbnailTransitionCoordinator {
     }
   }
 
+  private static startOpeningHandoff(
+    uiContext: UIContext,
+    transition: ReaderThumbnailTransitionState,
+  ): void {
+    if (!transition.openingHandoff()) {
+      return
+    }
+    uiContext.animateTo({
+      duration: ThemeConstants.ANIM_DURATION * READER_OPEN_CONTENT_HANDOFF_FRACTION,
+      curve: Curve.EaseOut,
+      onFinish: () => {
+        if (transition.finishOpeningHandoff()) {
+          DiagnosticLogger.info('reader-transition', 'open_finished', `index=${transition.currentIndex}`)
+        }
+      },
+    }, () => {
+      transition.startOpeningHandoff()
+    })
+  }
+
   static open(
     uiContext: UIContext,
     sourceScope: string,
@@ -102,7 +142,7 @@ export class ReaderThumbnailTransitionCoordinator {
     transition.reset()
     const sourceComponentId: string = ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index)
     if (
-      connectGalleryDetailTransitionSettings().mode !== GalleryDetailTransitionMode.COVER_EXPAND ||
+      !connectGalleryDetailTransitionSettings().readerThumbnailEnabled ||
       !ReaderThumbnailTransitionCoordinator.componentAvailable(uiContext, sourceComponentId)
     ) {
       openReader(true)
@@ -110,22 +150,44 @@ export class ReaderThumbnailTransitionCoordinator {
     }
     try {
       const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
+      const sourceRect = uiContext.getComponentUtils().getRectangleById(sourceComponentId)
       const rootWidth: number = uiContext.px2vp(rootRect.size.width)
       const rootHeight: number = uiContext.px2vp(rootRect.size.height)
-      if (rootWidth <= 0 || rootHeight <= 0) {
+      const sourceX: number = uiContext.px2vp(sourceRect.windowOffset.x - rootRect.windowOffset.x)
+      const sourceY: number = uiContext.px2vp(sourceRect.windowOffset.y - rootRect.windowOffset.y)
+      const sourceWidth: number = uiContext.px2vp(sourceRect.size.width)
+      const sourceHeight: number = uiContext.px2vp(sourceRect.size.height)
+      if (
+        rootWidth <= 0 || rootHeight <= 0 ||
+        sourceWidth <= 0 || sourceHeight <= 0
+      ) {
         openReader(true)
         return
       }
-      ReaderThumbnailTransitionCoordinator.geometrySeed += 1
+      const sourceSnapshot: image.PixelMap | undefined =
+        ReaderThumbnailTransitionCoordinator.captureSourceImage(
+          uiContext,
+          sourceComponentId,
+        )
+      if (sourceSnapshot === undefined) {
+        transition.reset()
+        openReader(true)
+        return
+      }
       transition.arm(
         sourceScope,
         sourceComponentId,
-        `reader-thumbnail-geometry-${ReaderThumbnailTransitionCoordinator.geometrySeed}`,
         galleryId,
         index,
         image,
         rootWidth,
         rootHeight,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        ThemeConstants.THUMB_RADIUS,
+        sourceSnapshot,
       )
       DiagnosticLogger.info(
         'reader-transition',
@@ -140,31 +202,126 @@ export class ReaderThumbnailTransitionCoordinator {
     }
   }
 
-  static startOpening(uiContext: UIContext): void {
+  static startOpening(uiContext: UIContext, galleryId: string): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (!transition.waitingReader()) {
+      // With the default navigation transition there is no flight state. onShown already means the
+      // Reader route owns the window; wait one rendered frame before publishing the initial page.
+      uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+        transition.markPresentationSettled(galleryId)
+      }))
       return
     }
-    uiContext.animateTo({
-      duration: ThemeConstants.ANIM_DURATION,
-      curve: Curve.Friction,
-      onFinish: () => {
-        const handedOff: boolean = transition.finishOpeningGeometry()
-        DiagnosticLogger.info(
-          'reader-transition',
-          handedOff ? 'open_finished' : 'open_geometry_finished_waiting',
-          `index=${transition.currentIndex}`,
-        )
-      },
-    }, () => {
-      transition.startOpening()
-    })
+    transition.prepareOpening()
+    // First render the proxy at the source rectangle with the real thumbnail already hidden. Start
+    // the flight only on the next frame so no implicit source snapshot or opacity interpolation can
+    // create a second copy.
+    uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+      if (!transition.opening()) {
+        return
+      }
+      uiContext.animateTo({
+        duration: ThemeConstants.ANIM_DURATION,
+        curve: Curve.Friction,
+        onFinish: () => {
+          if (!transition.opening()) {
+            return
+          }
+          if (!transition.finishOpeningFlight()) {
+            return
+          }
+          DiagnosticLogger.info(
+            'reader-transition',
+            'open_proxy_handoff_started',
+            `index=${transition.currentIndex}`,
+          )
+          // The Reader-owned placeholder and its loading/chrome layers render underneath the still
+          // opaque root proxy. On the next frame, remove only the root proxy; Reader is already
+          // interactive even if the full image takes seconds to decode.
+          uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+            if (!transition.openingProxyHandoff()) {
+              return
+            }
+            const decodedHandoff: boolean = transition.finishOpeningProxyHandoff()
+            transition.markPresentationSettled(galleryId)
+            DiagnosticLogger.info(
+              'reader-transition',
+              decodedHandoff ? 'open_content_handoff_started' : 'open_flight_finished_waiting',
+              `index=${transition.currentIndex}`,
+            )
+            if (decodedHandoff) {
+              ReaderThumbnailTransitionCoordinator.startOpeningHandoff(uiContext, transition)
+            }
+          }))
+        },
+      }, () => {
+        transition.startOpeningFlight()
+      })
+    }))
   }
 
-  static notifyReaderImageReady(page: number): void {
+  static reverseOpening(
+    uiContext: UIContext,
+    readerSnapshotComponentId: string,
+    readerIntrinsicWidth: number,
+    readerIntrinsicHeight: number,
+    closeReader: (animated: boolean) => void,
+  ): boolean {
+    const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (!transition.openingCanReverse()) {
+      return false
+    }
+    const reverseSnapshot: image.PixelMap | undefined = transition.openingHandoff()
+      ? ReaderThumbnailTransitionCoordinator.captureReaderImage(
+        uiContext,
+        readerSnapshotComponentId,
+        readerIntrinsicWidth,
+        readerIntrinsicHeight,
+      )
+      : undefined
+    if (!transition.prepareOpeningReverse(reverseSnapshot)) {
+      if (reverseSnapshot !== undefined) {
+        reverseSnapshot.release().catch((_error: Error) => {})
+      }
+      return false
+    }
+    DiagnosticLogger.info(
+      'reader-transition',
+      'open_reverse_requested',
+      `index=${transition.currentIndex} readerSnapshot=${reverseSnapshot !== undefined}`,
+    )
+    // Let the ownership change paint first. The next animateTo retargets the same geometry and
+    // opacity properties, so ArkUI continues from their current presentation values.
+    uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+      if (!transition.openingReverse()) {
+        return
+      }
+      uiContext.animateTo({
+        duration: ThemeConstants.ANIM_DURATION,
+        curve: Curve.Friction,
+        onFinish: () => {
+          if (!transition.openingReverse()) {
+            return
+          }
+          DiagnosticLogger.info(
+            'reader-transition',
+            'open_reverse_finished',
+            `index=${transition.currentIndex}`,
+          )
+          closeReader(false)
+        },
+      }, () => {
+        transition.startOpeningReverse()
+      })
+    }))
+    return true
+  }
+
+  static notifyReaderImageReady(uiContext: UIContext, page: number): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (transition.markReaderImageReady(page)) {
-      DiagnosticLogger.info('reader-transition', 'open_finished', `index=${transition.currentIndex}`)
+      DiagnosticLogger.info('reader-transition', 'open_handoff_started', `index=${transition.currentIndex}`)
+      ReaderThumbnailTransitionCoordinator.startOpeningHandoff(uiContext, transition)
     }
   }
 
@@ -232,12 +389,12 @@ export class ReaderThumbnailTransitionCoordinator {
     if (readerSnapshot === undefined) {
       DiagnosticLogger.info(
         'reader-transition',
-        'close_snapshot_unavailable',
+        'close_snapshot_thumbnail_fallback',
         `index=${currentIndex} component=${readerSnapshotComponentId}`,
       )
-      transition.reset()
-      return false
     }
+    const closeTargetSnapshot: image.PixelMap | undefined =
+      ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, targetId)
     transition.prepareClose(
       targetId,
       currentIndex,
@@ -248,7 +405,10 @@ export class ReaderThumbnailTransitionCoordinator {
       targetHeight,
       ThemeConstants.THUMB_RADIUS,
       readerSnapshot,
-      readerIntrinsicWidth / readerIntrinsicHeight,
+      readerSnapshot !== undefined && readerIntrinsicHeight > 0
+        ? readerIntrinsicWidth / readerIntrinsicHeight
+        : 0,
+      closeTargetSnapshot,
     )
     uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
       // Index owns the root proxy while Reader owns this callback. Give the root subscriber a full
@@ -263,11 +423,33 @@ export class ReaderThumbnailTransitionCoordinator {
           curve: Curve.Friction,
           onFinish: () => {
             DiagnosticLogger.info('reader-transition', 'close_finished', `index=${currentIndex}`)
-            closeReader(false)
+            if (!transition.finishClosingFlight()) {
+              return
+            }
+            // The state change above unhides the real thumbnail while the endpoint proxy still
+            // covers it. Remove Reader only after that underlying frame has actually rendered.
+            uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+              if (!transition.closeHandoff()) {
+                return
+              }
+              DiagnosticLogger.info('reader-transition', 'close_handoff_ready', `index=${currentIndex}`)
+              closeReader(false)
+            }))
           },
         }, () => {
           transition.startClosing()
         })
+        if (closeTargetSnapshot !== undefined) {
+          uiContext.animateTo({
+            delay: ThemeConstants.ANIM_DURATION * READER_CLOSE_TARGET_HANDOFF_START,
+            duration: ThemeConstants.ANIM_DURATION * (
+              READER_CLOSE_TARGET_HANDOFF_END - READER_CLOSE_TARGET_HANDOFF_START
+            ),
+            curve: Curve.EaseInOut,
+          }, () => {
+            transition.showCloseTargetSnapshot()
+          })
+        }
       }))
     }))
     return true

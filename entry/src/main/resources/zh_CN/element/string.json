@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "选择列表进入详情页及缩略图进入阅读器时的转场效果"
+      "value": "选择列表进入详情页时的转场效果"
     },
     {
       "name": "settings_gallery_detail_transition_system",
@@ -683,6 +683,14 @@
     {
       "name": "settings_gallery_detail_transition_cover_expand",
       "value": "封面展开"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition",
+      "value": "阅读器缩略图转场"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition_hint",
+      "value": "在缩略图与阅读器之间使用缩放转场"
     },
     {
       "name": "settings_action_alignment",

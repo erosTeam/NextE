@@ -188,6 +188,7 @@ export struct GalleryListBody {
         this.openDetail(g)
       },
       this.galleryDetailSourceCoverId(g),
+      g.thumbUrl,
     )
   }
 

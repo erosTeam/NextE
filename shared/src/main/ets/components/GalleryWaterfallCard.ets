@@ -374,6 +374,7 @@ export struct GalleryWaterfallCard {
         containFit: true,
         sourceWidth: this.gallery.imgWidth,
         sourceHeight: this.gallery.imgHeight,
+        surfaceId: this.transitionCoverId,
       })
         .brightness(this.selected ? 0.86 : 1)
       Column({ space: ThemeConstants.SPACE_XS }) {

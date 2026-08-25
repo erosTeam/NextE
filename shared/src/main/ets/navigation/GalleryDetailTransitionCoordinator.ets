@@ -33,6 +33,41 @@ export class GalleryDetailTransitionCoordinator {
   private static scopeSeed: number = 0
   private static opening: boolean = false
 
+  static syncDetailCoverTarget(uiContext: UIContext): boolean {
+    const transition = connectGalleryDetailTransition()
+    if (!transition.isCoverExpand() || transition.targetCoverComponentId.length === 0) {
+      return false
+    }
+    transition.clearCoverTarget()
+    try {
+      const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
+      const coverRect = uiContext.getComponentUtils()
+        .getRectangleById(transition.targetCoverComponentId)
+      const rootWidth: number = uiContext.px2vp(rootRect.size.width)
+      const rootHeight: number = uiContext.px2vp(rootRect.size.height)
+      const width: number = uiContext.px2vp(coverRect.size.width)
+      const height: number = uiContext.px2vp(coverRect.size.height)
+      if (width <= 0 || height <= 0) {
+        return false
+      }
+      const x: number = uiContext.px2vp(coverRect.windowOffset.x - rootRect.windowOffset.x)
+      const y: number = uiContext.px2vp(coverRect.windowOffset.y - rootRect.windowOffset.y)
+      if (x + width <= 0 || y + height <= 0 || x >= rootWidth || y >= rootHeight) {
+        return false
+      }
+      transition.setCoverTarget(
+        x,
+        y,
+        width,
+        height,
+        ThemeConstants.DETAIL_COVER_RADIUS,
+      )
+      return true
+    } catch (_error) {
+      return false
+    }
+  }
+
   static allocateScope(owner: string): string {
     GalleryDetailTransitionCoordinator.scopeSeed += 1
     return `gallery-list-${owner}-${GalleryDetailTransitionCoordinator.scopeSeed}`
@@ -52,6 +87,7 @@ export class GalleryDetailTransitionCoordinator {
     galleryId: string,
     openDetail: () => void,
     sourceCoverComponentId: string = '',
+    coverUrl: string = '',
   ): void {
     if (GalleryDetailTransitionCoordinator.opening) {
       return
@@ -132,6 +168,7 @@ export class GalleryDetailTransitionCoordinator {
         coverHeight,
         ThemeConstants.THUMB_RADIUS,
         coverSnapshot,
+        coverUrl,
       )
       cardSnapshot = undefined
       coverSnapshot = undefined

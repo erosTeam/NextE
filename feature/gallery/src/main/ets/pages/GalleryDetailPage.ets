@@ -29,7 +29,6 @@ import {
   connectNavStack,
   NavStackHolder,
   connectReaderOverlayNavigation,
-  ReaderOverlayNavigationState,
   connectSearchAction,
   connectSiteMode,
   SiteModeState,
@@ -101,6 +100,7 @@ import {
   connectGalleryDetailBackToTop,
   GalleryDetailTransitionState,
   connectGalleryDetailTransition,
+  GalleryDetailTransitionCoordinator,
   GALLERY_DETAIL_BACK_TO_TOP_METADATA,
   GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
   TabletLayoutSettings,
@@ -278,11 +278,10 @@ export struct GalleryDetailPage {
   @Local showNavTitle: boolean = false;
   @Local detailRefreshInFlight: boolean = false;
   @Local titlePref: GalleryTitleState = connectGalleryTitle();
-  // Per-gallery reading progress: the READ button resumes at + labels itself with the saved page.
-  // Persistence stays live in Reader; the button uses a frozen snapshot until Reader starts closing.
+  // Per-gallery reading progress: after Reader stably covers Detail it publishes the initialized
+  // page (including P1), then every later page change. Never defer this to Reader exit and never
+  // publish it at the thumbnail click/navigation-start endpoint.
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
-  @Local readerOverlay: ReaderOverlayNavigationState = connectReaderOverlayNavigation();
-  @Local displayedResumeIndex: number = 0;
   // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails). Reactive so a
   // settings toggle re-renders this page's preview section live (grid ↔ horizontal ↔ hidden-inline).
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
@@ -628,25 +627,7 @@ export struct GalleryDetailPage {
   // eros_fe resumes reading at the saved lastIndex when the READ button is tapped (thumbnail taps
   // still open their own page). 0 when there is no saved progress.
   private resumeIndex(): number {
-    return this.displayedResumeIndex
-  }
-
-  private syncDisplayedReadProgress(): void {
-    this.displayedResumeIndex = this.readProgress.getIndex(this.params.gid)
-  }
-
-  @Monitor('readProgress.revision')
-  private onReadProgressChanged(): void {
-    if (!this.readerOverlay.visible) {
-      this.syncDisplayedReadProgress()
-    }
-  }
-
-  @Monitor('readerOverlay.closing')
-  private onReaderOverlayClosingChanged(): void {
-    if (this.readerOverlay.closing) {
-      this.syncDisplayedReadProgress()
-    }
+    return this.readProgress.getIndex(this.params.gid)
   }
 
   private ctx(): common.UIAbilityContext {
@@ -3166,7 +3147,9 @@ export struct GalleryDetailPage {
       return false
     }
     this.coverPopDispatching = true
-    this.galleryDetailTransition.prepareCoverPop()
+    const coverTargetVisible: boolean = GalleryDetailTransitionCoordinator
+      .syncDetailCoverTarget(this.getUIContext())
+    this.galleryDetailTransition.prepareCoverPop(coverTargetVisible)
     // Let the destination paint its permanent cover mask before Navigation snapshots the POP source.
     // onIdle provides a rendered-frame boundary without guessing a millisecond delay.
     this.getUIContext().postFrameCallback(new GalleryDetailPreparedPopFrameCallback((): void => {
@@ -3292,7 +3275,6 @@ export struct GalleryDetailPage {
       const p = context.pathInfo.param as GalleryDetailParams
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
-        this.syncDisplayedReadProgress()
         this.resetTitleTranslations()
         this.vm.setContext(this.ctx())
         const seed: EhGallery = new EhGallery(p.gid, p.token)
@@ -3312,9 +3294,6 @@ export struct GalleryDetailPage {
     .onWillShow(() => {
       this.refreshFirstSecondaryDetail(this.stack)
       this.syncGalleryDetailBackToTopWorkspace()
-      if (!this.readerOverlay.visible) {
-        this.syncDisplayedReadProgress()
-      }
     })
     .onWillHide(() => {
       this.releaseGalleryDetailBackToTopWorkspace()

@@ -68,6 +68,21 @@ export struct PreviewThumbTile {
     return a > 0 && a > FRAME_ASPECT
   }
 
+  private contentWidth(): number {
+    const a: number = this.thumbAspect()
+    return this.fitByHeight() && a > 0
+      ? this.frameHeight() / a
+      : this.tileWidth()
+  }
+
+  private contentHeight(): number {
+    const a: number = this.thumbAspect()
+    if (this.fitByHeight()) {
+      return this.frameHeight()
+    }
+    return a > 0 ? this.tileWidth() * a : this.frameHeight()
+  }
+
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
@@ -228,17 +243,25 @@ export struct PreviewThumbTile {
       // The visible sprite/image keeps its real aspect and owns the rounded clip; the slot must not render
       // as a grey letterbox container after the real thumbnail is loaded.
       Stack() {
-        if (!this.readerTransition.sourceHidden(this.transitionSourceId)) {
-          Stack({ alignContent: Alignment.Center }) {
-            this.ThumbnailSurface()
-          }
-          .id(this.transitionSourceId)
-          .width('100%')
-          .height('100%')
-          .borderRadius(ThemeConstants.THUMB_RADIUS)
-          .clip(true)
-          .geometryTransition(this.readerTransition.sourceGeometryId(this.transitionSourceId))
+        Stack({ alignContent: Alignment.Center }) {
+          this.ThumbnailSurface()
         }
+        .id(this.transitionSourceId)
+        // The transition identity belongs to the pixels that are actually visible, not the fixed
+        // alignment slot around them. This makes snapshot, hide, opening origin and closing target
+        // one exact node even for tall or wide letterboxed pages.
+        .width(this.contentWidth())
+        .height(this.contentHeight())
+        .borderRadius(ThemeConstants.THUMB_RADIUS)
+        .clip(true)
+        // Keep the decoded thumbnail mounted, but remove its pixels from composition immediately.
+        // The root proxy is the only owner during the flight; a second geometryTransition snapshot
+        // would retain another copy of the source pixels above this node.
+        .visibility(
+          this.readerTransition.sourceHidden(this.transitionSourceId)
+            ? Visibility.Hidden
+            : Visibility.Visible,
+        )
       }
       .width('100%')
       .aspectRatio(1 / FRAME_ASPECT)

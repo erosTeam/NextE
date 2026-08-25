@@ -83,9 +83,11 @@ import {
   GalleryDetailTransitionState,
   GalleryDetailTransitionPhase,
   connectGalleryDetailTransition,
+  GalleryDetailTransitionCoordinator,
   ThemeDisplayState,
   connectThemeDisplay,
   EhSpriteThumbnail,
+  EhImageKnifeImage,
   ReaderThumbnailTransitionState,
   connectReaderThumbnailTransition,
 } from 'shared'
@@ -155,15 +157,12 @@ const GALLERY_DETAIL_OPEN_CARD_EXIT_START_PROGRESS: number = 0
 const GALLERY_DETAIL_OPEN_CARD_EXIT_END_PROGRESS: number = 0.55
 const GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_PROGRESS: number = 0.55
 const GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_PROGRESS: number = 0.9
-// The source text and its opaque backing hand off in two non-overlapping halves. This prevents the
-// source-card title from blending with the already-laid-out detail title while retaining continuity.
-// These are spatial progress thresholds: curve changes cannot move the handoff to a different card size.
-const GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_START_PROGRESS: number = 0.15
-const GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_PROGRESS: number = 0.5
-const GALLERY_DETAIL_COVER_OPEN_MASK_EXIT_END_PROGRESS: number = 0.75
-const GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_START_PROGRESS: number = 0.25
-const GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_PROGRESS: number = 0.5
-const GALLERY_DETAIL_COVER_CLOSE_TEXT_ENTRY_END_PROGRESS: number = 0.75
+// The captured source card hands off as one rounded surface. These are spatial progress thresholds:
+// curve changes cannot move its fade to a different expanded-card size.
+const GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_START_PROGRESS: number = 0.15
+const GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_END_PROGRESS: number = 0.5
+const GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_PROGRESS: number = 0.5
+const GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_PROGRESS: number = 0.75
 const GALLERY_DETAIL_CURVE_INVERSE_ITERATIONS: number = 16
 
 function galleryDetailTimeAtProgress(curve: curves.ICurve, targetProgress: number): number {
@@ -189,33 +188,25 @@ const GALLERY_DETAIL_OPEN_CARD_EXIT_END_TIME: number = galleryDetailTimeAtProgre
   GALLERY_DETAIL_OPEN_CURVE,
   GALLERY_DETAIL_OPEN_CARD_EXIT_END_PROGRESS,
 )
-const GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_START_TIME: number = galleryDetailTimeAtProgress(
+const GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_START_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_OPEN_CURVE,
-  GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_START_PROGRESS,
+  GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_START_PROGRESS,
 )
-const GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_TIME: number = galleryDetailTimeAtProgress(
+const GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_END_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_OPEN_CURVE,
-  GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_PROGRESS,
-)
-const GALLERY_DETAIL_COVER_OPEN_MASK_EXIT_END_TIME: number = galleryDetailTimeAtProgress(
-  GALLERY_DETAIL_OPEN_CURVE,
-  GALLERY_DETAIL_COVER_OPEN_MASK_EXIT_END_PROGRESS,
+  GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_END_PROGRESS,
 )
 const GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_CLOSE_CURVE,
   GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_PROGRESS,
 )
-const GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_START_TIME: number = galleryDetailTimeAtProgress(
+const GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_CLOSE_CURVE,
-  GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_START_PROGRESS,
+  GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_PROGRESS,
 )
-const GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_TIME: number = galleryDetailTimeAtProgress(
+const GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_CLOSE_CURVE,
-  GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_PROGRESS,
-)
-const GALLERY_DETAIL_COVER_CLOSE_TEXT_ENTRY_END_TIME: number = galleryDetailTimeAtProgress(
-  GALLERY_DETAIL_CLOSE_CURVE,
-  GALLERY_DETAIL_COVER_CLOSE_TEXT_ENTRY_END_PROGRESS,
+  GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_PROGRESS,
 )
 const GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_TIME: number = galleryDetailTimeAtProgress(
   GALLERY_DETAIL_CLOSE_CURVE,
@@ -277,14 +268,23 @@ struct IndexReaderThumbnailTransitionProxy {
   build() {
     if (this.state.targetVisible()) {
       Stack({ alignContent: Alignment.Center }) {
-        if (this.state.readerSnapshot !== undefined) {
-          Image(this.state.readerSnapshot)
-            .width(this.state.proxyContentWidth())
-            .height(this.state.proxyContentHeight())
+        if (this.state.openingReverse() && this.state.openingReverseSnapshot !== undefined) {
+          // Once the decoded Reader image has begun taking ownership, reverse from those exact
+          // pixels instead of visibly dropping back to the click-time thumbnail at full size.
+          Image(this.state.openingReverseSnapshot)
+            .width('100%')
+            .height('100%')
             .objectFit(ImageFit.Fill)
             .syncLoad(true)
-            .borderRadius(this.state.proxyRadius)
-            .clip(true)
+        } else if (this.state.sourceSnapshot !== undefined) {
+          // Preserve the exact click-time pixels for the whole flight. The measured proxy bounds are
+          // the contained image bounds, so this never stretches a fixed thumbnail slot or reloads a
+          // second sprite while the real source is hidden.
+          Image(this.state.sourceSnapshot)
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Fill)
+            .syncLoad(true)
         } else {
           EhSpriteThumbnail({
             url: this.state.image.thumbUrl,
@@ -307,7 +307,7 @@ struct IndexReaderThumbnailTransitionProxy {
       })
       .borderRadius(this.state.proxyRadius)
       .clip(true)
-      .geometryTransition(this.state.targetGeometryId())
+      .opacity(this.state.openingProxyOpacity)
       .hitTestBehavior(HitTestMode.None)
     }
   }
@@ -1539,37 +1539,116 @@ struct Index {
   }
 
   private syncGalleryDetailCoverTarget(): boolean {
-    if (
-      !this.galleryDetailTransition.isCoverExpand() ||
-      this.galleryDetailTransition.targetCoverComponentId.length === 0
-    ) {
-      return false
-    }
-    try {
-      const rootRect = this.getUIContext().getComponentUtils()
-        .getRectangleById('nexte-root-navigation')
-      const coverRect = this.getUIContext().getComponentUtils()
-        .getRectangleById(this.galleryDetailTransition.targetCoverComponentId)
-      const width: number = this.getUIContext().px2vp(coverRect.size.width)
-      const height: number = this.getUIContext().px2vp(coverRect.size.height)
-      if (width <= 0 || height <= 0) {
-        return this.galleryDetailTransition.targetCoverReady
-      }
-      this.galleryDetailTransition.setCoverTarget(
-        this.getUIContext().px2vp(coverRect.windowOffset.x - rootRect.windowOffset.x),
-        this.getUIContext().px2vp(coverRect.windowOffset.y - rootRect.windowOffset.y),
-        width,
-        height,
-        ThemeConstants.DETAIL_COVER_RADIUS,
-      )
-      return true
-    } catch (_error) {
-      return this.galleryDetailTransition.targetCoverReady
-    }
+    return GalleryDetailTransitionCoordinator.syncDetailCoverTarget(this.getUIContext())
   }
 
   private coverExpandSurfaceActive(): boolean {
     return this.galleryDetailTransition.eligible && this.galleryDetailTransition.isCoverExpand()
+  }
+
+  private sourceCoverLeftInCard(): number {
+    return Math.max(0, Math.min(
+      this.galleryDetailTransition.handoffWidth,
+      this.galleryDetailTransition.sourceCoverX - this.galleryDetailTransition.handoffX,
+    ))
+  }
+
+  private sourceCoverTopInCard(): number {
+    return Math.max(0, Math.min(
+      this.galleryDetailTransition.handoffHeight,
+      this.galleryDetailTransition.sourceCoverY - this.galleryDetailTransition.handoffY,
+    ))
+  }
+
+  private sourceCoverRightInCard(): number {
+    return Math.max(this.sourceCoverLeftInCard(), Math.min(
+      this.galleryDetailTransition.handoffWidth,
+      this.galleryDetailTransition.sourceCoverX + this.galleryDetailTransition.sourceCoverWidth -
+        this.galleryDetailTransition.handoffX,
+    ))
+  }
+
+  private sourceCoverBottomInCard(): number {
+    return Math.max(this.sourceCoverTopInCard(), Math.min(
+      this.galleryDetailTransition.handoffHeight,
+      this.galleryDetailTransition.sourceCoverY + this.galleryDetailTransition.sourceCoverHeight -
+        this.galleryDetailTransition.handoffY,
+    ))
+  }
+
+  @Builder
+  private GalleryDetailCardSnapshotSlice(
+    sliceX: number,
+    sliceY: number,
+    sliceWidth: number,
+    sliceHeight: number,
+  ) {
+    if (
+      this.galleryDetailTransition.cardSnapshot !== undefined &&
+      sliceWidth > 0 &&
+      sliceHeight > 0
+    ) {
+      Stack({ alignContent: Alignment.TopStart }) {
+        Image(this.galleryDetailTransition.cardSnapshot)
+          .width(this.galleryDetailTransition.handoffWidth)
+          .height(this.galleryDetailTransition.handoffHeight)
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+          .position({
+            x: -sliceX,
+            y: -sliceY,
+          })
+          .hitTestBehavior(HitTestMode.None)
+      }
+      .width(sliceWidth)
+      .height(sliceHeight)
+      .position({
+        x: sliceX,
+        y: sliceY,
+      })
+      .clip(true)
+      .hitTestBehavior(HitTestMode.None)
+    }
+  }
+
+  @Builder
+  private GalleryDetailSourceCardRemainder() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      this.GalleryDetailCardSnapshotSlice(
+        0,
+        0,
+        this.galleryDetailTransition.handoffWidth,
+        this.sourceCoverTopInCard(),
+      )
+      this.GalleryDetailCardSnapshotSlice(
+        0,
+        this.sourceCoverTopInCard(),
+        this.sourceCoverLeftInCard(),
+        this.sourceCoverBottomInCard() - this.sourceCoverTopInCard(),
+      )
+      this.GalleryDetailCardSnapshotSlice(
+        this.sourceCoverRightInCard(),
+        this.sourceCoverTopInCard(),
+        this.galleryDetailTransition.handoffWidth - this.sourceCoverRightInCard(),
+        this.sourceCoverBottomInCard() - this.sourceCoverTopInCard(),
+      )
+      this.GalleryDetailCardSnapshotSlice(
+        0,
+        this.sourceCoverBottomInCard(),
+        this.galleryDetailTransition.handoffWidth,
+        this.galleryDetailTransition.handoffHeight - this.sourceCoverBottomInCard(),
+      )
+    }
+    .width(this.galleryDetailTransition.handoffWidth)
+    .height(this.galleryDetailTransition.handoffHeight)
+    .position({
+      x: this.galleryDetailTransition.handoffX,
+      y: this.galleryDetailTransition.handoffY,
+    })
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .clip(true)
+    .opacity(this.galleryDetailTransition.cardOpacity)
+    .hitTestBehavior(HitTestMode.None)
   }
 
   private galleryDetailNavTransition(
@@ -1626,30 +1705,32 @@ struct Index {
             })
           } else {
             this.getUIContext().animateTo({
-              delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_START_TIME,
+              delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_START_TIME,
               duration: ThemeConstants.ANIM_DURATION * (
-                GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_TIME -
-                  GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_START_TIME
+                GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_END_TIME -
+                  GALLERY_DETAIL_COVER_OPEN_CARD_EXIT_START_TIME
               ),
               curve: Curve.Linear,
             }, (): void => {
-              this.galleryDetailTransition.hideSourceCardDetails()
-            })
-            this.getUIContext().animateTo({
-              delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_TIME,
-              duration: ThemeConstants.ANIM_DURATION * (
-                GALLERY_DETAIL_COVER_OPEN_MASK_EXIT_END_TIME -
-                  GALLERY_DETAIL_COVER_OPEN_TEXT_EXIT_END_TIME
-              ),
-              curve: Curve.Linear,
-            }, (): void => {
-              this.galleryDetailTransition.hideSourceCardMask()
+              this.galleryDetailTransition.hideSourceCard()
             })
           }
           return
         }
-        if (this.galleryDetailTransition.isCoverExpand()) {
-          this.syncGalleryDetailCoverTarget()
+        if (
+          this.galleryDetailTransition.isCoverExpand() &&
+          !this.syncGalleryDetailCoverTarget()
+        ) {
+          DiagnosticLogger.info(
+            'gallery-detail-transition',
+            'cover_pop_fallback',
+            `gallery=${this.galleryDetailTransition.galleryId} reason=target_not_visible`,
+          )
+          // The detail cover may have scrolled out of the viewport. Keep the whole detail surface
+          // collapsing into the source card, suppress the stale cover flight, and fade the separately
+          // captured source cover in near landing. The hidden source snapshot contains an empty card
+          // slot, so the four-slice card remainder cannot restore the cover by itself.
+          this.galleryDetailTransition.useCoverFadePopFallback()
         }
         const coverExpand: boolean = this.galleryDetailTransition.isCoverExpand()
         this.galleryDetailTransition.beginPop()
@@ -1676,24 +1757,14 @@ struct Index {
           })
         } else {
           this.getUIContext().animateTo({
-            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_START_TIME,
+            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME,
             duration: ThemeConstants.ANIM_DURATION * (
-              GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_TIME -
-                GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_START_TIME
+              GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_TIME -
+                GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME
             ),
             curve: Curve.Linear,
           }, (): void => {
-            this.galleryDetailTransition.revealSourceCardMask()
-          })
-          this.getUIContext().animateTo({
-            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_TIME,
-            duration: ThemeConstants.ANIM_DURATION * (
-              GALLERY_DETAIL_COVER_CLOSE_TEXT_ENTRY_END_TIME -
-                GALLERY_DETAIL_COVER_CLOSE_MASK_ENTRY_END_TIME
-            ),
-            curve: Curve.Linear,
-          }, (): void => {
-            this.galleryDetailTransition.revealSourceCardDetails()
+            this.galleryDetailTransition.revealSourceCard()
           })
         }
       },
@@ -1721,25 +1792,6 @@ struct Index {
           .height('100%')
           .objectFit(ImageFit.Fill)
           .syncLoad(true)
-          .hitTestBehavior(HitTestMode.None)
-      }
-      if (
-        this.coverExpandSurfaceActive() &&
-        this.galleryDetailTransition.handoffWidth > 0 &&
-        this.galleryDetailTransition.handoffHeight > 0
-      ) {
-        // Lazy list items are not guaranteed to repaint before the root snapshot is taken. Cut the
-        // selected card out of the frozen list deterministically; the flight cover then becomes the
-        // only source element visible while the rounded detail surface expands or collapses.
-        Blank()
-          .width(this.galleryDetailTransition.handoffWidth)
-          .height(this.galleryDetailTransition.handoffHeight)
-          .backgroundColor($r('app.color.card_background'))
-          .position({
-            x: this.galleryDetailTransition.handoffX,
-            y: this.galleryDetailTransition.handoffY,
-          })
-          .borderRadius(ThemeConstants.RADIUS_CARD)
           .hitTestBehavior(HitTestMode.None)
       }
       Stack() {
@@ -1954,67 +2006,10 @@ struct Index {
         this.galleryDetailTransition.isCoverExpand() &&
         this.galleryDetailTransition.cardSnapshot !== undefined
       ) {
-        // Restore only the portion below the source cover. It contains the source title, metadata and tags,
-        // while the flight image remains the sole cover until it reaches the card at the end of the pop.
-        // Keep that lower slice inside a whole-card rounded clip. It represents the fixed target list
-        // card, so its corners must already match that card when it appears instead of starting square
-        // with the detail surface and snapping only when the real list card resumes.
-        Stack({ alignContent: Alignment.TopStart }) {
-          Stack({ alignContent: Alignment.TopStart }) {
-            Column() {}
-              .width('100%')
-              .height('100%')
-              .backgroundColor($r('app.color.card_background'))
-              .opacity(this.galleryDetailTransition.cardMaskOpacity)
-              .hitTestBehavior(HitTestMode.None)
-            Image(this.galleryDetailTransition.cardSnapshot)
-              .width(this.galleryDetailTransition.handoffWidth)
-              .height(this.galleryDetailTransition.handoffHeight)
-              .objectFit(ImageFit.Fill)
-              .syncLoad(true)
-              .position({
-                x: 0,
-                y: -Math.max(
-                  0,
-                  this.galleryDetailTransition.sourceCoverY +
-                    this.galleryDetailTransition.sourceCoverHeight -
-                    this.galleryDetailTransition.handoffY,
-                ),
-              })
-              .hitTestBehavior(HitTestMode.None)
-          }
-            .width(this.galleryDetailTransition.handoffWidth)
-            .height(Math.max(
-              0,
-              this.galleryDetailTransition.handoffHeight - Math.max(
-                0,
-                this.galleryDetailTransition.sourceCoverY +
-                  this.galleryDetailTransition.sourceCoverHeight -
-                  this.galleryDetailTransition.handoffY,
-              ),
-            ))
-            .position({
-              x: 0,
-              y: Math.max(
-                0,
-                this.galleryDetailTransition.sourceCoverY +
-                  this.galleryDetailTransition.sourceCoverHeight -
-                  this.galleryDetailTransition.handoffY,
-              ),
-            })
-            .clip(true)
-            .hitTestBehavior(HitTestMode.None)
-        }
-        .width(this.galleryDetailTransition.handoffWidth)
-        .height(this.galleryDetailTransition.handoffHeight)
-        .position({
-          x: this.galleryDetailTransition.handoffX,
-          y: this.galleryDetailTransition.handoffY,
-        })
-        .borderRadius(ThemeConstants.RADIUS_CARD)
-        .clip(true)
-        .opacity(this.galleryDetailTransition.cardOpacity)
-        .hitTestBehavior(HitTestMode.None)
+        // Keep the source card's title/metadata visible without repainting its thumbnail underneath
+        // the flying cover. Four clipped snapshot slices work for top-cover, side-cover and full-cover
+        // layouts; unlike a solid mask, the vacated source-cover rect exposes the expanding surface.
+        this.GalleryDetailSourceCardRemainder()
       }
       if (
         this.galleryDetailTransition.coverFlightVisible() &&
@@ -2023,13 +2018,32 @@ struct Index {
         // The cover belongs to the expanding card surface. Give it a second clip with exactly the
         // surface bounds/radius so it can never protrude past a rounded container corner while flying.
         Stack({ alignContent: Alignment.TopStart }) {
-          Image(this.galleryDetailTransition.coverSnapshot)
+          Stack() {
+            if (this.galleryDetailTransition.coverUrl.length > 0) {
+              EhImageKnifeImage({
+                src: EhConstants.cdnThumb(this.galleryDetailTransition.coverUrl),
+                widthValue: '100%',
+                heightValue: '100%',
+                objectFit: ImageFit.Cover,
+                radius: this.galleryDetailTransition.flightCoverRadius,
+                onComplete: () => {
+                  this.galleryDetailTransition.markCoverResourceReady()
+                },
+              })
+            }
+            if (!this.galleryDetailTransition.coverResourceReady) {
+              // The click-time pixels guarantee that the first transition frame cannot be blank.
+              // Once the already-cached thumbnail resource paints, it takes over at the identical
+              // Cover crop and can reveal the full image continuously as the flight rect changes.
+              Image(this.galleryDetailTransition.coverSnapshot)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover)
+                .syncLoad(true)
+            }
+          }
             .width(this.galleryDetailTransition.flightCoverWidth)
             .height(this.galleryDetailTransition.flightCoverHeight)
-            // Source and target identify the real painted cover surface. Contain is still intentional:
-            // a one-pixel measurement difference must never non-uniformly stretch the snapshot.
-            .objectFit(ImageFit.Contain)
-            .syncLoad(true)
             .position({
               x: this.galleryDetailTransition.flightCoverX - this.galleryDetailTransition.clipX,
               y: this.galleryDetailTransition.flightCoverY - this.galleryDetailTransition.clipY,
@@ -2047,7 +2061,30 @@ struct Index {
         })
         .borderRadius(this.galleryDetailTransition.radius)
         .clip(true)
+        .zIndex(2)
         .hitTestBehavior(HitTestMode.None)
+      }
+      if (
+        this.galleryDetailTransition.fallbackCoverVisible() &&
+        this.galleryDetailTransition.coverSnapshot !== undefined
+      ) {
+        // When the detail cover is off-screen there is no valid flight origin. Fade the click-time
+        // source pixels in at their exact landing rect while the detail surface finishes collapsing;
+        // this avoids exposing the intentionally hidden source card as an empty cover slot.
+        Image(this.galleryDetailTransition.coverSnapshot)
+          .width(this.galleryDetailTransition.sourceCoverWidth)
+          .height(this.galleryDetailTransition.sourceCoverHeight)
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+          .position({
+            x: this.galleryDetailTransition.sourceCoverX,
+            y: this.galleryDetailTransition.sourceCoverY,
+          })
+          .borderRadius(this.galleryDetailTransition.sourceCoverRadius)
+          .clip(true)
+          .opacity(this.galleryDetailTransition.fallbackCoverOpacity)
+          .zIndex(2)
+          .hitTestBehavior(HitTestMode.None)
       }
       if (this.readerOverlay.visible) {
         HdsNavigation(this.readerOverlay.stack) {

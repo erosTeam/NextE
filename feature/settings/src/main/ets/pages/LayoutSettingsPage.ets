@@ -418,6 +418,10 @@ export struct LayoutSettingsPage {
     GalleryDetailTransitionSettings.setMode(this.ctx(), mode)
   }
 
+  private setReaderThumbnailTransitionEnabled(enabled: boolean): void {
+    GalleryDetailTransitionSettings.setReaderThumbnailEnabled(this.ctx(), enabled)
+  }
+
   @Builder
   GalleryDetailTransitionMenu(select: (action: () => void) => void) {
     Menu() {
@@ -840,6 +844,17 @@ export struct LayoutSettingsPage {
                 dropdownMenuEnabled: true,
                 dropdownMenuBuilder: (select: (action: () => void) => void) => {
                   this.GalleryDetailTransitionMenu(select)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_reader_thumbnail_transition'),
+                subtitle: $r('app.string.settings_reader_thumbnail_transition_hint'),
+                leadingIcon: $r('sys.symbol.picture_on_square'),
+                hasSwitch: true,
+                checked: this.galleryDetailTransitionSettings.readerThumbnailEnabled,
+                switchAction: (value: boolean) => {
+                  this.setReaderThumbnailTransitionEnabled(value)
                 },
               })
               this.rowDivider()

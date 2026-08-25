@@ -383,6 +383,7 @@ export struct EhThumbnail {
           this.failed = true
         },
       })
+        .id(this.surfaceId)
         .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else {
@@ -409,6 +410,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .id(this.surfaceId)
         this.coverOverlay()
       }
       .width(this.thumbWidth)

@@ -14,6 +14,7 @@ export class StorageKeys {
   static readonly LIST_MODE: string = 'layout.listMode' // list/simpleList/grid/waterfall/waterfallCompact/coverWall
   static readonly GALLERY_DETAIL_TRANSITION_ENABLED: string = 'layout.galleryDetailTransitionEnabled'
   static readonly GALLERY_DETAIL_TRANSITION_MODE: string = 'layout.galleryDetailTransitionMode'
+  static readonly READER_THUMBNAIL_TRANSITION_ENABLED: string = 'layout.readerThumbnailTransitionEnabled'
   static readonly LIST_ITEM_FIXED_HEIGHT: string = 'layout.fixedHeightOfListItems' // boolean: fixed(true)/adaptive list rows
   // Per-mode column min-width (vp) overrides from pinch-zoom / slider. 0 = use base constant.
   static readonly GRID_COLUMN_WIDTH: string = 'layout.gridColumnWidth'

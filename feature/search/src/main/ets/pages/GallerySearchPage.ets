@@ -479,6 +479,7 @@ export struct GallerySearchPage {
         )
       },
       this.galleryDetailSourceCoverId(g),
+      g.thumbUrl,
     )
   }
 

@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "Choose the transition from lists to details and from thumbnails to Reader"
+      "value": "Choose the transition from lists to details"
     },
     {
       "name": "settings_gallery_detail_transition_system",
@@ -683,6 +683,14 @@
     {
       "name": "settings_gallery_detail_transition_cover_expand",
       "value": "Cover expand"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition",
+      "value": "Reader thumbnail transition"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition_hint",
+      "value": "Use a zoom transition between thumbnails and Reader"
     },
     {
       "name": "settings_action_alignment",

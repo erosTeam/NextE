@@ -589,6 +589,7 @@ export struct FavcatPage {
         this.openDetail(g)
       },
       this.galleryDetailSourceCoverId(g),
+      g.thumbUrl,
     )
   }
 

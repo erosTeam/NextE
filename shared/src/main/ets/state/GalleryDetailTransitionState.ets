@@ -29,7 +29,6 @@ export class GalleryDetailTransitionState {
   @Trace translateY: number = 0
   @Trace radius: number = 0
   @Trace cardOpacity: number = 0
-  @Trace cardMaskOpacity: number = 0
   @Trace contentOpacity: number = 1
   @Trace chromeVisible: boolean = true
   @Trace clipX: number = 0
@@ -43,6 +42,10 @@ export class GalleryDetailTransitionState {
   @Trace flightCoverRadius: number = 0
   @Trace targetCoverReady: boolean = false
   @Trace coverPopPrepared: boolean = false
+  @Trace coverFadePopFallback: boolean = false
+  @Trace fallbackCoverOpacity: number = 0
+  @Trace coverResourceReady: boolean = false
+  @Trace coverUrl: string = ''
   sourceSnapshot: image.PixelMap | undefined = undefined
   cardSnapshot: image.PixelMap | undefined = undefined
   coverSnapshot: image.PixelMap | undefined = undefined
@@ -80,6 +83,7 @@ export class GalleryDetailTransitionState {
     coverHeight: number,
     coverRadius: number,
     coverSnapshot: image.PixelMap | undefined,
+    coverUrl: string,
   ): void {
     this.mode = mode
     this.sourceComponentId = componentId
@@ -100,6 +104,10 @@ export class GalleryDetailTransitionState {
     this.flightCoverHeight = coverHeight
     this.flightCoverRadius = coverRadius
     this.coverSnapshot = coverSnapshot
+    this.coverUrl = coverUrl
+    this.coverFadePopFallback = false
+    this.fallbackCoverOpacity = 0
+    this.coverResourceReady = false
     this.phase = GalleryDetailTransitionPhase.PREPARING
   }
 
@@ -129,8 +137,10 @@ export class GalleryDetailTransitionState {
       this.translateY = 0
       this.radius = this.collapsedRadius
       this.cardOpacity = 1
-      this.cardMaskOpacity = 1
-      this.contentOpacity = 1
+      // The captured source-card remainder owns title/metadata/tags at the start. Fade the settled
+      // detail content in only as that remainder leaves so the expanding clip never reveals both text
+      // systems at full opacity.
+      this.contentOpacity = 0
       this.chromeVisible = true
       // The rounded surface grows from the whole source card. The cover moves independently inside that
       // surface, so starting the clip at the cover alone would make the requested card expansion invisible.
@@ -145,7 +155,6 @@ export class GalleryDetailTransitionState {
       this.translateY = translateY
       this.radius = radius
       this.cardOpacity = 1
-      this.cardMaskOpacity = 0
       this.contentOpacity = 0
       this.chromeVisible = false
       this.clipX = 0
@@ -164,6 +173,7 @@ export class GalleryDetailTransitionState {
 
   coverFlightVisible(): boolean {
     return this.isCoverExpand() &&
+      !this.coverFadePopFallback &&
       this.coverSnapshot !== undefined &&
       (this.coverPopPrepared ||
         this.phase === GalleryDetailTransitionPhase.OPENING ||
@@ -174,9 +184,26 @@ export class GalleryDetailTransitionState {
     return this.isCoverExpand() && (this.coverPopPrepared || this.coverFlightVisible())
   }
 
-  prepareCoverPop(): void {
+  fallbackCoverVisible(): boolean {
+    return this.isCoverExpand() &&
+      this.coverFadePopFallback &&
+      this.coverSnapshot !== undefined &&
+      this.phase === GalleryDetailTransitionPhase.CLOSING
+  }
+
+  prepareCoverPop(targetVisible: boolean): void {
     if (this.isCoverExpand() && this.phase === GalleryDetailTransitionPhase.OPEN) {
-      this.coverPopPrepared = true
+      this.coverPopPrepared = targetVisible && this.targetCoverReady
+      if (this.coverPopPrepared) {
+        // The network-backed flight cover was unmounted after opening. Require its newly mounted
+        // instance to report ready again, keeping the click-time snapshot underneath until then.
+        this.coverResourceReady = false
+        this.flightCoverX = this.targetCoverX
+        this.flightCoverY = this.targetCoverY
+        this.flightCoverWidth = this.targetCoverWidth
+        this.flightCoverHeight = this.targetCoverHeight
+        this.flightCoverRadius = this.targetCoverRadius
+      }
     }
   }
 
@@ -198,6 +225,19 @@ export class GalleryDetailTransitionState {
     this.targetCoverReady = true
   }
 
+  clearCoverTarget(): void {
+    this.targetCoverReady = false
+    this.targetCoverX = 0
+    this.targetCoverY = 0
+    this.targetCoverWidth = 0
+    this.targetCoverHeight = 0
+    this.targetCoverRadius = 0
+  }
+
+  markCoverResourceReady(): void {
+    this.coverResourceReady = true
+  }
+
   useSeamlessFallback(): void {
     this.mode = GalleryDetailTransitionMode.SEAMLESS
     this.targetCoverReady = false
@@ -209,6 +249,23 @@ export class GalleryDetailTransitionState {
     this.cardOpacity = 1
     this.contentOpacity = 0
     this.chromeVisible = false
+    this.clipX = 0
+    this.clipY = 0
+    this.clipWidth = this.rootWidth
+    this.clipHeight = this.rootHeight
+  }
+
+  useCoverFadePopFallback(): void {
+    if (!this.isCoverExpand()) {
+      return
+    }
+    this.clearCoverTarget()
+    this.coverFadePopFallback = true
+    this.fallbackCoverOpacity = 0
+    this.radius = 0
+    this.cardOpacity = 0
+    this.contentOpacity = 1
+    this.chromeVisible = true
     this.clipX = 0
     this.clipY = 0
     this.clipWidth = this.rootWidth
@@ -258,32 +315,24 @@ export class GalleryDetailTransitionState {
     this.chromeVisible = false
   }
 
-  revealSourceCardDetails(): void {
+  revealSourceCard(): void {
     if (!this.isCoverExpand()) {
       return
     }
     this.cardOpacity = 1
+    this.contentOpacity = 0
+    if (this.coverFadePopFallback) {
+      this.fallbackCoverOpacity = 1
+    }
   }
 
-  hideSourceCardDetails(): void {
+  hideSourceCard(): void {
     if (!this.isCoverExpand()) {
       return
     }
     this.cardOpacity = 0
-  }
-
-  revealSourceCardMask(): void {
-    if (!this.isCoverExpand()) {
-      return
-    }
-    this.cardMaskOpacity = 1
-  }
-
-  hideSourceCardMask(): void {
-    if (!this.isCoverExpand()) {
-      return
-    }
-    this.cardMaskOpacity = 0
+    this.contentOpacity = 1
+    this.fallbackCoverOpacity = 0
   }
 
   collapseWindow(radius: number): void {
@@ -319,25 +368,26 @@ export class GalleryDetailTransitionState {
     if (this.isCoverExpand()) {
       this.radius = 0
       this.cardOpacity = 0
-      this.cardMaskOpacity = 0
+      this.contentOpacity = 1
     }
     this.crossfadeToDetail()
   }
 
   beginPop(): void {
-    if (this.isCoverExpand() && this.targetCoverReady) {
+    if (this.isCoverExpand()) {
       this.clipX = 0
       this.clipY = 0
       this.clipWidth = this.rootWidth
       this.clipHeight = this.rootHeight
       this.radius = 0
-      this.flightCoverX = this.targetCoverX
-      this.flightCoverY = this.targetCoverY
-      this.flightCoverWidth = this.targetCoverWidth
-      this.flightCoverHeight = this.targetCoverHeight
-      this.flightCoverRadius = this.targetCoverRadius
+      if (this.targetCoverReady) {
+        this.flightCoverX = this.targetCoverX
+        this.flightCoverY = this.targetCoverY
+        this.flightCoverWidth = this.targetCoverWidth
+        this.flightCoverHeight = this.targetCoverHeight
+        this.flightCoverRadius = this.targetCoverRadius
+      }
       this.cardOpacity = 0
-      this.cardMaskOpacity = 0
     }
     this.coverPopPrepared = false
     this.phase = GalleryDetailTransitionPhase.CLOSING
@@ -352,10 +402,17 @@ export class GalleryDetailTransitionState {
       return
     }
     this.phase = GalleryDetailTransitionPhase.OPEN
+    this.coverFadePopFallback = false
+    this.fallbackCoverOpacity = 0
     this.expandWindow()
     if (this.isCoverExpand()) {
+      // A cancelled pop must return to the exact settled detail presentation. The close handoff may
+      // already have hidden detail content and revealed the source-card remainder, so geometry alone
+      // is not enough to recover the page.
+      this.radius = 0
       this.cardOpacity = 0
-      this.cardMaskOpacity = 0
+      this.contentOpacity = 1
+      this.chromeVisible = true
     }
     this.crossfadeToDetail()
   }
@@ -377,7 +434,6 @@ export class GalleryDetailTransitionState {
     this.translateY = 0
     this.radius = 0
     this.cardOpacity = 0
-    this.cardMaskOpacity = 0
     this.contentOpacity = 1
     this.chromeVisible = true
     this.clipX = 0
@@ -391,6 +447,10 @@ export class GalleryDetailTransitionState {
     this.flightCoverRadius = 0
     this.targetCoverReady = false
     this.coverPopPrepared = false
+    this.coverFadePopFallback = false
+    this.fallbackCoverOpacity = 0
+    this.coverResourceReady = false
+    this.coverUrl = ''
     this.rootWidth = 0
     this.rootHeight = 0
     this.collapsedScaleX = 1

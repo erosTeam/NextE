@@ -670,7 +670,7 @@
     },
     {
       "name": "settings_gallery_detail_transition_hint",
-      "value": "一覧から詳細、およびサムネイルからリーダーへの遷移効果を選択します"
+      "value": "一覧から詳細への遷移効果を選択します"
     },
     {
       "name": "settings_gallery_detail_transition_system",
@@ -683,6 +683,14 @@
     {
       "name": "settings_gallery_detail_transition_cover_expand",
       "value": "表紙展開"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition",
+      "value": "リーダーのサムネイル遷移"
+    },
+    {
+      "name": "settings_reader_thumbnail_transition_hint",
+      "value": "サムネイルとリーダーの間を拡大・縮小します"
     },
     {
       "name": "settings_action_alignment",

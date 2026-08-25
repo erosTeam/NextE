@@ -12,8 +12,8 @@ import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionSta
 export class ReaderOverlayNavigationState {
   @Trace visible: boolean = false
   @Trace stack: NavPathStack = new NavPathStack()
-  // Detail observes the start of the exit transition so it can reveal the already-persisted final
-  // progress without reacting to Reader's live writes while the overlay is open.
+  // Overlay lifecycle only. Reader progress publication is gated by Reader presentation ownership;
+  // GalleryDetail must not derive its update timing from this closing flag.
   @Trace closing: boolean = false
   private pendingReader: ReaderParams | null = null
   private pendingReaderAnimated: boolean = true

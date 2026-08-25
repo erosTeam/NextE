@@ -354,76 +354,158 @@ export struct ReaderPage {
   private comicTranslationAutoScheduleToken: number = 0;
   private comicTranslationAutoFailedPages: number[] = [];
 
+  @Builder
+  ReaderOpeningTransitionProxy() {
+    if (this.readerThumbnailTransition.sourceSnapshot !== undefined) {
+      Image(this.readerThumbnailTransition.sourceSnapshot)
+        .width(this.readerThumbnailTransition.proxyWidth)
+        .height(this.readerThumbnailTransition.proxyHeight)
+        .objectFit(ImageFit.Fill)
+        .syncLoad(true)
+        .position({
+          x: this.readerThumbnailTransition.proxyX,
+          y: this.readerThumbnailTransition.proxyY,
+        })
+        .opacity(this.readerThumbnailTransition.openingProxyOpacity)
+        .hitTestBehavior(HitTestMode.None)
+    }
+  }
+
+  @Builder
+  ReaderCloseTransitionProxy() {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.readerThumbnailTransition.readerSnapshot !== undefined) {
+        Image(this.readerThumbnailTransition.readerSnapshot)
+          .width(this.readerThumbnailTransition.proxyContentWidth())
+          .height(this.readerThumbnailTransition.proxyContentHeight())
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+      } else {
+        EhSpriteThumbnail({
+          url: this.readerThumbnailTransition.image.thumbUrl,
+          thumbWidth: this.readerThumbnailTransition.image.thumbWidth,
+          thumbHeight: this.readerThumbnailTransition.image.thumbHeight,
+          offsetX: this.readerThumbnailTransition.image.thumbOffsetX,
+          imageKey: this.readerThumbnailTransition.image.imgkey,
+          spriteWidth: this.readerThumbnailTransition.image.spriteWidth,
+          spriteHeight: this.readerThumbnailTransition.image.spriteHeight,
+          displayWidth: this.readerThumbnailTransition.proxyWidth,
+          radius: 0,
+        })
+      }
+      if (this.readerThumbnailTransition.closeTargetSnapshot !== undefined) {
+        Image(this.readerThumbnailTransition.closeTargetSnapshot)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+          .syncLoad(true)
+          .opacity(this.readerThumbnailTransition.closeTargetSnapshotOpacity)
+      }
+    }
+    .width(this.readerThumbnailTransition.proxyWidth)
+    .height(this.readerThumbnailTransition.proxyHeight)
+    .position({
+      x: this.readerThumbnailTransition.proxyX,
+      y: this.readerThumbnailTransition.proxyY,
+    })
+    .borderRadius(this.readerThumbnailTransition.proxyRadius)
+    .clip(true)
+    .hitTestBehavior(HitTestMode.None)
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
-        if (this.readerContentReady()) {
-          if (this.isContinuousVerticalMode()) {
-            this.VerticalReader()
-          } else if (this.doublePageEnabled()) {
-            this.DoublePageReader()
-          } else {
-            this.HorizontalReader()
-          }
-        } else if (this.vm.error.length > 0) {
-          // No preview pages loaded at all (first batch failed): white error + retry on the black
-          // reader canvas, not the themed PageErrorState (which would be unreadable here).
-          Column({ space: ThemeConstants.SPACE_MD }) {
-            Text(this.vm.error)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor(this.readerForegroundColor())
-              .textAlign(TextAlign.Center)
-            Button($r('app.string.common_retry'))
-              .type(ButtonType.Capsule)
-              .fontColor(ThemeConstants.TEXT_ON_BRAND)
-              .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-              .onClick(() => {
-                this.vm.loadMore()
-              })
-          }
+        // The Reader canvas stays full-screen and fades independently. It never becomes part of the
+        // shrinking image proxy, so no black rectangle can land on the source thumbnail and flash away.
+        Column() {}
           .width('100%')
           .height('100%')
-          .justifyContent(FlexAlign.Center)
-          .padding(ThemeConstants.SPACE_XL)
-        } else {
-          ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+          .backgroundColor(this.readerBackgroundColor())
+          .opacity(this.readerThumbnailTransition.backdropOpacity)
+          .hitTestBehavior(HitTestMode.None)
+        // After the geometry flight, Reader owns the thumbnail placeholder below its loading UI
+        // and chrome. Large-image decode can therefore take arbitrarily long without freezing the
+        // reader visually or preventing the user from turning pages.
+        if (this.readerThumbnailTransition.readerOpeningProxyVisible()) {
+          this.ReaderOpeningTransitionProxy()
         }
-
-        // Only show far-jump resolving UI when there is no readable image surface yet.
-        if (this.vm.jumping && !this.readerContentReady()) {
-          ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
-        }
-
-        if (this.readerContentReady()) {
-          if (!this.isLocalReaderSource()) {
-            this.ReaderCacheWarmers()
-          }
-          if (!this.currentImageBlocked && !this.isContinuousVerticalMode()) {
-            this.ReaderTapOverlay()
-          }
-          if (this.originalImageResolving) {
+        // While closing, the full-size proxy replaces these live controls and images exactly once.
+        // Making the route surface transparent lets the underlying detail thumbnails appear around
+        // that proxy as it shrinks, without painting the destination thumbnail over the moving copy.
+        if (!this.readerThumbnailTransition.closingProxyVisible()) {
+          if (this.readerContentReady()) {
+            if (this.isContinuousVerticalMode()) {
+              this.VerticalReader()
+            } else if (this.doublePageEnabled()) {
+              this.DoublePageReader()
+            } else {
+              this.HorizontalReader()
+            }
+          } else if (this.vm.error.length > 0) {
+            // No preview pages loaded at all (first batch failed): white error + retry on the black
+            // reader canvas, not the themed PageErrorState (which would be unreadable here).
+            Column({ space: ThemeConstants.SPACE_MD }) {
+              Text(this.vm.error)
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor(this.readerForegroundColor())
+                .textAlign(TextAlign.Center)
+              Button($r('app.string.common_retry'))
+                .type(ButtonType.Capsule)
+                .fontColor(ThemeConstants.TEXT_ON_BRAND)
+                .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+                .onClick(() => {
+                  this.vm.loadMore()
+                })
+            }
+            .width('100%')
+            .height('100%')
+            .justifyContent(FlexAlign.Center)
+            .padding(ThemeConstants.SPACE_XL)
+          } else {
             ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
           }
+
+          // Only show far-jump resolving UI when there is no readable image surface yet.
+          if (this.vm.jumping && !this.readerContentReady()) {
+            ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+          }
+
+          if (this.readerContentReady()) {
+            if (!this.isLocalReaderSource()) {
+              this.ReaderCacheWarmers()
+            }
+            if (!this.currentImageBlocked && !this.isContinuousVerticalMode()) {
+              this.ReaderTapOverlay()
+            }
+            if (this.originalImageResolving) {
+              ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+            }
+          }
+
+          if (this.readerContentReady() && this.tapZonePreviewVisible) {
+            this.ReaderTapZonePreview()
+          }
+
+          if (this.comicTranslationStatusVisible()) {
+            this.ComicTranslationStatusOverlay()
+          }
+
+          if (this.readerContentReady() && !this.showChrome &&
+            (this.readMode.showPageNumber || this.superResolutionIndicatorVisible())) {
+            this.ReaderPersistentPageStatus()
+          }
+
+          // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
+          // drags from the pager on some devices.
+          if (this.readerContentReady() && this.showChrome) {
+            this.ReaderTopBar()
+            this.ReaderBottomBar()
+          }
         }
 
-        if (this.readerContentReady() && this.tapZonePreviewVisible) {
-          this.ReaderTapZonePreview()
-        }
-
-        if (this.comicTranslationStatusVisible()) {
-          this.ComicTranslationStatusOverlay()
-        }
-
-        if (this.readerContentReady() && !this.showChrome &&
-          (this.readMode.showPageNumber || this.superResolutionIndicatorVisible())) {
-          this.ReaderPersistentPageStatus()
-        }
-
-        // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
-        // drags from the pager on some devices.
-        if (this.readerContentReady() && this.showChrome) {
-          this.ReaderTopBar()
-          this.ReaderBottomBar()
+        if (this.readerThumbnailTransition.closingProxyVisible()) {
+          this.ReaderCloseTransitionProxy()
         }
       }
       .width('100%')
@@ -431,7 +513,7 @@ export struct ReaderPage {
       .id(READER_KEY_SURFACE_ID)
       .focusable(true)
       .defaultFocus(true)
-      .backgroundColor(this.readerBackgroundColor())
+      .backgroundColor(Color.Transparent)
       .onAreaChange((_o: Area, n: Area) => {
         this.viewWidth = n.width as number
         this.viewHeight = n.height as number
@@ -444,14 +526,14 @@ export struct ReaderPage {
       })
     }
     .hideTitleBar(true)
-    .backgroundColor(this.readerBackgroundColor())
+    .backgroundColor(Color.Transparent)
     .onBackPressed(() => {
       this.closeReader()
       return true
     })
     .onShown(() => {
       this.readerRouteVisible = true
-      ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext())
+      ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.params.gid)
       this.scheduleEntryStatusBarVisibility()
       this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
       this.scheduleComicTranslationAutoForCurrentPage()
@@ -608,9 +690,13 @@ export struct ReaderPage {
         this.verticalVisibleStart = targetIndex
         this.verticalVisibleEnd = targetIndex
         this.readerReady = true
-        // Publish the selected thumbnail even when it is page 1 (0 -> 0 does not trigger the
-        // currentIndex Monitor). Detail freezes its button while Reader is visible.
-        this.publishReaderProgress(targetIndex)
+        // Page 1 still needs an explicit publication because 0 -> 0 does not trigger the index
+        // Monitor. Never publish at click/route-init time, though: Detail may update only after the
+        // Reader presentation has stably covered it. If that signal arrived before init completed,
+        // this branch performs the deferred initial publication.
+        if (this.readerThumbnailTransition.presentationSettledFor(p.gid)) {
+          this.publishReaderProgress(targetIndex)
+        }
         if (this.isContinuousVerticalMode()) {
           setTimeout(() => {
             if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
@@ -831,11 +917,24 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    this.applyStatusBarVisible(
+    const statusBarRestore: Promise<void> = this.applyStatusBarVisible(
       true,
       this.appStatusBarContentColor(),
       this.themeDisplay.effectiveDark,
     )
+    const openingImage: EhGalleryImage | null = this.currentImage()
+    if (ReaderThumbnailTransitionCoordinator.reverseOpening(
+      this.getUIContext(),
+      openingImage === null ? '' : this.readerPageSnapshotId(openingImage.page),
+      openingImage === null ? 0 : this.imageMetricWidthForPage(openingImage.page),
+      openingImage === null ? 0 : this.imageMetricHeightForPage(openingImage.page),
+      (animated: boolean) => {
+        connectReaderOverlayNavigation().close(animated)
+      },
+    )) {
+      return
+    }
+    statusBarRestore
       .then(() => {
         return readerDelay(READER_EXIT_STATUS_BAR_LEAD_MS)
       })
@@ -2625,8 +2724,18 @@ export struct ReaderPage {
   }
 
   // Keep the slider thumb on the live page when the user swipes (not while they drag the slider),
-  // Keep the slider thumb on the live page and persist every settled reading position. Detail owns
-  // a frozen display snapshot while Reader is visible, so persistence never controls button timing.
+  // Keep the slider thumb on the live page and publish every settled reading position after Reader
+  // has taken stable presentation ownership. Durable persistence is handled independently.
+  @Monitor('readerThumbnailTransition.presentationEpoch')
+  onReaderPresentationSettled(): void {
+    if (
+      this.readerReady && this.readerRouteVisible && !this.readerClosing &&
+      this.readerThumbnailTransition.presentationSettledFor(this.params.gid)
+    ) {
+      this.publishReaderProgress(this.vm.currentIndex)
+    }
+  }
+
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
     if (this.comicTranslationPageIndex >= 0 &&
@@ -2652,7 +2761,9 @@ export struct ReaderPage {
     }
     this.readerPagerIndex = this.readerPagerIndexFor(this.vm.currentIndex)
     this.scrollThumbStripTo(this.vm.currentIndex, true)
-    this.publishReaderProgress(this.vm.currentIndex)
+    if (this.readerThumbnailTransition.presentationSettledFor(this.params.gid)) {
+      this.publishReaderProgress(this.vm.currentIndex)
+    }
     if (this.vm.hasPreviewAt(this.vm.currentIndex)) {
       this.readerThumbnailTransition.updateCurrent(
         this.vm.currentIndex,
@@ -2767,7 +2878,7 @@ export struct ReaderPage {
     if (page <= 0) {
       return
     }
-    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(page)
+    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(this.getUIContext(), page)
     this.syncOriginalAvailabilityForPage(page)
     for (let i: number = 0; i < this.loadedPages.length; i++) {
       if (this.loadedPages[i] === page) {
@@ -5875,6 +5986,7 @@ struct ReaderSpreadImageLayer {
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private autoRetryCount: number = 0;
   private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
   private resolvedFilePath: string = '';
@@ -6330,6 +6442,12 @@ struct ReaderSpreadImageLayer {
             this.retrySourceAutomatically()
           },
         })
+          // A system Image can paint its light decode placeholder after the file URI is assigned.
+          // Keep that surface transparent until the bitmap is ready so the Reader background and
+          // loading chrome remain continuous behind a slow thumbnail-to-Reader handoff.
+          .opacity(
+            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+          )
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -6416,6 +6534,7 @@ struct ReaderImagePage {
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
 
   private pinchStartScale: number = 1;
   private pinchAnchorX: number = 0.5;
@@ -7011,6 +7130,9 @@ struct ReaderImagePage {
             this.retrySourceAutomatically()
           },
         })
+          .opacity(
+            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+          )
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
           .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
@@ -7200,6 +7322,7 @@ struct ReaderVerticalImage {
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private pinchStartScale: number = 1;
   private pinchAnchorX: number = 0.5;
   private pinchAnchorY: number = 0.5;
@@ -7869,6 +7992,9 @@ struct ReaderVerticalImage {
             this.retrySourceAutomatically()
           },
         })
+          .opacity(
+            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+          )
           .width('100%')
           .aspectRatio(this.ratio)
           .scale({ x: this.zoomScale, y: this.zoomScale })

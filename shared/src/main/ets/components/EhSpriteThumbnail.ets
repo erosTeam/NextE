@@ -277,6 +277,8 @@ export struct EhSpriteThumbnail {
       .width(this.boxWidth())
       .height(this.boxHeight())
       .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(this.radius)
+      .clip(true)
     }
   }
 
