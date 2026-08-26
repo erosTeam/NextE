@@ -204,6 +204,36 @@ export struct EhThumbnail {
     return ImageFit.Cover
   }
 
+  private coverRatioSurfaceWidth(): Length {
+    if (this.coverRatio <= 0 || this.coverObjectFit() !== ImageFit.Contain || !this.hasSourceSize()) {
+      return '100%'
+    }
+    const sourceRatio: number = this.sourceWidth / this.sourceHeight
+    if (sourceRatio >= this.coverRatio) {
+      return '100%'
+    }
+    return `${Math.max(0, Math.min(100, sourceRatio / this.coverRatio * 100))}%`
+  }
+
+  private coverRatioSurfaceHeight(): Length {
+    if (this.coverRatio <= 0 || this.coverObjectFit() !== ImageFit.Contain || !this.hasSourceSize()) {
+      return '100%'
+    }
+    const sourceRatio: number = this.sourceWidth / this.sourceHeight
+    if (sourceRatio <= this.coverRatio) {
+      return '100%'
+    }
+    return `${Math.max(0, Math.min(100, this.coverRatio / sourceRatio * 100))}%`
+  }
+
+  private coverRatioSurfaceObjectFit(): ImageFit {
+    const objectFit: ImageFit = this.coverObjectFit()
+    if (this.coverRatio > 0 && objectFit === ImageFit.Contain && this.hasSourceSize()) {
+      return ImageFit.Fill
+    }
+    return objectFit
+  }
+
   // True when this cover renders letterboxed (Contain) AND a gradient color is what fills the gaps — i.e.
   // the gap-fill is enabled, blur is off, and the active branch is a Contain one. Gates color extraction so
   // we never fetch+decode for covers that fill (Cover) or use the blurred-image fill.
@@ -297,9 +327,9 @@ export struct EhThumbnail {
         }
         EhImageKnifeImage({
           src: EhConstants.cdnThumb(this.url),
-          widthValue: '100%',
-          heightValue: '100%',
-          objectFit: this.coverObjectFit(),
+          widthValue: this.coverRatioSurfaceWidth(),
+          heightValue: this.coverRatioSurfaceHeight(),
+          objectFit: this.coverRatioSurfaceObjectFit(),
           radius: this.radius,
           contentTransition: ContentTransitionType.OPACITY,
           maxRetries: THUMBNAIL_MAX_RETRIES,
