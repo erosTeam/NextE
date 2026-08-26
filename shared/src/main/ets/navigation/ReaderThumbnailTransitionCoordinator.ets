@@ -12,6 +12,8 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
 const READER_CLOSE_TARGET_HANDOFF_START: number = 0.55
 const READER_CLOSE_TARGET_HANDOFF_END: number = 0.90
+const READER_TARGET_LAYOUT_STABLE_FRAMES: number = 2
+const READER_TARGET_LAYOUT_MAX_FRAMES: number = 60
 
 class ReaderThumbnailTransitionFrameCallback extends FrameCallback {
   private action: () => void
@@ -39,6 +41,95 @@ export class ReaderThumbnailTransitionCoordinator {
 
   static sourceId(scope: string, index: number): string {
     return `${scope}-page-${index}`
+  }
+
+  static sourceSnapshotId(sourceComponentId: string): string {
+    return sourceComponentId.length > 0 ? `${sourceComponentId}-content` : ''
+  }
+
+  static currentTargetLayoutKey(uiContext: UIContext): string {
+    const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (transition.sourceScope.length === 0) {
+      return ''
+    }
+    const targetId: string = ReaderThumbnailTransitionCoordinator.sourceId(
+      transition.sourceScope,
+      transition.currentIndex,
+    )
+    try {
+      const rect = uiContext.getComponentUtils().getRectangleById(targetId)
+      if (rect.size.width <= 0 || rect.size.height <= 0) {
+        return ''
+      }
+      return `${Math.round(rect.windowOffset.x)},${Math.round(rect.windowOffset.y)},` +
+        `${Math.round(rect.size.width)},${Math.round(rect.size.height)}`
+    } catch (_error) {
+      return ''
+    }
+  }
+
+  private static waitForTargetLayoutFrame(
+    uiContext: UIContext,
+    initialLayoutKey: string,
+    requireLayoutChange: boolean,
+    stableLayoutKey: string,
+    stableFrames: number,
+    remainingFrames: number,
+    resolve: (ready: boolean) => void,
+  ): void {
+    uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+      const currentLayoutKey: string = ReaderThumbnailTransitionCoordinator.currentTargetLayoutKey(uiContext)
+      const changeObserved: boolean = !requireLayoutChange || initialLayoutKey.length === 0 ||
+        currentLayoutKey !== initialLayoutKey
+      const currentStableFrames: number = changeObserved && currentLayoutKey.length > 0
+        ? (currentLayoutKey === stableLayoutKey ? stableFrames + 1 : 1)
+        : 0
+      if (currentStableFrames >= READER_TARGET_LAYOUT_STABLE_FRAMES) {
+        DiagnosticLogger.info(
+          'reader-transition',
+          'close_target_layout_ready',
+          `initial=${initialLayoutKey} final=${currentLayoutKey}`,
+        )
+        resolve(true)
+        return
+      }
+      if (remainingFrames <= 1) {
+        DiagnosticLogger.info(
+          'reader-transition',
+          'close_target_layout_unsettled',
+          `initial=${initialLayoutKey} current=${currentLayoutKey} changeRequired=${requireLayoutChange}`,
+        )
+        resolve(false)
+        return
+      }
+      ReaderThumbnailTransitionCoordinator.waitForTargetLayoutFrame(
+        uiContext,
+        initialLayoutKey,
+        requireLayoutChange,
+        currentLayoutKey,
+        currentStableFrames,
+        remainingFrames - 1,
+        resolve,
+      )
+    }))
+  }
+
+  static waitForTargetLayoutCommit(
+    uiContext: UIContext,
+    initialLayoutKey: string,
+    requireLayoutChange: boolean,
+  ): Promise<boolean> {
+    return new Promise<boolean>((resolve: (ready: boolean) => void): void => {
+      ReaderThumbnailTransitionCoordinator.waitForTargetLayoutFrame(
+        uiContext,
+        initialLayoutKey,
+        requireLayoutChange,
+        '',
+        0,
+        READER_TARGET_LAYOUT_MAX_FRAMES,
+        resolve,
+      )
+    })
   }
 
   private static componentAvailable(uiContext: UIContext, componentId: string): boolean {
@@ -164,10 +255,18 @@ export class ReaderThumbnailTransitionCoordinator {
         openReader(true)
         return
       }
+      const sourceSnapshotComponentId: string =
+        ReaderThumbnailTransitionCoordinator.sourceSnapshotId(sourceComponentId)
+      const snapshotComponentId: string = ReaderThumbnailTransitionCoordinator.componentAvailable(
+        uiContext,
+        sourceSnapshotComponentId,
+      )
+        ? sourceSnapshotComponentId
+        : sourceComponentId
       const sourceSnapshot: image.PixelMap | undefined =
         ReaderThumbnailTransitionCoordinator.captureSourceImage(
           uiContext,
-          sourceComponentId,
+          snapshotComponentId,
         )
       if (sourceSnapshot === undefined) {
         transition.reset()
@@ -394,6 +493,13 @@ export class ReaderThumbnailTransitionCoordinator {
         transition.reset()
         return false
       }
+      DiagnosticLogger.info(
+        'reader-transition',
+        'close_target_measured',
+        `targetWindow=${Math.round(targetRect.windowOffset.x)},${Math.round(targetRect.windowOffset.y)} ` +
+          `rootWindow=${Math.round(rootRect.windowOffset.x)},${Math.round(rootRect.windowOffset.y)} ` +
+          `local=${targetX},${targetY} size=${targetWidth},${targetHeight}`,
+      )
     } catch (error) {
       DiagnosticLogger.info(
         'reader-transition',

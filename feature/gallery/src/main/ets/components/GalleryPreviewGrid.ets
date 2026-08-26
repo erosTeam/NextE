@@ -253,20 +253,26 @@ export struct GalleryPreviewGrid {
             Column({ space: 2 }) {
               Stack({ alignContent: Alignment.Center }) {
                 Stack({ alignContent: Alignment.Center }) {
-                  EhSpriteThumbnail({
-                    url: img.thumbUrl,
-                    thumbWidth: img.thumbWidth,
-                    thumbHeight: img.thumbHeight,
-                    offsetX: img.thumbOffsetX,
-                    imageKey: img.imgkey,
-                    spriteWidth: img.spriteWidth,
-                    spriteHeight: img.spriteHeight,
-                    fitHeight: true,
-                    displayHeight: PREVIEW_H,
-                    loadDuringDetailPush: true,
-                    enableImageBlock: true,
-                    reloadToken: this.thumbnailReloadToken,
-                  })
+                  Stack({ alignContent: Alignment.Center }) {
+                    EhSpriteThumbnail({
+                      url: img.thumbUrl,
+                      thumbWidth: img.thumbWidth,
+                      thumbHeight: img.thumbHeight,
+                      offsetX: img.thumbOffsetX,
+                      imageKey: img.imgkey,
+                      spriteWidth: img.spriteWidth,
+                      spriteHeight: img.spriteHeight,
+                      fitHeight: true,
+                      displayHeight: PREVIEW_H,
+                      loadDuringDetailPush: true,
+                      enableImageBlock: true,
+                      reloadToken: this.thumbnailReloadToken,
+                      radius: 0,
+                    })
+                  }
+                  .id(ReaderThumbnailTransitionCoordinator.sourceSnapshotId(this.transitionSourceId(img)))
+                  .width('100%')
+                  .height('100%')
                 }
                 .id(this.transitionSourceId(img))
                 .width(this.horizontalThumbWidth(img))

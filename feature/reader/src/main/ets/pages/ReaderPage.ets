@@ -106,7 +106,6 @@ const READER_SUPER_RESOLUTION_INTERACTION_FALLBACK_MS: number = 2500
 const READER_TAP_ZONE_SCROLL_RATIO: number = 0.75
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
-const READER_EXIT_STATUS_BAR_LEAD_MS: number = 20
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
@@ -915,6 +914,9 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
+    const initialTargetLayoutKey: string =
+      ReaderThumbnailTransitionCoordinator.currentTargetLayoutKey(this.getUIContext())
+    const requireTargetLayoutChange: boolean = this.readMode.fullscreen && !this.showChrome
     const statusBarRestore: Promise<void> = this.applyStatusBarVisible(
       true,
       this.appStatusBarContentColor(),
@@ -934,10 +936,18 @@ export struct ReaderPage {
       return
     }
     statusBarRestore
-      .then(() => {
-        return readerDelay(READER_EXIT_STATUS_BAR_LEAD_MS)
+      .then((): Promise<boolean> => {
+        return ReaderThumbnailTransitionCoordinator.waitForTargetLayoutCommit(
+          this.getUIContext(),
+          initialTargetLayoutKey,
+          requireTargetLayoutChange,
+        )
       })
-      .then(() => {
+      .then((targetReady: boolean) => {
+        if (!targetReady) {
+          connectReaderOverlayNavigation().close()
+          return
+        }
         const currentImage: EhGalleryImage | null = this.currentImage()
         DiagnosticLogger.info(
           'reader-transition',

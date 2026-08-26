@@ -16,6 +16,7 @@ import {
   connectReaderThumbnailTransition,
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
+import { ReaderThumbnailTransitionCoordinator } from '../navigation/ReaderThumbnailTransitionCoordinator'
 
 // Tile image-frame aspect (height = width * aspect). A FIXED portrait frame so every tile — and thus
 // every page number below it — sits at the same height regardless of each thumb's true aspect or a
@@ -188,7 +189,7 @@ export struct PreviewThumbTile {
         onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
           this.blockDecision = decision
         },
-        radius: ThemeConstants.THUMB_RADIUS,
+        radius: 0,
       })
     } else {
       EhSpriteThumbnail({
@@ -211,7 +212,7 @@ export struct PreviewThumbTile {
         onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
           this.blockDecision = decision
         },
-        radius: ThemeConstants.THUMB_RADIUS,
+        radius: 0,
       })
     }
   }
@@ -244,7 +245,12 @@ export struct PreviewThumbTile {
       // as a grey letterbox container after the real thumbnail is loaded.
       Stack() {
         Stack({ alignContent: Alignment.Center }) {
-          this.ThumbnailSurface()
+          Stack({ alignContent: Alignment.Center }) {
+            this.ThumbnailSurface()
+          }
+          .id(ReaderThumbnailTransitionCoordinator.sourceSnapshotId(this.transitionSourceId))
+          .width('100%')
+          .height('100%')
         }
         .id(this.transitionSourceId)
         // The transition identity belongs to the pixels that are actually visible, not the fixed
