@@ -7,6 +7,7 @@ import {
   connectReaderThumbnailTransition,
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
+import { connectLayoutSafeArea } from '../state/LayoutSafeAreaState'
 import { ThemeConstants } from '../theme/ThemeConstants'
 
 const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
@@ -70,25 +71,24 @@ export class ReaderThumbnailTransitionCoordinator {
 
   private static waitForTargetLayoutFrame(
     uiContext: UIContext,
-    initialLayoutKey: string,
-    requireLayoutChange: boolean,
+    requireVisibleStatusBarInset: boolean,
     stableLayoutKey: string,
     stableFrames: number,
     remainingFrames: number,
     resolve: (ready: boolean) => void,
   ): void {
     uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+      const topInset: number = connectLayoutSafeArea().topAvoidHeight
+      const statusBarLayoutReady: boolean = !requireVisibleStatusBarInset || topInset > 0
       const currentLayoutKey: string = ReaderThumbnailTransitionCoordinator.currentTargetLayoutKey(uiContext)
-      const changeObserved: boolean = !requireLayoutChange || initialLayoutKey.length === 0 ||
-        currentLayoutKey !== initialLayoutKey
-      const currentStableFrames: number = changeObserved && currentLayoutKey.length > 0
+      const currentStableFrames: number = statusBarLayoutReady && currentLayoutKey.length > 0
         ? (currentLayoutKey === stableLayoutKey ? stableFrames + 1 : 1)
         : 0
       if (currentStableFrames >= READER_TARGET_LAYOUT_STABLE_FRAMES) {
         DiagnosticLogger.info(
           'reader-transition',
           'close_target_layout_ready',
-          `initial=${initialLayoutKey} final=${currentLayoutKey}`,
+          `target=${currentLayoutKey} topInset=${topInset}`,
         )
         resolve(true)
         return
@@ -97,15 +97,15 @@ export class ReaderThumbnailTransitionCoordinator {
         DiagnosticLogger.info(
           'reader-transition',
           'close_target_layout_unsettled',
-          `initial=${initialLayoutKey} current=${currentLayoutKey} changeRequired=${requireLayoutChange}`,
+          `current=${currentLayoutKey} topInset=${topInset} ` +
+            `statusBarInsetRequired=${requireVisibleStatusBarInset}`,
         )
         resolve(false)
         return
       }
       ReaderThumbnailTransitionCoordinator.waitForTargetLayoutFrame(
         uiContext,
-        initialLayoutKey,
-        requireLayoutChange,
+        requireVisibleStatusBarInset,
         currentLayoutKey,
         currentStableFrames,
         remainingFrames - 1,
@@ -116,14 +116,12 @@ export class ReaderThumbnailTransitionCoordinator {
 
   static waitForTargetLayoutCommit(
     uiContext: UIContext,
-    initialLayoutKey: string,
-    requireLayoutChange: boolean,
+    requireVisibleStatusBarInset: boolean,
   ): Promise<boolean> {
     return new Promise<boolean>((resolve: (ready: boolean) => void): void => {
       ReaderThumbnailTransitionCoordinator.waitForTargetLayoutFrame(
         uiContext,
-        initialLayoutKey,
-        requireLayoutChange,
+        requireVisibleStatusBarInset,
         '',
         0,
         READER_TARGET_LAYOUT_MAX_FRAMES,
@@ -453,9 +451,6 @@ export class ReaderThumbnailTransitionCoordinator {
       'close_requested',
       `index=${currentIndex} phase=${transition.phase} scope=${transition.sourceScope}`,
     )
-    if (!transition.active() || transition.sourceScope.length === 0) {
-      return false
-    }
     if (transition.galleryId !== galleryId) {
       DiagnosticLogger.info(
         'reader-transition',
@@ -463,6 +458,9 @@ export class ReaderThumbnailTransitionCoordinator {
         `expected=${transition.galleryId} actual=${galleryId}`,
       )
       transition.reset()
+      return false
+    }
+    if (!transition.normalCloseReadyFor(galleryId)) {
       return false
     }
     const targetId: string = ReaderThumbnailTransitionCoordinator.sourceId(

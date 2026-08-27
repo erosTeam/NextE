@@ -76,6 +76,13 @@ export class ReaderThumbnailTransitionState {
     return this.phase === ReaderThumbnailTransitionPhase.OPEN
   }
 
+  normalCloseReadyFor(galleryId: string): boolean {
+    return galleryId.length > 0 &&
+      this.galleryId === galleryId &&
+      this.sourceScope.length > 0 &&
+      this.phase === ReaderThumbnailTransitionPhase.OPEN
+  }
+
   openingHandoff(): boolean {
     return this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF
   }

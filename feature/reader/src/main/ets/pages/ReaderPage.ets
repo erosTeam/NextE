@@ -914,9 +914,6 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    const initialTargetLayoutKey: string =
-      ReaderThumbnailTransitionCoordinator.currentTargetLayoutKey(this.getUIContext())
-    const requireTargetLayoutChange: boolean = this.readMode.fullscreen && !this.showChrome
     const statusBarRestore: Promise<void> = this.applyStatusBarVisible(
       true,
       this.appStatusBarContentColor(),
@@ -935,12 +932,20 @@ export struct ReaderPage {
     )) {
       return
     }
+    const normalCloseCandidate: boolean = openingImage !== null &&
+      !this.imageZoomed &&
+      this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)
+    const requireVisibleStatusBarInset: boolean = normalCloseCandidate &&
+      this.readMode.fullscreen && !this.showChrome
     statusBarRestore
       .then((): Promise<boolean> => {
+        if (!normalCloseCandidate ||
+          !this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)) {
+          return Promise.resolve(false)
+        }
         return ReaderThumbnailTransitionCoordinator.waitForTargetLayoutCommit(
           this.getUIContext(),
-          initialTargetLayoutKey,
-          requireTargetLayoutChange,
+          requireVisibleStatusBarInset,
         )
       })
       .then((targetReady: boolean) => {
