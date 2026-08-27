@@ -117,6 +117,7 @@ export class GalleryDetailTransitionCoordinator {
       let coverY: number = sourceY
       let coverWidth: number = sourceWidth
       let coverHeight: number = sourceHeight
+      let preserveSourceCoverBackground: boolean = false
       if (targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
         GalleryDetailTransitionCoordinator.opening = false
         openDetail()
@@ -138,6 +139,15 @@ export class GalleryDetailTransitionCoordinator {
           } else {
             coverSnapshot = uiContext.getComponentSnapshot()
               .getSync(sourceCoverComponentId, { waitUntilRenderFinished: true })
+            try {
+              const coverBackgroundComponentId: string = `${sourceCoverComponentId}-background`
+              const coverBackgroundRect = uiContext.getComponentUtils()
+                .getRectangleById(coverBackgroundComponentId)
+              preserveSourceCoverBackground = coverBackgroundRect.size.width > 0 &&
+                coverBackgroundRect.size.height > 0
+            } catch (_backgroundError) {
+              preserveSourceCoverBackground = false
+            }
           }
         } catch (error) {
           DiagnosticLogger.info(
@@ -156,6 +166,8 @@ export class GalleryDetailTransitionCoordinator {
       transition.beginSourceHandoff(
         transitionMode,
         componentId,
+        sourceCoverComponentId,
+        preserveSourceCoverBackground,
         `${componentId}-detail-cover`,
         sourceX,
         sourceY,
@@ -172,7 +184,7 @@ export class GalleryDetailTransitionCoordinator {
       )
       cardSnapshot = undefined
       coverSnapshot = undefined
-      uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback((): void => {
+      const captureRootAndOpen: () => void = (): void => {
         let sourceSnapshot: image.PixelMap | undefined = undefined
         try {
           sourceSnapshot = uiContext.getComponentSnapshot()
@@ -207,7 +219,31 @@ export class GalleryDetailTransitionCoordinator {
         }
         GalleryDetailTransitionCoordinator.opening = false
         openDetail()
-      }))
+      }
+      if (preserveSourceCoverBackground) {
+        uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback((): void => {
+          let backgroundCardSnapshot: image.PixelMap | undefined = undefined
+          try {
+            backgroundCardSnapshot = uiContext.getComponentSnapshot()
+              .getSync(componentId, { waitUntilRenderFinished: true })
+            transition.completePreservedSourceCardSnapshot(componentId, backgroundCardSnapshot)
+            backgroundCardSnapshot = undefined
+          } catch (error) {
+            if (backgroundCardSnapshot !== undefined) {
+              backgroundCardSnapshot.release().catch((_releaseError: Error) => {})
+            }
+            DiagnosticLogger.info(
+              'gallery-detail-transition',
+              'background_card_snapshot_fallback',
+              `gid=${galleryId} source=${componentId} error=${error}`,
+            )
+            transition.completePreservedSourceCardSnapshot(componentId, undefined)
+          }
+          uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback(captureRootAndOpen))
+        }))
+      } else {
+        uiContext.postFrameCallback(new GalleryDetailCaptureFrameCallback(captureRootAndOpen))
+      }
       return
     } catch (error) {
       if (cardSnapshot !== undefined) {

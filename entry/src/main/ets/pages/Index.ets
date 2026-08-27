@@ -2006,10 +2006,27 @@ struct Index {
         this.galleryDetailTransition.isCoverExpand() &&
         this.galleryDetailTransition.cardSnapshot !== undefined
       ) {
-        // Keep the source card's title/metadata visible without repainting its thumbnail underneath
-        // the flying cover. Four clipped snapshot slices work for top-cover, side-cover and full-cover
-        // layouts; unlike a solid mask, the vacated source-cover rect exposes the expanding surface.
-        this.GalleryDetailSourceCardRemainder()
+        if (this.galleryDetailTransition.preserveSourceCoverBackground) {
+          // The card snapshot was captured after only the foreground image became transparent. Its real
+          // blur/gradient layer therefore remains complete and needs no synthetic mask or background patch.
+          Image(this.galleryDetailTransition.cardSnapshot)
+            .width(this.galleryDetailTransition.handoffWidth)
+            .height(this.galleryDetailTransition.handoffHeight)
+            .objectFit(ImageFit.Fill)
+            .syncLoad(true)
+            .position({
+              x: this.galleryDetailTransition.handoffX,
+              y: this.galleryDetailTransition.handoffY,
+            })
+            .borderRadius(ThemeConstants.RADIUS_CARD)
+            .clip(true)
+            .opacity(this.galleryDetailTransition.cardOpacity)
+            .hitTestBehavior(HitTestMode.None)
+        } else {
+          // Covers without a separate backdrop keep the existing four-slice path so the expanding detail
+          // surface is revealed instead of exposing the thumbnail's generic loading placeholder.
+          this.GalleryDetailSourceCardRemainder()
+        }
       }
       if (
         this.galleryDetailTransition.coverFlightVisible() &&

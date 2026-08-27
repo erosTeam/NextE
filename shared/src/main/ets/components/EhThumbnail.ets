@@ -5,6 +5,11 @@ import { CoverColorService } from '../services/CoverColorService'
 import { connectCoverBackground, CoverBackgroundState } from '../state/CoverBackgroundState'
 import { connectGalleryCoverRetry, GalleryCoverRetryState } from '../state/GalleryCoverRetryState'
 import {
+  connectGalleryDetailTransition,
+  GalleryDetailTransitionPhase,
+  GalleryDetailTransitionState,
+} from '../state/GalleryDetailTransitionState'
+import {
   EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
   EH_THUMBNAIL_READ_TIMEOUT_MS,
 } from '../services/ImagePipelineTypes'
@@ -73,6 +78,7 @@ export struct EhThumbnail {
   // re-flows the fill.
   @Local coverBgState: CoverBackgroundState = connectCoverBackground();
   @Local coverRetryState: GalleryCoverRetryState = connectGalleryCoverRetry();
+  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
 
   aboutToAppear(): void {
     this.applyVisualState()
@@ -234,6 +240,18 @@ export struct EhThumbnail {
     return objectFit
   }
 
+  private transitionForegroundOpacity(): number {
+    return this.galleryDetailTransition.preserveSourceCoverBackground &&
+      this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING &&
+      this.galleryDetailTransition.sourceCoverComponentId === this.surfaceId
+      ? 0
+      : 1
+  }
+
+  private backgroundSurfaceId(): string {
+    return this.surfaceId.length > 0 ? `${this.surfaceId}-background` : ''
+  }
+
   // True when this cover renders letterboxed (Contain) AND a gradient color is what fills the gaps — i.e.
   // the gap-fill is enabled, blur is off, and the active branch is a Contain one. Gates color extraction so
   // we never fetch+decode for covers that fill (Cover) or use the blurred-image fill.
@@ -292,10 +310,12 @@ export struct EhThumbnail {
         readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
         reloadToken: this.reloadToken,
       })
+        .id(this.backgroundSurfaceId())
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS)
         .renderGroup(true)
     } else if (this.coverBgColor !== 0) {
       Column()
+        .id(this.backgroundSurfaceId())
         .width('100%')
         .height('100%')
         .borderRadius(this.radius)
@@ -347,6 +367,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .opacity(this.transitionForegroundOpacity())
           .id(this.surfaceId)
         this.coverOverlay()
       }
@@ -385,6 +406,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .opacity(this.transitionForegroundOpacity())
           .id(this.surfaceId)
         this.coverOverlay()
       }
@@ -413,6 +435,7 @@ export struct EhThumbnail {
           this.failed = true
         },
       })
+        .opacity(this.transitionForegroundOpacity())
         .id(this.surfaceId)
         .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .overlay(this.coverOverlay(), { align: Alignment.Center })
@@ -440,6 +463,7 @@ export struct EhThumbnail {
             this.failed = true
           },
         })
+          .opacity(this.transitionForegroundOpacity())
           .id(this.surfaceId)
         this.coverOverlay()
       }
