@@ -37,11 +37,14 @@ export struct GallerySimpleCard {
     Row({ space: ThemeConstants.SPACE_SM }) {
       EhThumbnail({
         url: this.gallery.thumbUrl,
-        thumbWidth: SIMPLE_THUMB_W,
-        thumbHeight: SIMPLE_THUMB_H,
+        coverRatio: SIMPLE_THUMB_W / SIMPLE_THUMB_H,
         radius: ThemeConstants.THUMB_RADIUS,
+        sourceWidth: this.gallery.imgWidth,
+        sourceHeight: this.gallery.imgHeight,
+        letterboxBackground: true,
         surfaceId: this.transitionCoverId,
       })
+        .width(SIMPLE_THUMB_W)
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())
           .fontSize(ThemeConstants.FONT_SIZE_META)
