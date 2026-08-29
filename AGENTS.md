@@ -13,6 +13,9 @@ details in the linked guides. The current user request is the only source of sco
    [plan lifecycle](docs/plans/README.md).
 3. Read the applicable skill before using its workflow. Check current source, scripts, worktree state and
    fresh evidence; do not treat plans, handoffs, artifacts or archived documents as current facts.
+4. Before editing an existing behavior, query [rejected approaches](docs/agent-guides/rejected-approaches.md)
+   with the affected file and symbol names. A matching `REJECTED` entry must not be reintroduced unless
+   the current user explicitly reopens it after reviewing its recorded failure.
 
 ## Hard stops
 
