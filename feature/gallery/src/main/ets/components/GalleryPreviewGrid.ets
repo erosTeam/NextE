@@ -284,6 +284,12 @@ export struct GalleryPreviewGrid {
                     ? Visibility.Hidden
                     : Visibility.Visible,
                 )
+                .onVisibleAreaChange([0.0, 1.0], (isExpanding: boolean, currentRatio: number): void => {
+                  this.readerTransition.reportSourceVisibility(
+                    this.transitionSourceId(img),
+                    isExpanding && currentRatio >= 0.999,
+                  )
+                })
               }
               .width(this.horizontalThumbWidth(img))
               .height(PREVIEW_H)

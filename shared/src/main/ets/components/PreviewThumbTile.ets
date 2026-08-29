@@ -268,6 +268,12 @@ export struct PreviewThumbTile {
             ? Visibility.Hidden
             : Visibility.Visible,
         )
+        .onVisibleAreaChange([0.0, 1.0], (isExpanding: boolean, currentRatio: number): void => {
+          this.readerTransition.reportSourceVisibility(
+            this.transitionSourceId,
+            isExpanding && currentRatio >= 0.999,
+          )
+        })
       }
       .width('100%')
       .aspectRatio(1 / FRAME_ASPECT)

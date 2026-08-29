@@ -59,6 +59,7 @@ export class ReaderThumbnailTransitionState {
   private openTargetWidth: number = 0
   private openTargetHeight: number = 0
   private openTargetRadius: number = 0
+  private fullyVisibleSourceIds: Set<string> = new Set<string>()
 
   active(): boolean {
     return this.phase !== ReaderThumbnailTransitionPhase.IDLE
@@ -80,7 +81,24 @@ export class ReaderThumbnailTransitionState {
     return galleryId.length > 0 &&
       this.galleryId === galleryId &&
       this.sourceScope.length > 0 &&
+      this.fullyVisibleSourceIds.has(`${this.sourceScope}-page-${this.currentIndex}`) &&
       this.phase === ReaderThumbnailTransitionPhase.OPEN
+  }
+
+  /**
+   * A retained List/Grid child may stay mounted after ancestor clipping moves
+   * it outside the viewport. Normal close flights require a completely visible
+   * landing surface; immediate opening reversal keeps using click-time geometry.
+   */
+  reportSourceVisibility(componentId: string, fullyVisible: boolean): void {
+    if (componentId.length === 0) {
+      return
+    }
+    if (fullyVisible) {
+      this.fullyVisibleSourceIds.add(componentId)
+    } else {
+      this.fullyVisibleSourceIds.delete(componentId)
+    }
   }
 
   openingHandoff(): boolean {
