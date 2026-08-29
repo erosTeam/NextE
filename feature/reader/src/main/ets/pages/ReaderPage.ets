@@ -106,6 +106,9 @@ const READER_SUPER_RESOLUTION_INTERACTION_FALLBACK_MS: number = 2500
 const READER_TAP_ZONE_SCROLL_RATIO: number = 0.75
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
+// This guard only abandons the custom close when WindowManager never confirms the visible system avoid area.
+// It must never be treated as evidence that the retained gallery layout is ready.
+const READER_CLOSE_STATUS_BAR_RESTORE_GUARD_MS: number = 2000
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
@@ -856,6 +859,106 @@ export struct ReaderPage {
       .catch((_e: Error) => {})
   }
 
+  private restoreStatusBarForClose(requireVisibleSystemAvoidArea: boolean): Promise<boolean> {
+    return window
+      .getLastWindow(this.hostContext())
+      .then((win: window.Window): Promise<boolean> => {
+        const requestVisible = (): Promise<boolean> => {
+          return win.setWindowSystemBarProperties({
+            statusBarContentColor: this.appStatusBarContentColor(),
+            isStatusBarLightIcon: this.themeDisplay.effectiveDark,
+          })
+            .catch((error: Error): void => {
+              DiagnosticLogger.warn('reader-transition', 'close_status_bar_properties_failed', error.message)
+            })
+            .then((): Promise<void> => {
+              return win.setSpecificSystemBarEnabled('status', true, false)
+            })
+            .then((): boolean => true)
+            .catch((error: Error): boolean => {
+              DiagnosticLogger.warn('reader-transition', 'close_status_bar_restore_failed', error.message)
+              return false
+            })
+        }
+        if (!requireVisibleSystemAvoidArea) {
+          return requestVisible()
+        }
+        try {
+          if (win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height > 0) {
+            return requestVisible()
+          }
+        } catch (error) {
+          const message: string = error instanceof Error ? error.message : `${error}`
+          DiagnosticLogger.warn('reader-transition', 'close_status_bar_avoid_area_snapshot_failed', message)
+        }
+        return new Promise<boolean>((resolve: (ready: boolean) => void): void => {
+          let settled: boolean = false
+          let requestCompleted: boolean = false
+          let systemAvoidAreaVisible: boolean = false
+          let guardTimerId: number = -1
+          let avoidAreaChangeCallback: ((data: window.AvoidAreaOptions) => void) | null = null
+          const finish = (ready: boolean): void => {
+            if (settled) {
+              return
+            }
+            settled = true
+            if (guardTimerId >= 0) {
+              clearTimeout(guardTimerId)
+              guardTimerId = -1
+            }
+            if (avoidAreaChangeCallback !== null) {
+              try {
+                win.off('avoidAreaChange', avoidAreaChangeCallback)
+              } catch (_error) {}
+            }
+            resolve(ready)
+          }
+          const finishWhenReady = (): void => {
+            if (requestCompleted && systemAvoidAreaVisible) {
+              DiagnosticLogger.info('reader-transition', 'close_status_bar_avoid_area_ready', '')
+              finish(true)
+            }
+          }
+          avoidAreaChangeCallback = (data: window.AvoidAreaOptions): void => {
+            if (
+              data.type !== window.AvoidAreaType.TYPE_SYSTEM ||
+              data.area.topRect.height <= 0
+            ) {
+              return
+            }
+            systemAvoidAreaVisible = true
+            finishWhenReady()
+          }
+          try {
+            win.on('avoidAreaChange', avoidAreaChangeCallback)
+          } catch (error) {
+            const message: string = error instanceof Error ? error.message : `${error}`
+            DiagnosticLogger.warn('reader-transition', 'close_status_bar_avoid_area_watch_failed', message)
+            requestVisible().then((_ready: boolean): void => {
+              finish(false)
+            })
+            return
+          }
+          guardTimerId = setTimeout((): void => {
+            DiagnosticLogger.info('reader-transition', 'close_status_bar_avoid_area_timeout', '')
+            finish(false)
+          }, READER_CLOSE_STATUS_BAR_RESTORE_GUARD_MS)
+          requestVisible().then((ready: boolean): void => {
+            if (!ready) {
+              finish(false)
+              return
+            }
+            requestCompleted = true
+            finishWhenReady()
+          })
+        })
+      })
+      .catch((error: Error): boolean => {
+        DiagnosticLogger.warn('reader-transition', 'close_status_bar_window_failed', error.message)
+        return false
+      })
+  }
+
   private readerStatusBarContentColor(chromeVisible: boolean): string {
     if (chromeVisible || this.readerBackgroundIsDark()) {
       return READER_STATUS_BAR_LIGHT_CONTENT
@@ -914,12 +1017,15 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    const statusBarRestore: Promise<void> = this.applyStatusBarVisible(
-      true,
-      this.appStatusBarContentColor(),
-      this.themeDisplay.effectiveDark,
-    )
     const openingImage: EhGalleryImage | null = this.currentImage()
+    const normalCloseCandidate: boolean = openingImage !== null &&
+      !this.imageZoomed &&
+      this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)
+    const requireVisibleSystemAvoidArea: boolean = normalCloseCandidate &&
+      this.readMode.fullscreen && !this.showChrome
+    const statusBarRestore: Promise<boolean> = this.restoreStatusBarForClose(
+      requireVisibleSystemAvoidArea,
+    )
     if (ReaderThumbnailTransitionCoordinator.reverseOpening(
       this.getUIContext(),
       this.params.gid,
@@ -932,20 +1038,14 @@ export struct ReaderPage {
     )) {
       return
     }
-    const normalCloseCandidate: boolean = openingImage !== null &&
-      !this.imageZoomed &&
-      this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)
-    const requireVisibleStatusBarInset: boolean = normalCloseCandidate &&
-      this.readMode.fullscreen && !this.showChrome
     statusBarRestore
-      .then((): Promise<boolean> => {
-        if (!normalCloseCandidate ||
+      .then((statusBarReady: boolean): Promise<boolean> => {
+        if (!statusBarReady || !normalCloseCandidate ||
           !this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)) {
           return Promise.resolve(false)
         }
         return ReaderThumbnailTransitionCoordinator.waitForTargetLayoutCommit(
           this.getUIContext(),
-          requireVisibleStatusBarInset,
         )
       })
       .then((targetReady: boolean) => {
