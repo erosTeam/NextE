@@ -529,8 +529,16 @@ export class ReaderThumbnailTransitionCoordinator {
         readerIntrinsicHeight,
       )
       : undefined
+    const closeTargetSnapshotComponentId: string =
+      ReaderThumbnailTransitionCoordinator.sourceSnapshotId(targetId)
+    const closeTargetSnapshotId: string = ReaderThumbnailTransitionCoordinator.componentAvailable(
+      uiContext,
+      closeTargetSnapshotComponentId,
+    )
+      ? closeTargetSnapshotComponentId
+      : targetId
     const closeTargetSnapshot: image.PixelMap | undefined =
-      ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, targetId)
+      ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, closeTargetSnapshotId)
     if (readerSnapshot === undefined && closeTargetSnapshot === undefined) {
       DiagnosticLogger.info(
         'reader-transition',
