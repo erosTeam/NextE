@@ -75,7 +75,7 @@ import { ReaderSessionRequest } from '../model/ReaderSessionRequestGate'
 import { ReaderComicTranslationAutoPolicy } from '../model/ReaderComicTranslationAutoPolicy'
 import { ReaderThumbnailGeometry, ReaderThumbnailSize } from '../model/ReaderThumbnailGeometry'
 
-const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
+const READER_KEY_SURFACE_ID: string = ReaderThumbnailTransitionCoordinator.closeProxyHostId()
 const READER_CHROME_ACTION_SIZE: number = 44
 const READER_CHROME_ICON_SIZE: number = 22
 const READER_TOP_BAR_CONTENT_HEIGHT: number = 56

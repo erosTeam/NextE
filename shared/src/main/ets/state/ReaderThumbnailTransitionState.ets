@@ -167,17 +167,24 @@ export class ReaderThumbnailTransitionState {
     return this.rootHeight > 0 ? this.rootWidth / this.rootHeight : 1
   }
 
-  private prepareFullscreenProxy(image: EhGalleryImage, requestedRatio: number = 0): void {
+  private prepareFullscreenProxy(
+    image: EhGalleryImage,
+    requestedRatio: number = 0,
+    availableWidth: number = 0,
+    availableHeight: number = 0,
+  ): void {
     const ratio: number = requestedRatio > 0 ? requestedRatio : this.imageRatio(image)
-    const rootRatio: number = this.rootHeight > 0
-      ? this.rootWidth / this.rootHeight
+    const proxyHostWidth: number = availableWidth > 0 ? availableWidth : this.rootWidth
+    const proxyHostHeight: number = availableHeight > 0 ? availableHeight : this.rootHeight
+    const rootRatio: number = proxyHostHeight > 0
+      ? proxyHostWidth / proxyHostHeight
       : ratio
     this.proxyWidth = rootRatio > ratio
-      ? this.rootHeight * ratio
-      : this.rootWidth
-    this.proxyHeight = ratio > 0 ? this.proxyWidth / ratio : this.rootHeight
-    this.proxyX = (this.rootWidth - this.proxyWidth) / 2
-    this.proxyY = (this.rootHeight - this.proxyHeight) / 2
+      ? proxyHostHeight * ratio
+      : proxyHostWidth
+    this.proxyHeight = ratio > 0 ? this.proxyWidth / ratio : proxyHostHeight
+    this.proxyX = (proxyHostWidth - this.proxyWidth) / 2
+    this.proxyY = (proxyHostHeight - this.proxyHeight) / 2
     this.proxyRadius = 0
   }
 
@@ -357,6 +364,8 @@ export class ReaderThumbnailTransitionState {
     sourceComponentId: string,
     index: number,
     image: EhGalleryImage,
+    proxyHostWidth: number,
+    proxyHostHeight: number,
     targetX: number,
     targetY: number,
     targetWidth: number,
@@ -375,7 +384,12 @@ export class ReaderThumbnailTransitionState {
       : this.imageRatio(image)
     this.closeTargetSnapshot = closeTargetSnapshot
     this.closeTargetSnapshotOpacity = 0
-    this.prepareFullscreenProxy(image, this.readerSnapshotAspectRatio)
+    this.prepareFullscreenProxy(
+      image,
+      this.readerSnapshotAspectRatio,
+      proxyHostWidth,
+      proxyHostHeight,
+    )
     this.closeTargetX = targetX
     this.closeTargetY = targetY
     this.closeTargetWidth = targetWidth

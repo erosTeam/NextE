@@ -48,6 +48,10 @@ export class ReaderThumbnailTransitionCoordinator {
     return sourceComponentId.length > 0 ? `${sourceComponentId}-content` : ''
   }
 
+  static closeProxyHostId(): string {
+    return 'reader_key_surface'
+  }
+
   static currentTargetLayoutKey(uiContext: UIContext): string {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (transition.sourceScope.length === 0) {
@@ -58,12 +62,20 @@ export class ReaderThumbnailTransitionCoordinator {
       transition.currentIndex,
     )
     try {
-      const rect = uiContext.getComponentUtils().getRectangleById(targetId)
-      if (rect.size.width <= 0 || rect.size.height <= 0) {
+      const targetRect = uiContext.getComponentUtils().getRectangleById(targetId)
+      const proxyHostRect = uiContext.getComponentUtils().getRectangleById(
+        ReaderThumbnailTransitionCoordinator.closeProxyHostId(),
+      )
+      if (
+        targetRect.size.width <= 0 || targetRect.size.height <= 0 ||
+        proxyHostRect.size.width <= 0 || proxyHostRect.size.height <= 0
+      ) {
         return ''
       }
-      return `${Math.round(rect.windowOffset.x)},${Math.round(rect.windowOffset.y)},` +
-        `${Math.round(rect.size.width)},${Math.round(rect.size.height)}`
+      return `${Math.round(targetRect.windowOffset.x)},${Math.round(targetRect.windowOffset.y)},` +
+        `${Math.round(targetRect.size.width)},${Math.round(targetRect.size.height)};` +
+        `${Math.round(proxyHostRect.windowOffset.x)},${Math.round(proxyHostRect.windowOffset.y)},` +
+        `${Math.round(proxyHostRect.size.width)},${Math.round(proxyHostRect.size.height)}`
     } catch (_error) {
       return ''
     }
@@ -480,14 +492,23 @@ export class ReaderThumbnailTransitionCoordinator {
     let targetY: number = 0
     let targetWidth: number = 0
     let targetHeight: number = 0
+    let proxyHostWidth: number = 0
+    let proxyHostHeight: number = 0
     try {
       const targetRect = uiContext.getComponentUtils().getRectangleById(targetId)
-      const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
-      targetX = uiContext.px2vp(targetRect.windowOffset.x - rootRect.windowOffset.x)
-      targetY = uiContext.px2vp(targetRect.windowOffset.y - rootRect.windowOffset.y)
+      const proxyHostRect = uiContext.getComponentUtils().getRectangleById(
+        ReaderThumbnailTransitionCoordinator.closeProxyHostId(),
+      )
+      targetX = uiContext.px2vp(targetRect.windowOffset.x - proxyHostRect.windowOffset.x)
+      targetY = uiContext.px2vp(targetRect.windowOffset.y - proxyHostRect.windowOffset.y)
       targetWidth = uiContext.px2vp(targetRect.size.width)
       targetHeight = uiContext.px2vp(targetRect.size.height)
-      if (targetWidth <= 0 || targetHeight <= 0) {
+      proxyHostWidth = uiContext.px2vp(proxyHostRect.size.width)
+      proxyHostHeight = uiContext.px2vp(proxyHostRect.size.height)
+      if (
+        targetWidth <= 0 || targetHeight <= 0 ||
+        proxyHostWidth <= 0 || proxyHostHeight <= 0
+      ) {
         transition.reset()
         return false
       }
@@ -495,7 +516,8 @@ export class ReaderThumbnailTransitionCoordinator {
         'reader-transition',
         'close_target_measured',
         `targetWindow=${Math.round(targetRect.windowOffset.x)},${Math.round(targetRect.windowOffset.y)} ` +
-          `rootWindow=${Math.round(rootRect.windowOffset.x)},${Math.round(rootRect.windowOffset.y)} ` +
+          `proxyHostWindow=${Math.round(proxyHostRect.windowOffset.x)},` +
+          `${Math.round(proxyHostRect.windowOffset.y)} ` +
           `local=${targetX},${targetY} size=${targetWidth},${targetHeight}`,
       )
     } catch (error) {
@@ -538,6 +560,8 @@ export class ReaderThumbnailTransitionCoordinator {
       targetId,
       currentIndex,
       currentImage,
+      proxyHostWidth,
+      proxyHostHeight,
       targetX,
       targetY,
       targetWidth,
