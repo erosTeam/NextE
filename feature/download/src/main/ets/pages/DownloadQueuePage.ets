@@ -525,11 +525,31 @@ export struct DownloadQueuePage {
   }
 
   private async removeTask(task: DownloadGalleryTask): Promise<void> {
-    await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token, task.preferOriginal)
+    try {
+      await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token, task.preferOriginal)
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'download',
+        'download_gallery_remove_failed',
+        `gid=${task.gid} quality=${task.preferOriginal ? 'original' : 'resample'} error=${(error as Error).message}`,
+      )
+      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_delete_failed') })
+        .catch((_toastError: Error) => {})
+    }
   }
 
   private async removeArchiverTask(task: DownloadArchiverTask): Promise<void> {
-    await DownloadQueueSettings.removeArchiver(this.ctx(), task.tag)
+    try {
+      await DownloadQueueSettings.removeArchiver(this.ctx(), task.tag)
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'download',
+        'download_archiver_remove_failed',
+        `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} error=${(error as Error).message}`,
+      )
+      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_delete_failed') })
+        .catch((_toastError: Error) => {})
+    }
   }
 
   private async resumeTask(task: DownloadGalleryTask): Promise<void> {

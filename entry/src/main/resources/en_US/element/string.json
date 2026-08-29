@@ -2117,6 +2117,10 @@
       "value": "Delete"
     },
     {
+      "name": "download_delete_failed",
+      "value": "Local files could not be deleted. The download task was kept."
+    },
+    {
       "name": "common_back_to_top",
       "value": "Back to top"
     },

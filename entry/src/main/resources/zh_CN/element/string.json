@@ -2117,6 +2117,10 @@
       "value": "删除"
     },
     {
+      "name": "download_delete_failed",
+      "value": "本地文件删除失败，下载任务已保留。"
+    },
+    {
       "name": "common_back_to_top",
       "value": "回到顶部"
     },

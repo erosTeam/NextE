@@ -7,6 +7,15 @@ import { ImmersiveMaterialSettings } from '../settings/ImmersiveMaterialSettings
  * Native materials intentionally use semantic automatic grades; the user level setting only controls HDS material.
  */
 export class AppPrompt {
+  /**
+   * OpenHarmony 7.0.0.105 reports API 26 uiMaterial as supported and enabled, but renders both MenuOptions
+   * and ordinary component systemMaterial as a fully transparent layer. Limit the readable blur fallback to
+   * that confirmed platform build so later fixed API 26 releases continue to use native immersive material.
+   */
+  static systemMaterialRenderingBroken(): boolean {
+    return deviceInfo.osFullName === 'OpenHarmony-7.0.0.105'
+  }
+
   static systemMaterialSupported(): boolean {
     return deviceInfo.apiAvailable('26.0.0')
   }
@@ -26,11 +35,9 @@ export class AppPrompt {
     if (!AppPrompt.systemMaterialSupported()) {
       return undefined
     }
-    return ImmersiveMaterialSettings.systemMaterial(
-      ImmersiveMaterialSettings.LEVEL_ADAPTIVE,
-      uiMaterial.ImmersiveStyle.THICK,
-      false,
-    )
+    return new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.THICK,
+    })
   }
 
   static modalSystemMaterial(): uiMaterial.Material | undefined {

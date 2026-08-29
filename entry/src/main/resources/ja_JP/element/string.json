@@ -2117,6 +2117,10 @@
       "value": "削除"
     },
     {
+      "name": "download_delete_failed",
+      "value": "ローカルファイルを削除できなかったため、ダウンロードタスクを保持しました。"
+    },
+    {
       "name": "common_back_to_top",
       "value": "先頭へ戻る"
     },

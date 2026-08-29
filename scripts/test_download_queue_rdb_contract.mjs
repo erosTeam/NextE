@@ -91,6 +91,7 @@ ok('LocalDataStore migrates existing archiver tasks to include parse source',
 const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const downloadQueuePage = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 const loadBody = repo.match(/static async load\(context: common\.UIAbilityContext\): Promise<DownloadGalleryTask\[\]> \{[\s\S]*?\n  static async replaceAll/)?.[0] ?? ''
 const deltaBody = repo.match(/static async updateGalleryTaskDelta[\s\S]*?\n  static async loadArchiver/)?.[0] ?? ''
 const applyResultsBody = settings.match(/private static async applyDownloadResults[\s\S]*?\n  private static firstSeedError/)?.[0] ?? ''
@@ -307,7 +308,8 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     !/JSON\.stringify\(\[task\]\)/.test(settings) &&
     /galleryMetadataPath\(task: DownloadGalleryTask\)[\s\S]*ensureGalleryDownloadDir\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
     /archiverMetadataPath\(task: DownloadArchiverTask\)[\s\S]*ensureArchiverDownloadDir\(\)[\s\S]*ARCHIVER_METADATA_SUFFIX/.test(settings) &&
-    /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*fs\.writeSync/.test(settings))
+    /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*new util\.TextEncoder\(\)\.encodeInto\(text\)[\s\S]*bytes\.byteLength > 0[\s\S]*fs\.writeSync\(file\.fd, bytes\.buffer\)/.test(settings) &&
+    !/fs\.writeSync\(file\.fd, text\)/.test(settings))
 ok('restore merges current download metadata sidecars without overriding RDB rows',
     /const rdbGalleryTasks: DownloadGalleryTask\[\] =[\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(restoreBody) &&
     /const metadataGalleryTasks: DownloadGalleryTask\[\] =[\s\S]*loadGalleryMetadataTasks\(\)/.test(restoreBody) &&
@@ -316,6 +318,8 @@ ok('restore merges current download metadata sidecars without overriding RDB row
     /const metadataArchiverTasks: DownloadArchiverTask\[\] =[\s\S]*loadArchiverMetadataTasks\(\)/.test(restoreBody) &&
     /mergeRestoredArchiverTasks\([\s\S]*rdbArchiverTasks,[\s\S]*metadataArchiverTasks/.test(restoreBody) &&
     /loadGalleryMetadataTasks\(\)[\s\S]*galleryRootDirs\(\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
+    /loadGalleryMetadataTasks\(\)[\s\S]*fs\.statSync\(dir\)[\s\S]*!stat\.isDirectory\(\)[\s\S]*continue/.test(settings) &&
+    /gallery_metadata_entry_restore_failed/.test(settings) &&
     /loadArchiverMetadataTasks\(\)[\s\S]*archiverRootDirs\(\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
     !/legacyGalleryRootDir|legacyArchiverRootDir/.test(settings) &&
     /mergeRestoredGalleryTasks\([\s\S]*const out: DownloadGalleryTask\[\] = primary\.map[\s\S]*sameGalleryTask\(it, task\.gid, task\.token, task\.preferOriginal\)[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings) &&
@@ -441,13 +445,21 @@ ok('incremental gallery downloads inherit files only from the same ordinary qual
   /findGalleryTaskIn\([\s\S]*preferOriginal: boolean \| null = null[\s\S]*task\.preferOriginal !== preferOriginal/.test(settings) &&
     /findGalleryTaskIn\([\s\S]*task\.upgradeFromGid,[\s\S]*'',[\s\S]*task\.preferOriginal/.test(settings) &&
     /inheritDownloadedSeedsFromParent\([\s\S]*task\.preferOriginal,[\s\S]*parent/.test(settings))
-ok('remove deletes only the selected gallery download quality content',
-  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*persistGalleryRemoval\(context, gid, token, preferOriginal\)[\s\S]*cancelScheduledGalleryMetadata\(task\)[\s\S]*deleteGalleryContent\(context, task\)/.test(settings) &&
-    /deleteGalleryContent\([\s\S]*galleryRootDirs\(\)[\s\S]*const name: string = DownloadQueueSettings\.galleryDirName\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*deleteSandboxPath/.test(settings) &&
+ok('remove deletes every physical directory owned by the selected gallery quality before dropping its record',
+  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*await running[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*cancelScheduledGalleryMetadata\(task\)[\s\S]*deleteGalleryContent\(task\)[\s\S]*setGalleryTasks\(state, next\)[\s\S]*persistGalleryRemoval\(context, gid, token, preferOriginal\)/.test(settings) &&
+    /deleteGalleryContent\([\s\S]*galleryContentDirs\(task\)[\s\S]*deleteRequiredPath/.test(settings) &&
+    /galleryContentDirs\([\s\S]*galleryDirName\([\s\S]*task\.imageSeeds[\s\S]*galleryOwnerDirForFile[\s\S]*DOWNLOAD_METADATA_FILE[\s\S]*sameGalleryTask\(it, task\.gid, task\.token, task\.preferOriginal\)/.test(settings) &&
+    /deleteRequiredPath\([\s\S]*fs\.rmdirSync\(path\)[\s\S]*fs\.accessSync\(path\)[\s\S]*throw error as Error/.test(settings) &&
     !/legacyGalleryRootDir|galleryDirNameCandidates/.test(settings))
+ok('failed gallery deletion or queue persistence keeps the live task visible',
+  /removeGallery\([\s\S]*deleteGalleryContent\(task\)[\s\S]*setGalleryTasks\(state, next\)[\s\S]*persistGalleryRemoval[\s\S]*catch \(error\) \{[\s\S]*setGalleryTasks\(state, previous\)[\s\S]*throw error as Error/.test(settings) &&
+    /persistGalleryRemoval\([\s\S]*download_queue_task_remove_failed[\s\S]*throw error as Error/.test(settings))
+ok('download UI reports physical deletion failures instead of silently hiding them',
+  /removeTask\([\s\S]*removeGallery\([\s\S]*catch \(error\)[\s\S]*download_gallery_remove_failed[\s\S]*download_delete_failed/.test(downloadQueuePage) &&
+    /removeArchiverTask\([\s\S]*removeArchiver\([\s\S]*catch \(error\)[\s\S]*download_archiver_remove_failed[\s\S]*download_delete_failed/.test(downloadQueuePage))
 ok('remove cancels in-flight gallery workers and discards late batch files',
   /cancelledGalleryDownloads: Set<string>/.test(settings) &&
-    /removeGallery\([\s\S]*galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)/.test(settings) &&
+    /removeGallery\([\s\S]*galleryDownloads\.get\(key\)[\s\S]*running !== undefined[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*gallerySeedScheduler\.cancelQueued\(key\)[\s\S]*await running/.test(settings) &&
     /cancelledGalleryDownloads\.has\(key\)[\s\S]*deleteDownloadSeedResults\(results\)[\s\S]*return/.test(settings) &&
     /deleteDownloadSeedResults\(results: DownloadSeedResult\[\]\)[\s\S]*deleteSandboxPath\(result\.filePath, 'gallery_cancelled_file_delete_failed'\)/.test(settings))
 ok('pause marks running gallery workers cancelled while keeping the task resumable',
@@ -467,13 +479,13 @@ ok('batch gallery pause action reuses the per-task executor',
   /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings))
 ok('remove deletes archiver package, partial package, metadata sidecar, and extracted reader cache',
-  /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiverRemoval\(context, tag\)[\s\S]*deleteArchiverContent\(context, task\)/.test(settings) &&
-    /deleteArchiverContent\([\s\S]*archiverMetadataPath\(task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
+  /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*deleteArchiverContent\(context, task\)[\s\S]*setArchiverTasks\(state, next\)[\s\S]*persistArchiverRemoval\(context, tag\)/.test(settings) &&
+    /deleteArchiverContent\([\s\S]*archiverMetadataPath\(task\)[\s\S]*deleteRequiredPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
     /ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'/.test(settings) &&
     /names\[i\]\.startsWith\(prefix\)[\s\S]*deleteSandboxPath/.test(settings))
 ok('remove cancels in-flight archiver workers while preserving partial packages for resumable downloads',
   /cancelledArchiverDownloads: Set<string>/.test(settings) &&
-    /removeArchiver\([\s\S]*archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)/.test(settings) &&
+    /removeArchiver\([\s\S]*archiverDownloads\.get\(tag\)[\s\S]*running !== undefined[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*await running/.test(settings) &&
     /cancelledArchiverDownloads\.has\(tag\)[\s\S]*archiverProgressPulses\.delete\(tag\)[\s\S]*return/.test(settings) &&
     !/archiver_cancelled_file_delete_failed/.test(settings) &&
     /shouldContinueAfterJoinedArchiverDownload/.test(settings))

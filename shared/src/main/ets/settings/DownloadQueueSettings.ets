@@ -683,13 +683,20 @@ export class DownloadQueueSettings {
     preferOriginal: boolean = false,
   ): Promise<void> {
     const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
-    if (DownloadQueueSettings.galleryDownloads.has(key)) {
+    const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
+    if (running !== undefined) {
       DownloadQueueSettings.cancelledGalleryDownloads.add(key)
       DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
+      try {
+        await running
+      } catch (error) {
+        DiagnosticLogger.warn('download', 'gallery_remove_wait_failed', (error as Error).message)
+      }
     }
     DownloadQueueSettings.clearGalleryRuntimeState(key)
     const state = connectDownloadQueue()
     let removed: DownloadGalleryTask | null = null
+    const previous: DownloadGalleryTask[] = state.galleryTasks.map((it: DownloadGalleryTask) => it.copy())
     const next: DownloadGalleryTask[] = []
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       if (DownloadQueueSettings.sameGalleryTask(it, gid, token, preferOriginal)) {
@@ -698,12 +705,21 @@ export class DownloadQueueSettings {
       }
       next.push(it.copy())
     })
+    if (removed === null) {
+      return
+    }
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      throw new Error(DOWNLOAD_DIRECTORY_UNAVAILABLE)
+    }
+    const task: DownloadGalleryTask = removed
+    DownloadQueueSettings.cancelScheduledGalleryMetadata(task)
+    DownloadQueueSettings.deleteGalleryContent(task)
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persistGalleryRemoval(context, gid, token, preferOriginal)
-    if (removed !== null) {
-      const task: DownloadGalleryTask = removed
-      DownloadQueueSettings.cancelScheduledGalleryMetadata(task)
-      DownloadQueueSettings.deleteGalleryContent(context, task)
+    try {
+      await DownloadQueueSettings.persistGalleryRemoval(context, gid, token, preferOriginal)
+    } catch (error) {
+      DownloadQueueSettings.setGalleryTasks(state, previous)
+      throw error as Error
     }
   }
 
@@ -845,11 +861,18 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     tag: string,
   ): Promise<void> {
-    if (DownloadQueueSettings.archiverDownloads.has(tag)) {
+    const running: Promise<void> | undefined = DownloadQueueSettings.archiverDownloads.get(tag)
+    if (running !== undefined) {
       DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
+      try {
+        await running
+      } catch (error) {
+        DiagnosticLogger.warn('download', 'archiver_remove_wait_failed', (error as Error).message)
+      }
     }
     const state = connectDownloadQueue()
     let removed: DownloadArchiverTask | null = null
+    const previous: DownloadArchiverTask[] = state.archiverTasks.map((it: DownloadArchiverTask) => it.copy())
     const next: DownloadArchiverTask[] = []
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
       if (it.tag === tag) {
@@ -858,11 +881,20 @@ export class DownloadQueueSettings {
       }
       next.push(it.copy())
     })
+    if (removed === null) {
+      return
+    }
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      throw new Error(DOWNLOAD_DIRECTORY_UNAVAILABLE)
+    }
+    const task: DownloadArchiverTask = removed
+    DownloadQueueSettings.deleteArchiverContent(context, task)
     DownloadQueueSettings.setArchiverTasks(state, next)
-    await DownloadQueueSettings.persistArchiverRemoval(context, tag)
-    if (removed !== null) {
-      const task: DownloadArchiverTask = removed
-      DownloadQueueSettings.deleteArchiverContent(context, task)
+    try {
+      await DownloadQueueSettings.persistArchiverRemoval(context, tag)
+    } catch (error) {
+      DownloadQueueSettings.setArchiverTasks(state, previous)
+      throw error as Error
     }
   }
 
@@ -2188,6 +2220,7 @@ export class DownloadQueueSettings {
       })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_remove_failed', (error as Error).message)
+      throw error as Error
     }
   }
 
@@ -2320,6 +2353,7 @@ export class DownloadQueueSettings {
       })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_archiver_task_remove_failed', (error as Error).message)
+      throw error as Error
     }
   }
 
@@ -2806,27 +2840,43 @@ export class DownloadQueueSettings {
   private static loadGalleryMetadataTasks(): DownloadGalleryTask[] {
     const out: DownloadGalleryTask[] = []
     const roots: string[] = DownloadQueueSettings.galleryRootDirs()
-    try {
-      for (let r: number = 0; r < roots.length && out.length < MAX_GALLERY_TASKS; r++) {
-        const root: string = roots[r]
+    for (let r: number = 0; r < roots.length && out.length < MAX_GALLERY_TASKS; r++) {
+      const root: string = roots[r]
+      let names: string[] = []
+      try {
         if (!fs.accessSync(root)) {
           continue
         }
-        const names: string[] = fs.listFileSync(root)
-        for (let i: number = 0; i < names.length && out.length < MAX_GALLERY_TASKS; i++) {
-          const path: string = `${root}/${names[i]}/${DOWNLOAD_METADATA_FILE}`
-          if (fs.accessSync(path)) {
-            const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(path))
-            tasks.forEach((task: DownloadGalleryTask) => {
-              if (out.length < MAX_GALLERY_TASKS) {
-                out.push(task)
-              }
-            })
+        names = fs.listFileSync(root)
+      } catch (error) {
+        DiagnosticLogger.warn('download', 'gallery_metadata_root_restore_failed', (error as Error).message)
+        continue
+      }
+      for (let i: number = 0; i < names.length && out.length < MAX_GALLERY_TASKS; i++) {
+        try {
+          const dir: string = DownloadQueueSettings.joinPath(root, names[i])
+          const stat: fs.Stat = fs.statSync(dir)
+          if (!stat.isDirectory()) {
+            continue
           }
+          const path: string = DownloadQueueSettings.joinPath(dir, DOWNLOAD_METADATA_FILE)
+          if (!fs.accessSync(path)) {
+            continue
+          }
+          const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(path))
+          tasks.forEach((task: DownloadGalleryTask) => {
+            if (out.length < MAX_GALLERY_TASKS) {
+              out.push(task)
+            }
+          })
+        } catch (error) {
+          DiagnosticLogger.warn(
+            'download',
+            'gallery_metadata_entry_restore_failed',
+            `entryHash=${DiagnosticLogger.ownerHash(names[i])} error=${(error as Error).message}`,
+          )
         }
       }
-    } catch (error) {
-      DiagnosticLogger.warn('download', 'gallery_metadata_restore_failed', (error as Error).message)
     }
     return out
   }
@@ -2967,7 +3017,10 @@ export class DownloadQueueSettings {
     let file: fs.File | null = null
     try {
       file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
-      fs.writeSync(file.fd, text)
+      const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
+      if (bytes.byteLength > 0) {
+        fs.writeSync(file.fd, bytes.buffer)
+      }
     } catch (error) {
       DiagnosticLogger.warn('download', event, (error as Error).message)
     } finally {
@@ -3043,35 +3096,110 @@ export class DownloadQueueSettings {
     return out
   }
 
-  private static deleteGalleryContent(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
+  private static deleteGalleryContent(task: DownloadGalleryTask): void {
     if (task.gid.length === 0) {
       return
     }
+    const dirs: string[] = DownloadQueueSettings.galleryContentDirs(task)
+    DiagnosticLogger.info(
+      'download',
+      'gallery_content_delete_plan',
+      `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} directories=${dirs.length}`,
+    )
+    let deleted: number = 0
+    for (let i: number = 0; i < dirs.length; i++) {
+      if (DownloadQueueSettings.deleteRequiredPath(dirs[i], 'gallery_content_delete_failed')) {
+        deleted++
+      }
+    }
+    DiagnosticLogger.info(
+      'download',
+      'gallery_content_delete_done',
+      `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} deleted=${deleted}`,
+    )
+  }
+
+  /**
+   * Resolve physical ownership from current naming, persisted seed paths and every metadata sidecar.
+   * One logical task may own more than one directory after a title/path naming change.
+   */
+  private static galleryContentDirs(task: DownloadGalleryTask): string[] {
+    const out: string[] = []
     const roots: string[] = DownloadQueueSettings.galleryRootDirs()
-    const name: string = DownloadQueueSettings.galleryDirName(
+    const currentName: string = DownloadQueueSettings.galleryDirName(
       task.gid,
       task.preferOriginal,
       DownloadQueueSettings.galleryTaskPathTitle(task),
     )
-    for (let i: number = 0; i < roots.length; i++) {
-      DownloadQueueSettings.deleteSandboxPath(
-        DownloadQueueSettings.joinPath(roots[i], name),
-        'gallery_content_delete_failed',
-      )
+    for (let r: number = 0; r < roots.length; r++) {
+      const root: string = roots[r]
+      const current: string = DownloadQueueSettings.joinPath(root, currentName)
+      if (fs.accessSync(current)) {
+        DownloadQueueSettings.pushUniquePath(out, current)
+      }
+      for (let s: number = 0; s < task.imageSeeds.length; s++) {
+        const owner: string = DownloadQueueSettings.galleryOwnerDirForFile(task.imageSeeds[s].filePath, root)
+        if (owner.length > 0 && fs.accessSync(owner)) {
+          DownloadQueueSettings.pushUniquePath(out, owner)
+        }
+      }
+      try {
+        if (!fs.accessSync(root)) {
+          continue
+        }
+        const names: string[] = fs.listFileSync(root)
+        for (let i: number = 0; i < names.length; i++) {
+          const dir: string = DownloadQueueSettings.joinPath(root, names[i])
+          const metadataPath: string = DownloadQueueSettings.joinPath(dir, DOWNLOAD_METADATA_FILE)
+          if (!fs.accessSync(metadataPath)) {
+            continue
+          }
+          const metadataTasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(metadataPath))
+          const ownsTask: boolean = metadataTasks.some((it: DownloadGalleryTask) => {
+            return DownloadQueueSettings.sameGalleryTask(it, task.gid, task.token, task.preferOriginal)
+          })
+          if (ownsTask) {
+            DownloadQueueSettings.pushUniquePath(out, dir)
+          }
+        }
+      } catch (error) {
+        DiagnosticLogger.warn('download', 'gallery_content_scan_failed', (error as Error).message)
+        throw error as Error
+      }
     }
+    return out
+  }
+
+  private static galleryOwnerDirForFile(filePath: string, root: string): string {
+    const prefix: string = root.endsWith('/') ? root : `${root}/`
+    if (!filePath.startsWith(prefix)) {
+      return ''
+    }
+    const relative: string = filePath.substring(prefix.length)
+    const slash: number = relative.indexOf('/')
+    if (slash <= 0) {
+      return ''
+    }
+    return DownloadQueueSettings.joinPath(root, relative.substring(0, slash))
   }
 
   private static deleteArchiverContent(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
-    DownloadQueueSettings.deleteSandboxPath(DownloadQueueSettings.archiverMetadataPath(task), 'archiver_metadata_delete_failed')
+    DownloadQueueSettings.deleteRequiredPath(
+      DownloadQueueSettings.archiverMetadataPath(task),
+      'archiver_metadata_delete_failed',
+    )
     const roots: string[] = DownloadQueueSettings.archiverRootDirs()
     for (let i: number = 0; i < roots.length; i++) {
-      DownloadQueueSettings.deleteSandboxPath(
+      DownloadQueueSettings.deleteRequiredPath(
         DownloadQueueSettings.joinPath(roots[i], `${DownloadQueueSettings.safePathPart(task.tag)}${ARCHIVER_METADATA_SUFFIX}`),
         'archiver_metadata_delete_failed',
       )
     }
-    DownloadQueueSettings.deleteSandboxPath(task.filePath, 'archiver_file_delete_failed')
-    DownloadQueueSettings.deleteSandboxPath(DownloadQueueSettings.archiverPartialPath(task.filePath), 'archiver_partial_file_delete_failed')
+    DownloadQueueSettings.deleteRequiredPath(task.filePath, 'archiver_file_delete_failed')
+    DownloadQueueSettings.deleteRequiredPath(
+      DownloadQueueSettings.archiverPartialPath(task.filePath),
+      'archiver_partial_file_delete_failed',
+    )
     DownloadQueueSettings.deleteArchiverExtracts(context, task)
   }
 
@@ -3112,6 +3240,27 @@ export class DownloadQueueSettings {
       }
     } catch (error) {
       DiagnosticLogger.warn('download', event, (error as Error).message)
+    }
+  }
+
+  private static deleteRequiredPath(path: string, event: string): boolean {
+    if (path.length === 0 || !fs.accessSync(path)) {
+      return false
+    }
+    try {
+      const stat: fs.Stat = fs.statSync(path)
+      if (stat.isDirectory()) {
+        fs.rmdirSync(path)
+      } else {
+        fs.unlinkSync(path)
+      }
+      if (fs.accessSync(path)) {
+        throw new Error('download content still exists after deletion')
+      }
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('download', event, (error as Error).message)
+      throw error as Error
     }
   }
 
