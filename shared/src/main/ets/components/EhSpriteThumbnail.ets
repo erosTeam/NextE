@@ -72,6 +72,9 @@ export struct EhSpriteThumbnail {
   @Local sheetRealH: number = 0;
   @Local loaded: boolean = false;
   @Local failed: boolean = false;
+  // Page refresh may offer a retry token, but only a tile that has actually failed consumes it.
+  // Successful or in-flight images retain their current pixels and request state across outer refreshes.
+  @Local activeReloadToken: number = 0;
   @Local imageBlocked: boolean = false;
   @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
   @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
@@ -86,6 +89,7 @@ export struct EhSpriteThumbnail {
     this.sheetRealH = 0
     this.loaded = false
     this.failed = false
+    this.activeReloadToken = 0
     this.imageBlocked = false
     this.checkImageBlock()
   }
@@ -103,10 +107,14 @@ export struct EhSpriteThumbnail {
 
   @Monitor('reloadToken')
   onReloadRequested(): void {
+    if (!this.loaded || !this.failed) {
+      return
+    }
     this.sheetRealW = 0
     this.sheetRealH = 0
     this.loaded = false
     this.failed = false
+    this.activeReloadToken = this.reloadToken
   }
 
   @Monitor('imageBlockRuntime.signal')
@@ -300,7 +308,7 @@ export struct EhSpriteThumbnail {
             settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
             connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
             readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-            reloadToken: this.reloadToken,
+            reloadToken: this.activeReloadToken,
             onImageInfo: (width: number, height: number) => {
               this.onThumbImageInfo(width, height)
             },
@@ -323,7 +331,7 @@ export struct EhSpriteThumbnail {
           settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
           connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
           readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-          reloadToken: this.reloadToken,
+          reloadToken: this.activeReloadToken,
         })
           .blur(18)
           .opacity(0.9)
@@ -339,7 +347,7 @@ export struct EhSpriteThumbnail {
           settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
           connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
           readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-          reloadToken: this.reloadToken,
+          reloadToken: this.activeReloadToken,
         })
           .blur(18)
           .opacity(0.9)
@@ -388,7 +396,7 @@ export struct EhSpriteThumbnail {
           settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
           connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
           readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-          reloadToken: this.reloadToken,
+          reloadToken: this.activeReloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -422,7 +430,7 @@ export struct EhSpriteThumbnail {
           settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
           connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
           readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-          reloadToken: this.reloadToken,
+          reloadToken: this.activeReloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },
@@ -454,7 +462,7 @@ export struct EhSpriteThumbnail {
           settleTimeoutMs: SPRITE_THUMB_SETTLE_TIMEOUT_MS,
           connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
           readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
-          reloadToken: this.reloadToken,
+          reloadToken: this.activeReloadToken,
           onComplete: () => {
             this.onThumbComplete()
           },

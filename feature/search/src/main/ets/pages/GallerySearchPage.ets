@@ -2,6 +2,7 @@ import {
   ThemeConstants,
   EhGallery,
   GalleryCard,
+  GalleryDetailTransitionSourceSlot,
   GalleryGridCard,
   galleryGridReuseId,
   GalleryWaterfallCard,
@@ -68,8 +69,6 @@ import {
   LocalBlockState,
   connectLocalBlock,
   GalleryDetailTransitionCoordinator,
-  GalleryDetailTransitionState,
-  connectGalleryDetailTransition,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -104,7 +103,6 @@ export struct GallerySearchPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local localBlock: LocalBlockState = connectLocalBlock();
-  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local historyTranslations: Map<string, string> = new Map<string, string>();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
@@ -459,6 +457,13 @@ export struct GallerySearchPage {
     )
   }
 
+  private galleryDetailSourceSurfaceId(): string {
+    return GalleryDetailTransitionCoordinator.sourceSurfaceId(
+      this.galleryDetailTransitionScope,
+      this.listMode.mode,
+    )
+  }
+
   private openGalleryDetail(g: EhGallery): void {
     GalleryDetailTransitionCoordinator.open(
       this.getUIContext(),
@@ -480,6 +485,7 @@ export struct GallerySearchPage {
       },
       this.galleryDetailSourceCoverId(g),
       g.thumbUrl,
+      this.galleryDetailSourceSurfaceId(),
     )
   }
 
@@ -1056,18 +1062,17 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   GridItem() {
-                    GalleryGridCard({
-                      gallery: g,
-                      transitionCoverId: this.galleryDetailSourceCoverId(g),
-                    })
-                      .reuse({ reuseId: () => galleryGridReuseId(g) })
+                    GalleryDetailTransitionSourceSlot({
+                      sourceComponentId: this.galleryDetailSourceId(g),
+                    }) {
+                      GalleryGridCard({
+                        gallery: g,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
+                      })
+                        .reuse({ reuseId: () => galleryGridReuseId(g) })
+                    }
                   }
                   .id(this.galleryDetailSourceId(g))
-                  .visibility(
-                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                      ? Visibility.Hidden
-                      : Visibility.Visible,
-                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1124,21 +1129,20 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   FlowItem() {
-                    GalleryWaterfallCard({
-                      gallery: g,
-                      tagSig: this.tagSig,
-                      tagTranslation: this.tagTranslation,
-                      transitionCoverId: this.galleryDetailSourceCoverId(g),
-                    })
-                      .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
+                    GalleryDetailTransitionSourceSlot({
+                      sourceComponentId: this.galleryDetailSourceId(g),
+                    }) {
+                      GalleryWaterfallCard({
+                        gallery: g,
+                        tagSig: this.tagSig,
+                        tagTranslation: this.tagTranslation,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
+                      })
+                        .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
+                    }
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
-                  .visibility(
-                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                      ? Visibility.Hidden
-                      : Visibility.Visible,
-                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1195,22 +1199,21 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   FlowItem() {
-                    GalleryWaterfallCard({
-                      gallery: g,
-                      tagSig: this.tagSig,
-                      tagTranslation: this.tagTranslation,
-                      compact: true,
-                      transitionCoverId: this.galleryDetailSourceCoverId(g),
-                    })
-                      .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
+                    GalleryDetailTransitionSourceSlot({
+                      sourceComponentId: this.galleryDetailSourceId(g),
+                    }) {
+                      GalleryWaterfallCard({
+                        gallery: g,
+                        tagSig: this.tagSig,
+                        tagTranslation: this.tagTranslation,
+                        compact: true,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
+                      })
+                        .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
+                    }
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
-                  .visibility(
-                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                      ? Visibility.Hidden
-                      : Visibility.Visible,
-                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1266,19 +1269,18 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   FlowItem() {
-                    GalleryCoverWallCard({
-                      gallery: g,
-                      transitionCoverId: this.galleryDetailSourceCoverId(g),
-                    })
-                      .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
+                    GalleryDetailTransitionSourceSlot({
+                      sourceComponentId: this.galleryDetailSourceId(g),
+                    }) {
+                      GalleryCoverWallCard({
+                        gallery: g,
+                        transitionCoverId: this.galleryDetailSourceCoverId(g),
+                      })
+                        .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
+                    }
                   }
                   .width('100%')
                   .id(this.galleryDetailSourceId(g))
-                  .visibility(
-                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                      ? Visibility.Hidden
-                      : Visibility.Visible,
-                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1323,26 +1325,25 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   ListItem() {
-                    if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-                      GallerySimpleCard({
-                        gallery: g,
-                        transitionCoverId: this.galleryDetailSourceCoverId(g),
-                      })
-                        .reuse({ reuseId: () => gallerySimpleReuseId(g) })
-                    } else {
-                      GalleryCard({
-                        gallery: g,
-                        listContentWidth: this.listContentWidth,
-                        transitionCoverId: this.galleryDetailSourceCoverId(g),
-                      })
+                    GalleryDetailTransitionSourceSlot({
+                      sourceComponentId: this.galleryDetailSourceId(g),
+                    }) {
+                      if (this.listMode.mode === ListMode.SIMPLE_LIST) {
+                        GallerySimpleCard({
+                          gallery: g,
+                          transitionCoverId: this.galleryDetailSourceCoverId(g),
+                        })
+                          .reuse({ reuseId: () => gallerySimpleReuseId(g) })
+                      } else {
+                        GalleryCard({
+                          gallery: g,
+                          listContentWidth: this.listContentWidth,
+                          transitionCoverId: this.galleryDetailSourceCoverId(g),
+                        })
+                      }
                     }
                   }
                   .id(this.galleryDetailSourceId(g))
-                  .visibility(
-                    this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                      ? Visibility.Hidden
-                      : Visibility.Visible,
-                  )
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
                   })
@@ -1369,6 +1370,7 @@ export struct GallerySearchPage {
         }
         .width('100%')
         .height('100%')
+        .id(this.galleryDetailSourceSurfaceId())
       }
       .width('100%')
       .height('100%')

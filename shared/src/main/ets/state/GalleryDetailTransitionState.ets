@@ -9,6 +9,7 @@ export enum GalleryDetailTransitionPhase {
   OPENING = 'opening',
   OPEN = 'open',
   CLOSING = 'closing',
+  POST_POP_HANDOFF = 'post_pop_handoff',
 }
 
 @ObservedV2
@@ -19,7 +20,9 @@ export class GalleryDetailTransitionState {
   @Trace galleryId: string = ''
   @Trace sourceComponentId: string = ''
   @Trace sourceCoverComponentId: string = ''
+  sourceSurfaceComponentId: string = ''
   @Trace preserveSourceCoverBackground: boolean = false
+  @Trace sourceCoverRecaptureHidden: boolean = false
   @Trace targetCoverComponentId: string = ''
   @Trace handoffX: number = 0
   @Trace handoffY: number = 0
@@ -48,9 +51,16 @@ export class GalleryDetailTransitionState {
   @Trace fallbackCoverOpacity: number = 0
   @Trace coverResourceReady: boolean = false
   @Trace coverUrl: string = ''
+  @Trace independentPopSurfaceActive: boolean = false
   sourceSnapshot: image.PixelMap | undefined = undefined
+  detailSnapshot: image.PixelMap | undefined = undefined
   cardSnapshot: image.PixelMap | undefined = undefined
   coverSnapshot: image.PixelMap | undefined = undefined
+  @Trace sourceSnapshotX: number = 0
+  @Trace sourceSnapshotY: number = 0
+  @Trace sourceSnapshotWidth: number = 0
+  @Trace sourceSnapshotHeight: number = 0
+  private sourceSnapshotFreshForCurrentRoot: boolean = false
 
   @Trace rootWidth: number = 0
   @Trace rootHeight: number = 0
@@ -69,11 +79,14 @@ export class GalleryDetailTransitionState {
   @Trace targetCoverWidth: number = 0
   @Trace targetCoverHeight: number = 0
   @Trace targetCoverRadius: number = 0
+  private targetCoverRootWidth: number = 0
+  private targetCoverRootHeight: number = 0
 
   beginSourceHandoff(
     mode: string,
     componentId: string,
     sourceCoverComponentId: string,
+    sourceSurfaceComponentId: string,
     preserveSourceCoverBackground: boolean,
     targetCoverComponentId: string,
     x: number,
@@ -92,6 +105,7 @@ export class GalleryDetailTransitionState {
     this.mode = mode
     this.sourceComponentId = preserveSourceCoverBackground ? '' : componentId
     this.sourceCoverComponentId = sourceCoverComponentId
+    this.sourceSurfaceComponentId = sourceSurfaceComponentId
     this.preserveSourceCoverBackground = preserveSourceCoverBackground
     this.targetCoverComponentId = targetCoverComponentId
     this.handoffX = x
@@ -114,6 +128,7 @@ export class GalleryDetailTransitionState {
     this.coverFadePopFallback = false
     this.fallbackCoverOpacity = 0
     this.coverResourceReady = false
+    this.sourceSnapshotFreshForCurrentRoot = false
     if (preserveSourceCoverBackground) {
       // Keep the click-time flight visible while one frame is used to recapture the live card with only
       // its foreground image transparent. The clip starts at the source card, matching the later surface.
@@ -147,6 +162,187 @@ export class GalleryDetailTransitionState {
       this.preserveSourceCoverBackground = false
     }
     this.sourceComponentId = componentId
+  }
+
+  beginSourceRecapture(): string {
+    if (
+      !this.eligible ||
+      this.phase !== GalleryDetailTransitionPhase.OPEN ||
+      this.sourceComponentId.length === 0
+    ) {
+      return ''
+    }
+    const componentId: string = this.sourceComponentId
+    // The retained list item is normally Visibility.Hidden. Clear only its runtime hide key so the
+    // current post-rotation card can render behind the opaque detail page for one capture frame.
+    this.sourceComponentId = ''
+    this.sourceCoverRecaptureHidden = false
+    return componentId
+  }
+
+  prepareIndependentPopSurface(
+    snapshot: image.PixelMap,
+    rootWidth: number,
+    rootHeight: number,
+  ): boolean {
+    if (
+      !this.eligible ||
+      !this.isCoverExpand() ||
+      this.phase !== GalleryDetailTransitionPhase.OPEN ||
+      rootWidth <= 0 ||
+      rootHeight <= 0
+    ) {
+      return false
+    }
+    const previous: image.PixelMap | undefined = this.detailSnapshot
+    // Publish the captured surface and the geometry that produced it as one renderable state. After
+    // rotation the previous transition geometry belongs to the old orientation; exposing the new
+    // PixelMap before these values would stretch it for one or more frames.
+    this.detailSnapshot = snapshot
+    this.rootWidth = rootWidth
+    this.rootHeight = rootHeight
+    this.clipX = 0
+    this.clipY = 0
+    this.clipWidth = rootWidth
+    this.clipHeight = rootHeight
+    this.radius = 0
+    this.independentPopSurfaceActive = true
+    if (previous !== undefined) {
+      previous.release().catch((_error: Error) => {})
+    }
+    return true
+  }
+
+  independentPopSurfaceVisible(): boolean {
+    return this.independentPopSurfaceActive &&
+      this.detailSnapshot !== undefined &&
+      (this.phase === GalleryDetailTransitionPhase.OPEN ||
+        this.phase === GalleryDetailTransitionPhase.CLOSING ||
+        this.phase === GalleryDetailTransitionPhase.POST_POP_HANDOFF)
+  }
+
+  hideSourceForSurfaceCapture(componentId: string): boolean {
+    if (
+      !this.eligible ||
+      this.phase !== GalleryDetailTransitionPhase.OPEN ||
+      componentId.length === 0 ||
+      this.sourceComponentId.length > 0
+    ) {
+      return false
+    }
+    // Geometry/card pixels have been captured from the now-active destination route. Hide the real
+    // source card again before capturing the destination surface used below the closing animation.
+    this.sourceCoverRecaptureHidden = false
+    this.sourceComponentId = componentId
+    return true
+  }
+
+  hideSourceCoverForRecapture(): void {
+    if (this.preserveSourceCoverBackground && this.phase === GalleryDetailTransitionPhase.OPEN) {
+      // Wide covers own a real blur/gradient layer below the foreground image. Preserve that accepted
+      // two-layer contract by hiding only the foreground before recapturing the card remainder.
+      this.sourceCoverRecaptureHidden = true
+    }
+  }
+
+  cancelSourceRecapture(componentId: string): void {
+    this.sourceCoverRecaptureHidden = false
+    if (
+      this.eligible &&
+      this.phase === GalleryDetailTransitionPhase.OPEN &&
+      this.sourceComponentId.length === 0
+    ) {
+      this.sourceComponentId = componentId
+    }
+  }
+
+  completeSourceRecapture(
+    componentId: string,
+    rootWidth: number,
+    rootHeight: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    cardSnapshot: image.PixelMap,
+    coverX: number,
+    coverY: number,
+    coverWidth: number,
+    coverHeight: number,
+    coverRadius: number,
+    coverSnapshot: image.PixelMap | undefined,
+    currentSourceSnapshot: image.PixelMap | undefined,
+    sourceSnapshotX: number,
+    sourceSnapshotY: number,
+    sourceSnapshotWidth: number,
+    sourceSnapshotHeight: number,
+  ): boolean {
+    if (
+      !this.eligible ||
+      this.phase !== GalleryDetailTransitionPhase.OPEN ||
+      componentId.length === 0 ||
+      rootWidth <= 0 ||
+      rootHeight <= 0 ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      this.cancelSourceRecapture(componentId)
+      return false
+    }
+
+    const previousCardSnapshot: image.PixelMap | undefined = this.cardSnapshot
+    this.cardSnapshot = cardSnapshot
+    if (previousCardSnapshot !== undefined) {
+      previousCardSnapshot.release().catch((_error: Error) => {})
+    }
+    if (coverSnapshot !== undefined) {
+      const previousCoverSnapshot: image.PixelMap | undefined = this.coverSnapshot
+      this.coverSnapshot = coverSnapshot
+      if (previousCoverSnapshot !== undefined) {
+        previousCoverSnapshot.release().catch((_error: Error) => {})
+      }
+    }
+    if (
+      currentSourceSnapshot !== undefined &&
+      sourceSnapshotWidth > 0 &&
+      sourceSnapshotHeight > 0
+    ) {
+      const previousSourceSnapshot: image.PixelMap | undefined = this.sourceSnapshot
+      this.sourceSnapshot = currentSourceSnapshot
+      this.sourceSnapshotX = sourceSnapshotX
+      this.sourceSnapshotY = sourceSnapshotY
+      this.sourceSnapshotWidth = sourceSnapshotWidth
+      this.sourceSnapshotHeight = sourceSnapshotHeight
+      this.sourceSnapshotFreshForCurrentRoot = true
+      if (previousSourceSnapshot !== undefined) {
+        previousSourceSnapshot.release().catch((_error: Error) => {})
+      }
+    }
+
+    this.rootWidth = rootWidth
+    this.rootHeight = rootHeight
+    this.handoffX = x
+    this.handoffY = y
+    this.handoffWidth = width
+    this.handoffHeight = height
+    this.collapsedScaleX = Math.max(0.08, Math.min(1, width / rootWidth))
+    this.collapsedScaleY = Math.max(0.08, Math.min(1, height / rootHeight))
+    this.collapsedTranslateX = x + width / 2 - rootWidth / 2
+    this.collapsedTranslateY = y + height / 2 - rootHeight / 2
+    this.clipX = 0
+    this.clipY = 0
+    this.clipWidth = rootWidth
+    this.clipHeight = rootHeight
+    if (coverWidth > 0 && coverHeight > 0) {
+      this.sourceCoverX = coverX
+      this.sourceCoverY = coverY
+      this.sourceCoverWidth = coverWidth
+      this.sourceCoverHeight = coverHeight
+      this.sourceCoverRadius = coverRadius
+    }
+    this.sourceCoverRecaptureHidden = false
+    this.sourceComponentId = componentId
+    return true
   }
 
   prepare(
@@ -201,6 +397,11 @@ export class GalleryDetailTransitionState {
       this.clipHeight = rootHeight
     }
     this.sourceSnapshot = sourceSnapshot
+    this.sourceSnapshotX = 0
+    this.sourceSnapshotY = 0
+    this.sourceSnapshotWidth = rootWidth
+    this.sourceSnapshotHeight = rootHeight
+    this.sourceSnapshotFreshForCurrentRoot = false
     this.eligible = true
     this.phase = GalleryDetailTransitionPhase.OPENING
   }
@@ -217,7 +418,8 @@ export class GalleryDetailTransitionState {
         this.preserveSourceCoverBackground) ||
         this.coverPopPrepared ||
         this.phase === GalleryDetailTransitionPhase.OPENING ||
-        this.phase === GalleryDetailTransitionPhase.CLOSING)
+        this.phase === GalleryDetailTransitionPhase.CLOSING ||
+        this.phase === GalleryDetailTransitionPhase.POST_POP_HANDOFF)
   }
 
   coverMaskVisible(): boolean {
@@ -228,7 +430,8 @@ export class GalleryDetailTransitionState {
     return this.isCoverExpand() &&
       this.coverFadePopFallback &&
       this.coverSnapshot !== undefined &&
-      this.phase === GalleryDetailTransitionPhase.CLOSING
+      (this.phase === GalleryDetailTransitionPhase.CLOSING ||
+        this.phase === GalleryDetailTransitionPhase.POST_POP_HANDOFF)
   }
 
   prepareCoverPop(targetVisible: boolean): void {
@@ -253,8 +456,16 @@ export class GalleryDetailTransitionState {
     width: number,
     height: number,
     radius: number,
+    rootWidth: number,
+    rootHeight: number,
   ): void {
-    if (!this.isCoverExpand() || width <= 0 || height <= 0) {
+    if (
+      !this.isCoverExpand() ||
+      width <= 0 ||
+      height <= 0 ||
+      rootWidth <= 0 ||
+      rootHeight <= 0
+    ) {
       return
     }
     this.targetCoverX = x
@@ -262,7 +473,15 @@ export class GalleryDetailTransitionState {
     this.targetCoverWidth = width
     this.targetCoverHeight = height
     this.targetCoverRadius = radius
+    this.targetCoverRootWidth = rootWidth
+    this.targetCoverRootHeight = rootHeight
     this.targetCoverReady = true
+  }
+
+  coverTargetReadyForRoot(rootWidth: number, rootHeight: number): boolean {
+    return this.targetCoverReady &&
+      Math.abs(this.targetCoverRootWidth - rootWidth) <= 0.5 &&
+      Math.abs(this.targetCoverRootHeight - rootHeight) <= 0.5
   }
 
   clearCoverTarget(): void {
@@ -272,6 +491,8 @@ export class GalleryDetailTransitionState {
     this.targetCoverWidth = 0
     this.targetCoverHeight = 0
     this.targetCoverRadius = 0
+    this.targetCoverRootWidth = 0
+    this.targetCoverRootHeight = 0
   }
 
   markCoverResourceReady(): void {
@@ -433,6 +654,27 @@ export class GalleryDetailTransitionState {
     this.phase = GalleryDetailTransitionPhase.CLOSING
   }
 
+  beginPostPopHandoff(): boolean {
+    if (
+      !this.isCoverExpand() ||
+      this.phase !== GalleryDetailTransitionPhase.CLOSING ||
+      (!this.independentPopSurfaceActive &&
+        (!this.sourceSnapshotFreshForCurrentRoot || this.sourceSnapshot === undefined))
+    ) {
+      return false
+    }
+    // Geometry recapture now runs only after POP has activated and rendered the destination list.
+    // Keep that live list visible, keep only its source card hidden, and hold the landed card overlay
+    // for two rendered frames before reset swaps it for the real card. Hiding the whole list here
+    // leaves a blank handoff frame because the navigation surface sits above the list snapshot.
+    this.phase = GalleryDetailTransitionPhase.POST_POP_HANDOFF
+    return true
+  }
+
+  postPopHandoffActive(): boolean {
+    return this.phase === GalleryDetailTransitionPhase.POST_POP_HANDOFF
+  }
+
   markPopSettled(success: boolean): void {
     if (this.phase !== GalleryDetailTransitionPhase.CLOSING) {
       return
@@ -464,7 +706,9 @@ export class GalleryDetailTransitionState {
     this.galleryId = ''
     this.sourceComponentId = ''
     this.sourceCoverComponentId = ''
+    this.sourceSurfaceComponentId = ''
     this.preserveSourceCoverBackground = false
+    this.sourceCoverRecaptureHidden = false
     this.targetCoverComponentId = ''
     this.handoffX = 0
     this.handoffY = 0
@@ -493,6 +737,7 @@ export class GalleryDetailTransitionState {
     this.fallbackCoverOpacity = 0
     this.coverResourceReady = false
     this.coverUrl = ''
+    this.independentPopSurfaceActive = false
     this.rootWidth = 0
     this.rootHeight = 0
     this.collapsedScaleX = 1
@@ -510,14 +755,24 @@ export class GalleryDetailTransitionState {
     this.targetCoverWidth = 0
     this.targetCoverHeight = 0
     this.targetCoverRadius = 0
+    this.sourceSnapshotX = 0
+    this.sourceSnapshotY = 0
+    this.sourceSnapshotWidth = 0
+    this.sourceSnapshotHeight = 0
+    this.sourceSnapshotFreshForCurrentRoot = false
     const sourceSnapshot: image.PixelMap | undefined = this.sourceSnapshot
+    const detailSnapshot: image.PixelMap | undefined = this.detailSnapshot
     const cardSnapshot: image.PixelMap | undefined = this.cardSnapshot
     const coverSnapshot: image.PixelMap | undefined = this.coverSnapshot
     this.sourceSnapshot = undefined
+    this.detailSnapshot = undefined
     this.cardSnapshot = undefined
     this.coverSnapshot = undefined
     if (sourceSnapshot !== undefined) {
       sourceSnapshot.release().catch((_error: Error) => {})
+    }
+    if (detailSnapshot !== undefined) {
+      detailSnapshot.release().catch((_error: Error) => {})
     }
     if (cardSnapshot !== undefined) {
       cardSnapshot.release().catch((_error: Error) => {})

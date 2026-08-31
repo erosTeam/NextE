@@ -1,6 +1,12 @@
 import { appMenuOptions } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
-import { ComponentContent, CustomContentDialog, FrameCallback, FrameNode, SymbolGlyphModifier } from '@kit.ArkUI'
+import {
+  ComponentContent,
+  CustomContentDialog,
+  FrameCallback,
+  FrameNode,
+  SymbolGlyphModifier,
+} from '@kit.ArkUI'
 import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import {
@@ -3141,25 +3147,38 @@ export struct GalleryDetailPage {
     return this.galleryDetailTransition.targetCoverComponentId
   }
 
-  private handleBackPressed(): boolean {
-    if (
-      this.coverPopDispatching ||
-      this.navStackHolder.isSplitMode ||
-      !this.galleryDetailTransition.eligible ||
-      !this.galleryDetailTransition.isCoverExpand()
-    ) {
-      return false
+  private dispatchPreparedGalleryDetailPop(): void {
+    if (!this.galleryDetailTransition.isCoverExpand()) {
+      this.stack.pop()
+      this.coverPopDispatching = false
+      return
     }
-    this.coverPopDispatching = true
     const coverTargetVisible: boolean = GalleryDetailTransitionCoordinator
       .syncDetailCoverTarget(this.getUIContext())
     this.galleryDetailTransition.prepareCoverPop(coverTargetVisible)
     // Let the destination paint its permanent cover mask before Navigation snapshots the POP source.
-    // onIdle provides a rendered-frame boundary without guessing a millisecond delay.
     this.getUIContext().postFrameCallback(new GalleryDetailPreparedPopFrameCallback((): void => {
       this.stack.pop()
       this.coverPopDispatching = false
     }))
+  }
+
+  private handleBackPressed(): boolean {
+    if (
+      this.coverPopDispatching ||
+      this.navStackHolder.isSplitMode ||
+      !this.galleryDetailTransition.eligible
+    ) {
+      return false
+    }
+
+    if (!this.galleryDetailTransition.isCoverExpand()) {
+      // Navigation's custom POP transition refreshes rotated source geometry after the destination
+      // list becomes the active `to` route. Do not measure the inactive background page here.
+      return false
+    }
+    this.coverPopDispatching = true
+    this.dispatchPreparedGalleryDetailPop()
     return true
   }
 
@@ -3230,11 +3249,24 @@ export struct GalleryDetailPage {
         .height('100%')
         .onAreaChange((_oldArea: Area, area: Area) => {
           const width: number = area.width as number
-          if (this.detailRootWidth !== width) {
+          const rootWidthChanged: boolean = this.detailRootWidth !== width
+          if (rootWidthChanged) {
             this.detailRootWidth = width
           }
           LayoutSafeAreaBridge.publishGalleryDetailContentWidth(width, this.navStackHolder.isSplitMode)
           this.syncGalleryDetailBackToTopWorkspace()
+          if (
+            rootWidthChanged &&
+            this.galleryDetailTransition.isCoverExpand() &&
+            this.galleryDetailTransition.galleryId === this.params.gid
+          ) {
+            // HDS can collapse the destination node to 0x0 before onBackPressed runs. Refresh the
+            // cover geometry while the rotated detail layout is still stable, then POP can use the
+            // cache only when it belongs to the current root dimensions.
+            this.getUIContext().postFrameCallback(new GalleryDetailPreparedPopFrameCallback((): void => {
+              GalleryDetailTransitionCoordinator.syncDetailCoverTarget(this.getUIContext())
+            }))
+          }
         })
         .bindSheet(
           this.usesPageDetailSheetHost(),

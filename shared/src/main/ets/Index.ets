@@ -150,6 +150,7 @@ export {
 } from './components/ImmersiveTitleBar'
 export { EhWebView } from './components/EhWebView'
 export { GalleryCard } from './components/GalleryCard'
+export { GalleryDetailTransitionSourceSlot } from './components/GalleryDetailTransitionSourceSlot'
 export { PageLoadingState, PageErrorState, CardEmptyState } from './components/PageState'
 export { LoadingFooter } from './components/LoadingFooter'
 export { PullRefresh, PullRefreshController } from './components/PullRefresh'

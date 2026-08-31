@@ -1543,7 +1543,11 @@ struct Index {
   }
 
   private coverExpandSurfaceActive(): boolean {
-    return this.galleryDetailTransition.eligible && this.galleryDetailTransition.isCoverExpand()
+    return this.galleryDetailTransition.eligible &&
+      this.galleryDetailTransition.isCoverExpand() &&
+      !this.galleryDetailTransition.independentPopSurfaceActive &&
+      (this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.OPENING ||
+        this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.CLOSING)
   }
 
   private sourceCoverLeftInCard(): number {
@@ -1648,7 +1652,33 @@ struct Index {
     .borderRadius(ThemeConstants.RADIUS_CARD)
     .clip(true)
     .opacity(this.galleryDetailTransition.cardOpacity)
+    .zIndex(2)
     .hitTestBehavior(HitTestMode.None)
+  }
+
+  @Builder
+  private GalleryDetailSourceSurfaceSnapshot(zIndex: number) {
+    if (this.galleryDetailTransition.sourceSnapshot !== undefined) {
+      Image(this.galleryDetailTransition.sourceSnapshot)
+        .width(this.galleryDetailTransition.sourceSnapshotWidth)
+        .height(this.galleryDetailTransition.sourceSnapshotHeight)
+        .objectFit(ImageFit.Fill)
+        .syncLoad(true)
+        .position({
+          x: this.galleryDetailTransition.sourceSnapshotX,
+          y: this.galleryDetailTransition.sourceSnapshotY,
+        })
+        .zIndex(zIndex)
+        .hitTestBehavior(HitTestMode.None)
+    }
+  }
+
+  private ownsGalleryDetailTransition(content: NavContentInfo): boolean {
+    if (content.name !== 'GalleryDetail' || content.param === undefined) {
+      return false
+    }
+    const params: GalleryDetailParams = content.param as GalleryDetailParams
+    return params.gid.length > 0 && params.gid === this.galleryDetailTransition.galleryId
   }
 
   private galleryDetailNavTransition(
@@ -1659,8 +1689,13 @@ struct Index {
     if (this.navStackHolder.isSplitMode || !this.galleryDetailTransition.eligible) {
       return undefined
     }
-    const isPush: boolean = operation === NavigationOperation.PUSH && to.name === 'GalleryDetail'
-    const isPop: boolean = operation === NavigationOperation.POP && from.name === 'GalleryDetail'
+    // The captured list card belongs only to the GalleryDetail route opened from that card. A detail
+    // may push a parent/newer version onto the same stack; those detail-to-detail operations must use
+    // the ordinary navigation transition while the original route retains its later list return.
+    const isPush: boolean = operation === NavigationOperation.PUSH &&
+      this.ownsGalleryDetailTransition(to)
+    const isPop: boolean = operation === NavigationOperation.POP &&
+      this.ownsGalleryDetailTransition(from)
     if (!isPush && !isPop) {
       return undefined
     }
@@ -1687,6 +1722,7 @@ struct Index {
             curve: GALLERY_DETAIL_OPEN_CURVE,
             onFinish: (): void => {
               if (transitionSerial === this.galleryDetailTransitionSerial) {
+                this.galleryDetailTransition.markPushSettled(true)
                 proxy.finishTransition()
               }
             },
@@ -1717,56 +1753,130 @@ struct Index {
           }
           return
         }
-        if (
-          this.galleryDetailTransition.isCoverExpand() &&
-          !this.syncGalleryDetailCoverTarget()
-        ) {
-          DiagnosticLogger.info(
-            'gallery-detail-transition',
-            'cover_pop_fallback',
-            `gallery=${this.galleryDetailTransition.galleryId} reason=target_not_visible`,
-          )
-          // The detail cover may have scrolled out of the viewport. Keep the whole detail surface
-          // collapsing into the source card, suppress the stale cover flight, and fade the separately
-          // captured source cover in near landing. The hidden source snapshot contains an empty card
-          // slot, so the four-slice card remainder cannot restore the cover by itself.
-          this.galleryDetailTransition.useCoverFadePopFallback()
+        const animatePopSurface: (onFinish: () => void) => void = (onFinish: () => void): void => {
+          if (transitionSerial !== this.galleryDetailTransitionSerial) {
+            return
+          }
+          if (
+            this.galleryDetailTransition.isCoverExpand() &&
+            !this.syncGalleryDetailCoverTarget()
+          ) {
+            DiagnosticLogger.info(
+              'gallery-detail-transition',
+              'cover_pop_fallback',
+              `gallery=${this.galleryDetailTransition.galleryId} reason=target_not_visible`,
+            )
+            // The detail cover may have scrolled out of the viewport. Keep the whole detail surface
+            // collapsing into the source card, suppress the stale cover flight, and fade the separately
+            // captured source cover in near landing. The hidden source snapshot contains an empty card
+            // slot, so the four-slice card remainder cannot restore the cover by itself.
+            this.galleryDetailTransition.useCoverFadePopFallback()
+          }
+          const coverExpand: boolean = this.galleryDetailTransition.isCoverExpand()
+          this.getUIContext().animateTo({
+            duration: ThemeConstants.ANIM_DURATION,
+            curve: GALLERY_DETAIL_CLOSE_CURVE,
+            onFinish: (): void => {
+              if (transitionSerial === this.galleryDetailTransitionSerial) {
+                onFinish()
+              }
+            },
+          }, (): void => {
+            this.galleryDetailTransition.collapseWindow(ThemeConstants.RADIUS_CARD)
+          })
+          if (!coverExpand) {
+            this.getUIContext().animateTo({
+              delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME,
+              duration: ThemeConstants.ANIM_DURATION * (
+                GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_TIME - GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME
+              ),
+              curve: Curve.Linear,
+            }, (): void => {
+              this.galleryDetailTransition.crossfadeToCard()
+            })
+          } else {
+            this.getUIContext().animateTo({
+              delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME,
+              duration: ThemeConstants.ANIM_DURATION * (
+                GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_TIME -
+                  GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME
+              ),
+              curve: Curve.Linear,
+            }, (): void => {
+              this.galleryDetailTransition.revealSourceCard()
+            })
+          }
         }
-        const coverExpand: boolean = this.galleryDetailTransition.isCoverExpand()
-        this.galleryDetailTransition.beginPop()
-        this.getUIContext().animateTo({
-          duration: ThemeConstants.ANIM_DURATION,
-          curve: GALLERY_DETAIL_CLOSE_CURVE,
-          onFinish: (): void => {
-            if (transitionSerial === this.galleryDetailTransitionSerial) {
+        const startPopAnimation: () => void = (): void => {
+          this.galleryDetailTransition.beginPop()
+          animatePopSurface((): void => {
+            proxy.finishTransition()
+          })
+        }
+        const startIndependentPopAnimation: () => void = (): void => {
+          this.galleryDetailTransition.beginPop()
+          GalleryDetailTransitionCoordinator.finishNavigationBeforeIndependentPop(
+            this.getUIContext(),
+            (): void => {
               proxy.finishTransition()
-            }
-          },
-        }, (): void => {
-          this.galleryDetailTransition.collapseWindow(ThemeConstants.RADIUS_CARD)
-        })
-        if (!coverExpand) {
-          this.getUIContext().animateTo({
-            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME,
-            duration: ThemeConstants.ANIM_DURATION * (
-              GALLERY_DETAIL_CLOSE_CARD_ENTRY_END_TIME - GALLERY_DETAIL_CLOSE_CARD_ENTRY_START_TIME
-            ),
-            curve: Curve.Linear,
-          }, (): void => {
-            this.galleryDetailTransition.crossfadeToCard()
-          })
-        } else {
-          this.getUIContext().animateTo({
-            delay: ThemeConstants.ANIM_DURATION * GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME,
-            duration: ThemeConstants.ANIM_DURATION * (
-              GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_END_TIME -
-                GALLERY_DETAIL_COVER_CLOSE_CARD_ENTRY_START_TIME
-            ),
-            curve: Curve.Linear,
-          }, (): void => {
-            this.galleryDetailTransition.revealSourceCard()
-          })
+            },
+            (): void => {
+              if (transitionSerial !== this.galleryDetailTransitionSerial) {
+                return
+              }
+              animatePopSurface((): void => {
+                const handoffStarted: boolean =
+                  GalleryDetailTransitionCoordinator.finishPostPopHandoff(
+                    this.getUIContext(),
+                    (): void => {
+                      if (transitionSerial === this.galleryDetailTransitionSerial) {
+                        this.galleryDetailTransition.reset()
+                      }
+                    },
+                  )
+                if (!handoffStarted) {
+                  this.galleryDetailTransition.markPopSettled(true)
+                }
+              })
+            },
+          )
         }
+        const sourceGeometryNeedsRefresh: boolean =
+          GalleryDetailTransitionCoordinator.sourceGeometryNeedsRefresh(this.getUIContext())
+        if (sourceGeometryNeedsRefresh) {
+          const useIndependentPopSurface: boolean = this.galleryDetailTransition.isCoverExpand()
+          if (
+            useIndependentPopSurface &&
+            !GalleryDetailTransitionCoordinator.prepareIndependentPopSurface(this.getUIContext())
+          ) {
+            this.galleryDetailTransition.reset()
+            proxy.finishTransition()
+            return
+          }
+          // Only after Navigation starts POP is the destination list the real `to` route with its
+          // post-rotation constraints. Measure and capture it here; the inactive background route can
+          // retain its old portrait layout and is not valid geometry evidence.
+          GalleryDetailTransitionCoordinator.refreshSourceGeometryForPop(
+            this.getUIContext(),
+            (success: boolean): void => {
+              if (transitionSerial !== this.galleryDetailTransitionSerial) {
+                return
+              }
+              if (!success) {
+                this.galleryDetailTransition.reset()
+                proxy.finishTransition()
+                return
+              }
+              if (useIndependentPopSurface) {
+                startIndependentPopAnimation()
+              } else {
+                startPopAnimation()
+              }
+            },
+          )
+          return
+        }
+        startPopAnimation()
       },
       onTransitionEnd: (success: boolean): void => {
         if (transitionSerial !== this.galleryDetailTransitionSerial) {
@@ -1774,6 +1884,22 @@ struct Index {
         }
         if (isPush) {
           this.galleryDetailTransition.markPushSettled(success)
+        } else if (this.galleryDetailTransition.independentPopSurfaceActive) {
+          if (!success) {
+            this.galleryDetailTransition.reset()
+          }
+        } else if (success && this.galleryDetailTransition.isCoverExpand()) {
+          const handoffStarted: boolean = GalleryDetailTransitionCoordinator.finishPostPopHandoff(
+            this.getUIContext(),
+            (): void => {
+              if (transitionSerial === this.galleryDetailTransitionSerial) {
+                this.galleryDetailTransition.reset()
+              }
+            },
+          )
+          if (!handoffStarted) {
+            this.galleryDetailTransition.markPopSettled(true)
+          }
         } else {
           this.galleryDetailTransition.markPopSettled(success)
         }
@@ -1785,14 +1911,18 @@ struct Index {
     Stack() {
       if (
         this.galleryDetailTransition.eligible &&
-        this.galleryDetailTransition.sourceSnapshot !== undefined
+        this.galleryDetailTransition.sourceSnapshot !== undefined &&
+        !this.galleryDetailTransition.independentPopSurfaceActive &&
+        (
+          !this.galleryDetailTransition.isCoverExpand() ||
+          this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.OPENING ||
+          this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.CLOSING ||
+          this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.POST_POP_HANDOFF
+        )
       ) {
-        Image(this.galleryDetailTransition.sourceSnapshot)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Fill)
-          .syncLoad(true)
-          .hitTestBehavior(HitTestMode.None)
+        // The source list stays outside the opening clip. This preserves every non-source card around
+        // the expanding detail surface instead of turning the rest of the viewport into a blank field.
+        this.GalleryDetailSourceSurfaceSnapshot(0)
       }
       Stack() {
         HdsNavigation(this.stack) {
@@ -1944,9 +2074,6 @@ struct Index {
         mode: HideMode.SCROLL_UP,
       })
       .bindToScrollable([this.titleScroller])
-      // The navigation keeps its final full-screen layout while the outer surface changes size. Its
-      // inverse offset keeps every detail element at its settled screen coordinate, so expanding the
-      // surface reveals content without reflowing or scaling it.
       .width(
         this.coverExpandSurfaceActive()
           ? Math.max(1, this.galleryDetailTransition.rootWidth)
@@ -1984,8 +2111,36 @@ struct Index {
       })
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
       .shadow(ShadowStyle.OUTER_DEFAULT_MD)
-      .borderRadius(this.coverExpandSurfaceActive() ? this.galleryDetailTransition.radius : 0)
+      .borderRadius(
+        this.coverExpandSurfaceActive() ? this.galleryDetailTransition.radius : 0,
+      )
       .clip(this.coverExpandSurfaceActive())
+      if (this.galleryDetailTransition.independentPopSurfaceVisible()) {
+        Stack({ alignContent: Alignment.TopStart }) {
+          Image(this.galleryDetailTransition.detailSnapshot)
+            .width(this.galleryDetailTransition.rootWidth)
+            .height(this.galleryDetailTransition.rootHeight)
+            .objectFit(ImageFit.Fill)
+            .syncLoad(true)
+            .position({
+              x: -this.galleryDetailTransition.clipX,
+              y: -this.galleryDetailTransition.clipY,
+            })
+            .hitTestBehavior(HitTestMode.None)
+        }
+        .width(Math.max(1, this.galleryDetailTransition.clipWidth))
+        .height(Math.max(1, this.galleryDetailTransition.clipHeight))
+        .position({
+          x: this.galleryDetailTransition.clipX,
+          y: this.galleryDetailTransition.clipY,
+        })
+        .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+        .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+        .borderRadius(this.galleryDetailTransition.radius)
+        .clip(true)
+        .zIndex(1)
+        .hitTestBehavior(HitTestMode.None)
+      }
       if (
         this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING &&
         this.galleryDetailTransition.cardSnapshot !== undefined
@@ -2021,6 +2176,7 @@ struct Index {
             .borderRadius(ThemeConstants.RADIUS_CARD)
             .clip(true)
             .opacity(this.galleryDetailTransition.cardOpacity)
+            .zIndex(2)
             .hitTestBehavior(HitTestMode.None)
         } else {
           // Covers without a separate backdrop keep the existing four-slice path so the expanding detail
@@ -2078,7 +2234,7 @@ struct Index {
         })
         .borderRadius(this.galleryDetailTransition.radius)
         .clip(true)
-        .zIndex(2)
+        .zIndex(3)
         .hitTestBehavior(HitTestMode.None)
       }
       if (
@@ -2100,7 +2256,7 @@ struct Index {
           .borderRadius(this.galleryDetailTransition.sourceCoverRadius)
           .clip(true)
           .opacity(this.galleryDetailTransition.fallbackCoverOpacity)
-          .zIndex(2)
+          .zIndex(3)
           .hitTestBehavior(HitTestMode.None)
       }
       if (this.readerOverlay.visible) {

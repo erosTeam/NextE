@@ -6,6 +6,7 @@ import {
   CardEmptyState,
   EhGallery,
   GalleryDetailParams,
+  GalleryDetailTransitionSourceSlot,
   GallerySimpleCard,
   LoadingFooter,
   NavStackHolder,
@@ -20,8 +21,6 @@ import {
   gallerySimpleReuseId,
   immersiveTitleBarOpts,
   GalleryDetailTransitionCoordinator,
-  GalleryDetailTransitionState,
-  connectGalleryDetailTransition,
 } from 'shared'
 import {
   ViewedHistoryDayGroup,
@@ -46,7 +45,6 @@ export struct ViewedHistoryPage {
   @Local currentDayStart: number = historyLocalDayStart(Date.now());
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
-  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -98,6 +96,7 @@ export struct ViewedHistoryPage {
       },
       this.galleryDetailSourceCoverId(gallery),
       gallery.thumbUrl,
+      this.galleryDetailSourceSurfaceId(),
     )
   }
 
@@ -114,6 +113,13 @@ export struct ViewedHistoryPage {
       this.galleryDetailTransitionScope,
       'history',
       gallery.gid,
+    )
+  }
+
+  private galleryDetailSourceSurfaceId(): string {
+    return GalleryDetailTransitionCoordinator.sourceSurfaceId(
+      this.galleryDetailTransitionScope,
+      'history',
     )
   }
 
@@ -324,24 +330,23 @@ export struct ViewedHistoryPage {
             group.dataSource,
             (row: ViewedHistoryListRow) => {
               ListItem() {
-                GallerySimpleCard({
-                  gallery: row.gallery,
-                  viewedTime: this.viewedTimeLabel(row.gallery.lastViewTime),
-                  transitionCoverId: this.galleryDetailSourceCoverId(row.gallery),
-                })
-                  .reuse({
-                    reuseId: () => gallerySimpleReuseId(
-                      row.gallery,
-                      this.viewedTimeLabel(row.gallery.lastViewTime),
-                    ),
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(row.gallery),
+                }) {
+                  GallerySimpleCard({
+                    gallery: row.gallery,
+                    viewedTime: this.viewedTimeLabel(row.gallery.lastViewTime),
+                    transitionCoverId: this.galleryDetailSourceCoverId(row.gallery),
                   })
+                    .reuse({
+                      reuseId: () => gallerySimpleReuseId(
+                        row.gallery,
+                        this.viewedTimeLabel(row.gallery.lastViewTime),
+                      ),
+                    })
+                }
               }
               .id(this.galleryDetailSourceId(row.gallery))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(row.gallery)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .swipeAction({
                 end: () => {
                   this.DeleteSwipe(row.gallery.gid)
@@ -407,34 +412,39 @@ export struct ViewedHistoryPage {
 
   build() {
     HdsNavDestination() {
-      PullRefreshListScaffold({
-        scroller: this.scroller,
-        controller: this.refreshController,
-        listSpace: 0,
-        // HDS owns the readable pinned date mirror in its bottomBuilder. Native pinning would sit
-        // underneath the immersive title layer and duplicate the date when it becomes obscured.
-        stickyHeaders: false,
-        bottomPadding: ThemeConstants.SPACE_XL,
-        itemCount: this.vm.itemCount,
-        onRefresh: async () => {
-          await this.vm.loadInitial(true)
-        },
-        onBottomRefresh: async () => {
-          await this.vm.loadMore()
-        },
-        canStartBottomRefresh: () => this.vm.canLoadMore(),
-        onReachEnd: () => {
-          this.vm.loadMore()
-        },
-        onDidScroll: (offset: number, _state: ScrollState) => {
-          this.onHistoryDidScroll(offset)
-        },
-        onListAreaChange: (area: Area) => {
-          this.onHistoryListArea(area)
-        },
-      }) {
-        this.HistoryRows()
+      Stack() {
+        PullRefreshListScaffold({
+          scroller: this.scroller,
+          controller: this.refreshController,
+          listSpace: 0,
+          // HDS owns the readable pinned date mirror in its bottomBuilder. Native pinning would sit
+          // underneath the immersive title layer and duplicate the date when it becomes obscured.
+          stickyHeaders: false,
+          bottomPadding: ThemeConstants.SPACE_XL,
+          itemCount: this.vm.itemCount,
+          onRefresh: async () => {
+            await this.vm.loadInitial(true)
+          },
+          onBottomRefresh: async () => {
+            await this.vm.loadMore()
+          },
+          canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onReachEnd: () => {
+            this.vm.loadMore()
+          },
+          onDidScroll: (offset: number, _state: ScrollState) => {
+            this.onHistoryDidScroll(offset)
+          },
+          onListAreaChange: (area: Area) => {
+            this.onHistoryListArea(area)
+          },
+        }) {
+          this.HistoryRows()
+        }
       }
+      .width('100%')
+      .height('100%')
+      .id(this.galleryDetailSourceSurfaceId())
     }
     .titleBar(this.titleBar())
     .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)

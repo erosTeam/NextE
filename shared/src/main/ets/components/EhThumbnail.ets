@@ -242,7 +242,8 @@ export struct EhThumbnail {
 
   private transitionForegroundOpacity(): number {
     return this.galleryDetailTransition.preserveSourceCoverBackground &&
-      this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING &&
+      (this.galleryDetailTransition.phase === GalleryDetailTransitionPhase.PREPARING ||
+        this.galleryDetailTransition.sourceCoverRecaptureHidden) &&
       this.galleryDetailTransition.sourceCoverComponentId === this.surfaceId
       ? 0
       : 1

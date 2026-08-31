@@ -2,6 +2,7 @@ import {
   ThemeConstants,
   EhGallery,
   GalleryCard,
+  GalleryDetailTransitionSourceSlot,
   GalleryGridCard,
   galleryGridReuseId,
   GalleryWaterfallCard,
@@ -36,8 +37,6 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   GalleryDetailTransitionCoordinator,
-  GalleryDetailTransitionState,
-  connectGalleryDetailTransition,
   DiagnosticLogger,
   requestGalleryCoverRetry,
   connectTagTranslationSettings,
@@ -77,7 +76,6 @@ export struct GalleryListBody {
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
-  @Local galleryDetailTransition: GalleryDetailTransitionState = connectGalleryDetailTransition();
   @Local listContentWidth: number = 0;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
@@ -179,6 +177,13 @@ export struct GalleryListBody {
     )
   }
 
+  private galleryDetailSourceSurfaceId(): string {
+    return GalleryDetailTransitionCoordinator.sourceSurfaceId(
+      this.galleryDetailTransitionScope,
+      this.effectiveMode(),
+    )
+  }
+
   private openGalleryDetail(g: EhGallery): void {
     GalleryDetailTransitionCoordinator.open(
       this.getUIContext(),
@@ -189,6 +194,7 @@ export struct GalleryListBody {
       },
       this.galleryDetailSourceCoverId(g),
       g.thumbUrl,
+      this.galleryDetailSourceSurfaceId(),
     )
   }
 
@@ -356,19 +362,18 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               GridItem() {
-                GalleryGridCard({
-                  gallery: g,
-                  selected: this.isGallerySelected(g),
-                  transitionCoverId: this.galleryDetailSourceCoverId(g),
-                })
-                  .reuse({ reuseId: () => galleryGridReuseId(g) })
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(g),
+                }) {
+                  GalleryGridCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
+                    .reuse({ reuseId: () => galleryGridReuseId(g) })
+                }
               }
               .id(this.galleryDetailSourceId(g))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -436,22 +441,21 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({
-                  gallery: g,
-                  selected: this.isGallerySelected(g),
-                  tagSig: this.tagSig,
-                  tagTranslation: this.tagTranslation,
-                  transitionCoverId: this.galleryDetailSourceCoverId(g),
-                })
-                  .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(g),
+                }) {
+                  GalleryWaterfallCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    tagSig: this.tagSig,
+                    tagTranslation: this.tagTranslation,
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
+                    .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
+                }
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -519,23 +523,22 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({
-                  gallery: g,
-                  selected: this.isGallerySelected(g),
-                  tagSig: this.tagSig,
-                  tagTranslation: this.tagTranslation,
-                  compact: true,
-                  transitionCoverId: this.galleryDetailSourceCoverId(g),
-                })
-                  .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(g),
+                }) {
+                  GalleryWaterfallCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    tagSig: this.tagSig,
+                    tagTranslation: this.tagTranslation,
+                    compact: true,
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
+                    .reuse({ reuseId: () => galleryWaterfallCompactReuseId(g) })
+                }
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -602,20 +605,19 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryCoverWallCard({
-                  gallery: g,
-                  selected: this.isGallerySelected(g),
-                  transitionCoverId: this.galleryDetailSourceCoverId(g),
-                })
-                  .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(g),
+                }) {
+                  GalleryCoverWallCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    transitionCoverId: this.galleryDetailSourceCoverId(g),
+                  })
+                    .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
+                }
               }
               .width('100%')
               .id(this.galleryDetailSourceId(g))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -670,28 +672,27 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               ListItem() {
-                if (this.effectiveMode() === ListMode.SIMPLE_LIST) {
-                  GallerySimpleCard({
-                    gallery: g,
-                    selected: this.isGallerySelected(g),
-                    transitionCoverId: this.galleryDetailSourceCoverId(g),
-                  })
-                    .reuse({ reuseId: () => gallerySimpleReuseId(g) })
-                } else {
-                  GalleryCard({
-                    gallery: g,
-                    selected: this.isGallerySelected(g),
-                    listContentWidth: this.listContentWidth,
-                    transitionCoverId: this.galleryDetailSourceCoverId(g),
-                  })
+                GalleryDetailTransitionSourceSlot({
+                  sourceComponentId: this.galleryDetailSourceId(g),
+                }) {
+                  if (this.effectiveMode() === ListMode.SIMPLE_LIST) {
+                    GallerySimpleCard({
+                      gallery: g,
+                      selected: this.isGallerySelected(g),
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
+                    })
+                      .reuse({ reuseId: () => gallerySimpleReuseId(g) })
+                  } else {
+                    GalleryCard({
+                      gallery: g,
+                      selected: this.isGallerySelected(g),
+                      listContentWidth: this.listContentWidth,
+                      transitionCoverId: this.galleryDetailSourceCoverId(g),
+                    })
+                  }
                 }
               }
               .id(this.galleryDetailSourceId(g))
-              .visibility(
-                this.galleryDetailTransition.sourceComponentId === this.galleryDetailSourceId(g)
-                  ? Visibility.Hidden
-                  : Visibility.Visible,
-              )
               .onAppear(() => {
                 this.onGalleryAppear(index)
               })
@@ -718,6 +719,7 @@ export struct GalleryListBody {
     }
     .width('100%')
     .height('100%')
+    .id(this.galleryDetailSourceSurfaceId())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }
