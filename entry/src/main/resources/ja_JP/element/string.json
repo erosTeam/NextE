@@ -2822,7 +2822,15 @@
     },
     {
       "name": "settings_reader_group_layout",
-      "value": "ページ送りとレイアウト"
+      "value": "閲覧モード"
+    },
+    {
+      "name": "settings_reader_group_paged_mode",
+      "value": "ページ送りモード"
+    },
+    {
+      "name": "settings_reader_group_continuous_mode",
+      "value": "連続モード"
     },
     {
       "name": "settings_reader_group_display",
@@ -2871,6 +2879,18 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "高（バイキュービック）"
+    },
+    {
+      "name": "settings_reader_crop_borders_paged_hint",
+      "value": "各ページの周囲で検出した黒または白の余白を取り除きます。"
+    },
+    {
+      "name": "settings_reader_crop_borders_continuous_hint",
+      "value": "左右の余白を取り除き、継ぎ目を守るため上下は先頭と末尾のページだけ処理します。"
+    },
+    {
+      "name": "reader_crop_borders",
+      "value": "ページの余白を自動トリミング"
     },
     {
       "name": "settings_reader_super_resolution",

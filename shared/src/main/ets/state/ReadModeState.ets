@@ -71,10 +71,14 @@ export class ReadModeState {
   @Trace autoPageSeconds: number = 3
   @Trace preloadPages: number = 2
   @Trace volumeKeyTurn: boolean = false
-  @Trace tapZoneLayout: string = ReaderTapZoneLayout.RIGHT_LEFT
-  @Trace tapZoneInvert: string = ReaderTapZoneInvert.NONE
+  @Trace tapZoneLayoutPaged: string = ReaderTapZoneLayout.RIGHT_LEFT
+  @Trace tapZoneLayoutContinuous: string = ReaderTapZoneLayout.RIGHT_LEFT
+  @Trace tapZoneInvertPaged: string = ReaderTapZoneInvert.NONE
+  @Trace tapZoneInvertContinuous: string = ReaderTapZoneInvert.NONE
   @Trace backgroundMode: string = ReaderBackgroundMode.BLACK
   @Trace imageScalingQuality: string = ReaderImageScalingQuality.MEDIUM
+  @Trace cropBordersPaged: boolean = false
+  @Trace cropBordersContinuous: boolean = false
   @Trace superResolutionEnabled: boolean = false
   @Trace superResolutionModel: string = ReaderSuperResolutionModel.NONE
   @Trace superResolutionBackend: string = ReaderSuperResolutionBackend.AUTO

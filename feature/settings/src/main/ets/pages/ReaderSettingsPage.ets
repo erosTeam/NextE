@@ -91,16 +91,20 @@ export struct ReaderSettingsPage {
     ReadModeSettings.setVolumeKeyTurn(ctx, enabled)
   }
 
-  private setTapZoneLayout(layout: string): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    ReadModeSettings.setTapZoneLayout(ctx, layout)
+  private setTapZoneLayout(continuous: boolean, layout: string): void {
+    if (continuous) {
+      ReadModeSettings.setTapZoneLayoutContinuous(this.context(), layout)
+      return
+    }
+    ReadModeSettings.setTapZoneLayoutPaged(this.context(), layout)
   }
 
-  private setTapZoneInvert(invert: string): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    ReadModeSettings.setTapZoneInvert(ctx, invert)
+  private setTapZoneInvert(continuous: boolean, invert: string): void {
+    if (continuous) {
+      ReadModeSettings.setTapZoneInvertContinuous(this.context(), invert)
+      return
+    }
+    ReadModeSettings.setTapZoneInvertPaged(this.context(), invert)
   }
 
   private setBackgroundMode(mode: string): void {
@@ -113,6 +117,14 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setImageScalingQuality(ctx, quality)
+  }
+
+  private setCropBordersPaged(enabled: boolean): void {
+    ReadModeSettings.setCropBordersPaged(this.context(), enabled)
+  }
+
+  private setCropBordersContinuous(enabled: boolean): void {
+    ReadModeSettings.setCropBordersContinuous(this.context(), enabled)
   }
 
   private setSuperResolutionEnabled(enabled: boolean): void {
@@ -227,7 +239,14 @@ export struct ReaderSettingsPage {
   }
 
   private doublePageAvailable(): boolean {
+    if (!this.sheetPresentation) {
+      return true
+    }
     return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
+  }
+
+  private continuousModeSelected(): boolean {
+    return this.readMode.mode === ReadMode.VERTICAL
   }
 
   private spreadLayoutLabel(): Resource {
@@ -245,27 +264,37 @@ export struct ReaderSettingsPage {
     return `${this.readMode.preloadPages}`
   }
 
-  private tapZoneLabel(): Resource {
-    if (this.readMode.tapZoneLayout === ReaderTapZoneLayout.L_SHAPED) {
+  private tapZoneLayout(continuous: boolean): string {
+    return continuous ? this.readMode.tapZoneLayoutContinuous : this.readMode.tapZoneLayoutPaged
+  }
+
+  private tapZoneInvert(continuous: boolean): string {
+    return continuous ? this.readMode.tapZoneInvertContinuous : this.readMode.tapZoneInvertPaged
+  }
+
+  private tapZoneLabel(continuous: boolean): Resource {
+    const layout: string = this.tapZoneLayout(continuous)
+    if (layout === ReaderTapZoneLayout.L_SHAPED) {
       return $r('app.string.settings_reader_tap_zone_l_shaped')
     }
-    if (this.readMode.tapZoneLayout === ReaderTapZoneLayout.KINDLE) {
+    if (layout === ReaderTapZoneLayout.KINDLE) {
       return $r('app.string.settings_reader_tap_zone_kindle')
     }
-    if (this.readMode.tapZoneLayout === ReaderTapZoneLayout.EDGE) {
+    if (layout === ReaderTapZoneLayout.EDGE) {
       return $r('app.string.settings_reader_tap_zone_edge')
     }
     return $r('app.string.settings_reader_tap_zone_right_left')
   }
 
-  private tapZoneInvertLabel(): Resource {
-    if (this.readMode.tapZoneInvert === ReaderTapZoneInvert.HORIZONTAL) {
+  private tapZoneInvertLabel(continuous: boolean): Resource {
+    const invert: string = this.tapZoneInvert(continuous)
+    if (invert === ReaderTapZoneInvert.HORIZONTAL) {
       return $r('app.string.settings_reader_tap_zone_invert_horizontal')
     }
-    if (this.readMode.tapZoneInvert === ReaderTapZoneInvert.VERTICAL) {
+    if (invert === ReaderTapZoneInvert.VERTICAL) {
       return $r('app.string.settings_reader_tap_zone_invert_vertical')
     }
-    if (this.readMode.tapZoneInvert === ReaderTapZoneInvert.BOTH) {
+    if (invert === ReaderTapZoneInvert.BOTH) {
       return $r('app.string.settings_reader_tap_zone_invert_both')
     }
     return $r('app.string.settings_reader_tap_zone_invert_none')
@@ -556,100 +585,100 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  TapZoneMenu(select: (action: () => void) => void) {
+  TapZoneMenu(continuous: boolean, select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_right_left'),
         symbolEndIcon:
-          this.readMode.tapZoneLayout === ReaderTapZoneLayout.RIGHT_LEFT
+          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.RIGHT_LEFT
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneLayout(ReaderTapZoneLayout.RIGHT_LEFT)
+          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.RIGHT_LEFT)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_l_shaped'),
         symbolEndIcon:
-          this.readMode.tapZoneLayout === ReaderTapZoneLayout.L_SHAPED
+          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.L_SHAPED
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneLayout(ReaderTapZoneLayout.L_SHAPED)
+          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.L_SHAPED)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_kindle'),
         symbolEndIcon:
-          this.readMode.tapZoneLayout === ReaderTapZoneLayout.KINDLE
+          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.KINDLE
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneLayout(ReaderTapZoneLayout.KINDLE)
+          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.KINDLE)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_edge'),
         symbolEndIcon:
-          this.readMode.tapZoneLayout === ReaderTapZoneLayout.EDGE
+          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.EDGE
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneLayout(ReaderTapZoneLayout.EDGE)
+          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.EDGE)
         })
       })
     }
   }
 
   @Builder
-  TapZoneInvertMenu(select: (action: () => void) => void) {
+  TapZoneInvertMenu(continuous: boolean, select: (action: () => void) => void) {
     Menu() {
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_none'),
         symbolEndIcon:
-          this.readMode.tapZoneInvert === ReaderTapZoneInvert.NONE
+          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.NONE
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneInvert(ReaderTapZoneInvert.NONE)
+          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.NONE)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_horizontal'),
         symbolEndIcon:
-          this.readMode.tapZoneInvert === ReaderTapZoneInvert.HORIZONTAL
+          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.HORIZONTAL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneInvert(ReaderTapZoneInvert.HORIZONTAL)
+          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.HORIZONTAL)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_vertical'),
         symbolEndIcon:
-          this.readMode.tapZoneInvert === ReaderTapZoneInvert.VERTICAL
+          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.VERTICAL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneInvert(ReaderTapZoneInvert.VERTICAL)
+          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.VERTICAL)
         })
       })
       MenuItem({
         content: $r('app.string.settings_reader_tap_zone_invert_both'),
         symbolEndIcon:
-          this.readMode.tapZoneInvert === ReaderTapZoneInvert.BOTH
+          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.BOTH
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
             : undefined,
       }).onClick(() => {
         select(() => {
-          this.setTapZoneInvert(ReaderTapZoneInvert.BOTH)
+          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.BOTH)
         })
       })
     }
@@ -788,21 +817,11 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  private SettingsListItems() {
+  private PagedModeSettingsGroup() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
-        SectionHeader({ title: $r('app.string.settings_reader_group_layout') })
+        SectionHeader({ title: $r('app.string.settings_reader_group_paged_mode') })
         GroupedListSection() {
-          ConciseListRow({
-            title: $r('app.string.settings_reader_direction'),
-            trailingText: this.modeLabel(),
-            trailingDropdown: true,
-            dropdownMenuEnabled: true,
-            dropdownMenuBuilder: (select: (action: () => void) => void) => {
-              this.DirMenu(select)
-            },
-          })
-          this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_double_page'),
             hasSwitch: true,
@@ -844,35 +863,115 @@ export struct ReaderSettingsPage {
               this.setPageTurnAnimation(value)
             },
           })
-        }
-      }
-    }
-
-    ListItem() {
-      Column({ space: ThemeConstants.SPACE_XS }) {
-        SectionHeader({ title: $r('app.string.settings_reader_group_tap_zones') })
-        GroupedListSection() {
+          this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_tap_zones'),
-            trailingText: this.tapZoneLabel(),
+            trailingText: this.tapZoneLabel(false),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
             dropdownMenuBuilder: (select: (action: () => void) => void) => {
-              this.TapZoneMenu(select)
+              this.TapZoneMenu(false, select)
             },
           })
           this.rowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_tap_zone_invert'),
-            trailingText: this.tapZoneInvertLabel(),
+            trailingText: this.tapZoneInvertLabel(false),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
             dropdownMenuBuilder: (select: (action: () => void) => void) => {
-              this.TapZoneInvertMenu(select)
+              this.TapZoneInvertMenu(false, select)
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.reader_crop_borders'),
+            subtitle: $r('app.string.settings_reader_crop_borders_paged_hint'),
+            subtitleMaxLines: 3,
+            hasSwitch: true,
+            checked: this.readMode.cropBordersPaged,
+            showChevron: false,
+            action: () => {
+              this.setCropBordersPaged(!this.readMode.cropBordersPaged)
+            },
+            switchAction: (value: boolean) => {
+              this.setCropBordersPaged(value)
             },
           })
         }
       }
+    }
+  }
+
+  @Builder
+  private ContinuousModeSettingsGroup() {
+    ListItem() {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        SectionHeader({ title: $r('app.string.settings_reader_group_continuous_mode') })
+        GroupedListSection() {
+          ConciseListRow({
+            title: $r('app.string.settings_reader_tap_zones'),
+            trailingText: this.tapZoneLabel(true),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.TapZoneMenu(true, select)
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_tap_zone_invert'),
+            trailingText: this.tapZoneInvertLabel(true),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.TapZoneInvertMenu(true, select)
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.reader_crop_borders'),
+            subtitle: $r('app.string.settings_reader_crop_borders_continuous_hint'),
+            subtitleMaxLines: 3,
+            hasSwitch: true,
+            checked: this.readMode.cropBordersContinuous,
+            showChevron: false,
+            action: () => {
+              this.setCropBordersContinuous(!this.readMode.cropBordersContinuous)
+            },
+            switchAction: (value: boolean) => {
+              this.setCropBordersContinuous(value)
+            },
+          })
+        }
+      }
+    }
+  }
+
+  @Builder
+  private SettingsListItems() {
+    ListItem() {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        SectionHeader({ title: $r('app.string.settings_reader_group_layout') })
+        GroupedListSection() {
+          ConciseListRow({
+            title: $r('app.string.settings_reader_direction'),
+            trailingText: this.modeLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.DirMenu(select)
+            },
+          })
+        }
+      }
+    }
+
+    if (!this.sheetPresentation || !this.continuousModeSelected()) {
+      this.PagedModeSettingsGroup()
+    }
+    if (!this.sheetPresentation || this.continuousModeSelected()) {
+      this.ContinuousModeSettingsGroup()
     }
 
     ListItem() {

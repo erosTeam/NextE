@@ -2822,7 +2822,15 @@
     },
     {
       "name": "settings_reader_group_layout",
-      "value": "Page turning & layout"
+      "value": "Reading mode"
+    },
+    {
+      "name": "settings_reader_group_paged_mode",
+      "value": "Paged mode"
+    },
+    {
+      "name": "settings_reader_group_continuous_mode",
+      "value": "Continuous mode"
     },
     {
       "name": "settings_reader_group_display",
@@ -2871,6 +2879,18 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "High (cubic)"
+    },
+    {
+      "name": "settings_reader_crop_borders_paged_hint",
+      "value": "Removes detected black or white borders around each page."
+    },
+    {
+      "name": "settings_reader_crop_borders_continuous_hint",
+      "value": "Removes side borders; top and bottom are cropped only at the first and last page to protect seams."
+    },
+    {
+      "name": "reader_crop_borders",
+      "value": "Auto-crop page borders"
     },
     {
       "name": "settings_reader_super_resolution",

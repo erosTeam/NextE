@@ -229,6 +229,11 @@ export {
   ImageResolveSourceGate,
 } from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
+export {
+  ReaderPageCropBounds,
+  ReaderPageCropDetector,
+  ReaderPageCropService,
+} from './services/ReaderPageCropService'
 export { AppReleaseService } from './services/AppReleaseService'
 export {
   ComicPageAnalysisContext,

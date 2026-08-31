@@ -43,6 +43,7 @@ import readerImageSourceRequestGateTest from './ReaderImageSourceRequestGate.tes
 import readerSessionRequestGateTest from './ReaderSessionRequestGate.test'
 import readerComicTranslationAutoPolicyTest from './ReaderComicTranslationAutoPolicy.test'
 import readerThumbnailGeometryTest from './ReaderThumbnailGeometry.test'
+import readerPageCropDetectorTest from './ReaderPageCropDetector.test'
 import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
 import backupCipherMetadataGuardTest from './BackupCipherMetadataGuard.test'
 import backupLocalDataStructureGuardTest from './BackupLocalDataStructureGuard.test'
@@ -119,6 +120,7 @@ export default function testsuite(): void {
   readerSessionRequestGateTest()
   readerComicTranslationAutoPolicyTest()
   readerThumbnailGeometryTest()
+  readerPageCropDetectorTest()
   imageResolveSourceGateTest()
   backupCipherMetadataGuardTest()
   backupLocalDataStructureGuardTest()

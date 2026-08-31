@@ -134,11 +134,23 @@ export class ReadModeSettings {
       const spreadLayoutMode: string = ReadModeSettings.normalizeSpreadLayout(
         store.getSync(StorageKeys.READING_SPREAD_LAYOUT, ReadSpreadLayout.JOINED) as string
       )
-      const tapZoneLayout: string = ReaderTapZoneResolver.normalizeLayout(
+      const legacyTapZoneLayout: string = ReaderTapZoneResolver.normalizeLayout(
         store.getSync(StorageKeys.READING_TAP_ZONE_LAYOUT, ReaderTapZoneLayout.RIGHT_LEFT) as string
       )
-      const tapZoneInvert: string = ReaderTapZoneResolver.normalizeInvert(
+      const legacyTapZoneInvert: string = ReaderTapZoneResolver.normalizeInvert(
         store.getSync(StorageKeys.READING_TAP_ZONE_INVERT, ReaderTapZoneInvert.NONE) as string
+      )
+      const tapZoneLayoutPaged: string = ReaderTapZoneResolver.normalizeLayout(
+        store.getSync(StorageKeys.READING_TAP_ZONE_LAYOUT_PAGED, legacyTapZoneLayout) as string
+      )
+      const tapZoneLayoutContinuous: string = ReaderTapZoneResolver.normalizeLayout(
+        store.getSync(StorageKeys.READING_TAP_ZONE_LAYOUT_CONTINUOUS, legacyTapZoneLayout) as string
+      )
+      const tapZoneInvertPaged: string = ReaderTapZoneResolver.normalizeInvert(
+        store.getSync(StorageKeys.READING_TAP_ZONE_INVERT_PAGED, legacyTapZoneInvert) as string
+      )
+      const tapZoneInvertContinuous: string = ReaderTapZoneResolver.normalizeInvert(
+        store.getSync(StorageKeys.READING_TAP_ZONE_INVERT_CONTINUOUS, legacyTapZoneInvert) as string
       )
       const backgroundMode: string = ReadModeSettings.normalizeBackgroundMode(
         store.getSync(StorageKeys.READING_BACKGROUND_MODE, ReaderBackgroundMode.BLACK) as string
@@ -149,6 +161,14 @@ export class ReadModeSettings {
           ReaderImageScalingQuality.MEDIUM,
         ) as string
       )
+      const cropBordersPaged: boolean = store.getSync(
+        StorageKeys.READING_CROP_BORDERS_PAGED,
+        false,
+      ) as boolean
+      const cropBordersContinuous: boolean = store.getSync(
+        StorageKeys.READING_CROP_BORDERS_CONTINUOUS,
+        false,
+      ) as boolean
       const superResolutionModel: string = ReadModeSettings.normalizeSuperResolutionModel(
         store.getSync(
           StorageKeys.READING_SUPER_RESOLUTION_MODEL,
@@ -184,10 +204,14 @@ export class ReadModeSettings {
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
       connectReadMode().preloadPages = ReadModeSettings.normalizePreloadPages(preloadPages)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
-      connectReadMode().tapZoneLayout = tapZoneLayout
-      connectReadMode().tapZoneInvert = tapZoneInvert
+      connectReadMode().tapZoneLayoutPaged = tapZoneLayoutPaged
+      connectReadMode().tapZoneLayoutContinuous = tapZoneLayoutContinuous
+      connectReadMode().tapZoneInvertPaged = tapZoneInvertPaged
+      connectReadMode().tapZoneInvertContinuous = tapZoneInvertContinuous
       connectReadMode().backgroundMode = backgroundMode
       connectReadMode().imageScalingQuality = imageScalingQuality
+      connectReadMode().cropBordersPaged = cropBordersPaged
+      connectReadMode().cropBordersContinuous = cropBordersContinuous
       connectReadMode().superResolutionEnabled = superResolutionEnabled
       connectReadMode().superResolutionModel = superResolutionModel
       // Backend selection is runtime-owned. Ignoring the retired preference also migrates users who
@@ -304,33 +328,63 @@ export class ReadModeSettings {
     }
   }
 
-  static async setTapZoneLayout(context: common.UIAbilityContext, layout: string): Promise<void> {
+  static async setTapZoneLayoutPaged(context: common.UIAbilityContext, layout: string): Promise<void> {
     const normalized: string = ReaderTapZoneResolver.normalizeLayout(layout)
-    connectReadMode().tapZoneLayout = normalized
+    connectReadMode().tapZoneLayoutPaged = normalized
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(StorageKeys.READING_TAP_ZONE_LAYOUT, normalized)
+      store.putSync(StorageKeys.READING_TAP_ZONE_LAYOUT_PAGED, normalized)
       store.flushSync()
     } catch (error) {
-      DiagnosticLogger.warn('settings', 'read_tap_zone_layout_save_failed', (error as Error).message)
+      DiagnosticLogger.warn('settings', 'read_tap_zone_layout_paged_save_failed', (error as Error).message)
     }
   }
 
-  static async setTapZoneInvert(context: common.UIAbilityContext, invert: string): Promise<void> {
-    const normalized: string = ReaderTapZoneResolver.normalizeInvert(invert)
-    connectReadMode().tapZoneInvert = normalized
+  static async setTapZoneLayoutContinuous(context: common.UIAbilityContext, layout: string): Promise<void> {
+    const normalized: string = ReaderTapZoneResolver.normalizeLayout(layout)
+    connectReadMode().tapZoneLayoutContinuous = normalized
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(StorageKeys.READING_TAP_ZONE_INVERT, normalized)
+      store.putSync(StorageKeys.READING_TAP_ZONE_LAYOUT_CONTINUOUS, normalized)
       store.flushSync()
     } catch (error) {
-      DiagnosticLogger.warn('settings', 'read_tap_zone_invert_save_failed', (error as Error).message)
+      DiagnosticLogger.warn('settings', 'read_tap_zone_layout_continuous_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setTapZoneInvertPaged(context: common.UIAbilityContext, invert: string): Promise<void> {
+    const normalized: string = ReaderTapZoneResolver.normalizeInvert(invert)
+    connectReadMode().tapZoneInvertPaged = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_TAP_ZONE_INVERT_PAGED, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_tap_zone_invert_paged_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setTapZoneInvertContinuous(context: common.UIAbilityContext, invert: string): Promise<void> {
+    const normalized: string = ReaderTapZoneResolver.normalizeInvert(invert)
+    connectReadMode().tapZoneInvertContinuous = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_TAP_ZONE_INVERT_CONTINUOUS, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_tap_zone_invert_continuous_save_failed', (error as Error).message)
     }
   }
 
@@ -364,6 +418,34 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_image_scaling_quality_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setCropBordersPaged(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
+    connectReadMode().cropBordersPaged = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_CROP_BORDERS_PAGED, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_crop_borders_paged_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setCropBordersContinuous(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
+    connectReadMode().cropBordersContinuous = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_CROP_BORDERS_CONTINUOUS, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_crop_borders_continuous_save_failed', (error as Error).message)
     }
   }
 

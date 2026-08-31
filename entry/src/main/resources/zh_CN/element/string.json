@@ -2822,7 +2822,15 @@
     },
     {
       "name": "settings_reader_group_layout",
-      "value": "翻页与布局"
+      "value": "阅读模式"
+    },
+    {
+      "name": "settings_reader_group_paged_mode",
+      "value": "翻页模式"
+    },
+    {
+      "name": "settings_reader_group_continuous_mode",
+      "value": "连续模式"
     },
     {
       "name": "settings_reader_group_display",
@@ -2871,6 +2879,18 @@
     {
       "name": "settings_reader_image_scaling_quality_high",
       "value": "高（双三次）"
+    },
+    {
+      "name": "settings_reader_crop_borders_paged_hint",
+      "value": "自动去除每页四周检测到的黑边或白边。"
+    },
+    {
+      "name": "settings_reader_crop_borders_continuous_hint",
+      "value": "去除左右留边；仅在首尾页裁剪上下边，以保护页面拼接。"
+    },
+    {
+      "name": "reader_crop_borders",
+      "value": "自动裁剪页面留边"
     },
     {
       "name": "settings_reader_super_resolution",

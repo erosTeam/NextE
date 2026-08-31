@@ -18,6 +18,8 @@ import {
   ReaderParams,
   ImageResolveService,
   ImagePipelineService,
+  ReaderPageCropBounds,
+  ReaderPageCropService,
   DiagnosticLogger,
   connectThemeDisplay,
   ThemeDisplayState,
@@ -2963,11 +2965,28 @@ export struct ReaderPage {
     }
   }
 
-  @Monitor('readMode.tapZoneLayout', 'readMode.tapZoneInvert')
+  @Monitor(
+    'readMode.tapZoneLayoutPaged',
+    'readMode.tapZoneLayoutContinuous',
+    'readMode.tapZoneInvertPaged',
+    'readMode.tapZoneInvertContinuous',
+  )
   onTapZoneSettingsChanged(): void {
     if (this.readerContentReady()) {
       this.tapZonePreviewVisible = true
     }
+  }
+
+  private activeTapZoneLayout(): string {
+    return this.isContinuousVerticalMode()
+      ? this.readMode.tapZoneLayoutContinuous
+      : this.readMode.tapZoneLayoutPaged
+  }
+
+  private activeTapZoneInvert(): string {
+    return this.isContinuousVerticalMode()
+      ? this.readMode.tapZoneInvertContinuous
+      : this.readMode.tapZoneInvertPaged
   }
 
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
@@ -3112,8 +3131,8 @@ export struct ReaderPage {
       return
     }
     const action: string = ReaderTapZoneResolver.resolve(
-      this.readMode.tapZoneLayout,
-      this.readMode.tapZoneInvert,
+      this.activeTapZoneLayout(),
+      this.activeTapZoneInvert(),
       x,
       y,
       this.viewWidth,
@@ -3714,7 +3733,7 @@ export struct ReaderPage {
   }
 
   private tapZonePreviewRegions(): ReaderTapZoneRegion[] {
-    return ReaderTapZoneResolver.regions(this.readMode.tapZoneLayout, this.readMode.tapZoneInvert)
+    return ReaderTapZoneResolver.regions(this.activeTapZoneLayout(), this.activeTapZoneInvert())
   }
 
   private tapZonePercent(value: number): string {
@@ -3833,6 +3852,7 @@ export struct ReaderPage {
             if (this.vm.hasPreviewAt(index)) {
               ReaderVerticalImage({
                 image: this.readerDisplayImage(index),
+                totalPages: this.vm.totalPages(),
                 snapshotId: this.readerPageSnapshotId(this.vm.imageAt(index).page),
                 localSource: this.readerDisplayLocalSource(index),
                 imageKey: `${this.readerImageKey(this.readerDisplayImage(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
@@ -4067,6 +4087,22 @@ export struct ReaderPage {
     this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_TOUCH_SETTLE_MS)
   }
 
+  private cropBordersEnabledForCurrentMode(): boolean {
+    return this.isContinuousVerticalMode()
+      ? this.readMode.cropBordersContinuous
+      : this.readMode.cropBordersPaged
+  }
+
+  private toggleCropBordersForCurrentMode(): void {
+    const context: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    if (this.isContinuousVerticalMode()) {
+      ReadModeSettings.setCropBordersContinuous(context, !this.readMode.cropBordersContinuous)
+      return
+    }
+    ReadModeSettings.setCropBordersPaged(context, !this.readMode.cropBordersPaged)
+  }
+
   private spreadPageLabel(key: string, index: number): string {
     return AppStrings.get(key).replace('%d', `${index + 1}`)
   }
@@ -4101,6 +4137,13 @@ export struct ReaderPage {
             this.showImageInfo(this.vm.currentIndex)
           })
       }
+      SettingsCheckedMenuItem({
+        label: $r('app.string.reader_crop_borders'),
+        selected: this.cropBordersEnabledForCurrentMode(),
+        selectAction: (): void => {
+          this.toggleCropBordersForCurrentMode()
+        },
+      })
       MenuItem({ content: this.comicTranslationActionLabel() })
         .enabled(this.comicTranslationCurrentPageReady() && !this.comicTranslationRunning)
         .onClick(() => {
@@ -5230,31 +5273,111 @@ interface ReaderImageLoadEvent {
   componentHeight?: number
 }
 
+function readerCropDisplayWidth(width: number, bounds: ReaderPageCropBounds): number {
+  return width > 0 ? width * bounds.contentWidthFraction() : 0
+}
+
+function readerCropDisplayHeight(height: number, bounds: ReaderPageCropBounds): number {
+  return height > 0 ? height * bounds.contentHeightFraction() : 0
+}
+
 @ComponentV2
 struct ReaderInterpolatedImage {
   @Param src: string = '';
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
+  @Param cropBounds: ReaderPageCropBounds = ReaderPageCropBounds.none();
   @Event onComplete: (event?: ReaderImageLoadEvent) => void = (_event?: ReaderImageLoadEvent) => {};
   @Event onError: () => void = () => {};
   @Local readMode: ReadModeState = connectReadMode();
+  @Local componentW: number = 0;
+  @Local componentH: number = 0;
+
+  private cropReady(): boolean {
+    return this.cropBounds.applied() && this.componentW > 0 && this.componentH > 0 &&
+      this.cropBounds.contentWidth() > 0 && this.cropBounds.contentHeight() > 0
+  }
+
+  private cropAspect(): number {
+    const height: number = this.cropBounds.contentHeight()
+    return height > 0 ? this.cropBounds.contentWidth() / height : 1
+  }
+
+  private cropFrameW(): number {
+    const aspect: number = this.cropAspect()
+    return Math.min(this.componentW, this.componentH * aspect)
+  }
+
+  private cropFrameH(): number {
+    const aspect: number = this.cropAspect()
+    return aspect > 0 ? this.cropFrameW() / aspect : this.componentH
+  }
+
+  private sourceRenderW(): number {
+    return this.cropFrameW() / this.cropBounds.contentWidthFraction()
+  }
+
+  private sourceRenderH(): number {
+    return this.cropFrameH() / this.cropBounds.contentHeightFraction()
+  }
+
+  private sourceOffsetX(): number {
+    const cropCenter: number = this.cropBounds.left + this.cropBounds.contentWidthFraction() / 2
+    return -(cropCenter - 0.5) * this.sourceRenderW()
+  }
+
+  private sourceOffsetY(): number {
+    const cropCenter: number = this.cropBounds.top + this.cropBounds.contentHeightFraction() / 2
+    return -(cropCenter - 0.5) * this.sourceRenderH()
+  }
 
   build() {
-    // ImageKnifePro 1.0.16 does not expose ArkUI interpolation for its native Image node. Reader
-    // sources are already local file-cache URIs, so preserve the Reader download/cache pipeline and
-    // use system Image only for the final sampled render.
-    Image(this.src)
-      .objectFit(ImageFit.Contain)
-      .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+    if (this.cropBounds.applied()) {
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.cropReady()) {
+          Stack({ alignContent: Alignment.Center }) {
+            // Keep the cached source untouched. The full image is enlarged and translated behind a
+            // clipped viewport whose aspect ratio is the detected content rectangle.
+            Image(this.src)
+              .objectFit(ImageFit.Fill)
+              .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+              .width(this.sourceRenderW())
+              .height(this.sourceRenderH())
+              .translate({ x: this.sourceOffsetX(), y: this.sourceOffsetY() })
+              .draggable(false)
+              .onComplete((event?: ReaderImageLoadEvent) => {
+                this.onComplete(event)
+              })
+              .onError(() => {
+                this.onError()
+              })
+          }
+          .width(this.cropFrameW())
+          .height(this.cropFrameH())
+          .clip(true)
+        }
+      }
       .width(this.widthValue)
       .height(this.heightValue)
-      .draggable(false)
-      .onComplete((event?: ReaderImageLoadEvent) => {
-        this.onComplete(event)
+      .onAreaChange((_oldArea: Area, newArea: Area) => {
+        this.componentW = newArea.width as number
+        this.componentH = newArea.height as number
       })
-      .onError(() => {
-        this.onError()
-      })
+    } else {
+      // Keep the disabled/default path byte-for-byte equivalent to the established Reader render.
+      Image(this.src)
+        .objectFit(ImageFit.Contain)
+        .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+        .width(this.widthValue)
+        .height(this.heightValue)
+        .draggable(false)
+        .onComplete((event?: ReaderImageLoadEvent) => {
+          this.onComplete(event)
+        })
+        .onError(() => {
+          this.onError()
+        })
+    }
   }
 }
 
@@ -5914,8 +6037,10 @@ struct ReaderSpreadSurface {
           this.onAllowImageBlock(page)
         },
         onImageMetrics: (page: number, width: number, height: number) => {
-          this.recordImageMetrics(page, width, height)
           this.onImageMetrics(page, width, height)
+        },
+        onDisplayMetrics: (page: number, width: number, height: number) => {
+          this.recordImageMetrics(page, width, height)
         },
         onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => {
           this.onImageEnhancementState(page, model, applied, reason)
@@ -6113,6 +6238,8 @@ struct ReaderSpreadImageLayer {
   @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
+  @Param onDisplayMetrics: (page: number, width: number, height: number) => void =
+    (_page: number, _width: number, _height: number) => {};
   @Param onImageEnhancementState: (page: number, model: string, applied: boolean, reason: string) => void =
     (_page: number, _model: string, _applied: boolean, _reason: string) => {};
 
@@ -6125,6 +6252,7 @@ struct ReaderSpreadImageLayer {
   @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
+  @Local cropBounds: ReaderPageCropBounds = ReaderPageCropBounds.none();
   @Local readMode: ReadModeState = connectReadMode();
   @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private autoRetryCount: number = 0;
@@ -6132,6 +6260,9 @@ struct ReaderSpreadImageLayer {
   private resolvedFilePath: string = '';
   private resolvedDisplayUri: string = '';
   private superResolutionOwnerKey: string = '';
+  private cropRequestKey: string = '';
+  private sourceDecodedWidth: number = 0;
+  private sourceDecodedHeight: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -6140,6 +6271,7 @@ struct ReaderSpreadImageLayer {
   aboutToDisappear(): void {
     this.releaseSuperResolutionOwner()
     this.sourceRequests.invalidate()
+    this.cropRequestKey = ''
   }
 
   @Monitor('imageKey')
@@ -6208,6 +6340,17 @@ struct ReaderSpreadImageLayer {
     }
   }
 
+  @Monitor('readMode.cropBordersPaged')
+  onCropBordersSettingChanged(): void {
+    if (!this.readMode.cropBordersPaged) {
+      this.resetCropBounds()
+      return
+    }
+    if (this.resolvedFilePath.length > 0) {
+      this.updateCropBounds(this.resolvedFilePath)
+    }
+  }
+
   private resetImageState(): void {
     this.releaseSuperResolutionOwner()
     this.autoRetryCount = 0
@@ -6223,6 +6366,9 @@ struct ReaderSpreadImageLayer {
     this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    this.sourceDecodedWidth = 0
+    this.sourceDecodedHeight = 0
+    this.resetCropBounds()
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
@@ -6359,9 +6505,13 @@ struct ReaderSpreadImageLayer {
     if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
-    this.imageUrl = result.displayUri
     this.resolvedFilePath = result.filePath
     this.resolvedDisplayUri = result.displayUri
+    await this.updateCropBounds(result.filePath)
+    if (!this.isCurrentSource(source)) {
+      return
+    }
+    this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
@@ -6431,6 +6581,48 @@ struct ReaderSpreadImageLayer {
 
   private loadPriority(): number {
     return ReaderImageLoadPriority.forVisible(this.active)
+  }
+
+  private cropIdentity(): string {
+    return `${this.fileCacheKey}:${this.imageKey}:${this.sourceReloadRequestId}`
+  }
+
+  private resetCropBounds(): void {
+    this.cropRequestKey = ''
+    this.cropBounds = ReaderPageCropBounds.none()
+    this.reportDisplayMetrics()
+  }
+
+  private async updateCropBounds(filePath: string): Promise<void> {
+    if (!this.readMode.cropBordersPaged || filePath.length === 0) {
+      this.resetCropBounds()
+      return
+    }
+    const requestKey: string = `${filePath}|${this.cropIdentity()}`
+    this.cropRequestKey = requestKey
+    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, this.cropIdentity())
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged) {
+      return
+    }
+    this.cropBounds = bounds
+    this.reportDisplayMetrics()
+    DiagnosticLogger.info(
+      'reader-crop',
+      bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
+      `page=${this.image.page} mode=paged left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+    )
+  }
+
+  private reportDisplayMetrics(): void {
+    const width: number = this.sourceDecodedWidth > 0 ? this.sourceDecodedWidth : this.cropBounds.sourceWidth
+    const height: number = this.sourceDecodedHeight > 0 ? this.sourceDecodedHeight : this.cropBounds.sourceHeight
+    if (width > 0 && height > 0) {
+      this.onDisplayMetrics(
+        this.image.page,
+        readerCropDisplayWidth(width, this.cropBounds),
+        readerCropDisplayHeight(height, this.cropBounds),
+      )
+    }
   }
 
   private releaseSuperResolutionOwner(): void {
@@ -6545,7 +6737,10 @@ struct ReaderSpreadImageLayer {
   private onImageDecoded(width: number, height: number): void {
     this.markImageLoaded()
     if (width > 0 && height > 0) {
+      this.sourceDecodedWidth = width
+      this.sourceDecodedHeight = height
       this.onImageMetrics(this.image.page, width, height)
+      this.reportDisplayMetrics()
     }
     DiagnosticLogger.info(
       'image',
@@ -6569,6 +6764,7 @@ struct ReaderSpreadImageLayer {
           src: this.imageUrl,
           widthValue: '100%',
           heightValue: '100%',
+          cropBounds: this.cropBounds,
           onComplete: (event?: ReaderImageLoadEvent) => {
             if (event && event.width && event.height) {
               this.onImageDecoded(event.width, event.height)
@@ -6667,6 +6863,7 @@ struct ReaderImagePage {
   @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
+  @Local cropBounds: ReaderPageCropBounds = ReaderPageCropBounds.none();
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
   @Local offsetY: number = 0;
@@ -6693,6 +6890,9 @@ struct ReaderImagePage {
   private resolvedFilePath: string = '';
   private resolvedDisplayUri: string = '';
   private superResolutionOwnerKey: string = '';
+  private cropRequestKey: string = '';
+  private sourceDecodedWidth: number = 0;
+  private sourceDecodedHeight: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -6701,6 +6901,7 @@ struct ReaderImagePage {
   aboutToDisappear(): void {
     this.releaseSuperResolutionOwner()
     this.sourceRequests.invalidate()
+    this.cropRequestKey = ''
   }
 
   @Monitor('imageKey')
@@ -6776,6 +6977,17 @@ struct ReaderImagePage {
         this.fileCacheKey,
         this.imageKey,
       )
+    }
+  }
+
+  @Monitor('readMode.cropBordersPaged')
+  onCropBordersSettingChanged(): void {
+    if (!this.readMode.cropBordersPaged) {
+      this.resetCropBounds()
+      return
+    }
+    if (this.resolvedFilePath.length > 0) {
+      this.updateCropBounds(this.resolvedFilePath)
     }
   }
 
@@ -6919,9 +7131,13 @@ struct ReaderImagePage {
     if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
-    this.imageUrl = result.displayUri
     this.resolvedFilePath = result.filePath
     this.resolvedDisplayUri = result.displayUri
+    await this.updateCropBounds(result.filePath)
+    if (!this.isCurrentSource(source)) {
+      return
+    }
+    this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
@@ -6991,6 +7207,48 @@ struct ReaderImagePage {
 
   private loadPriority(): number {
     return ReaderImageLoadPriority.forVisible(this.isActive())
+  }
+
+  private cropIdentity(): string {
+    return `${this.fileCacheKey}:${this.imageKey}:${this.sourceReloadRequestId}`
+  }
+
+  private resetCropBounds(): void {
+    this.cropRequestKey = ''
+    this.cropBounds = ReaderPageCropBounds.none()
+    this.updateDisplayMetrics()
+  }
+
+  private async updateCropBounds(filePath: string): Promise<void> {
+    if (!this.readMode.cropBordersPaged || filePath.length === 0) {
+      this.resetCropBounds()
+      return
+    }
+    const identity: string = this.cropIdentity()
+    const requestKey: string = `${filePath}|${identity}`
+    this.cropRequestKey = requestKey
+    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity)
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged) {
+      return
+    }
+    this.cropBounds = bounds
+    this.updateDisplayMetrics()
+    DiagnosticLogger.info(
+      'reader-crop',
+      bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
+      `page=${this.image.page} mode=paged left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+    )
+  }
+
+  private updateDisplayMetrics(): void {
+    const width: number = this.sourceDecodedWidth > 0 ? this.sourceDecodedWidth : this.cropBounds.sourceWidth
+    const height: number = this.sourceDecodedHeight > 0 ? this.sourceDecodedHeight : this.cropBounds.sourceHeight
+    if (width <= 0 || height <= 0) {
+      return
+    }
+    this.intrinsicW = this.getUIContext().px2vp(readerCropDisplayWidth(width, this.cropBounds))
+    this.intrinsicH = this.getUIContext().px2vp(readerCropDisplayHeight(height, this.cropBounds))
+    this.clampOffset()
   }
 
   private releaseSuperResolutionOwner(): void {
@@ -7068,6 +7326,9 @@ struct ReaderImagePage {
     this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    this.sourceDecodedWidth = 0
+    this.sourceDecodedHeight = 0
+    this.resetCropBounds()
     this.intrinsicW = 0
     this.intrinsicH = 0
   }
@@ -7124,8 +7385,9 @@ struct ReaderImagePage {
 
   private onImageDecoded(width: number, height: number): void {
     if (width > 0 && height > 0) {
-      this.intrinsicW = this.getUIContext().px2vp(width)
-      this.intrinsicH = this.getUIContext().px2vp(height)
+      this.sourceDecodedWidth = width
+      this.sourceDecodedHeight = height
+      this.updateDisplayMetrics()
       DiagnosticLogger.info(
         'reader',
         'image_decoded',
@@ -7256,6 +7518,7 @@ struct ReaderImagePage {
           src: this.imageUrl,
           widthValue: '100%',
           heightValue: '100%',
+          cropBounds: this.cropBounds,
           onComplete: (event?: ReaderImageLoadEvent) => {
             if (event && event.width && event.height) {
               this.onImageDecoded(event.width, event.height)
@@ -7423,6 +7686,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 @ComponentV2
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param totalPages: number = 0;
   @Param snapshotId: string = '';
   @Param localSource: boolean = false;
   @Param imageKey: string = '';
@@ -7455,6 +7719,7 @@ struct ReaderVerticalImage {
   @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
+  @Local cropBounds: ReaderPageCropBounds = ReaderPageCropBounds.none();
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -7486,6 +7751,9 @@ struct ReaderVerticalImage {
   private resolvedFilePath: string = '';
   private resolvedDisplayUri: string = '';
   private superResolutionOwnerKey: string = '';
+  private cropRequestKey: string = '';
+  private sourceDecodedWidth: number = 0;
+  private sourceDecodedHeight: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -7494,6 +7762,7 @@ struct ReaderVerticalImage {
   aboutToDisappear(): void {
     this.releaseSuperResolutionOwner()
     this.sourceRequests.invalidate()
+    this.cropRequestKey = ''
     if (this.zoomAnimatingTimerId > 0) {
       clearTimeout(this.zoomAnimatingTimerId)
       this.zoomAnimatingTimerId = 0
@@ -7568,6 +7837,17 @@ struct ReaderVerticalImage {
         this.fileCacheKey,
         this.imageKey,
       )
+    }
+  }
+
+  @Monitor('readMode.cropBordersContinuous')
+  onCropBordersSettingChanged(): void {
+    if (!this.readMode.cropBordersContinuous) {
+      this.resetCropBounds()
+      return
+    }
+    if (this.resolvedFilePath.length > 0) {
+      this.updateCropBounds(this.resolvedFilePath)
     }
   }
 
@@ -7706,9 +7986,13 @@ struct ReaderVerticalImage {
     if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
-    this.imageUrl = result.displayUri
     this.resolvedFilePath = result.filePath
     this.resolvedDisplayUri = result.displayUri
+    await this.updateCropBounds(result.filePath)
+    if (!this.isCurrentSource(source)) {
+      return
+    }
+    this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.autoRetryCount = 0
     this.failed = false
@@ -7778,6 +8062,52 @@ struct ReaderVerticalImage {
 
   private loadPriority(): number {
     return ReaderImageLoadPriority.forVisible(this.visible)
+  }
+
+  private cropIdentity(): string {
+    return `${this.fileCacheKey}:${this.imageKey}:${this.sourceReloadRequestId}`
+  }
+
+  private resetCropBounds(): void {
+    this.cropRequestKey = ''
+    this.cropBounds = ReaderPageCropBounds.none()
+    this.updateDisplayMetrics()
+  }
+
+  private async updateCropBounds(filePath: string): Promise<void> {
+    if (!this.readMode.cropBordersContinuous || filePath.length === 0) {
+      this.resetCropBounds()
+      return
+    }
+    const identity: string = this.cropIdentity()
+    const requestKey: string = `${filePath}|${identity}`
+    this.cropRequestKey = requestKey
+    const detected: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity)
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersContinuous) {
+      return
+    }
+    const bounds: ReaderPageCropBounds = detected.forContinuousPage(this.image.page, this.totalPages)
+    this.cropBounds = bounds
+    this.updateDisplayMetrics()
+    DiagnosticLogger.info(
+      'reader-crop',
+      bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
+      `page=${this.image.page} mode=continuous left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+    )
+  }
+
+  private updateDisplayMetrics(): void {
+    const width: number = this.sourceDecodedWidth > 0 ? this.sourceDecodedWidth : this.cropBounds.sourceWidth
+    const height: number = this.sourceDecodedHeight > 0 ? this.sourceDecodedHeight : this.cropBounds.sourceHeight
+    if (width <= 0 || height <= 0) {
+      return
+    }
+    const displayWidth: number = readerCropDisplayWidth(width, this.cropBounds)
+    const displayHeight: number = readerCropDisplayHeight(height, this.cropBounds)
+    this.ratio = displayHeight > 0 ? displayWidth / displayHeight : DEFAULT_VERTICAL_RATIO
+    this.intrinsicW = this.getUIContext().px2vp(displayWidth)
+    this.intrinsicH = this.getUIContext().px2vp(displayHeight)
+    this.clampOffset()
   }
 
   private releaseSuperResolutionOwner(): void {
@@ -7855,6 +8185,9 @@ struct ReaderVerticalImage {
     this.resolvedDisplayUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+    this.sourceDecodedWidth = 0
+    this.sourceDecodedHeight = 0
+    this.resetCropBounds()
     this.ratio = DEFAULT_VERTICAL_RATIO
     this.intrinsicW = 0
     this.intrinsicH = 0
@@ -8079,9 +8412,9 @@ struct ReaderVerticalImage {
 
   private onImageDecoded(width: number, height: number): void {
     if (width > 0 && height > 0) {
-      this.ratio = width / height
-      this.intrinsicW = this.getUIContext().px2vp(width)
-      this.intrinsicH = this.getUIContext().px2vp(height)
+      this.sourceDecodedWidth = width
+      this.sourceDecodedHeight = height
+      this.updateDisplayMetrics()
       DiagnosticLogger.info(
         'reader',
         'image_decoded',
@@ -8119,6 +8452,7 @@ struct ReaderVerticalImage {
           src: this.imageUrl,
           widthValue: '100%',
           heightValue: '100%',
+          cropBounds: this.cropBounds,
           onComplete: (event?: ReaderImageLoadEvent) => {
             if (event && event.width && event.height) {
               this.onImageDecoded(event.width, event.height)
