@@ -1678,7 +1678,10 @@ struct Index {
       return false
     }
     const params: GalleryDetailParams = content.param as GalleryDetailParams
-    return params.gid.length > 0 && params.gid === this.galleryDetailTransition.galleryId
+    return this.galleryDetailTransition.ownsRoute(
+      params.gid,
+      content.navDestinationId === undefined ? '' : content.navDestinationId,
+    )
   }
 
   private galleryDetailNavTransition(
@@ -1698,6 +1701,9 @@ struct Index {
       this.ownsGalleryDetailTransition(from)
     if (!isPush && !isPop) {
       return undefined
+    }
+    if (isPush && to.navDestinationId !== undefined) {
+      this.galleryDetailTransition.bindRouteDestination(to.navDestinationId)
     }
     this.galleryDetailTransitionSerial += 1
     const transitionSerial: number = this.galleryDetailTransitionSerial
@@ -1830,7 +1836,7 @@ struct Index {
                     this.getUIContext(),
                     (): void => {
                       if (transitionSerial === this.galleryDetailTransitionSerial) {
-                        this.galleryDetailTransition.reset()
+                        this.galleryDetailTransition.finishRouteContext()
                       }
                     },
                   )
@@ -1849,7 +1855,7 @@ struct Index {
             useIndependentPopSurface &&
             !GalleryDetailTransitionCoordinator.prepareIndependentPopSurface(this.getUIContext())
           ) {
-            this.galleryDetailTransition.reset()
+            this.galleryDetailTransition.finishRouteContext()
             proxy.finishTransition()
             return
           }
@@ -1863,7 +1869,7 @@ struct Index {
                 return
               }
               if (!success) {
-                this.galleryDetailTransition.reset()
+                this.galleryDetailTransition.finishRouteContext()
                 proxy.finishTransition()
                 return
               }
@@ -1886,14 +1892,14 @@ struct Index {
           this.galleryDetailTransition.markPushSettled(success)
         } else if (this.galleryDetailTransition.independentPopSurfaceActive) {
           if (!success) {
-            this.galleryDetailTransition.reset()
+            this.galleryDetailTransition.finishRouteContext()
           }
         } else if (success && this.galleryDetailTransition.isCoverExpand()) {
           const handoffStarted: boolean = GalleryDetailTransitionCoordinator.finishPostPopHandoff(
             this.getUIContext(),
             (): void => {
               if (transitionSerial === this.galleryDetailTransitionSerial) {
-                this.galleryDetailTransition.reset()
+                this.galleryDetailTransition.finishRouteContext()
               }
             },
           )

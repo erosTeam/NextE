@@ -3140,7 +3140,7 @@ export struct GalleryDetailPage {
   private transitionCoverTargetId(): string {
     if (
       !this.galleryDetailTransition.isCoverExpand() ||
-      this.galleryDetailTransition.galleryId !== this.params.gid
+      !this.galleryDetailTransition.ownsRoute(this.params.gid, this.navigationDestinationId)
     ) {
       return ''
     }
@@ -3167,7 +3167,7 @@ export struct GalleryDetailPage {
     if (
       this.coverPopDispatching ||
       this.navStackHolder.isSplitMode ||
-      !this.galleryDetailTransition.eligible
+      !this.galleryDetailTransition.ownsRoute(this.params.gid, this.navigationDestinationId)
     ) {
       return false
     }

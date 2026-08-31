@@ -429,9 +429,12 @@ export class GalleryDetailTransitionCoordinator {
       return
     }
     const transition = connectGalleryDetailTransition()
-    transition.reset()
     const selectedMode: string = connectGalleryDetailTransitionSettings().mode
     if (selectedMode === GalleryDetailTransitionMode.SYSTEM || connectNavStack().isSplitMode) {
+      openDetail()
+      return
+    }
+    if (!transition.beginRouteContext()) {
       openDetail()
       return
     }
@@ -456,6 +459,7 @@ export class GalleryDetailTransitionCoordinator {
       let preserveSourceCoverBackground: boolean = false
       if (targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
         GalleryDetailTransitionCoordinator.opening = false
+        transition.finishRouteContext()
         openDetail()
         return
       }
@@ -552,7 +556,7 @@ export class GalleryDetailTransitionCoordinator {
             'source_snapshot_failed',
             `gid=${galleryId} source=${componentId} error=${error}`,
           )
-          transition.reset()
+          transition.finishRouteContext()
         }
         GalleryDetailTransitionCoordinator.opening = false
         openDetail()
@@ -595,7 +599,7 @@ export class GalleryDetailTransitionCoordinator {
         `gid=${galleryId} source=${componentId} error=${error}`,
       )
       GalleryDetailTransitionCoordinator.opening = false
-      transition.reset()
+      transition.finishRouteContext()
     }
     openDetail()
   }

@@ -12,12 +12,62 @@ export enum GalleryDetailTransitionPhase {
   POST_POP_HANDOFF = 'post_pop_handoff',
 }
 
+/**
+ * Stable OPEN-state payload retained while a deeper list -> detail transition owns the render proxy.
+ * PixelMaps move into this context instead of being copied or released; the parent route receives the
+ * same resources again after the child detail returns to its source list.
+ */
+class SuspendedGalleryDetailTransitionContext {
+  mode: string = GalleryDetailTransitionMode.SEAMLESS
+  galleryId: string = ''
+  routeDestinationId: string = ''
+  sourceComponentId: string = ''
+  sourceCoverComponentId: string = ''
+  sourceSurfaceComponentId: string = ''
+  preserveSourceCoverBackground: boolean = false
+  targetCoverComponentId: string = ''
+  handoffX: number = 0
+  handoffY: number = 0
+  handoffWidth: number = 0
+  handoffHeight: number = 0
+  rootWidth: number = 0
+  rootHeight: number = 0
+  collapsedScaleX: number = 1
+  collapsedScaleY: number = 1
+  collapsedTranslateX: number = 0
+  collapsedTranslateY: number = 0
+  collapsedRadius: number = 0
+  sourceCoverX: number = 0
+  sourceCoverY: number = 0
+  sourceCoverWidth: number = 0
+  sourceCoverHeight: number = 0
+  sourceCoverRadius: number = 0
+  targetCoverX: number = 0
+  targetCoverY: number = 0
+  targetCoverWidth: number = 0
+  targetCoverHeight: number = 0
+  targetCoverRadius: number = 0
+  targetCoverRootWidth: number = 0
+  targetCoverRootHeight: number = 0
+  targetCoverReady: boolean = false
+  coverUrl: string = ''
+  sourceSnapshotX: number = 0
+  sourceSnapshotY: number = 0
+  sourceSnapshotWidth: number = 0
+  sourceSnapshotHeight: number = 0
+  sourceSnapshotFreshForCurrentRoot: boolean = false
+  sourceSnapshot: image.PixelMap | undefined = undefined
+  cardSnapshot: image.PixelMap | undefined = undefined
+  coverSnapshot: image.PixelMap | undefined = undefined
+}
+
 @ObservedV2
 export class GalleryDetailTransitionState {
   @Trace eligible: boolean = false
   @Trace phase: GalleryDetailTransitionPhase = GalleryDetailTransitionPhase.IDLE
   @Trace mode: string = GalleryDetailTransitionMode.SEAMLESS
   @Trace galleryId: string = ''
+  @Trace routeDestinationId: string = ''
   @Trace sourceComponentId: string = ''
   @Trace sourceCoverComponentId: string = ''
   sourceSurfaceComponentId: string = ''
@@ -81,6 +131,171 @@ export class GalleryDetailTransitionState {
   @Trace targetCoverRadius: number = 0
   private targetCoverRootWidth: number = 0
   private targetCoverRootHeight: number = 0
+  private suspendedContexts: SuspendedGalleryDetailTransitionContext[] = []
+
+  /**
+   * Opens a new route-owned transition slot. An already-open parent is moved to the suspended stack
+   * without releasing its snapshots; transient animation phases are deliberately not nestable.
+   */
+  beginRouteContext(): boolean {
+    if (this.eligible) {
+      if (
+        this.phase !== GalleryDetailTransitionPhase.OPEN ||
+        this.independentPopSurfaceActive ||
+        this.detailSnapshot !== undefined
+      ) {
+        return false
+      }
+      const context: SuspendedGalleryDetailTransitionContext =
+        new SuspendedGalleryDetailTransitionContext()
+      context.mode = this.mode
+      context.galleryId = this.galleryId
+      context.routeDestinationId = this.routeDestinationId
+      context.sourceComponentId = this.sourceComponentId
+      context.sourceCoverComponentId = this.sourceCoverComponentId
+      context.sourceSurfaceComponentId = this.sourceSurfaceComponentId
+      context.preserveSourceCoverBackground = this.preserveSourceCoverBackground
+      context.targetCoverComponentId = this.targetCoverComponentId
+      context.handoffX = this.handoffX
+      context.handoffY = this.handoffY
+      context.handoffWidth = this.handoffWidth
+      context.handoffHeight = this.handoffHeight
+      context.rootWidth = this.rootWidth
+      context.rootHeight = this.rootHeight
+      context.collapsedScaleX = this.collapsedScaleX
+      context.collapsedScaleY = this.collapsedScaleY
+      context.collapsedTranslateX = this.collapsedTranslateX
+      context.collapsedTranslateY = this.collapsedTranslateY
+      context.collapsedRadius = this.collapsedRadius
+      context.sourceCoverX = this.sourceCoverX
+      context.sourceCoverY = this.sourceCoverY
+      context.sourceCoverWidth = this.sourceCoverWidth
+      context.sourceCoverHeight = this.sourceCoverHeight
+      context.sourceCoverRadius = this.sourceCoverRadius
+      context.targetCoverX = this.targetCoverX
+      context.targetCoverY = this.targetCoverY
+      context.targetCoverWidth = this.targetCoverWidth
+      context.targetCoverHeight = this.targetCoverHeight
+      context.targetCoverRadius = this.targetCoverRadius
+      context.targetCoverRootWidth = this.targetCoverRootWidth
+      context.targetCoverRootHeight = this.targetCoverRootHeight
+      context.targetCoverReady = this.targetCoverReady
+      context.coverUrl = this.coverUrl
+      context.sourceSnapshotX = this.sourceSnapshotX
+      context.sourceSnapshotY = this.sourceSnapshotY
+      context.sourceSnapshotWidth = this.sourceSnapshotWidth
+      context.sourceSnapshotHeight = this.sourceSnapshotHeight
+      context.sourceSnapshotFreshForCurrentRoot = this.sourceSnapshotFreshForCurrentRoot
+      context.sourceSnapshot = this.sourceSnapshot
+      context.cardSnapshot = this.cardSnapshot
+      context.coverSnapshot = this.coverSnapshot
+      this.sourceSnapshot = undefined
+      this.cardSnapshot = undefined
+      this.coverSnapshot = undefined
+      this.suspendedContexts.push(context)
+    } else {
+      this.releaseCurrentSnapshots()
+    }
+    this.clearCurrentFields()
+    return true
+  }
+
+  bindRouteDestination(navDestinationId: string): void {
+    if (!this.eligible || navDestinationId.length === 0) {
+      return
+    }
+    this.routeDestinationId = navDestinationId
+  }
+
+  ownsRoute(galleryId: string, navDestinationId: string): boolean {
+    if (!this.eligible || galleryId.length === 0 || galleryId !== this.galleryId) {
+      return false
+    }
+    return this.routeDestinationId.length === 0 ||
+      (navDestinationId.length > 0 && navDestinationId === this.routeDestinationId)
+  }
+
+  suspendedDepth(): number {
+    return this.suspendedContexts.length
+  }
+
+  /** Releases the current child context and restores the nearest retained parent, if one exists. */
+  finishRouteContext(): void {
+    this.releaseCurrentSnapshots()
+    this.clearCurrentFields()
+    const context: SuspendedGalleryDetailTransitionContext | undefined = this.suspendedContexts.pop()
+    if (context === undefined) {
+      return
+    }
+    this.mode = context.mode
+    this.galleryId = context.galleryId
+    this.routeDestinationId = context.routeDestinationId
+    this.sourceComponentId = context.sourceComponentId
+    this.sourceCoverComponentId = context.sourceCoverComponentId
+    this.sourceSurfaceComponentId = context.sourceSurfaceComponentId
+    this.preserveSourceCoverBackground = context.preserveSourceCoverBackground
+    this.targetCoverComponentId = context.targetCoverComponentId
+    this.handoffX = context.handoffX
+    this.handoffY = context.handoffY
+    this.handoffWidth = context.handoffWidth
+    this.handoffHeight = context.handoffHeight
+    this.rootWidth = context.rootWidth
+    this.rootHeight = context.rootHeight
+    this.collapsedScaleX = context.collapsedScaleX
+    this.collapsedScaleY = context.collapsedScaleY
+    this.collapsedTranslateX = context.collapsedTranslateX
+    this.collapsedTranslateY = context.collapsedTranslateY
+    this.collapsedRadius = context.collapsedRadius
+    this.sourceCoverX = context.sourceCoverX
+    this.sourceCoverY = context.sourceCoverY
+    this.sourceCoverWidth = context.sourceCoverWidth
+    this.sourceCoverHeight = context.sourceCoverHeight
+    this.sourceCoverRadius = context.sourceCoverRadius
+    this.targetCoverX = context.targetCoverX
+    this.targetCoverY = context.targetCoverY
+    this.targetCoverWidth = context.targetCoverWidth
+    this.targetCoverHeight = context.targetCoverHeight
+    this.targetCoverRadius = context.targetCoverRadius
+    this.targetCoverRootWidth = context.targetCoverRootWidth
+    this.targetCoverRootHeight = context.targetCoverRootHeight
+    this.targetCoverReady = context.targetCoverReady
+    this.coverUrl = context.coverUrl
+    this.sourceSnapshotX = context.sourceSnapshotX
+    this.sourceSnapshotY = context.sourceSnapshotY
+    this.sourceSnapshotWidth = context.sourceSnapshotWidth
+    this.sourceSnapshotHeight = context.sourceSnapshotHeight
+    this.sourceSnapshotFreshForCurrentRoot = context.sourceSnapshotFreshForCurrentRoot
+    this.sourceSnapshot = context.sourceSnapshot
+    this.cardSnapshot = context.cardSnapshot
+    this.coverSnapshot = context.coverSnapshot
+    this.scaleX = 1
+    this.scaleY = 1
+    this.translateX = 0
+    this.translateY = 0
+    this.radius = 0
+    this.cardOpacity = 0
+    this.contentOpacity = 1
+    this.chromeVisible = true
+    this.clipX = 0
+    this.clipY = 0
+    this.clipWidth = this.rootWidth
+    this.clipHeight = this.rootHeight
+    if (this.targetCoverReady) {
+      this.flightCoverX = this.targetCoverX
+      this.flightCoverY = this.targetCoverY
+      this.flightCoverWidth = this.targetCoverWidth
+      this.flightCoverHeight = this.targetCoverHeight
+      this.flightCoverRadius = this.targetCoverRadius
+    } else {
+      this.flightCoverX = this.sourceCoverX
+      this.flightCoverY = this.sourceCoverY
+      this.flightCoverWidth = this.sourceCoverWidth
+      this.flightCoverHeight = this.sourceCoverHeight
+      this.flightCoverRadius = this.sourceCoverRadius
+    }
+    this.phase = GalleryDetailTransitionPhase.OPEN
+    this.eligible = true
+  }
 
   beginSourceHandoff(
     mode: string,
@@ -622,7 +837,7 @@ export class GalleryDetailTransitionState {
       return
     }
     if (!success) {
-      this.reset()
+      this.finishRouteContext()
       return
     }
     this.phase = GalleryDetailTransitionPhase.OPEN
@@ -680,7 +895,7 @@ export class GalleryDetailTransitionState {
       return
     }
     if (success) {
-      this.reset()
+      this.finishRouteContext()
       return
     }
     this.phase = GalleryDetailTransitionPhase.OPEN
@@ -699,11 +914,12 @@ export class GalleryDetailTransitionState {
     this.crossfadeToDetail()
   }
 
-  reset(): void {
+  private clearCurrentFields(): void {
     this.eligible = false
     this.phase = GalleryDetailTransitionPhase.IDLE
     this.mode = GalleryDetailTransitionMode.SEAMLESS
     this.galleryId = ''
+    this.routeDestinationId = ''
     this.sourceComponentId = ''
     this.sourceCoverComponentId = ''
     this.sourceSurfaceComponentId = ''
@@ -755,11 +971,20 @@ export class GalleryDetailTransitionState {
     this.targetCoverWidth = 0
     this.targetCoverHeight = 0
     this.targetCoverRadius = 0
+    this.targetCoverRootWidth = 0
+    this.targetCoverRootHeight = 0
     this.sourceSnapshotX = 0
     this.sourceSnapshotY = 0
     this.sourceSnapshotWidth = 0
     this.sourceSnapshotHeight = 0
     this.sourceSnapshotFreshForCurrentRoot = false
+    this.sourceSnapshot = undefined
+    this.detailSnapshot = undefined
+    this.cardSnapshot = undefined
+    this.coverSnapshot = undefined
+  }
+
+  private releaseCurrentSnapshots(): void {
     const sourceSnapshot: image.PixelMap | undefined = this.sourceSnapshot
     const detailSnapshot: image.PixelMap | undefined = this.detailSnapshot
     const cardSnapshot: image.PixelMap | undefined = this.cardSnapshot
@@ -780,6 +1005,27 @@ export class GalleryDetailTransitionState {
     if (coverSnapshot !== undefined) {
       coverSnapshot.release().catch((_error: Error) => {})
     }
+  }
+
+  private releaseSuspendedContext(context: SuspendedGalleryDetailTransitionContext): void {
+    if (context.sourceSnapshot !== undefined) {
+      context.sourceSnapshot.release().catch((_error: Error) => {})
+    }
+    if (context.cardSnapshot !== undefined) {
+      context.cardSnapshot.release().catch((_error: Error) => {})
+    }
+    if (context.coverSnapshot !== undefined) {
+      context.coverSnapshot.release().catch((_error: Error) => {})
+    }
+  }
+
+  reset(): void {
+    this.releaseCurrentSnapshots()
+    this.clearCurrentFields()
+    for (let i: number = 0; i < this.suspendedContexts.length; i++) {
+      this.releaseSuspendedContext(this.suspendedContexts[i])
+    }
+    this.suspendedContexts = []
   }
 }
 
