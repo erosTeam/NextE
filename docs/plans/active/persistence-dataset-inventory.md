@@ -65,12 +65,18 @@ Allowed `Sync` values:
 | StorageKeys.READING_PRELOAD_PAGES | setting | plaintext | excluded | Reader preload preference |
 | StorageKeys.READING_TAP_ZONE_LAYOUT | setting | plaintext | excluded | Reader tap-zone layout |
 | StorageKeys.READING_TAP_ZONE_INVERT | setting | plaintext | excluded | Reader tap-zone inversion |
+| StorageKeys.READING_TAP_ZONE_LAYOUT_PAGED | setting | plaintext | excluded | Paged-reader tap-zone layout |
+| StorageKeys.READING_TAP_ZONE_LAYOUT_CONTINUOUS | setting | plaintext | excluded | Continuous-reader tap-zone layout |
+| StorageKeys.READING_TAP_ZONE_INVERT_PAGED | setting | plaintext | excluded | Paged-reader tap-zone inversion |
+| StorageKeys.READING_TAP_ZONE_INVERT_CONTINUOUS | setting | plaintext | excluded | Continuous-reader tap-zone inversion |
 | StorageKeys.READING_BACKGROUND_MODE | setting | plaintext | excluded | Reader background color mode |
 | StorageKeys.READING_SHOW_PAGE_NUMBER | setting | plaintext | excluded | Reader page-number visibility |
 | StorageKeys.READING_FULLSCREEN | setting | plaintext | excluded | Reader fullscreen preference |
 | StorageKeys.READING_KEEP_SCREEN_ON | setting | plaintext | excluded | Reader keep-screen-on preference |
 | StorageKeys.READING_PAGE_TURN_ANIMATION | setting | plaintext | excluded | Reader page-turn animation preference |
 | StorageKeys.READING_IMAGE_SCALING_QUALITY | setting | plaintext | excluded | Reader image interpolation preference |
+| StorageKeys.READING_CROP_BORDERS_PAGED | setting | plaintext | excluded | Paged-reader automatic border crop preference |
+| StorageKeys.READING_CROP_BORDERS_CONTINUOUS | setting | plaintext | excluded | Continuous-reader automatic border crop preference |
 | StorageKeys.READING_SUPER_RESOLUTION_ENABLED | setting | plaintext | excluded | Reader super-resolution master switch |
 | StorageKeys.READING_SUPER_RESOLUTION_MODEL | setting | plaintext | excluded | Selected local super-resolution model |
 | StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT | setting | plaintext | excluded | Reader super-resolution input height limit |

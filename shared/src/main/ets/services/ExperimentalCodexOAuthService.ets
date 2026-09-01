@@ -29,7 +29,7 @@ const CODEX_OAUTH_DEVICE_AUTH_ID_MAX_CHARS: number = 4096
 const CODEX_OAUTH_EXCHANGE_FIELD_MAX_CHARS: number = 4096
 const CODEX_OAUTH_MAX_POLL_INTERVAL_SECONDS: number = 60
 const CODEX_OAUTH_MAX_TOKEN_LIFETIME_SECONDS: number = 30 * 24 * 60 * 60
-const CODEX_OAUTH_USER_AGENT: string = 'NextE/1.3.2 experimental-codex-oauth'
+const CODEX_OAUTH_USER_AGENT: string = 'NextE/1.3.3 experimental-codex-oauth'
 
 class DeviceCodeResponse {
   user_code: string = ''
