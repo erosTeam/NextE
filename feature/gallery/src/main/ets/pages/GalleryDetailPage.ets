@@ -3164,10 +3164,24 @@ export struct GalleryDetailPage {
   }
 
   private handleBackPressed(): boolean {
+    const ownsRoute: boolean = this.galleryDetailTransition.ownsRoute(
+      this.params.gid,
+      this.navigationDestinationId,
+    )
+    if (this.navStackHolder.isSplitMode) {
+      if (!ownsRoute) {
+        return false
+      }
+      // A detail opened in Stack retains its route-owned transition context when Auto later
+      // resolves to Split. HDS treats the first secondary destination as a root, so consume Back
+      // for that migrated route and remove only the current detail instead of leaving the app.
+      this.galleryDetailTransition.finishRouteContext()
+      this.stack.pop()
+      return true
+    }
     if (
       this.coverPopDispatching ||
-      this.navStackHolder.isSplitMode ||
-      !this.galleryDetailTransition.ownsRoute(this.params.gid, this.navigationDestinationId)
+      !ownsRoute
     ) {
       return false
     }
@@ -3280,7 +3294,11 @@ export struct GalleryDetailPage {
     }
     .titleBar(this.detailTitleBar())
     .hideTitleBar(this.galleryDetailTransition.eligible && !this.galleryDetailTransition.chromeVisible, false)
-    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDetail)
+    .hideBackButton(
+      this.navStackHolder.isSplitMode &&
+        this.isFirstSecondaryDetail &&
+        !this.galleryDetailTransition.ownsRoute(this.params.gid, this.navigationDestinationId),
+    )
     .onBackPressed(() => this.handleBackPressed())
     .backgroundColor(
       this.galleryDetailTransition.eligible
