@@ -17,6 +17,7 @@ import {
   GalleryArchiverParams,
   SecondaryListScaffold,
   PageErrorState,
+  PageLoadingState,
   CardEmptyState,
   AppModalScaffold,
   AppStrings,
@@ -647,16 +648,9 @@ export struct GalleryArchiverContent {
   private Content() {
     if (this.loading) {
       ListItem() {
-        Row() {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE)
-            .height(ThemeConstants.LOADING_SIZE)
-            .color(ThemeConstants.BRAND_PRIMARY)
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .padding(ThemeConstants.SPACE_MD)
+        PageLoadingState({ expand: false })
       }
+      .padding(ThemeConstants.SPACE_MD)
     } else if (this.error.length > 0) {
       ListItem() {
         PageErrorState({

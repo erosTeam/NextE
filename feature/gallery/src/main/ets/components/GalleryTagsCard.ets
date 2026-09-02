@@ -2,6 +2,7 @@ import { common, Want } from '@kit.AbilityKit'
 import { vibrator } from '@kit.SensorServiceKit'
 import {
   ThemeConstants,
+  ListRowDivider,
   EhGallery,
   TagGroup,
   SimpleTag,
@@ -1229,21 +1230,13 @@ export struct GalleryTagsCard {
                 },
               })
               if (index < this.tagsetOptions.length - 1) {
-                this.TagsetRowDivider()
+                ListRowDivider()
               }
             }, (tagset: EhMytagSet) => tagset.tagsetId)
           }
         }
       }
     }
-  }
-
-  @Builder
-  private TagsetRowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   @Builder
@@ -1273,7 +1266,7 @@ export struct GalleryTagsCard {
             subtitleMaxLines: 2,
             showChevron: false,
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_watch'),
             hasSwitch: true,
@@ -1286,7 +1279,7 @@ export struct GalleryTagsCard {
               }
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_hide'),
             hasSwitch: true,
@@ -1299,7 +1292,7 @@ export struct GalleryTagsCard {
               }
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           InlineEditRow({
             title: $r('app.string.mytags_weight'),
             value: this.editWeight,
@@ -1309,7 +1302,7 @@ export struct GalleryTagsCard {
               this.editWeight = value
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_default_color'),
             hasSwitch: true,
@@ -1369,7 +1362,7 @@ export struct GalleryTagsCard {
             subtitleMaxLines: 2,
             showChevron: false,
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_watch'),
             hasSwitch: true,
@@ -1382,7 +1375,7 @@ export struct GalleryTagsCard {
               }
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_hide'),
             hasSwitch: true,
@@ -1395,7 +1388,7 @@ export struct GalleryTagsCard {
               }
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           InlineEditRow({
             title: $r('app.string.mytags_weight'),
             value: this.addWeight,
@@ -1405,7 +1398,7 @@ export struct GalleryTagsCard {
               this.addWeight = value
             },
           })
-          this.TagsetRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_default_color'),
             hasSwitch: true,

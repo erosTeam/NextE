@@ -13,6 +13,7 @@ import {
   connectLayoutSafeArea,
   LayoutSafeAreaState,
   ThemeConstants,
+  ListRowDivider,
   DiagnosticLogger,
   immersiveTitleBar,
   UserProfileService,
@@ -122,14 +123,6 @@ export struct EhCookieImportPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private CookiePreviewRow(entry: CookieJarEntry) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       Text(entry.name)
@@ -158,13 +151,13 @@ export struct EhCookieImportPage {
         showChevron: false,
       })
       if (this.parsedCookies.length > 0) {
-        this.rowDivider()
+        ListRowDivider()
         ForEach(
           this.parsedCookies,
           (entry: CookieJarEntry, index: number) => {
             this.CookiePreviewRow(entry)
             if (index < this.parsedCookies.length - 1) {
-              this.rowDivider()
+              ListRowDivider()
             }
           },
           (entry: CookieJarEntry) => entry.name,

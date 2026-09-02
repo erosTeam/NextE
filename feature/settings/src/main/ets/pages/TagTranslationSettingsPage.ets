@@ -1,11 +1,11 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   ConciseListRow,
   GroupedListSection,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   TAG_INTRO_IMAGE_DISABLE,
   TAG_INTRO_IMAGE_NON_H,
   TAG_INTRO_IMAGE_R18,
@@ -16,6 +16,7 @@ import {
   TagTranslationService,
   TagTranslationSettingsState,
   ThemeConstants,
+  ListRowDivider,
   connectTagTranslationSettings,
   immersiveTitleBar,
 } from 'shared'
@@ -151,35 +152,25 @@ export struct TagTranslationSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private UpdateModeMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.tag_translation_update_manual'),
-        symbolEndIcon: this.tagSettings.updateMode === TAG_TRANSLATION_UPDATE_MANUAL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setUpdateMode(TAG_TRANSLATION_UPDATE_MANUAL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_update_manual'),
+        selected: this.tagSettings.updateMode === TAG_TRANSLATION_UPDATE_MANUAL,
+        selectAction: () => {
+          select(() => {
+            this.setUpdateMode(TAG_TRANSLATION_UPDATE_MANUAL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.tag_translation_update_every_start'),
-        symbolEndIcon: this.tagSettings.updateMode === TAG_TRANSLATION_UPDATE_EVERY_START
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setUpdateMode(TAG_TRANSLATION_UPDATE_EVERY_START)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_update_every_start'),
+        selected: this.tagSettings.updateMode === TAG_TRANSLATION_UPDATE_EVERY_START,
+        selectAction: () => {
+          select(() => {
+            this.setUpdateMode(TAG_TRANSLATION_UPDATE_EVERY_START)
+          })
+        },
       })
     }
   }
@@ -187,45 +178,41 @@ export struct TagTranslationSettingsPage {
   @Builder
   private IntroImageMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.tag_translation_intro_image_disable'),
-        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_DISABLE
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setIntroImageLevel(TAG_INTRO_IMAGE_DISABLE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_intro_image_disable'),
+        selected: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_DISABLE,
+        selectAction: () => {
+          select(() => {
+            this.setIntroImageLevel(TAG_INTRO_IMAGE_DISABLE)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.tag_translation_intro_image_nonh'),
-        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_NON_H
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setIntroImageLevel(TAG_INTRO_IMAGE_NON_H)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_intro_image_nonh'),
+        selected: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_NON_H,
+        selectAction: () => {
+          select(() => {
+            this.setIntroImageLevel(TAG_INTRO_IMAGE_NON_H)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.tag_translation_intro_image_r18'),
-        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setIntroImageLevel(TAG_INTRO_IMAGE_R18)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_intro_image_r18'),
+        selected: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18,
+        selectAction: () => {
+          select(() => {
+            this.setIntroImageLevel(TAG_INTRO_IMAGE_R18)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.tag_translation_intro_image_r18g'),
-        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18G
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setIntroImageLevel(TAG_INTRO_IMAGE_R18G)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.tag_translation_intro_image_r18g'),
+        selected: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18G,
+        selectAction: () => {
+          select(() => {
+            this.setIntroImageLevel(TAG_INTRO_IMAGE_R18G)
+          })
+        },
       })
     }
   }
@@ -249,7 +236,7 @@ export struct TagTranslationSettingsPage {
                 this.setEnabled(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_database'),
               subtitle: this.versionText(),
@@ -257,7 +244,7 @@ export struct TagTranslationSettingsPage {
               trailingText: this.statusText(),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_update_now'),
               subtitle: $r('app.string.tag_translation_update_now_hint'),
@@ -269,7 +256,7 @@ export struct TagTranslationSettingsPage {
                 this.updateNow()
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_remove'),
               subtitle: $r('app.string.tag_translation_remove_hint'),
@@ -295,7 +282,7 @@ export struct TagTranslationSettingsPage {
                 this.setUseCdn(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_update_mode'),
               leadingIcon: $r('sys.symbol.clock'),
@@ -306,7 +293,7 @@ export struct TagTranslationSettingsPage {
                 this.UpdateModeMenu(select)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_intro_image_level'),
               subtitle: $r('app.string.tag_translation_intro_image_level_hint'),

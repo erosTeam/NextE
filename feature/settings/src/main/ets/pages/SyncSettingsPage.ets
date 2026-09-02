@@ -13,6 +13,7 @@ import {
   SyncSettingsSnapshot,
   SyncSettingsState,
   ThemeConstants,
+  ListRowDivider,
   connectNavStack,
   connectSyncSettings,
   immersiveTitleBar,
@@ -255,14 +256,6 @@ export struct SyncSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private SyncingSuffix() {
     LoadingProgress()
       .width(22)
@@ -335,7 +328,7 @@ export struct SyncSettingsPage {
               },
             })
             if (HuaweiCloudSyncService.available()) {
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.sync_huawei_cloud'),
                 subtitle: $r('app.string.sync_huawei_cloud_hint'),
@@ -347,7 +340,7 @@ export struct SyncSettingsPage {
                   this.toggleHuaweiCloud(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.sync_huawei_cloud_open_space'),
                 subtitle: this.settings.huaweiCloudLastCloudDisabled ?
@@ -358,7 +351,7 @@ export struct SyncSettingsPage {
                   this.openHuaweiCloudSpace()
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               this.HuaweiCloudSyncRow()
             }
           }
@@ -371,35 +364,35 @@ export struct SyncSettingsPage {
               this.settings.datasetReadProgress,
               'readProgress',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_viewed_history'),
               $r('app.string.sync_dataset_viewed_history_hint'),
               this.settings.datasetViewedHistory,
               'viewedHistory',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_local_favorites'),
               $r('app.string.sync_dataset_local_favorites_hint'),
               this.settings.datasetLocalFavorites,
               'localFavorites',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_search_history'),
               $r('app.string.sync_dataset_search_history_hint'),
               this.settings.datasetSearchHistory,
               'searchHistory',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_local_block'),
               $r('app.string.sync_dataset_local_block_hint'),
               this.settings.datasetLocalBlock,
               'localBlock',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_custom_profiles'),
               $r('app.string.sync_dataset_custom_profiles_hint'),

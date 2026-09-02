@@ -1,6 +1,7 @@
 import { appMenuOptions } from 'shared'
 import {
   ThemeConstants,
+  AppIconButton,
   SecondaryListScaffold,
   CardEmptyState,
   AppStrings,
@@ -1709,19 +1710,13 @@ export struct DownloadQueuePage {
 
   @Builder
   private TaskIconButton(icon: Resource, label: Resource, tint: ResourceColor, enabled: boolean, action: () => void) {
-    Button({ type: ButtonType.Circle, stateEffect: true }) {
-      SymbolGlyph(icon)
-        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-        .fontColor([tint])
-    }
-    .buttonStyle(ButtonStyleMode.NORMAL)
-    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
-    .backgroundColor(Color.Transparent)
-    .enabled(enabled)
-    .accessibilityText(label)
-    .onClick(() => {
-      action()
+    AppIconButton({
+      icon: icon,
+      label: label,
+      buttonSize: ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE,
+      tint: tint,
+      isEnabled: enabled,
+      action: action,
     })
   }
 
@@ -1764,18 +1759,14 @@ export struct DownloadQueuePage {
 
   @Builder
   private LoadingTaskIconButton(label: Resource) {
-    Button({ type: ButtonType.Circle, stateEffect: false }) {
-      LoadingProgress()
-        .width(ThemeConstants.FONT_SIZE_TITLE)
-        .height(ThemeConstants.FONT_SIZE_TITLE)
-        .color(ThemeConstants.BRAND_PRIMARY)
-    }
-    .buttonStyle(ButtonStyleMode.NORMAL)
-    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
-    .backgroundColor(Color.Transparent)
-    .enabled(false)
-    .accessibilityText(label)
+    AppIconButton({
+      label: label,
+      buttonSize: ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE,
+      tint: ThemeConstants.BRAND_PRIMARY,
+      isEnabled: false,
+      loading: true,
+      stateEffect: false,
+    })
   }
 
   @Builder

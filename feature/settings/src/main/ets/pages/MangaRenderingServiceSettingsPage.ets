@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit'
-import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -20,7 +20,10 @@ import {
   MangaTranslatorUiSidecarConnectionService,
   MangaTranslatorUiSidecarSessionService,
   SecondaryListScaffold,
+  SettingsTextField,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   immersiveTitleBar,
 } from 'shared'
 
@@ -220,69 +223,41 @@ export struct MangaRenderingServiceSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
-  private TextInputBox(field: string, placeholder: ResourceStr) {
-    if (field === 'baseUrl') {
-      TextInput({ text: $$this.baseUrlDraft, placeholder: placeholder })
-        .type(InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange(() => {
-          this.connectionState = CONNECTION_IDLE
-        })
-    } else if (field === 'username') {
-      TextInput({ text: $$this.usernameDraft, placeholder: placeholder })
-        .type(InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange(() => {
-          this.credentialDirty = true
-          this.connectionState = CONNECTION_IDLE
-        })
-    } else {
-      TextInput({ text: $$this.passwordDraft, placeholder: placeholder })
-        .type(InputType.Password)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange(() => {
-          this.credentialDirty = true
-          this.connectionState = CONNECTION_IDLE
-        })
-    }
-  }
-
-  @Builder
   private TextInputRow(label: ResourceStr, field: string, placeholder: ResourceStr) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      this.TextInputBox(field, placeholder)
+    if (field === 'baseUrl') {
+      SettingsTextField({
+        label: label,
+        value: this.baseUrlDraft,
+        placeholder: placeholder,
+        onChange: (value: string) => {
+          this.baseUrlDraft = value
+          this.connectionState = CONNECTION_IDLE
+        },
+      })
+    } else if (field === 'username') {
+      SettingsTextField({
+        label: label,
+        value: this.usernameDraft,
+        placeholder: placeholder,
+        onChange: (value: string) => {
+          this.usernameDraft = value
+          this.credentialDirty = true
+          this.connectionState = CONNECTION_IDLE
+        },
+      })
+    } else {
+      SettingsTextField({
+        label: label,
+        value: this.passwordDraft,
+        placeholder: placeholder,
+        inputType: InputType.Password,
+        onChange: (value: string) => {
+          this.passwordDraft = value
+          this.credentialDirty = true
+          this.connectionState = CONNECTION_IDLE
+        },
+      })
     }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   @Builder
@@ -296,25 +271,23 @@ export struct MangaRenderingServiceSettingsPage {
   @Builder
   private DetectionProfileMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.comic_render_service_detection_high_recall'),
-        symbolEndIcon: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_render_service_detection_high_recall'),
+        selected: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL,
+        selectAction: () => {
+          select(() => {
+            this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_HIGH_RECALL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.comic_render_service_detection_balanced'),
-        symbolEndIcon: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_BALANCED
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_BALANCED)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_render_service_detection_balanced'),
+        selected: this.detectionProfile === MANGA_TRANSLATOR_UI_DETECTION_BALANCED,
+        selectAction: () => {
+          select(() => {
+            this.selectDetectionProfile(MANGA_TRANSLATOR_UI_DETECTION_BALANCED)
+          })
+        },
       })
     }
   }
@@ -322,25 +295,23 @@ export struct MangaRenderingServiceSettingsPage {
   @Builder
   private InpaintingProfileMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.comic_render_service_inpainting_quality'),
-        symbolEndIcon: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_QUALITY
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_render_service_inpainting_quality'),
+        selected: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_QUALITY,
+        selectAction: () => {
+          select(() => {
+            this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_QUALITY)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.comic_render_service_inpainting_fast'),
-        symbolEndIcon: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_FAST)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_render_service_inpainting_fast'),
+        selected: this.inpaintingProfile === MANGA_TRANSLATOR_UI_INPAINTER_FAST,
+        selectAction: () => {
+          select(() => {
+            this.selectInpaintingProfile(MANGA_TRANSLATOR_UI_INPAINTER_FAST)
+          })
+        },
       })
     }
   }
@@ -361,7 +332,7 @@ export struct MangaRenderingServiceSettingsPage {
                 trailingText: `manga-translator-ui ${MANGA_TRANSLATOR_UI_UPSTREAM_TAG}`,
                 showChevron: false,
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_render_service_detection'),
                 leadingIcon: $r('sys.symbol.character_viewfinder'),
@@ -372,7 +343,7 @@ export struct MangaRenderingServiceSettingsPage {
                   this.DetectionProfileMenu(select)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_render_service_inpainting'),
                 leadingIcon: $r('sys.symbol.picture'),
@@ -383,19 +354,19 @@ export struct MangaRenderingServiceSettingsPage {
                   this.InpaintingProfileMenu(select)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               this.TextInputRow(
                 $r('app.string.comic_render_service_url'),
                 'baseUrl',
                 'http://192.168.1.10:5003',
               )
-              this.rowDivider()
+              ListRowDivider()
               this.TextInputRow(
                 $r('app.string.comic_render_service_username'),
                 'username',
                 $r('app.string.comic_render_service_username_hint'),
               )
-              this.rowDivider()
+              ListRowDivider()
               this.TextInputRow(
                 $r('app.string.comic_render_service_password'),
                 'password',

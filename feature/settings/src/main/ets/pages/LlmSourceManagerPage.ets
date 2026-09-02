@@ -12,6 +12,7 @@ import {
   LlmSourceProfilesState,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   connectLlmSourceProfiles,
   connectNavStack,
   generateLlmSourceProfileId,
@@ -86,14 +87,6 @@ export struct LlmSourceManagerPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private AddSourceMenu(select: (action: () => void) => void) {
     Menu() {
       MenuItem({
@@ -134,7 +127,7 @@ export struct LlmSourceManagerPage {
                 this.sources.profiles,
                 (profile: LlmSourceProfile, index: number) => {
                   if (index > 0) {
-                    this.rowDivider()
+                    ListRowDivider()
                   }
                   ConciseListRow({
                     // Resolve through the traced source state so a stable ForEach item observes

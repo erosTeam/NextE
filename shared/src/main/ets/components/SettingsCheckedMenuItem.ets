@@ -12,21 +12,27 @@ export struct SettingsCheckedMenuItem {
   @Param selected: boolean = false;
   @Param showColorDot: boolean = false;
   @Param color: ResourceColor = Color.Transparent;
+  @Param symbolStartIcon: SymbolGlyphModifier | undefined = undefined;
+  @Param isEnabled: boolean = true;
   @Event selectAction?: () => void;
 
   build() {
     MenuItem({
       content: this.label,
-      symbolStartIcon: this.showColorDot
-        ? new SymbolGlyphModifier($r('sys.symbol.paintpalette_fill'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor([this.color])
-        : undefined,
+      symbolStartIcon: this.symbolStartIcon !== undefined
+        ? this.symbolStartIcon
+        : this.showColorDot
+          ? new SymbolGlyphModifier($r('sys.symbol.paintpalette_fill'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor([this.color])
+          : undefined,
       symbolEndIcon: this.selected
         ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
         : undefined,
-    }).onClick(() => {
-      if (this.selectAction) {
+    })
+    .enabled(this.isEnabled)
+    .onClick(() => {
+      if (this.isEnabled && this.selectAction) {
         this.selectAction()
       }
     })

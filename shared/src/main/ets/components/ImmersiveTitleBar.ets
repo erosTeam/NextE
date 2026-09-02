@@ -67,3 +67,31 @@ export function immersiveTitleBar(mainTitle: ResourceStr): Record<string, Object
   const content: Record<string, Object> = { 'title': title }
   return immersiveTitleBarOpts(content)
 }
+
+/** Build one native HDS title-bar menu entry without repeating the untyped wrapper records. */
+export function immersiveTitleBarAction(
+  label: ResourceStr,
+  icon: Resource,
+  isEnabled: boolean,
+  action: () => void,
+): Record<string, Object> {
+  const item: Record<string, Object> = {
+    'label': label,
+    'icon': icon,
+    'isEnabled': isEnabled,
+    'action': action,
+  }
+  return { 'content': item }
+}
+
+/** Convenience for a title plus one or more native HDS title-bar actions. */
+export function immersiveTitleBarWithActions(
+  mainTitle: ResourceStr,
+  actions: Record<string, Object>[],
+  maxCount: number = actions.length,
+): Record<string, Object> {
+  const title: Record<string, Object> = { 'mainTitle': mainTitle }
+  const menu: Record<string, Object> = { 'value': actions, 'maxCount': maxCount }
+  const content: Record<string, Object> = { 'title': title, 'menu': menu }
+  return immersiveTitleBarOpts(content)
+}

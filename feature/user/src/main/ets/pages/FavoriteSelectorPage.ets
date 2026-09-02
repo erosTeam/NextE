@@ -10,6 +10,7 @@ import {
   LocalFavState,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   connectAuth,
   connectFavSelection,
   connectLocalFav,
@@ -102,14 +103,6 @@ export struct FavoriteSelectorPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private FavcatRows() {
     ListItem() {
       GroupedListSection() {
@@ -131,7 +124,7 @@ export struct FavoriteSelectorPage {
               },
             })
             if (index < this.rows().length - 1) {
-              this.rowDivider()
+              ListRowDivider()
             }
           },
           (fc: Favcat, index: number) =>

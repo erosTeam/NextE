@@ -12,6 +12,7 @@ import {
   ReadModeState,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   connectReadMode,
   immersiveTitleBar,
 } from 'shared'
@@ -324,14 +325,6 @@ export struct ReaderSuperResolutionModelsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private ModelFileList() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_SM }) {
@@ -341,7 +334,7 @@ export struct ReaderSuperResolutionModelsPage {
             (state: ReaderSuperResolutionModelFileState, index: number) => {
               this.ModelRow(state)
               if (index < this.modelStates.length - 1) {
-                this.rowDivider()
+                ListRowDivider()
               }
             },
             (state: ReaderSuperResolutionModelFileState): string => state.definition.id,

@@ -12,8 +12,10 @@ import {
   GroupedListSection,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   DiagnosticLogger,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   AuthState,
   connectAuth,
 } from 'shared'
@@ -129,38 +131,24 @@ export struct AccountCookiePage {
   }
 
   private cookieTitleBar(): Record<string, Object> {
-    const copyItem: Record<string, Object> = {
-      'label': AppStrings.get('account_cookie_copy'),
-      'icon': $r('sys.symbol.doc_text_on_doc_text'),
-      'isEnabled': this.cookieEntries.length > 0,
-      'action': (): void => {
-        this.copyCookie()
-      },
-    }
-    const exportItem: Record<string, Object> = {
-      'label': AppStrings.get('account_cookie_export'),
-      'icon': $r('sys.symbol.square_and_arrow_down'),
-      'isEnabled': this.cookieEntries.length > 0,
-      'action': (): void => {
-        this.exportCookie()
-      },
-    }
-    const menuItems: Record<string, Object>[] = [
-      { 'content': copyItem },
-      { 'content': exportItem },
-    ]
-    const menu: Record<string, Object> = { 'value': menuItems, 'maxCount': 2 }
-    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('account_cookie_title') }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
+    return immersiveTitleBarWithActions(AppStrings.get('account_cookie_title'), [
+      immersiveTitleBarAction(
+        AppStrings.get('account_cookie_copy'),
+        $r('sys.symbol.doc_text_on_doc_text'),
+        this.cookieEntries.length > 0,
+        () => {
+          this.copyCookie()
+        },
+      ),
+      immersiveTitleBarAction(
+        AppStrings.get('account_cookie_export'),
+        $r('sys.symbol.square_and_arrow_down'),
+        this.cookieEntries.length > 0,
+        () => {
+          this.exportCookie()
+        },
+      ),
+    ], 2)
   }
 
   @Builder
@@ -198,7 +186,7 @@ export struct AccountCookiePage {
               trailingText: `${this.cookieEntries.length}`,
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_refresh_igneous'),
               leadingIcon: $r('sys.symbol.arrow_clockwise'),
@@ -224,7 +212,7 @@ export struct AccountCookiePage {
                 (entry: CookieJarEntry, index: number) => {
                   this.CookieEntryRow(entry)
                   if (index < this.cookieEntries.length - 1) {
-                    this.rowDivider()
+                    ListRowDivider()
                   }
                 },
                 (entry: CookieJarEntry) => entry.name,

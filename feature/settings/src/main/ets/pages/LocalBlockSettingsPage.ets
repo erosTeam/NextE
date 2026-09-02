@@ -1,6 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppModalScaffold,
   AppStrings,
@@ -16,9 +15,12 @@ import {
   LocalBlockSettings,
   LocalBlockState,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   connectLocalBlock,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   appSheetOptions,
 } from 'shared'
 
@@ -199,14 +201,6 @@ export struct LocalBlockSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private TypeMenu(select: (action: () => void) => void) {
     Menu() {
       this.TypeMenuItem(LOCAL_BLOCK_TYPE_TITLE, select)
@@ -218,15 +212,14 @@ export struct LocalBlockSettingsPage {
 
   @Builder
   private TypeMenuItem(type: string, select: (action: () => void) => void) {
-    MenuItem({
-      content: this.typeText(type),
-      symbolEndIcon: this.draftType === type
-        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-        : undefined,
-    }).onClick(() => {
-      select(() => {
-        this.draftType = type
-      })
+    SettingsCheckedMenuItem({
+      label: this.typeText(type),
+      selected: this.draftType === type,
+      selectAction: () => {
+        select(() => {
+          this.draftType = type
+        })
+      },
     })
   }
 
@@ -240,15 +233,14 @@ export struct LocalBlockSettingsPage {
 
   @Builder
   private CommentDisplayMenuItem(mode: string, select: (action: () => void) => void) {
-    MenuItem({
-      content: this.commentDisplayText(mode),
-      symbolEndIcon: LocalBlockSettings.normalizeCommentDisplayMode(this.block.commentDisplayMode) === mode
-        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-        : undefined,
-    }).onClick(() => {
-      select(() => {
-        this.setCommentDisplayMode(mode)
-      })
+    SettingsCheckedMenuItem({
+      label: this.commentDisplayText(mode),
+      selected: LocalBlockSettings.normalizeCommentDisplayMode(this.block.commentDisplayMode) === mode,
+      selectAction: () => {
+        select(() => {
+          this.setCommentDisplayMode(mode)
+        })
+      },
     })
   }
 
@@ -263,7 +255,7 @@ export struct LocalBlockSettingsPage {
             trailingText: `${this.ruleCount(type)}`,
             showChevron: false,
           })
-          this.rowDivider()
+          ListRowDivider()
           ForEach(
             this.rulesForType(type),
             (rule: LocalBlockRule, index: number) => {
@@ -287,7 +279,7 @@ export struct LocalBlockSettingsPage {
                 this.editRuleSheetOptions(rule),
               )
               if (index < this.ruleCount(type) - 1) {
-                this.rowDivider()
+                ListRowDivider()
               }
             },
             (rule: LocalBlockRule) => rule.id,
@@ -298,19 +290,11 @@ export struct LocalBlockSettingsPage {
   }
 
   private titleBar(): Record<string, Object> {
-    const item: Record<string, Object> = {
-      'label': AppStrings.get('local_block_add_rule'),
-      'icon': $r('sys.symbol.plus'),
-      'isEnabled': true,
-      'action': (): void => {
+    return immersiveTitleBarWithActions(AppStrings.get('local_block_title'), [
+      immersiveTitleBarAction(AppStrings.get('local_block_add_rule'), $r('sys.symbol.plus'), true, () => {
         this.openNewRule()
-      },
-    }
-    const itemWrap: Record<string, Object> = { 'content': item }
-    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
-    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('local_block_title') }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
+      }),
+    ], 1)
   }
 
   build() {
@@ -332,7 +316,7 @@ export struct LocalBlockSettingsPage {
                 this.setScoreFilter(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.local_block_score_threshold'),
               leadingIcon: $r('sys.symbol.list_number'),
@@ -345,7 +329,7 @@ export struct LocalBlockSettingsPage {
                 this.changeThreshold(1)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.local_block_comment_display'),
               subtitle: $r('app.string.local_block_comment_display_hint'),
@@ -403,7 +387,7 @@ export struct LocalBlockSettingsPage {
               this.TypeMenu(select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.local_block_rule_enabled'),
             leadingIcon: $r('sys.symbol.checkmark_circle'),
@@ -413,7 +397,7 @@ export struct LocalBlockSettingsPage {
               this.draftEnabled = value
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.local_block_regex'),
             subtitle: $r('app.string.local_block_regex_hint'),

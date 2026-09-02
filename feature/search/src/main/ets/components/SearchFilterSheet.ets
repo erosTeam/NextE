@@ -2,6 +2,7 @@ import {
   AppModalScaffold,
   AppStrings,
   ThemeConstants,
+  ListRowDivider,
   SearchFilterState,
   connectSearchFilter,
   ConciseListRow,
@@ -134,14 +135,6 @@ export struct SearchFilterSheet {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private FavoriteFolderSelector() {
     Text($r('app.string.filter_favorite_folder'))
       .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -165,7 +158,7 @@ export struct SearchFilterSheet {
             },
           })
           if (index < this.favoriteRows().length - 1) {
-            this.rowDivider()
+            ListRowDivider()
           }
         },
         (fc: Favcat, index: number) =>

@@ -27,12 +27,16 @@ import {
   EhUconfigToggleItem,
   GalleryWebParams,
   GroupedListSection,
+  SectionHeader,
   SecondaryListScaffold,
   SettingsCheckedMenuItem,
+  PageLoadingState,
+  PageErrorState,
   SiteModeState,
   SegmentButtonTheme,
   ThemeDisplayState,
   ThemeConstants,
+  ListRowDivider,
   connectAuth,
   connectNavStack,
   connectSiteMode,
@@ -522,30 +526,20 @@ export struct EhProfileSettingsPage {
         }) {
           if (this.loading) {
             ListItem() {
-              Row() {
-                LoadingProgress()
-                  .width(32)
-                  .height(32)
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              .padding({ top: 64 })
+              PageLoadingState({ expand: false })
             }
+            .padding({ top: 64 })
           } else if (this.failed) {
             ListItem() {
-              Column({ space: ThemeConstants.SPACE_MD }) {
-                Text($r('app.string.ehp_load_failed'))
-                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                  .fontColor($r('sys.color.font_secondary'))
-                Button($r('app.string.common_retry'))
-                  .onClick(() => {
-                    this.load()
-                  })
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              .padding({ top: 64 })
+              PageErrorState({
+                message: $r('app.string.ehp_load_failed'),
+                expand: false,
+                retryAction: () => {
+                  this.load()
+                },
+              })
             }
+            .padding({ top: 32 })
           } else {
             ListItem() {
               this.ProfileSection()
@@ -701,7 +695,7 @@ export struct EhProfileSettingsPage {
   @Builder
   ProfileSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_profile'))
+      SectionHeader({ title: $r('app.string.ehp_sec_profile') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_profile_current'),
@@ -711,7 +705,7 @@ export struct EhProfileSettingsPage {
             this.selectProfile(v)
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.ehp_profile_create'),
           leadingIcon: $r('sys.symbol.plus'),
@@ -721,7 +715,7 @@ export struct EhProfileSettingsPage {
             this.openNameDialog('create')
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.ehp_profile_rename'),
           leadingIcon: $r('sys.symbol.square_and_pencil'),
@@ -733,7 +727,7 @@ export struct EhProfileSettingsPage {
         })
         // 设为默认 only when the current profile is not already the default.
         if (this.settings.selectedProfile !== this.settings.defaultProfile) {
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.ehp_profile_default'),
             leadingIcon: $r('sys.symbol.checkmark'),
@@ -750,7 +744,7 @@ export struct EhProfileSettingsPage {
           this.settings.profiles.length > 1 &&
           this.settings.selectedProfile !== this.settings.defaultProfile
         ) {
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.ehp_profile_delete'),
             leadingIcon: $r('sys.symbol.trash'),
@@ -779,7 +773,7 @@ export struct EhProfileSettingsPage {
   @Builder
   ImageSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_image'))
+      SectionHeader({ title: $r('app.string.ehp_sec_image') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_uh'),
@@ -789,7 +783,7 @@ export struct EhProfileSettingsPage {
             this.settings.loadImageThroughHAtH = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_xr'),
           options: this.pageOptions('xr'),
@@ -798,7 +792,7 @@ export struct EhProfileSettingsPage {
             this.settings.imageSize = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_rx'),
           value: this.settings.imageSizeHorizontal,
@@ -808,7 +802,7 @@ export struct EhProfileSettingsPage {
             this.settings.imageSizeHorizontal = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_ry'),
           value: this.settings.imageSizeVertical,
@@ -820,7 +814,7 @@ export struct EhProfileSettingsPage {
         })
         // 原图 (oi) lives here, not under MPV; hidden for accounts that can't use it.
         if (this.hasField('oi')) {
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.ehp_oi'),
             hasSwitch: true,
@@ -844,7 +838,7 @@ export struct EhProfileSettingsPage {
   @Builder
   DisplaySection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_display'))
+      SectionHeader({ title: $r('app.string.ehp_sec_display') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_tl'),
@@ -854,7 +848,7 @@ export struct EhProfileSettingsPage {
             this.settings.galleryNameDisplay = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_dm'),
           options: this.pageOptions('dm'),
@@ -863,7 +857,7 @@ export struct EhProfileSettingsPage {
             this.settings.frontPageSettings = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_pn'),
           options: this.pageOptions('pn'),
@@ -881,7 +875,7 @@ export struct EhProfileSettingsPage {
   CategorySection() {
     if (this.settings.categories.length > 0) {
       Column() {
-        this.SectionHeader($r('app.string.ehp_sec_cats'))
+        SectionHeader({ title: $r('app.string.ehp_sec_cats') })
         GroupedListSection() {
           ForEach(
             this.settings.categories,
@@ -898,7 +892,7 @@ export struct EhProfileSettingsPage {
                 },
               })
               if (index < this.settings.categories.length - 1) {
-                this.rowDivider()
+                ListRowDivider()
               }
             },
             (cat: EhUconfigCategory) => cat.key,
@@ -911,7 +905,7 @@ export struct EhProfileSettingsPage {
   @Builder
   ThumbnailSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_thumb'))
+      SectionHeader({ title: $r('app.string.ehp_sec_thumb') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_lt'),
@@ -921,7 +915,7 @@ export struct EhProfileSettingsPage {
             this.settings.mouseOverThumbnails = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ts'),
           options: this.pageOptions('ts'),
@@ -930,7 +924,7 @@ export struct EhProfileSettingsPage {
             this.settings.thumbnailSize = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tr'),
           options: this.pageOptions('tr'),
@@ -939,7 +933,7 @@ export struct EhProfileSettingsPage {
             this.settings.thumbnailRows = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_tp'),
           value: this.settings.thumbnailScaling,
@@ -950,7 +944,7 @@ export struct EhProfileSettingsPage {
             this.settings.thumbnailScaling = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_vp'),
           value: this.settings.viewportOverride,
@@ -968,7 +962,7 @@ export struct EhProfileSettingsPage {
   @Builder
   CommentTagSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_comment_tag'))
+      SectionHeader({ title: $r('app.string.ehp_sec_comment_tag') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_cs'),
@@ -978,7 +972,7 @@ export struct EhProfileSettingsPage {
             this.settings.sortOrderComments = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_sc'),
           options: this.pageOptions('sc'),
@@ -987,7 +981,7 @@ export struct EhProfileSettingsPage {
             this.settings.showCommentVotes = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tb'),
           options: this.pageOptions('tb'),
@@ -996,7 +990,7 @@ export struct EhProfileSettingsPage {
             this.settings.sortOrderTags = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_ft'),
           value: this.settings.tagFilteringThreshold,
@@ -1006,7 +1000,7 @@ export struct EhProfileSettingsPage {
             this.settings.tagFilteringThreshold = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         InlineEditRow({
           title: $r('app.string.ehp_wt'),
           value: this.settings.tagWatchingThreshold,
@@ -1025,7 +1019,7 @@ export struct EhProfileSettingsPage {
   NamespaceSection() {
     if (this.settings.excludedNamespaces.length > 0) {
       Column() {
-        this.SectionHeader($r('app.string.ehp_sec_xn'))
+        SectionHeader({ title: $r('app.string.ehp_sec_xn') })
         GroupedListSection() {
           ForEach(
             this.settings.excludedNamespaces,
@@ -1039,7 +1033,7 @@ export struct EhProfileSettingsPage {
                 },
               })
               if (index < this.settings.excludedNamespaces.length - 1) {
-                this.rowDivider()
+                ListRowDivider()
               }
             },
             (item: EhUconfigToggleItem) => `xn_${item.ser}`,
@@ -1073,14 +1067,14 @@ export struct EhProfileSettingsPage {
   LanguageSection() {
     if (this.langRows.length > 0) {
       Column() {
-        this.SectionHeader($r('app.string.ehp_sec_xl'))
+        SectionHeader({ title: $r('app.string.ehp_sec_xl') })
         GroupedListSection() {
           ForEach(
             this.langRows,
             (row: EhLanguageRow, index: number) => {
               LanguageVariantRow({ row: row })
               if (index < this.langRows.length - 1) {
-                this.rowDivider()
+                ListRowDivider()
               }
             },
             (row: EhLanguageRow) => row.name,
@@ -1093,7 +1087,7 @@ export struct EhProfileSettingsPage {
   @Builder
   FavoriteSortSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_fav'))
+      SectionHeader({ title: $r('app.string.ehp_sec_fav') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_fs'),
@@ -1103,7 +1097,7 @@ export struct EhProfileSettingsPage {
             this.settings.sortOrderFavorites = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_rc'),
           options: this.pageOptions('rc'),
@@ -1119,7 +1113,7 @@ export struct EhProfileSettingsPage {
   @Builder
   RatingSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_rating'))
+      SectionHeader({ title: $r('app.string.ehp_sec_rating') })
       GroupedListSection() {
         InlineEditRow({
           title: $r('app.string.ehp_ru'),
@@ -1137,7 +1131,7 @@ export struct EhProfileSettingsPage {
   @Builder
   ArchiverSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_archiver'))
+      SectionHeader({ title: $r('app.string.ehp_sec_archiver') })
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_ar'),
@@ -1154,7 +1148,7 @@ export struct EhProfileSettingsPage {
   @Builder
   MpvSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_mpv'))
+      SectionHeader({ title: $r('app.string.ehp_sec_mpv') })
       GroupedListSection() {
         ConciseListRow({
           title: $r('app.string.ehp_qb'),
@@ -1171,7 +1165,7 @@ export struct EhProfileSettingsPage {
             }
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ms'),
           options: this.pageOptions('ms'),
@@ -1180,7 +1174,7 @@ export struct EhProfileSettingsPage {
             this.settings.mpvStyle = v
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         // mt is inverted: pane shown when the form value is 0 (eros_fe parity).
         ConciseListRow({
           title: $r('app.string.ehp_mt'),
@@ -1204,7 +1198,7 @@ export struct EhProfileSettingsPage {
   @Builder
   HathSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_hath'))
+      SectionHeader({ title: $r('app.string.ehp_sec_hath') })
       GroupedListSection() {
         InlineEditRow({
           title: $r('app.string.ehp_hh'),
@@ -1222,7 +1216,7 @@ export struct EhProfileSettingsPage {
   @Builder
   ExcludedUploaderSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_exclude_uploader'))
+      SectionHeader({ title: $r('app.string.ehp_sec_exclude_uploader') })
       GroupedListSection() {
         // The TextArea carries its own modest inset (matching the list rows); no extra wrapper padding
         // so the box doesn't look over-margined.
@@ -1252,7 +1246,7 @@ export struct EhProfileSettingsPage {
   @Builder
   FavoriteNamesSection() {
     Column() {
-      this.SectionHeader($r('app.string.ehp_sec_fav_names'))
+      SectionHeader({ title: $r('app.string.ehp_sec_fav_names') })
       GroupedListSection() {
         ForEach(
           this.settings.favorites,
@@ -1267,7 +1261,7 @@ export struct EhProfileSettingsPage {
               },
             })
             if (index < this.settings.favorites.length - 1) {
-              this.rowDivider()
+              ListRowDivider()
             }
           },
           (name: string, index: number) => `fav_${index}`,
@@ -1276,27 +1270,6 @@ export struct EhProfileSettingsPage {
     }
   }
 
-  @Builder
-  SectionHeader(title: ResourceStr) {
-    Text(title)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor($r('sys.color.font_secondary'))
-      .width('100%')
-      .padding({
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_MD,
-        bottom: ThemeConstants.SPACE_XS,
-      })
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
 }
 
 /** A label + dropdown row bound to a uconfig radio group. */

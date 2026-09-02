@@ -4,6 +4,7 @@ import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { ReaderSuperResolutionModelsPage } from './ReaderSuperResolutionModelsPage'
 import {
   ThemeConstants,
+  ListRowDivider,
   connectReadMode,
   ReadModeState,
   ReadMode,
@@ -25,6 +26,7 @@ import {
   immersiveTitleBar,
   AppModalScaffold,
   SectionHeader,
+  SettingsCheckedMenuItem,
 } from 'shared'
 
 /**
@@ -359,66 +361,50 @@ export struct ReaderSettingsPage {
     return `${this.readMode.superResolutionMaxHeight}px`
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
   // mode (V2Next TopicDetailComponents.ets:192-227). Selecting one persists via ReadModeSettings + closes.
   @Builder
   DirMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.read_mode_ltr'),
+      SettingsCheckedMenuItem({
+        label: $r('app.string.read_mode_ltr'),
+        selected: this.readMode.mode === ReadMode.LTR,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.LTR)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.LTR
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setMode(ReadMode.LTR)
-        })
+        selectAction: () => {
+          select(() => {
+            this.setMode(ReadMode.LTR)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.read_mode_rtl'),
+      SettingsCheckedMenuItem({
+        label: $r('app.string.read_mode_rtl'),
+        selected: this.readMode.mode === ReadMode.RTL,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.RTL)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.RTL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setMode(ReadMode.RTL)
-        })
+        selectAction: () => {
+          select(() => {
+            this.setMode(ReadMode.RTL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.read_mode_ttb'),
+      SettingsCheckedMenuItem({
+        label: $r('app.string.read_mode_ttb'),
+        selected: this.readMode.mode === ReadMode.TOP_TO_BOTTOM,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.TOP_TO_BOTTOM)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.TOP_TO_BOTTOM
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setMode(ReadMode.TOP_TO_BOTTOM)
-        })
+        selectAction: () => {
+          select(() => {
+            this.setMode(ReadMode.TOP_TO_BOTTOM)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.read_mode_vertical'),
+      SettingsCheckedMenuItem({
+        label: $r('app.string.read_mode_vertical'),
+        selected: this.readMode.mode === ReadMode.VERTICAL,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.VERTICAL)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.VERTICAL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setMode(ReadMode.VERTICAL)
-        })
+        selectAction: () => {
+          select(() => {
+            this.setMode(ReadMode.VERTICAL)
+          })
+        },
       })
     }
   }
@@ -426,60 +412,50 @@ export struct ReaderSettingsPage {
   @Builder
   AutoPageMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: '2s',
-        symbolEndIcon:
-          this.readMode.autoPageSeconds === 2
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setAutoPageSeconds(2)
-        })
+      SettingsCheckedMenuItem({
+        label: '2s',
+        selected: this.readMode.autoPageSeconds === 2,
+        selectAction: () => {
+          select(() => {
+            this.setAutoPageSeconds(2)
+          })
+        },
       })
-      MenuItem({
-        content: '3s',
-        symbolEndIcon:
-          this.readMode.autoPageSeconds === 3
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setAutoPageSeconds(3)
-        })
+      SettingsCheckedMenuItem({
+        label: '3s',
+        selected: this.readMode.autoPageSeconds === 3,
+        selectAction: () => {
+          select(() => {
+            this.setAutoPageSeconds(3)
+          })
+        },
       })
-      MenuItem({
-        content: '5s',
-        symbolEndIcon:
-          this.readMode.autoPageSeconds === 5
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setAutoPageSeconds(5)
-        })
+      SettingsCheckedMenuItem({
+        label: '5s',
+        selected: this.readMode.autoPageSeconds === 5,
+        selectAction: () => {
+          select(() => {
+            this.setAutoPageSeconds(5)
+          })
+        },
       })
-      MenuItem({
-        content: '8s',
-        symbolEndIcon:
-          this.readMode.autoPageSeconds === 8
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setAutoPageSeconds(8)
-        })
+      SettingsCheckedMenuItem({
+        label: '8s',
+        selected: this.readMode.autoPageSeconds === 8,
+        selectAction: () => {
+          select(() => {
+            this.setAutoPageSeconds(8)
+          })
+        },
       })
-      MenuItem({
-        content: '10s',
-        symbolEndIcon:
-          this.readMode.autoPageSeconds === 10
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setAutoPageSeconds(10)
-        })
+      SettingsCheckedMenuItem({
+        label: '10s',
+        selected: this.readMode.autoPageSeconds === 10,
+        selectAction: () => {
+          select(() => {
+            this.setAutoPageSeconds(10)
+          })
+        },
       })
     }
   }
@@ -487,27 +463,23 @@ export struct ReaderSettingsPage {
   @Builder
   SpreadLayoutMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_spread_layout_joined'),
-        symbolEndIcon:
-          this.readMode.spreadLayoutMode === ReadSpreadLayout.JOINED
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_spread_layout_joined'),
+        selected: this.readMode.spreadLayoutMode === ReadSpreadLayout.JOINED,
+        selectAction: () => {
+          select(() => {
+            this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_spread_layout_split'),
-        symbolEndIcon:
-          this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_spread_layout_split'),
+        selected: this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT,
+        selectAction: () => {
+          select(() => {
+            this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
+          })
+        },
       })
     }
   }
@@ -515,71 +487,59 @@ export struct ReaderSettingsPage {
   @Builder
   PreloadPageMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: '0',
-        symbolEndIcon:
-          this.readMode.preloadPages === 0
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(0)
-        })
+      SettingsCheckedMenuItem({
+        label: '0',
+        selected: this.readMode.preloadPages === 0,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(0)
+          })
+        },
       })
-      MenuItem({
-        content: '1',
-        symbolEndIcon:
-          this.readMode.preloadPages === 1
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(1)
-        })
+      SettingsCheckedMenuItem({
+        label: '1',
+        selected: this.readMode.preloadPages === 1,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(1)
+          })
+        },
       })
-      MenuItem({
-        content: '2',
-        symbolEndIcon:
-          this.readMode.preloadPages === 2
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(2)
-        })
+      SettingsCheckedMenuItem({
+        label: '2',
+        selected: this.readMode.preloadPages === 2,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(2)
+          })
+        },
       })
-      MenuItem({
-        content: '3',
-        symbolEndIcon:
-          this.readMode.preloadPages === 3
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(3)
-        })
+      SettingsCheckedMenuItem({
+        label: '3',
+        selected: this.readMode.preloadPages === 3,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(3)
+          })
+        },
       })
-      MenuItem({
-        content: '4',
-        symbolEndIcon:
-          this.readMode.preloadPages === 4
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(4)
-        })
+      SettingsCheckedMenuItem({
+        label: '4',
+        selected: this.readMode.preloadPages === 4,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(4)
+          })
+        },
       })
-      MenuItem({
-        content: '5',
-        symbolEndIcon:
-          this.readMode.preloadPages === 5
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setPreloadPages(5)
-        })
+      SettingsCheckedMenuItem({
+        label: '5',
+        selected: this.readMode.preloadPages === 5,
+        selectAction: () => {
+          select(() => {
+            this.setPreloadPages(5)
+          })
+        },
       })
     }
   }
@@ -587,49 +547,41 @@ export struct ReaderSettingsPage {
   @Builder
   TapZoneMenu(continuous: boolean, select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_right_left'),
-        symbolEndIcon:
-          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.RIGHT_LEFT
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.RIGHT_LEFT)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_right_left'),
+        selected: this.tapZoneLayout(continuous) === ReaderTapZoneLayout.RIGHT_LEFT,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneLayout(continuous, ReaderTapZoneLayout.RIGHT_LEFT)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_l_shaped'),
-        symbolEndIcon:
-          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.L_SHAPED
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.L_SHAPED)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_l_shaped'),
+        selected: this.tapZoneLayout(continuous) === ReaderTapZoneLayout.L_SHAPED,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneLayout(continuous, ReaderTapZoneLayout.L_SHAPED)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_kindle'),
-        symbolEndIcon:
-          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.KINDLE
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.KINDLE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_kindle'),
+        selected: this.tapZoneLayout(continuous) === ReaderTapZoneLayout.KINDLE,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneLayout(continuous, ReaderTapZoneLayout.KINDLE)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_edge'),
-        symbolEndIcon:
-          this.tapZoneLayout(continuous) === ReaderTapZoneLayout.EDGE
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneLayout(continuous, ReaderTapZoneLayout.EDGE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_edge'),
+        selected: this.tapZoneLayout(continuous) === ReaderTapZoneLayout.EDGE,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneLayout(continuous, ReaderTapZoneLayout.EDGE)
+          })
+        },
       })
     }
   }
@@ -637,49 +589,41 @@ export struct ReaderSettingsPage {
   @Builder
   TapZoneInvertMenu(continuous: boolean, select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_invert_none'),
-        symbolEndIcon:
-          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.NONE
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.NONE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_invert_none'),
+        selected: this.tapZoneInvert(continuous) === ReaderTapZoneInvert.NONE,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneInvert(continuous, ReaderTapZoneInvert.NONE)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_invert_horizontal'),
-        symbolEndIcon:
-          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.HORIZONTAL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.HORIZONTAL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_invert_horizontal'),
+        selected: this.tapZoneInvert(continuous) === ReaderTapZoneInvert.HORIZONTAL,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneInvert(continuous, ReaderTapZoneInvert.HORIZONTAL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_invert_vertical'),
-        symbolEndIcon:
-          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.VERTICAL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.VERTICAL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_invert_vertical'),
+        selected: this.tapZoneInvert(continuous) === ReaderTapZoneInvert.VERTICAL,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneInvert(continuous, ReaderTapZoneInvert.VERTICAL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_tap_zone_invert_both'),
-        symbolEndIcon:
-          this.tapZoneInvert(continuous) === ReaderTapZoneInvert.BOTH
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setTapZoneInvert(continuous, ReaderTapZoneInvert.BOTH)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_tap_zone_invert_both'),
+        selected: this.tapZoneInvert(continuous) === ReaderTapZoneInvert.BOTH,
+        selectAction: () => {
+          select(() => {
+            this.setTapZoneInvert(continuous, ReaderTapZoneInvert.BOTH)
+          })
+        },
       })
     }
   }
@@ -687,49 +631,41 @@ export struct ReaderSettingsPage {
   @Builder
   BackgroundMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_background_black'),
-        symbolEndIcon:
-          this.readMode.backgroundMode === ReaderBackgroundMode.BLACK
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setBackgroundMode(ReaderBackgroundMode.BLACK)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_background_black'),
+        selected: this.readMode.backgroundMode === ReaderBackgroundMode.BLACK,
+        selectAction: () => {
+          select(() => {
+            this.setBackgroundMode(ReaderBackgroundMode.BLACK)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_background_gray'),
-        symbolEndIcon:
-          this.readMode.backgroundMode === ReaderBackgroundMode.GRAY
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setBackgroundMode(ReaderBackgroundMode.GRAY)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_background_gray'),
+        selected: this.readMode.backgroundMode === ReaderBackgroundMode.GRAY,
+        selectAction: () => {
+          select(() => {
+            this.setBackgroundMode(ReaderBackgroundMode.GRAY)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_background_white'),
-        symbolEndIcon:
-          this.readMode.backgroundMode === ReaderBackgroundMode.WHITE
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setBackgroundMode(ReaderBackgroundMode.WHITE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_background_white'),
+        selected: this.readMode.backgroundMode === ReaderBackgroundMode.WHITE,
+        selectAction: () => {
+          select(() => {
+            this.setBackgroundMode(ReaderBackgroundMode.WHITE)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_background_auto'),
-        symbolEndIcon:
-          this.readMode.backgroundMode === ReaderBackgroundMode.AUTO
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setBackgroundMode(ReaderBackgroundMode.AUTO)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_background_auto'),
+        selected: this.readMode.backgroundMode === ReaderBackgroundMode.AUTO,
+        selectAction: () => {
+          select(() => {
+            this.setBackgroundMode(ReaderBackgroundMode.AUTO)
+          })
+        },
       })
     }
   }
@@ -737,38 +673,32 @@ export struct ReaderSettingsPage {
   @Builder
   ImageScalingQualityMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.settings_reader_image_scaling_quality_standard'),
-        symbolEndIcon:
-          this.readMode.imageScalingQuality === ReaderImageScalingQuality.LOW
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_image_scaling_quality_standard'),
+        selected: this.readMode.imageScalingQuality === ReaderImageScalingQuality.LOW,
+        selectAction: () => {
+          select(() => {
+            this.setImageScalingQuality(ReaderImageScalingQuality.LOW)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_image_scaling_quality_optimized'),
-        symbolEndIcon:
-          this.readMode.imageScalingQuality === ReaderImageScalingQuality.MEDIUM
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_image_scaling_quality_optimized'),
+        selected: this.readMode.imageScalingQuality === ReaderImageScalingQuality.MEDIUM,
+        selectAction: () => {
+          select(() => {
+            this.setImageScalingQuality(ReaderImageScalingQuality.MEDIUM)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.settings_reader_image_scaling_quality_high'),
-        symbolEndIcon:
-          this.readMode.imageScalingQuality === ReaderImageScalingQuality.HIGH
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_image_scaling_quality_high'),
+        selected: this.readMode.imageScalingQuality === ReaderImageScalingQuality.HIGH,
+        selectAction: () => {
+          select(() => {
+            this.setImageScalingQuality(ReaderImageScalingQuality.HIGH)
+          })
+        },
       })
     }
   }
@@ -777,16 +707,14 @@ export struct ReaderSettingsPage {
   SuperResolutionModelMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(this.installedSuperResolutionModels, (model: string) => {
-        MenuItem({
-          content: this.superResolutionModelTitle(model),
-          symbolEndIcon:
-            this.readMode.superResolutionModel === model
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-        }).onClick(() => {
-          select(() => {
-            this.setSuperResolutionModel(model)
-          })
+        SettingsCheckedMenuItem({
+          label: this.superResolutionModelTitle(model),
+          selected: this.readMode.superResolutionModel === model,
+          selectAction: () => {
+            select(() => {
+              this.setSuperResolutionModel(model)
+            })
+          },
         })
       }, (model: string): string => model)
     }
@@ -796,16 +724,14 @@ export struct ReaderSettingsPage {
   SuperResolutionMaxHeightMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach([1000, 1500, READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT], (maxHeight: number) => {
-        MenuItem({
-          content: `${maxHeight}px`,
-          symbolEndIcon:
-            this.readMode.superResolutionMaxHeight === maxHeight
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-        }).onClick(() => {
-          select(() => {
-            this.setSuperResolutionMaxHeight(maxHeight)
-          })
+        SettingsCheckedMenuItem({
+          label: `${maxHeight}px`,
+          selected: this.readMode.superResolutionMaxHeight === maxHeight,
+          selectAction: () => {
+            select(() => {
+              this.setSuperResolutionMaxHeight(maxHeight)
+            })
+          },
         })
       }, (maxHeight: number): string => `${maxHeight}`)
     }
@@ -839,7 +765,7 @@ export struct ReaderSettingsPage {
               }
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_spread_layout'),
             trailingText: this.spreadLayoutLabel(),
@@ -850,7 +776,7 @@ export struct ReaderSettingsPage {
             },
             isEnabled: this.doublePageAvailable(),
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_page_turn_animation'),
             hasSwitch: true,
@@ -863,7 +789,7 @@ export struct ReaderSettingsPage {
               this.setPageTurnAnimation(value)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_tap_zones'),
             trailingText: this.tapZoneLabel(false),
@@ -873,7 +799,7 @@ export struct ReaderSettingsPage {
               this.TapZoneMenu(false, select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_tap_zone_invert'),
             trailingText: this.tapZoneInvertLabel(false),
@@ -883,7 +809,7 @@ export struct ReaderSettingsPage {
               this.TapZoneInvertMenu(false, select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.reader_crop_borders'),
             subtitle: $r('app.string.settings_reader_crop_borders_paged_hint'),
@@ -918,7 +844,7 @@ export struct ReaderSettingsPage {
               this.TapZoneMenu(true, select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_tap_zone_invert'),
             trailingText: this.tapZoneInvertLabel(true),
@@ -928,7 +854,7 @@ export struct ReaderSettingsPage {
               this.TapZoneInvertMenu(true, select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.reader_crop_borders'),
             subtitle: $r('app.string.settings_reader_crop_borders_continuous_hint'),
@@ -987,7 +913,7 @@ export struct ReaderSettingsPage {
               this.BackgroundMenu(select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_image_scaling_quality'),
             subtitle: $r('app.string.settings_reader_image_scaling_quality_hint'),
@@ -999,7 +925,7 @@ export struct ReaderSettingsPage {
               this.ImageScalingQualityMenu(select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_show_page_number'),
             hasSwitch: true,
@@ -1012,7 +938,7 @@ export struct ReaderSettingsPage {
               this.setShowPageNumber(value)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_fullscreen'),
             hasSwitch: true,
@@ -1025,7 +951,7 @@ export struct ReaderSettingsPage {
               this.setFullscreen(value)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_keep_screen_on'),
             hasSwitch: true,
@@ -1061,7 +987,7 @@ export struct ReaderSettingsPage {
               this.setSuperResolutionEnabled(value)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_super_resolution_model'),
             trailingText: this.superResolutionModelLabel(),
@@ -1072,14 +998,14 @@ export struct ReaderSettingsPage {
             },
             isEnabled: this.installedSuperResolutionModels.length > 0,
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_super_resolution_models'),
             action: () => {
               this.openSuperResolutionModelManagement()
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_super_resolution_max_height'),
             subtitle: $r('app.string.settings_reader_super_resolution_max_height_hint'),
@@ -1110,7 +1036,7 @@ export struct ReaderSettingsPage {
               this.AutoPageMenu(select)
             },
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.settings_reader_volume_key'),
             subtitle: $r('app.string.settings_reader_volume_key_hint'),

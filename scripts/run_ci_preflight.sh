@@ -13,6 +13,10 @@ run_v2() {
   node scripts/test_v1_decorator_inventory_contract.mjs
 }
 
+run_ui() {
+  node scripts/test_input_node_stability_contract.mjs
+}
+
 run_severe() {
   node scripts/test_error_classification_contract.mjs
   node scripts/test_cookie_roundtrip_contract.mjs
@@ -28,6 +32,7 @@ case "${1:-all}" in
     run_module
     run_i18n
     run_v2
+    run_ui
     run_severe
     ;;
   module)
@@ -39,11 +44,14 @@ case "${1:-all}" in
   v2)
     run_v2
     ;;
+  ui)
+    run_ui
+    ;;
   severe)
     run_severe
     ;;
   *)
-    echo "usage: $0 [all|module|i18n|v2|severe]" >&2
+    echo "usage: $0 [all|module|i18n|v2|ui|severe]" >&2
     exit 2
     ;;
 esac

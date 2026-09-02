@@ -1,6 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   AuthState,
@@ -16,11 +15,13 @@ import {
   LlmSourceProfilesState,
   LocalBlockState,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   SiteModeSettings,
   SiteModeState,
   SiteModeRequestFence,
   TagTranslationSettingsState,
   ThemeConstants,
+  ListRowDivider,
   ToplistFilterSettings,
   ToplistFilterState,
   connectAuth,
@@ -128,28 +129,24 @@ export struct EhSettingsPage {
   @Builder
   SiteMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: 'E-Hentai',
-        symbolEndIcon: !this.siteMode.isEx
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: 'E-Hentai',
+        selected: !this.siteMode.isEx,
+        selectAction: () => {
           select(() => {
             this.selectSite(false)
           })
-        })
-      MenuItem({
-        content: 'ExHentai',
-        symbolEndIcon: this.siteMode.isEx
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: 'ExHentai',
+        selected: this.siteMode.isEx,
+        selectAction: () => {
           select(() => {
             this.selectSite(true)
           })
-        })
+        },
+      })
     }
   }
 
@@ -231,7 +228,7 @@ export struct EhSettingsPage {
                 this.setToplistHiddenFilter(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.local_block_title'),
               subtitle: $r('app.string.local_block_hint'),
@@ -241,7 +238,7 @@ export struct EhSettingsPage {
                 this.stack.pushPathByName('LocalBlockSettings', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.image_block_title'),
               subtitle: $r('app.string.image_block_hint'),
@@ -263,7 +260,7 @@ export struct EhSettingsPage {
                 this.stack.pushPathByName('CommentTranslationSettings', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.comic_translation_settings_title'),
               subtitle: $r('app.string.comic_translation_settings_hint'),
@@ -272,7 +269,7 @@ export struct EhSettingsPage {
                 this.stack.pushPathByName('ComicTranslationSettings', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.tag_translation_title'),
               subtitle:
@@ -285,7 +282,7 @@ export struct EhSettingsPage {
                 this.stack.pushPathByName('TagTranslationSettings', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.llm_sources_title'),
               subtitle: $r('app.string.llm_sources_hint'),
@@ -309,11 +306,4 @@ export struct EhSettingsPage {
     })
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
 }

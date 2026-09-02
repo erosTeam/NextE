@@ -1,5 +1,4 @@
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -19,7 +18,9 @@ import {
   LlmSourceProfileRepository,
   LlmSourceProfilesState,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   connectCommentTranslationSettings,
   connectLlmSourceProfiles,
   connectNavStack,
@@ -235,35 +236,25 @@ export struct CommentTranslationSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private DisplayModeMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.comment_translation_display_replace'),
-        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comment_translation_display_replace'),
+        selected: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE,
+        selectAction: () => {
+          select(() => {
+            this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.comment_translation_display_bilingual'),
-        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comment_translation_display_bilingual'),
+        selected: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
+        selectAction: () => {
+          select(() => {
+            this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
+          })
+        },
       })
     }
   }
@@ -274,15 +265,14 @@ export struct CommentTranslationSettingsPage {
       ForEach(
         this.compatibleSources(),
         (profile: LlmSourceProfile) => {
-          MenuItem({
-            content: profile.displayName,
-            symbolEndIcon: this.selectedSourceId === profile.sourceProfileId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectSource(profile.sourceProfileId)
-            })
+          SettingsCheckedMenuItem({
+            label: profile.displayName,
+            selected: this.selectedSourceId === profile.sourceProfileId,
+            selectAction: () => {
+              select(() => {
+                this.selectSource(profile.sourceProfileId)
+              })
+            },
           })
         },
         (profile: LlmSourceProfile) => profile.sourceProfileId,
@@ -296,15 +286,14 @@ export struct CommentTranslationSettingsPage {
       ForEach(
         this.modelOptions,
         (model: string) => {
-          MenuItem({
-            content: model,
-            symbolEndIcon: this.selectedModelId === model
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectModel(model)
-            })
+          SettingsCheckedMenuItem({
+            label: model,
+            selected: this.selectedModelId === model,
+            selectAction: () => {
+              select(() => {
+                this.selectModel(model)
+              })
+            },
           })
         },
         (model: string) => model,
@@ -331,7 +320,7 @@ export struct CommentTranslationSettingsPage {
                 this.setEnabled(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.comment_translation_auto'),
               subtitle: $r('app.string.comment_translation_auto_hint'),
@@ -343,7 +332,7 @@ export struct CommentTranslationSettingsPage {
                 this.setAutoTranslate(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.comment_translation_display_mode'),
               leadingIcon: $r('sys.symbol.textformat'),
@@ -370,7 +359,7 @@ export struct CommentTranslationSettingsPage {
                 this.setUseGoogleOnly(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.llm_binding_source'),
               subtitle: this.compatibleSources().length === 0
@@ -389,7 +378,7 @@ export struct CommentTranslationSettingsPage {
                 this.openSourceSelector()
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.llm_binding_model'),
               subtitle: this.fetchingModels

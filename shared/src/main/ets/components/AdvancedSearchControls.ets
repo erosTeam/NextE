@@ -1,4 +1,5 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { ListRowDivider } from './ListRowDivider'
 import { AppStrings } from '../i18n/AppStrings'
 import { SearchFilterState } from '../state/SearchFilterState'
 import { ConciseListRow } from './ConciseListRow'
@@ -67,14 +68,6 @@ export struct AdvancedSearchControls {
     }
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   build() {
     Column() {
       ConciseListRow({
@@ -89,7 +82,7 @@ export struct AdvancedSearchControls {
         },
       })
       if (this.filter.advancedEnabled) {
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_rating'),
           trailingText: this.ratingLabel(),
@@ -99,16 +92,20 @@ export struct AdvancedSearchControls {
             this.RatingMenu(select)
           },
         })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.filter_pages'),
-          showChevron: false,
-          suffixPaddingRight: ThemeConstants.SPACE_MD,
-          suffixBuilderParam: () => {
-            this.PageSuffix()
-          },
-        })
-        this.rowDivider()
+        ListRowDivider()
+        Stack({ alignContent: Alignment.End }) {
+          ConciseListRow({
+            title: $r('app.string.filter_pages'),
+            showChevron: false,
+            suffixPaddingRight: ThemeConstants.SPACE_MD,
+            suffixBuilderParam: () => {
+              this.PageSuffixReservation()
+            },
+          })
+          this.PageSuffix()
+        }
+        .width('100%')
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_require_torrent'),
           hasSwitch: true,
@@ -118,7 +115,7 @@ export struct AdvancedSearchControls {
             this.changed()
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_show_expunged'),
           hasSwitch: true,
@@ -128,7 +125,7 @@ export struct AdvancedSearchControls {
             this.changed()
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_disable_lang'),
           hasSwitch: true,
@@ -138,7 +135,7 @@ export struct AdvancedSearchControls {
             this.changed()
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_disable_uploader'),
           hasSwitch: true,
@@ -148,7 +145,7 @@ export struct AdvancedSearchControls {
             this.changed()
           },
         })
-        this.rowDivider()
+        ListRowDivider()
         ConciseListRow({
           title: $r('app.string.filter_disable_tag'),
           hasSwitch: true,
@@ -186,6 +183,12 @@ export struct AdvancedSearchControls {
   }
 
   @Builder
+  private PageSuffixReservation() {
+    Blank()
+      .width(PAGE_INPUT_WIDTH * 2 + ThemeConstants.SPACE_SM * 2 + 12)
+  }
+
+  @Builder
   private PageSuffix() {
     Row({ space: ThemeConstants.SPACE_SM }) {
       this.PageInput(this.filter.pagesFrom, (v: number) => {
@@ -199,6 +202,7 @@ export struct AdvancedSearchControls {
       })
     }
     .alignItems(VerticalAlign.Center)
+    .padding({ right: ThemeConstants.SPACE_MD })
   }
 
   @Builder

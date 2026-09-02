@@ -3,7 +3,6 @@ import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { systemShare } from '@kit.ShareKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   ConciseListRow,
@@ -16,7 +15,9 @@ import {
   DiagnosticsState,
   GroupedListSection,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   connectDiagnostics,
   connectNavStack,
   NavStackHolder,
@@ -195,25 +196,15 @@ export struct AdvancedSettingsPage {
 
   @Builder
   private LevelMenuItem(level: string, select: (action: () => void) => void) {
-    MenuItem({
-      content: this.levelLabel(level),
-      symbolEndIcon: this.diagnostics.minLevel === level
-        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-        : undefined,
-    })
-      .onClick(() => {
+    SettingsCheckedMenuItem({
+      label: this.levelLabel(level),
+      selected: this.diagnostics.minLevel === level,
+      selectAction: () => {
         select(() => {
           this.updateMinLevel(level)
         })
-      })
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
+      },
+    })
   }
 
   @Builder
@@ -242,7 +233,7 @@ export struct AdvancedSettingsPage {
           this.updateDiagnosticsEnabled(value)
         },
       })
-      this.rowDivider()
+      ListRowDivider()
       ConciseListRow({
         title: $r('app.string.diagnostics_min_level'),
         subtitle: $r('app.string.diagnostics_min_level_hint'),
@@ -269,7 +260,7 @@ export struct AdvancedSettingsPage {
           this.refreshLogState()
         },
       })
-      this.rowDivider()
+      ListRowDivider()
       ConciseListRow({
         title: $r('app.string.diagnostics_export_current'),
         subtitle: $r('app.string.diagnostics_export_current_hint'),
@@ -279,7 +270,7 @@ export struct AdvancedSettingsPage {
           this.exportCurrentLog()
         },
       })
-      this.rowDivider()
+      ListRowDivider()
       ConciseListRow({
         title: $r('app.string.advanced_write_marker'),
         subtitle: $r('app.string.advanced_diagnostics_hint'),
@@ -289,7 +280,7 @@ export struct AdvancedSettingsPage {
           this.writeMarker()
         },
       })
-      this.rowDivider()
+      ListRowDivider()
       ConciseListRow({
         title: $r('app.string.clear_boot_records'),
         leadingIcon: $r('sys.symbol.trash'),
@@ -327,7 +318,7 @@ export struct AdvancedSettingsPage {
             },
           })
           if (index < this.logFiles.length - 1) {
-            this.rowDivider()
+            ListRowDivider()
           }
         }, (file: DiagnosticsLogFileInfo) => file.fileName)
       }

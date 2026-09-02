@@ -18,7 +18,8 @@ import {
   UserProfileRequestFence,
   closeLoginFlowToAccount,
   connectWebLoginStyle,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
 } from 'shared'
 
 /**
@@ -145,21 +146,18 @@ export struct EhLoginWebPage {
   }
 
   private loginTitleBar(): Record<string, Object> {
-    const item: Record<string, Object> = {
-      'label': AppStrings.get(
-        this.runtimeBeautifyEnabled ? 'web_login_use_original' : 'web_login_use_beautified',
+    return immersiveTitleBarWithActions(AppStrings.get('nav_login'), [
+      immersiveTitleBarAction(
+        AppStrings.get(
+          this.runtimeBeautifyEnabled ? 'web_login_use_original' : 'web_login_use_beautified',
+        ),
+        this.runtimeBeautifyEnabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
+        true,
+        () => {
+          this.toggleRuntimeLoginStyle()
+        },
       ),
-      'icon': this.runtimeBeautifyEnabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
-      'isEnabled': true,
-      'action': (): void => {
-        this.toggleRuntimeLoginStyle()
-      },
-    }
-    const itemWrap: Record<string, Object> = { 'content': item }
-    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
-    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('nav_login') }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
+    ], 1)
   }
 
   private toggleRuntimeLoginStyle(): void {

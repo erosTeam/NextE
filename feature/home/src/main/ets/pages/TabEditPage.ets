@@ -4,15 +4,19 @@ import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 import {
   ThemeConstants,
+  ListRowDivider,
   AppStrings,
   connectNavStack,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   SecondaryListScaffold,
   GroupedListSection,
+  GroupedListItemSection,
   SectionHeader,
   ConciseListRow,
   InlineEditRow,
   SettingsCheckedMenuItem,
+  SwipeDeleteAction,
   CategorySelector,
   AdvancedSearchControls,
   TagQueryComposer,
@@ -347,30 +351,14 @@ export struct TabEditPage {
   }
 
   private titleBar(): Record<string, Object> {
-    const item: Record<string, Object> = {
-      'label': AppStrings.get('common_save'),
-      'icon': $r('sys.symbol.checkmark'),
-      'isEnabled': true,
-      'action': (): void => {
-        this.save()
-      },
-    }
-    const itemWrap: Record<string, Object> = { 'content': item }
-    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
     const titleText: string = this.isCreate
       ? AppStrings.get('tabs_create_title')
       : AppStrings.get('tabs_edit_title')
-    const title: Record<string, Object> = { 'mainTitle': titleText }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
+    return immersiveTitleBarWithActions(titleText, [
+      immersiveTitleBarAction(AppStrings.get('common_save'), $r('sys.symbol.checkmark'), true, () => {
+        this.save()
+      }),
+    ], 1)
   }
 
   // 搜索词 = one card-styled ListItemGroup: the add field sits in the group's HEADER slot (a stable element
@@ -391,59 +379,54 @@ export struct TabEditPage {
 
   @Builder
   private SearchGroup() {
-    ListItemGroup({ header: this.SearchFieldHeader(), space: 0 }) {
-      ForEach(
-        this.tagRowItems(),
-        (it: TagRowItem) => {
-          ListItem() {
-            Column() {
-              this.rowDivider()
-              TagRow({
-                tag: it.tag,
-                index: it.index,
-                displayName: it.displayName,
-                onSetRelation: (index: number, rel: number) => {
-                  this.setTagRelation(index, rel)
-                },
-              })
-            }
-            .width('100%')
+    GroupedListItemSection({
+      showHeader: true,
+      headerBuilder: () => {
+        this.SearchFieldHeader()
+      },
+      content: () => {
+        this.SearchItems()
+      },
+    })
+  }
+
+  @Builder
+  private SearchItems() {
+    ForEach(
+      this.tagRowItems(),
+      (it: TagRowItem) => {
+        ListItem() {
+          Column() {
+            ListRowDivider()
+            TagRow({
+              tag: it.tag,
+              index: it.index,
+              displayName: it.displayName,
+              onSetRelation: (index: number, rel: number) => {
+                this.setTagRelation(index, rel)
+              },
+            })
           }
-          .swipeAction({
-            end: () => {
-              this.DeleteSwipe(it.index)
-            },
-          })
-        },
-        (it: TagRowItem, index: number) =>
-          `tag_${index}_${it.tag.relation}_${it.tag.namespace}_${it.tag.text}_${it.displayName}`.replace(/[^A-Za-z0-9_]/g, '_'),
-      )
-    }
-    .width('100%')
-    .borderRadius(ThemeConstants.RADIUS_CARD)
-    .clip(true)
-    .padding(ThemeConstants.LIST_SECTION_INSET)
-    .backgroundColor($r('app.color.card_background'))
+          .width('100%')
+        }
+        .swipeAction({
+          end: () => {
+            this.DeleteSwipe(it.index)
+          },
+        })
+      },
+      (it: TagRowItem, index: number) =>
+        `tag_${index}_${it.tag.relation}_${it.tag.namespace}_${it.tag.text}_${it.displayName}`.replace(/[^A-Za-z0-9_]/g, '_'),
+    )
   }
 
   @Builder
   private DeleteSwipe(index: number) {
-    Row() {
-      Button() {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(40)
-      .backgroundColor(Color.Red)
-      .onClick(() => {
+    SwipeDeleteAction({
+      action: () => {
         this.removeTag(index)
-      })
-    }
-    .height('100%')
-    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-    .justifyContent(FlexAlign.Center)
+      },
+    })
   }
 
   build() {
@@ -467,7 +450,7 @@ export struct TabEditPage {
                 },
               })
               if (!this.builtin) {
-                this.rowDivider()
+                ListRowDivider()
                 TabSelectRow({
                   title: $r('app.string.tab_list_type'),
                   value: this.typeLabel(),
@@ -478,7 +461,7 @@ export struct TabEditPage {
                   },
                 })
                 if (this.listType === PROFILE_TYPE_FAVORITE) {
-                  this.rowDivider()
+                  ListRowDivider()
                   TabSelectRow({
                     title: $r('app.string.tab_favcat'),
                     value: this.favcatLabel(),
@@ -489,7 +472,7 @@ export struct TabEditPage {
                     },
                   })
                 }
-                this.rowDivider()
+                ListRowDivider()
                 TabSelectRow({
                   title: $r('app.string.tab_display_mode'),
                   value: this.displayLabel(),

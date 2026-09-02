@@ -6,6 +6,7 @@ import {
   GroupedListSection,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   WebLoginStyleSettings,
   WebLoginStyleState,
   connectNavStack,
@@ -45,14 +46,6 @@ export struct AccountLoginPage {
     }
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   private setWebLoginBeautify(value: boolean): void {
     WebLoginStyleSettings.save(this.ctx(), value)
   }
@@ -78,7 +71,7 @@ export struct AccountLoginPage {
                 this.stack.pushPathByName('EhLogin', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_login_password'),
               leadingIcon: $r('sys.symbol.lock'),
@@ -86,7 +79,7 @@ export struct AccountLoginPage {
                 this.stack.pushPathByName('EhPasswordLogin', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_login_cookie'),
               leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),

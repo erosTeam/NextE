@@ -1,6 +1,7 @@
 import { appMenuOptions } from './AppMenuOptions'
 import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { ListRowDivider } from './ListRowDivider'
 import { AppSearchField } from './AppSearchField'
 import { ConciseListRow } from './ConciseListRow'
 import { SettingsCheckedMenuItem } from './SettingsCheckedMenuItem'
@@ -295,14 +296,6 @@ export struct TagQueryComposer {
       EhConstants.exactTagSearchQuery(s.namespace, s.text)
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   build() {
     Column() {
       AppSearchField({
@@ -322,7 +315,7 @@ export struct TagQueryComposer {
         ForEach(
           this.suggestions,
           (s: EhTagSuggestion) => {
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: this.suggestionTitle(s),
               subtitle: s.label(),

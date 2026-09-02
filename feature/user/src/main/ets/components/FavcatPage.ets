@@ -58,6 +58,7 @@ import {
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
   GalleryDetailTransitionCoordinator,
+  PageJumpDialogContent,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { CustomContentDialog } from '@kit.ArkUI'
@@ -357,10 +358,6 @@ export struct FavcatPage {
     }
   }
 
-  private normalizeJumpInput(value: string): string {
-    return (value || '').replace(/[^0-9]/g, '')
-  }
-
   private jumpHelpText(): string {
     const pageCount: number = this.vm.pageCount()
     if (pageCount <= 0) {
@@ -518,31 +515,16 @@ export struct FavcatPage {
 
   @Builder
   FavoriteJumpDialogContent() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Text(this.jumpHelpText())
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({
-        text: this.jumpPageText,
-        placeholder: $r('app.string.favorites_jump_placeholder'),
-      })
-        .type(InputType.Number)
-        .inputFilter('^[0-9]*$')
-        .defaultFocus(true)
-        .width('100%')
-        .onChange((value: string) => {
-          this.jumpPageText = this.normalizeJumpInput(value)
-          this.jumpError = ''
-        })
-      if (this.jumpError.length > 0) {
-        Text(this.jumpError)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .width('100%')
-      }
-    }
-    .width('100%')
+    PageJumpDialogContent({
+      helpText: this.jumpHelpText(),
+      value: this.jumpPageText,
+      placeholder: $r('app.string.favorites_jump_placeholder'),
+      errorText: this.jumpError,
+      onChange: (value: string) => {
+        this.jumpPageText = value
+        this.jumpError = ''
+      },
+    })
   }
 
   private ctx(): common.UIAbilityContext {

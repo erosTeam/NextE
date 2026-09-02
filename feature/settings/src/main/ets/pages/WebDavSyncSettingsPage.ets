@@ -7,12 +7,14 @@ import {
   DiagnosticLogger,
   GroupedListSection,
   SecondaryListScaffold,
+  SettingsTextField,
   SYNC_STATUS_FAILED,
   SYNC_STATUS_OK,
   SyncSettings,
   SyncSettingsSnapshot,
   SyncSettingsState,
   ThemeConstants,
+  ListRowDivider,
   WebDavSyncConfig,
   WebDavSyncService,
   connectSyncSettings,
@@ -133,67 +135,46 @@ export struct WebDavSyncSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private TextInputRow(
     label: ResourceStr,
     placeholder: ResourceStr,
     secret: boolean,
     field: string,
   ) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      if (field === 'url') {
-        TextInput({ text: $$this.webdavUrlDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.saveWebDavConfig()
-          })
-      } else if (field === 'username') {
-        TextInput({ text: $$this.webdavUsernameDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.saveWebDavConfig()
-          })
-      } else {
-        TextInput({ text: $$this.webdavPasswordDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.saveWebDavConfig()
-          })
-      }
+    if (field === 'url') {
+      SettingsTextField({
+        label: label,
+        value: this.webdavUrlDraft,
+        placeholder: placeholder,
+        inputType: secret ? InputType.Password : InputType.Normal,
+        onChange: (value: string) => {
+          this.webdavUrlDraft = value
+          this.saveWebDavConfig()
+        },
+      })
+    } else if (field === 'username') {
+      SettingsTextField({
+        label: label,
+        value: this.webdavUsernameDraft,
+        placeholder: placeholder,
+        inputType: secret ? InputType.Password : InputType.Normal,
+        onChange: (value: string) => {
+          this.webdavUsernameDraft = value
+          this.saveWebDavConfig()
+        },
+      })
+    } else {
+      SettingsTextField({
+        label: label,
+        value: this.webdavPasswordDraft,
+        placeholder: placeholder,
+        inputType: secret ? InputType.Password : InputType.Normal,
+        onChange: (value: string) => {
+          this.webdavPasswordDraft = value
+          this.saveWebDavConfig()
+        },
+      })
     }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   @Builder
@@ -224,7 +205,7 @@ export struct WebDavSyncSettingsPage {
                 this.toggleWebDav(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             if (this.settings.webdavSyncing) {
               ConciseListRow({
                 title: $r('app.string.sync_webdav_now'),
@@ -258,14 +239,14 @@ export struct WebDavSyncSettingsPage {
               false,
               'url',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.TextInputRow(
               $r('app.string.sync_webdav_username'),
               $r('app.string.sync_webdav_username_hint'),
               false,
               'username',
             )
-            this.rowDivider()
+            ListRowDivider()
             this.TextInputRow(
               $r('app.string.sync_webdav_password'),
               $r('app.string.sync_webdav_password_hint'),

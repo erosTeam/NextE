@@ -2,6 +2,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   ThemeConstants,
   PageErrorState,
+  PageLoadingState,
   ImagePageRouteErrorParams,
   ImagePageRouteService,
   ImagePageRouteTarget,
@@ -42,10 +43,7 @@ export struct ImagePageRouteErrorPage {
     HdsNavDestination() {
       Column() {
         if (this.loading) {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE)
-            .height(ThemeConstants.LOADING_SIZE)
-            .color(ThemeConstants.BRAND_PRIMARY)
+          PageLoadingState()
         } else {
           PageErrorState({
             message: $r('app.string.image_page_open_failed'),

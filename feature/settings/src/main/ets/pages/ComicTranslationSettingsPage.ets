@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit'
-import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -24,9 +24,12 @@ import {
   MangaRenderingServiceSettings,
   MangaRenderingServiceSettingsSnapshot,
   SecondaryListScaffold,
+  SettingsTextField,
+  SettingsCheckedMenuItem,
   TORII_DEFAULT_MODEL_ID,
   TORII_FONT_NOTO,
   ThemeConstants,
+  ListRowDivider,
   ToriiFontCatalog,
   ToriiFontOption,
   ToriiCreditsService,
@@ -683,45 +686,34 @@ export struct ComicTranslationSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private VisualRouteMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.comic_visual_route_local'),
-        symbolEndIcon: this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectVisualRoute(COMIC_VISUAL_ROUTE_LOCAL)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_visual_route_local'),
+        selected: this.visualRoute === COMIC_VISUAL_ROUTE_LOCAL,
+        selectAction: () => {
+          select(() => {
+            this.selectVisualRoute(COMIC_VISUAL_ROUTE_LOCAL)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.comic_visual_route_self_hosted'),
-        symbolEndIcon: this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectVisualRoute(COMIC_VISUAL_ROUTE_SELF_HOSTED)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_visual_route_self_hosted'),
+        selected: this.visualRoute === COMIC_VISUAL_ROUTE_SELF_HOSTED,
+        selectAction: () => {
+          select(() => {
+            this.selectVisualRoute(COMIC_VISUAL_ROUTE_SELF_HOSTED)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.comic_visual_route_torii'),
-        symbolEndIcon: this.visualRoute === COMIC_VISUAL_ROUTE_TORII
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.selectVisualRoute(COMIC_VISUAL_ROUTE_TORII)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.comic_visual_route_torii'),
+        selected: this.visualRoute === COMIC_VISUAL_ROUTE_TORII,
+        selectAction: () => {
+          select(() => {
+            this.selectVisualRoute(COMIC_VISUAL_ROUTE_TORII)
+          })
+        },
       })
     }
   }
@@ -732,15 +724,14 @@ export struct ComicTranslationSettingsPage {
       ForEach(
         this.toriiModels(),
         (model: ToriiTranslatorModel) => {
-          MenuItem({
-            content: `${model.displayName} · ${model.baseCredits}+`,
-            symbolEndIcon: this.toriiModelId === model.modelId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectToriiModel(model.modelId)
-            })
+          SettingsCheckedMenuItem({
+            label: `${model.displayName} · ${model.baseCredits}+`,
+            selected: this.toriiModelId === model.modelId,
+            selectAction: () => {
+              select(() => {
+                this.selectToriiModel(model.modelId)
+              })
+            },
           })
         },
         (model: ToriiTranslatorModel) => model.modelId,
@@ -754,15 +745,14 @@ export struct ComicTranslationSettingsPage {
       ForEach(
         this.toriiFonts(),
         (font: ToriiFontOption) => {
-          MenuItem({
-            content: font.displayName,
-            symbolEndIcon: this.toriiFontId === font.fontId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectToriiFont(font.fontId)
-            })
+          SettingsCheckedMenuItem({
+            label: font.displayName,
+            selected: this.toriiFontId === font.fontId,
+            selectAction: () => {
+              select(() => {
+                this.selectToriiFont(font.fontId)
+              })
+            },
           })
         },
         (font: ToriiFontOption) => font.fontId,
@@ -772,28 +762,15 @@ export struct ComicTranslationSettingsPage {
 
   @Builder
   private ToriiSecretRow(label: ResourceStr, placeholder: ResourceStr) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({ text: $$this.toriiApiKeyDraft, placeholder: placeholder })
-        .type(InputType.Password)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange(() => {
-          this.toriiCredits = null
-        })
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
+    SettingsTextField({
+      label: label,
+      value: this.toriiApiKeyDraft,
+      placeholder: placeholder,
+      inputType: InputType.Password,
+      onChange: (value: string) => {
+        this.toriiApiKeyDraft = value
+        this.toriiCredits = null
+      },
     })
   }
 
@@ -803,15 +780,14 @@ export struct ComicTranslationSettingsPage {
       ForEach(
         this.compatibleSources(),
         (profile: LlmSourceProfile) => {
-          MenuItem({
-            content: profile.displayName,
-            symbolEndIcon: this.selectedSourceId === profile.sourceProfileId
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectSource(profile.sourceProfileId)
-            })
+          SettingsCheckedMenuItem({
+            label: profile.displayName,
+            selected: this.selectedSourceId === profile.sourceProfileId,
+            selectAction: () => {
+              select(() => {
+                this.selectSource(profile.sourceProfileId)
+              })
+            },
           })
         },
         (profile: LlmSourceProfile) => profile.sourceProfileId,
@@ -825,15 +801,14 @@ export struct ComicTranslationSettingsPage {
       ForEach(
         this.modelOptions,
         (model: string) => {
-          MenuItem({
-            content: model,
-            symbolEndIcon: this.selectedModelId === model
-              ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-              : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.selectModel(model)
-            })
+          SettingsCheckedMenuItem({
+            label: model,
+            selected: this.selectedModelId === model,
+            selectAction: () => {
+              select(() => {
+                this.selectModel(model)
+              })
+            },
           })
         },
         (model: string) => model,
@@ -920,7 +895,7 @@ export struct ComicTranslationSettingsPage {
                   this.openSourceSelector()
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.llm_binding_model'),
                 leadingIcon: $r('sys.symbol.arrow_down_circle'),
@@ -936,7 +911,7 @@ export struct ComicTranslationSettingsPage {
                 },
                 isEnabled: this.selectedSourceId.length > 0 && !this.fetchingModels,
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_translation_multimodal_assist'),
                 leadingIcon: $r('sys.symbol.picture'),
@@ -990,7 +965,7 @@ export struct ComicTranslationSettingsPage {
                   this.ToriiModelMenu(select)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.comic_torii_font'),
                 leadingIcon: $r('sys.symbol.textformat'),
@@ -1001,13 +976,13 @@ export struct ComicTranslationSettingsPage {
                   this.ToriiFontMenu(select)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               this.ToriiSecretRow(
                 $r('app.string.comic_torii_api_key'),
                 $r('app.string.comic_torii_api_key_hint'),
               )
               if (this.toriiCredits !== null) {
-                this.rowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: $r('app.string.comic_torii_available_credits'),
                   leadingIcon: $r('sys.symbol.creditcard'),
@@ -1016,7 +991,7 @@ export struct ComicTranslationSettingsPage {
                 })
               }
               if (this.toriiReady()) {
-                this.rowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: $r('app.string.comic_translation_live_evaluation_title'),
                   leadingIcon: $r('sys.symbol.checkmark_circle'),

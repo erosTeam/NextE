@@ -146,6 +146,8 @@ export { RatingStars } from './components/RatingStars'
 export {
   immersiveTitleBarOpts,
   immersiveTitleBar,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   immersiveMaterialType,
 } from './components/ImmersiveTitleBar'
 export { EhWebView } from './components/EhWebView'
@@ -170,9 +172,15 @@ export { GalleryCategoryCornerBadge } from './components/GalleryCategoryCornerBa
 export { GallerySimpleCard, gallerySimpleReuseId } from './components/GallerySimpleCard'
 export { SecondaryListScaffold } from './components/SecondaryListScaffold'
 export { GroupedListSection } from './components/GroupedListSection'
+export { GroupedListItemSection } from './components/GroupedListItemSection'
 export { ConciseListRow } from './components/ConciseListRow'
 export { InlineEditRow } from './components/InlineEditRow'
+export { SettingsTextField } from './components/SettingsTextField'
+export { ListRowDivider } from './components/ListRowDivider'
+export { SwipeDeleteAction } from './components/SwipeDeleteAction'
 export { SettingsCheckedMenuItem } from './components/SettingsCheckedMenuItem'
+export { PageJumpDialogContent } from './components/PageJumpDialogContent'
+export { AppIconButton } from './components/AppIconButton'
 export { CategorySelector } from './components/CategorySelector'
 export { AdvancedSearchControls } from './components/AdvancedSearchControls'
 export { TagQueryComposer, TagRow, TagQuery, QueryTag, TagRowItem, TagRelation } from './components/TagQueryComposer'

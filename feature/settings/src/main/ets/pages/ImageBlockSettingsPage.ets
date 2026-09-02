@@ -24,6 +24,7 @@ import {
   ImageBlockSubscriptionUpdateResult,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   connectImageBlockSettings,
   immersiveTitleBar,
   publishImageBlockRulesChanged,
@@ -649,14 +650,6 @@ export struct ImageBlockSettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   private WhitelistDeleteSuffix(hash: string) {
     Button() {
       if (this.deletingWhitelistHash === hash) {
@@ -904,7 +897,7 @@ export struct ImageBlockSettingsPage {
                 this.setGlobalEnabled(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.image_block_update_default'),
               leadingIcon: $r('sys.symbol.arrow_clockwise'),
@@ -935,7 +928,7 @@ export struct ImageBlockSettingsPage {
                       this.setFeedEnabled(feed.id, value)
                     },
                   })
-                  this.rowDivider()
+                  ListRowDivider()
                   ConciseListRow({
                     title: $r('app.string.image_block_subscription_rules'),
                     subtitle: this.feedTitle(feed),
@@ -950,7 +943,7 @@ export struct ImageBlockSettingsPage {
                     this.feedRulesSheetOptions(feed),
                   )
                   if (index < this.feeds.length - 1) {
-                    this.rowDivider()
+                    ListRowDivider()
                   }
                 },
                 (feed: ImageBlockFeed) => feed.id,
@@ -967,15 +960,15 @@ export struct ImageBlockSettingsPage {
               showChevron: false,
             })
             if (this.localRules.length > 0) {
-              this.rowDivider()
+              ListRowDivider()
               this.ContributionDraftRow()
-              this.rowDivider()
+              ListRowDivider()
               ForEach(
                 this.localRules,
                 (rule: ImageBlockRule, index: number) => {
                   this.LocalRuleRow(rule)
                   if (index < this.localRules.length - 1) {
-                    this.rowDivider()
+                    ListRowDivider()
                   }
                 },
                 (rule: ImageBlockRule) => rule.id,
@@ -993,13 +986,13 @@ export struct ImageBlockSettingsPage {
               showChevron: false,
             })
             if (this.whitelistItems.length > 0) {
-              this.rowDivider()
+              ListRowDivider()
               ForEach(
                 this.whitelistItems,
                 (item: ImageBlockWhitelistItem, index: number) => {
                   this.WhitelistCard(item)
                   if (index < this.whitelistItems.length - 1) {
-                    this.rowDivider()
+                    ListRowDivider()
                   }
                 },
                 (item: ImageBlockWhitelistItem) => item.hash,
@@ -1069,24 +1062,16 @@ export struct ImageBlockSettingsPage {
   private RuleEnabledRow() {
     ListItem() {
       GroupedListSection({ inset: 0 }) {
-        Row({ space: ThemeConstants.SPACE_MD }) {
-          SymbolGlyph($r('sys.symbol.checkmark_circle'))
-            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-            .fontColor([$r('sys.color.font_secondary')])
-          Text($r('app.string.image_block_rule_enabled'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          Toggle({ type: ToggleType.Switch, isOn: this.selectedRule.enabled })
-            .selectedColor(ThemeConstants.BRAND_PRIMARY)
-            .onChange((value: boolean) => {
-              this.setSelectedRuleEnabled(value)
-            })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-        .padding(ThemeConstants.SPACE_MD)
+        ConciseListRow({
+          title: $r('app.string.image_block_rule_enabled'),
+          leadingIcon: $r('sys.symbol.checkmark_circle'),
+          hasSwitch: true,
+          checked: this.selectedRule.enabled,
+          showChevron: false,
+          switchAction: (value: boolean) => {
+            this.setSelectedRuleEnabled(value)
+          },
+        })
       }
     }
   }
@@ -1151,7 +1136,7 @@ export struct ImageBlockSettingsPage {
               : $r('sys.symbol.eye_slash'),
             showChevron: false,
           })
-          this.rowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.image_block_rule_fingerprint'),
             subtitle: this.selectedRule.hash,
@@ -1193,7 +1178,7 @@ export struct ImageBlockSettingsPage {
               (rule: ImageBlockRule, index: number) => {
                 this.SubscriptionRuleRow(rule)
                 if (index < this.feedRules.length - 1) {
-                  this.rowDivider()
+                  ListRowDivider()
                 }
               },
               (rule: ImageBlockRule) => rule.id,

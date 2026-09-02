@@ -17,6 +17,7 @@ import {
   AppStrings,
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
+  PageJumpDialogContent,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -183,10 +184,6 @@ export struct ToplistPeriodPage {
     }
   }
 
-  private normalizeJumpInput(value: string): string {
-    return (value || '').replace(/[^0-9]/g, '')
-  }
-
   private jumpHelpText(): string {
     const pageCount: number = this.vm.toplistPageCount()
     if (pageCount <= 0) {
@@ -245,30 +242,17 @@ export struct ToplistPeriodPage {
 
   @Builder
   ToplistJumpDialogContent() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Text(this.jumpHelpText())
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({
-        text: this.jumpPageText,
-        placeholder: $r('app.string.toplist_jump_placeholder'),
-      })
-        .type(InputType.Number)
-        .inputFilter('^[0-9]*$')
-        .defaultFocus(true)
-        .width('100%')
-        .onChange((value: string) => {
-          this.jumpPageText = this.normalizeJumpInput(value)
-          this.jumpError = ''
-        })
-      if (this.jumpError.length > 0) {
-        Text(this.jumpError)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.Red)
-          .width('100%')
-      }
-    }.width('100%')
+    PageJumpDialogContent({
+      helpText: this.jumpHelpText(),
+      value: this.jumpPageText,
+      placeholder: $r('app.string.toplist_jump_placeholder'),
+      errorText: this.jumpError,
+      errorColor: Color.Red,
+      onChange: (value: string) => {
+        this.jumpPageText = value
+        this.jumpError = ''
+      },
+    })
   }
 
   build() {

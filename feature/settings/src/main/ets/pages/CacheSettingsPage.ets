@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
-import { CustomContentDialog, SymbolGlyphModifier } from '@kit.ArkUI'
+import { CustomContentDialog } from '@kit.ArkUI'
 import {
   AppStrings,
   BackupAppMetadata,
@@ -16,7 +16,9 @@ import {
   ImagePipelineService,
   ReaderImageCacheSettings,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   connectNavStack,
   NavStackHolder,
   connectSafeMode,
@@ -234,17 +236,15 @@ export struct CacheSettingsPage {
     label: string,
     select: (action: () => void) => void,
   ) {
-    MenuItem({
-      content: label,
-      symbolEndIcon: this.readerCacheLimitMb === limitMb
-        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-        : undefined,
-    })
-      .onClick(() => {
+    SettingsCheckedMenuItem({
+      label: label,
+      selected: this.readerCacheLimitMb === limitMb,
+      selectAction: () => {
         select(() => {
           this.setReaderCacheLimit(limitMb)
         })
-      })
+      },
+    })
   }
 
   @Builder
@@ -552,7 +552,7 @@ export struct CacheSettingsPage {
                     this.openExport()
                   },
                 })
-                this.rowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: $r('app.string.backup_import'),
                   subtitle: $r('app.string.backup_import_subtitle'),
@@ -591,21 +591,21 @@ export struct CacheSettingsPage {
               // Caches + clear-all, all in one card (clear-all is a cache action).
               GroupedListSection() {
                 this.CacheRow('page', $r('app.string.cache_page'), $r('sys.symbol.doc_text'))
-                this.rowDivider()
+                ListRowDivider()
                 this.CacheRow('image', $r('app.string.cache_image'), $r('sys.symbol.picture'))
-                this.rowDivider()
+                ListRowDivider()
                 this.CacheRow(
                   'comment',
                   $r('app.string.cache_comment_translation'),
                   $r('sys.symbol.translate'),
                 )
-                this.rowDivider()
+                ListRowDivider()
                 this.CacheRow(
                   'comic',
                   $r('app.string.cache_comic_translation'),
                   $r('sys.symbol.text_bubble_left_2'),
                 )
-                this.rowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: $r('app.string.cache_clear_all'),
                   leadingIcon: $r('sys.symbol.trash'),
@@ -735,11 +735,4 @@ export struct CacheSettingsPage {
       })
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
 }

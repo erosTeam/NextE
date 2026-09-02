@@ -1,16 +1,17 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   AutoLockTimeout,
   ConciseListRow,
   GroupedListSection,
   SecondaryListScaffold,
+  SettingsCheckedMenuItem,
   SecurityAuthResult,
   SecuritySettings,
   SecuritySettingsState,
   ThemeConstants,
+  ListRowDivider,
   connectSecuritySettings,
   immersiveTitleBar,
 } from 'shared'
@@ -75,26 +76,17 @@ export struct SecuritySettingsPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
   AutoLockMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(SecuritySettings.autoLockValues(), (seconds: number) => {
-        MenuItem({
-          content: this.autoLockLabel(seconds),
-          symbolEndIcon: this.securitySettings.autoLockSeconds === seconds
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-        }).onClick(() => {
-          select(() => {
-            this.setAutoLock(seconds)
-          })
+        SettingsCheckedMenuItem({
+          label: this.autoLockLabel(seconds),
+          selected: this.securitySettings.autoLockSeconds === seconds,
+          selectAction: () => {
+            select(() => {
+              this.setAutoLock(seconds)
+            })
+          },
         })
       }, (seconds: number) => `${seconds}`)
     }
@@ -120,7 +112,7 @@ export struct SecuritySettingsPage {
                   this.setRecentTasksProtection(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.security_auto_lock'),
                 subtitle: $r('app.string.security_auto_lock_hint'),

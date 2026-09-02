@@ -10,6 +10,7 @@ import {
   SearchHistorySettings,
   SearchHistoryState,
   ThemeConstants,
+  ListRowDivider,
   connectNavStack,
   NavStackHolder,
   connectSearchFilter,
@@ -86,14 +87,6 @@ export struct SearchSettingsPage {
     })
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'SearchSettings'
@@ -115,7 +108,7 @@ export struct SearchSettingsPage {
               trailingText: this.historyCountText(),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.search_history_clear'),
               leadingIcon: $r('sys.symbol.trash'),
@@ -136,7 +129,7 @@ export struct SearchSettingsPage {
               trailingText: this.filterStateText(),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.search_settings_filter_reset'),
               leadingIcon: $r('sys.symbol.arrow_counterclockwise'),

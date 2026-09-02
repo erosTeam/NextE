@@ -24,7 +24,9 @@ import {
   LlmSourceProfilesState,
   LlmSourceSecretStore,
   SecondaryListScaffold,
+  SettingsTextField,
   ThemeConstants,
+  ListRowDivider,
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
@@ -489,58 +491,36 @@ export struct LlmSourceDetailPage {
   }
 
   @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
-  private TextInputBox(textLink: string, placeholder: ResourceStr, secret: boolean) {
-    if (textLink === 'name') {
-      TextInput({ text: $$this.nameDraft, placeholder: placeholder })
-        .type(InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    } else if (textLink === 'baseUrl') {
-      TextInput({ text: $$this.baseUrlDraft, placeholder: placeholder })
-        .type(InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    } else {
-      TextInput({ text: $$this.apiKeyDraft, placeholder: placeholder })
-        .type(secret ? InputType.Password : InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    }
-  }
-
-  @Builder
   private TextInputRow(label: ResourceStr, textLink: string, placeholder: ResourceStr, secret: boolean) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      this.TextInputBox(textLink, placeholder, secret)
+    if (textLink === 'name') {
+      SettingsTextField({
+        label: label,
+        value: this.nameDraft,
+        placeholder: placeholder,
+        onChange: (value: string) => {
+          this.nameDraft = value
+        },
+      })
+    } else if (textLink === 'baseUrl') {
+      SettingsTextField({
+        label: label,
+        value: this.baseUrlDraft,
+        placeholder: placeholder,
+        onChange: (value: string) => {
+          this.baseUrlDraft = value
+        },
+      })
+    } else {
+      SettingsTextField({
+        label: label,
+        value: this.apiKeyDraft,
+        placeholder: placeholder,
+        inputType: secret ? InputType.Password : InputType.Normal,
+        onChange: (value: string) => {
+          this.apiKeyDraft = value
+        },
+      })
     }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   build() {
@@ -561,7 +541,7 @@ export struct LlmSourceDetailPage {
                 trailingText: this.sourceTypeText(),
                 showChevron: false,
               })
-              this.rowDivider()
+              ListRowDivider()
               this.TextInputRow(
                 $r('app.string.llm_source_name'),
                 'name',
@@ -569,14 +549,14 @@ export struct LlmSourceDetailPage {
                 false,
               )
               if (this.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
-                this.rowDivider()
+                ListRowDivider()
                 this.TextInputRow(
                   $r('app.string.llm_source_base_url'),
                   'baseUrl',
                   'https://api.openai.com',
                   false,
                 )
-                this.rowDivider()
+                ListRowDivider()
                 this.TextInputRow(
                   $r('app.string.llm_source_api_key'),
                   'apiKey',
@@ -602,7 +582,7 @@ export struct LlmSourceDetailPage {
                       this.supportsComments = value
                     },
                   })
-                  this.rowDivider()
+                  ListRowDivider()
                   ConciseListRow({
                     title: $r('app.string.llm_source_support_manga'),
                     leadingIcon: $r('sys.symbol.picture'),
@@ -615,7 +595,7 @@ export struct LlmSourceDetailPage {
                       this.supportsManga = value
                     },
                   })
-                  this.rowDivider()
+                  ListRowDivider()
                   ConciseListRow({
                     title: $r('app.string.llm_source_support_catalog'),
                     leadingIcon: $r('sys.symbol.arrow_down_circle'),
@@ -655,7 +635,7 @@ export struct LlmSourceDetailPage {
                     },
                   })
                   if (this.usageText().length > 0) {
-                    this.rowDivider()
+                    ListRowDivider()
                     ConciseListRow({
                       title: $r('app.string.comic_translation_codex_usage'),
                       subtitle: this.usageText(),

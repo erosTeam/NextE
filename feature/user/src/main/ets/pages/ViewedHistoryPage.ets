@@ -21,6 +21,7 @@ import {
   gallerySimpleReuseId,
   immersiveTitleBarOpts,
   GalleryDetailTransitionCoordinator,
+  SwipeDeleteAction,
 } from 'shared'
 import {
   ViewedHistoryDayGroup,
@@ -386,23 +387,11 @@ export struct ViewedHistoryPage {
 
   @Builder
   private DeleteSwipe(gid: string) {
-    Row() {
-      Button() {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(40)
-      .backgroundColor(Color.Red)
-      .accessibilityText($r('app.string.common_delete'))
-      .onClick(() => {
+    SwipeDeleteAction({
+      action: () => {
         this.vm.remove(gid)
-      })
-    }
-    .height('100%')
-    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-    .justifyContent(FlexAlign.Center)
+      },
+    })
   }
 
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {

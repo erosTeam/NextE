@@ -4,6 +4,7 @@ import {
   AppModalScaffold,
   AppColorPicker,
   ThemeConstants,
+  ListRowDivider,
   EhMytags,
   EhUsertag,
   EhMytagSet,
@@ -27,6 +28,7 @@ import {
   CardEmptyState,
   SecondaryListScaffold,
   GroupedListSection,
+  GroupedListItemSection,
   ConciseListRow,
   InlineEditRow,
   GalleryWebParams,
@@ -1313,7 +1315,7 @@ export struct MyTagsPage {
               },
             })
             if (index < this.mytags.tagSets.length - 1) {
-              this.TagRowDivider()
+              ListRowDivider()
             }
           },
           (s: EhMytagSet) => s.tagsetId,
@@ -1324,14 +1326,11 @@ export struct MyTagsPage {
 
   @Builder
   private TagRowsGroup() {
-    ListItemGroup({ space: 0 }) {
-      this.TagRows()
-    }
-    .width('100%')
-    .borderRadius(ThemeConstants.RADIUS_CARD)
-    .clip(true)
-    .padding(ThemeConstants.LIST_SECTION_INSET)
-    .backgroundColor($r('app.color.card_background'))
+    GroupedListItemSection({
+      content: () => {
+        this.TagRows()
+      },
+    })
   }
 
   @Builder
@@ -1342,7 +1341,7 @@ export struct MyTagsPage {
           Column() {
             this.TagRow(row)
             if (row.index < this.mytags.tags.length - 1) {
-              this.TagRowDivider()
+              ListRowDivider()
             }
           }
           .width('100%')
@@ -1394,14 +1393,6 @@ export struct MyTagsPage {
         this.openEditTag(row.item, this.userTagRowKey(row.item))
       },
     })
-  }
-
-  @Builder
-  private TagRowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   @Builder
@@ -1489,7 +1480,7 @@ export struct MyTagsPage {
             subtitleMaxLines: 2,
             showChevron: false,
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_watch'),
             hasSwitch: true,
@@ -1502,7 +1493,7 @@ export struct MyTagsPage {
               }
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_hide'),
             hasSwitch: true,
@@ -1515,7 +1506,7 @@ export struct MyTagsPage {
               }
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           InlineEditRow({
             title: $r('app.string.mytags_weight'),
             value: this.editWeight,
@@ -1525,7 +1516,7 @@ export struct MyTagsPage {
               this.editWeight = value
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_default_color'),
             hasSwitch: true,
@@ -1588,7 +1579,7 @@ export struct MyTagsPage {
               this.setAddTagQuery(value)
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_watch'),
             hasSwitch: true,
@@ -1601,7 +1592,7 @@ export struct MyTagsPage {
               }
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_hide'),
             hasSwitch: true,
@@ -1614,7 +1605,7 @@ export struct MyTagsPage {
               }
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           InlineEditRow({
             title: $r('app.string.mytags_weight'),
             value: this.addWeight,
@@ -1624,7 +1615,7 @@ export struct MyTagsPage {
               this.addWeight = value
             },
           })
-          this.TagRowDivider()
+          ListRowDivider()
           ConciseListRow({
             title: $r('app.string.mytags_default_color'),
             hasSwitch: true,
@@ -1648,7 +1639,7 @@ export struct MyTagsPage {
             ForEach(
               this.addSuggestions,
               (s: EhTagSuggestion) => {
-                this.TagRowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: s.displayName.length > 0 ? s.displayName : s.text,
                   subtitle: s.displayName.length > 0 ? s.text : '',

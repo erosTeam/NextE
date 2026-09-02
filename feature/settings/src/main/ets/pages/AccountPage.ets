@@ -16,17 +16,20 @@ import {
   SecondaryListScaffold,
   SiteModeState,
   ThemeConstants,
+  ListRowDivider,
   connectAuth,
   connectNavStack,
   NavStackHolder,
   connectSiteMode,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   AccountListState,
   connectAccountList,
   UserProfileService,
   UserProfileInfo,
   UserProfileRequestContext,
   GalleryWebParams,
+  SwipeDeleteAction,
 } from 'shared'
 
 /**
@@ -586,27 +589,16 @@ export struct AccountPage {
 
   // Title bar with a top-right person_badge_plus button → login page (add another account).
   private addAccountTitleBar(): Record<string, Object> {
-    const item: Record<string, Object> = {
-      'label': AppStrings.get('settings_add_account'),
-      'icon': $r('sys.symbol.person_badge_plus'),
-      'isEnabled': true,
-      'action': (): void => {
-        this.stack.pushPathByName('AccountLogin', null)
-      },
-    }
-    const itemWrap: Record<string, Object> = { 'content': item }
-    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
-    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('settings_account') }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
+    return immersiveTitleBarWithActions(AppStrings.get('settings_account'), [
+      immersiveTitleBarAction(
+        AppStrings.get('settings_add_account'),
+        $r('sys.symbol.person_badge_plus'),
+        true,
+        () => {
+          this.stack.pushPathByName('AccountLogin', null)
+        },
+      ),
+    ], 1)
   }
 
   private accountTitle(memberId: string): string {
@@ -750,22 +742,11 @@ export struct AccountPage {
   // Swipe-left delete (V2Next pattern): a red trash-icon button, no confirm (low misoperation risk).
   @Builder
   private DeleteAction(memberId: string) {
-    Row() {
-      Button() {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(40)
-      .backgroundColor(Color.Red)
-      .onClick(() => {
+    SwipeDeleteAction({
+      action: () => {
         this.removeAndMaybeExit(memberId)
-      })
-    }
-    .height('100%')
-    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-    .justifyContent(FlexAlign.Center)
+      },
+    })
   }
 
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
@@ -805,14 +786,14 @@ export struct AccountPage {
               trailingText: this.exAccessText(),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.account_status_profile'),
               leadingIcon: $r('sys.symbol.gearshape'),
               trailingText: this.profileNameText(),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.account_asset_balance_title'),
               subtitle: this.assetBalanceValueText(),
@@ -837,7 +818,7 @@ export struct AccountPage {
               },
             })
             if (this.home.resetCost > 0) {
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.account_image_reset_title'),
                 subtitle: this.imageResetSubtitle(),
@@ -874,7 +855,7 @@ export struct AccountPage {
                 this.stack.pushPathByName('EhProfileSettings', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_mytags'),
               leadingIcon: $r('sys.symbol.bookmark'),
@@ -882,7 +863,7 @@ export struct AccountPage {
                 this.stack.pushPathByName('MyTags', null)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_refresh_profile'),
               subtitle: $r('app.string.settings_refresh_profile_hint'),

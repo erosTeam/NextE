@@ -13,6 +13,7 @@ import {
   GalleryDetailTransitionSettingsState,
   SecondaryListScaffold,
   ThemeConstants,
+  ListRowDivider,
   GalleryTitleSettings,
   GalleryTitleState,
   HomeTabSettings,
@@ -152,16 +153,14 @@ export struct LayoutSettingsPage {
       ForEach(
         ImmersiveMaterialSettings.options(),
         (option: ImmersiveMaterialOption) => {
-          MenuItem({
-            content: option.label,
-            symbolEndIcon:
-              this.immersiveMaterial.level === option.value
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.setImmersiveMaterial(option.value)
-            })
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: this.immersiveMaterial.level === option.value,
+            selectAction: () => {
+              select(() => {
+                this.setImmersiveMaterial(option.value)
+              })
+            },
           })
         },
         (option: ImmersiveMaterialOption) => option.value,
@@ -213,42 +212,33 @@ export struct LayoutSettingsPage {
   @Builder
   ThemeMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.appearance_follow_system'),
-        symbolEndIcon:
-          this.themeDisplay.mode === ThemeSettings.MODE_SYSTEM
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.appearance_follow_system'),
+        selected: this.themeDisplay.mode === ThemeSettings.MODE_SYSTEM,
+        selectAction: () => {
           select(() => {
             this.setTheme(ThemeSettings.MODE_SYSTEM)
           })
-        })
-      MenuItem({
-        content: $r('app.string.theme_light'),
-        symbolEndIcon:
-          this.themeDisplay.mode === ThemeSettings.MODE_LIGHT
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.theme_light'),
+        selected: this.themeDisplay.mode === ThemeSettings.MODE_LIGHT,
+        selectAction: () => {
           select(() => {
             this.setTheme(ThemeSettings.MODE_LIGHT)
           })
-        })
-      MenuItem({
-        content: $r('app.string.theme_dark'),
-        symbolEndIcon:
-          this.themeDisplay.mode === ThemeSettings.MODE_DARK
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.theme_dark'),
+        selected: this.themeDisplay.mode === ThemeSettings.MODE_DARK,
+        selectAction: () => {
           select(() => {
             this.setTheme(ThemeSettings.MODE_DARK)
           })
-        })
+        },
+      })
     }
   }
 
@@ -326,54 +316,42 @@ export struct LayoutSettingsPage {
   @Builder
   LanguageMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.appearance_follow_system'),
-        symbolEndIcon:
-          this.language.mode === LanguageSettings.MODE_SYSTEM
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.appearance_follow_system'),
+        selected: this.language.mode === LanguageSettings.MODE_SYSTEM,
+        selectAction: () => {
           select(() => {
             this.setLanguage(LanguageSettings.MODE_SYSTEM)
           })
-        })
-      MenuItem({
-        content: $r('app.string.language_zh'),
-        symbolEndIcon:
-          this.language.mode === LanguageSettings.MODE_ZH_CN
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.language_zh'),
+        selected: this.language.mode === LanguageSettings.MODE_ZH_CN,
+        selectAction: () => {
           select(() => {
             this.setLanguage(LanguageSettings.MODE_ZH_CN)
           })
-        })
-      MenuItem({
-        content: $r('app.string.language_en'),
-        symbolEndIcon:
-          this.language.mode === LanguageSettings.MODE_EN
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.language_en'),
+        selected: this.language.mode === LanguageSettings.MODE_EN,
+        selectAction: () => {
           select(() => {
             this.setLanguage(LanguageSettings.MODE_EN)
           })
-        })
-      MenuItem({
-        content: $r('app.string.language_ja'),
-        symbolEndIcon:
-          this.language.mode === LanguageSettings.MODE_JA
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.language_ja'),
+        selected: this.language.mode === LanguageSettings.MODE_JA,
+        selectAction: () => {
           select(() => {
             this.setLanguage(LanguageSettings.MODE_JA)
           })
-        })
+        },
+      })
     }
   }
 
@@ -525,78 +503,60 @@ export struct LayoutSettingsPage {
   @Builder
   ViewModeMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.view_list'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.LIST
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_list'),
+        selected: this.listMode.mode === ListMode.LIST,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.LIST)
           })
-        })
-      MenuItem({
-        content: $r('app.string.view_simple'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.SIMPLE_LIST
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_simple'),
+        selected: this.listMode.mode === ListMode.SIMPLE_LIST,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.SIMPLE_LIST)
           })
-        })
-      MenuItem({
-        content: $r('app.string.view_grid'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.GRID
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_grid'),
+        selected: this.listMode.mode === ListMode.GRID,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.GRID)
           })
-        })
-      MenuItem({
-        content: $r('app.string.view_waterfall'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.WATERFALL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_waterfall'),
+        selected: this.listMode.mode === ListMode.WATERFALL,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.WATERFALL)
           })
-        })
-      MenuItem({
-        content: $r('app.string.view_waterfall_compact'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.WATERFALL_COMPACT
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_waterfall_compact'),
+        selected: this.listMode.mode === ListMode.WATERFALL_COMPACT,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.WATERFALL_COMPACT)
           })
-        })
-      MenuItem({
-        content: $r('app.string.view_cover_wall'),
-        symbolEndIcon:
-          this.listMode.mode === ListMode.COVER_WALL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
+        },
       })
-        .onClick(() => {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.view_cover_wall'),
+        selected: this.listMode.mode === ListMode.COVER_WALL,
+        selectAction: () => {
           select(() => {
             this.setViewMode(ListMode.COVER_WALL)
           })
-        })
+        },
+      })
     }
   }
 
@@ -606,19 +566,14 @@ export struct LayoutSettingsPage {
       ForEach(
         ActionAlignmentSettings.availableOptions(this.actionAlign.holdingHandSupported),
         (option: ActionAlignmentOption) => {
-          MenuItem({
-            content: option.label,
-            symbolEndIcon:
-              ActionAlignmentSettings.effectiveMode(
-                this.actionAlign.alignmentMode,
-                this.actionAlign.holdingHandSupported,
-              ) === option.mode
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.setActionAlignmentMode(option.mode)
-            })
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: ActionAlignmentSettings.effectiveMode( this.actionAlign.alignmentMode, this.actionAlign.holdingHandSupported, ) === option.mode,
+            selectAction: () => {
+              select(() => {
+                this.setActionAlignmentMode(option.mode)
+              })
+            },
           })
         },
         (option: ActionAlignmentOption) => option.mode,
@@ -632,16 +587,14 @@ export struct LayoutSettingsPage {
       ForEach(
         ReadButtonStyleSettings.options(),
         (option: ReadButtonStyleOption) => {
-          MenuItem({
-            content: option.label,
-            symbolEndIcon:
-              ReadButtonStyleSettings.normalizeStyle(this.readButtonStyle.style) === option.style
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.setReadButtonStyle(option.style)
-            })
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: ReadButtonStyleSettings.normalizeStyle(this.readButtonStyle.style) === option.style,
+            selectAction: () => {
+              select(() => {
+                this.setReadButtonStyle(option.style)
+              })
+            },
           })
         },
         (option: ReadButtonStyleOption) => option.style,
@@ -655,16 +608,14 @@ export struct LayoutSettingsPage {
       ForEach(
         ScreenOrientationSettings.options(),
         (option: ScreenOrientationOption) => {
-          MenuItem({
-            content: option.label,
-            symbolEndIcon:
-              ScreenOrientationSettings.normalizeMode(this.screenOrientation.mode) === option.mode
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.setScreenOrientation(option.mode)
-            })
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: ScreenOrientationSettings.normalizeMode(this.screenOrientation.mode) === option.mode,
+            selectAction: () => {
+              select(() => {
+                this.setScreenOrientation(option.mode)
+              })
+            },
           })
         },
         (option: ScreenOrientationOption) => option.mode,
@@ -678,29 +629,19 @@ export struct LayoutSettingsPage {
       ForEach(
         TabletLayoutSettings.options(),
         (option: TabletLayoutOption) => {
-          MenuItem({
-            content: option.label,
-            symbolEndIcon:
-              TabletLayoutSettings.normalizeMode(this.tabletLayout.mode) === option.mode
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            select(() => {
-              this.setTabletLayout(option.mode)
-            })
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: TabletLayoutSettings.normalizeMode(this.tabletLayout.mode) === option.mode,
+            selectAction: () => {
+              select(() => {
+                this.setTabletLayout(option.mode)
+              })
+            },
           })
         },
         (option: TabletLayoutOption) => option.mode,
       )
     }
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
@@ -730,7 +671,7 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
-              this.rowDivider()
+              ListRowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_theme_color'),
@@ -749,7 +690,7 @@ export struct LayoutSettingsPage {
                 detents: [SheetSize.LARGE],
                 showClose: false,
               }))
-              this.rowDivider()
+              ListRowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.immersive_material'),
@@ -762,7 +703,7 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
-              this.rowDivider()
+              ListRowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_language'),
@@ -824,7 +765,7 @@ export struct LayoutSettingsPage {
                 })
               }
               if (this.isGridLikeMode()) {
-                this.rowDivider()
+                ListRowDivider()
                 ConciseListRow({
                   title: $r('app.string.settings_column_width'),
                   subtitle: $r('app.string.settings_column_width_hint'),
@@ -834,7 +775,7 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_gallery_detail_transition'),
                 subtitle: $r('app.string.settings_gallery_detail_transition_hint'),
@@ -846,7 +787,7 @@ export struct LayoutSettingsPage {
                   this.GalleryDetailTransitionMenu(select)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_reader_thumbnail_transition'),
                 subtitle: $r('app.string.settings_reader_thumbnail_transition_hint'),
@@ -857,7 +798,7 @@ export struct LayoutSettingsPage {
                   this.setReaderThumbnailTransitionEnabled(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_list_fixed_height'),
                 leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
@@ -867,7 +808,7 @@ export struct LayoutSettingsPage {
                   this.setFixedHeight(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_blurring_of_cover_background'),
                 subtitle: $r('app.string.settings_blurring_of_cover_background_hint'),
@@ -878,7 +819,7 @@ export struct LayoutSettingsPage {
                   this.setBlurringOfCoverBackground(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_japanese_title_in_gallery'),
                 subtitle: $r('app.string.settings_japanese_title_in_gallery_hint'),
@@ -889,7 +830,7 @@ export struct LayoutSettingsPage {
                   this.setJapaneseTitleInGalleryPage(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_home_tab_auto_hide'),
                 subtitle: $r('app.string.settings_home_tab_auto_hide_hint'),
@@ -900,7 +841,7 @@ export struct LayoutSettingsPage {
                   this.setHomeTabAutoHide(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_action_alignment'),
@@ -914,7 +855,7 @@ export struct LayoutSettingsPage {
                   },
                 })
               }
-              this.rowDivider()
+              ListRowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_read_button_style'),
@@ -942,7 +883,7 @@ export struct LayoutSettingsPage {
                 this.setHideGalleryThumbnails(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_horizontal_thumbnails'),
               leadingIcon: $r('sys.symbol.square_fill_grid_2x2'),
@@ -952,7 +893,7 @@ export struct LayoutSettingsPage {
                 this.setHorizontalThumbnails(value)
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.settings_thumbnail_column_width'),
               subtitle: $r('app.string.settings_thumbnail_column_width_hint'),

@@ -79,6 +79,7 @@ import {
   GroupedListSection,
   ConciseListRow,
   PageErrorState,
+  PageLoadingState,
   AppStrings,
   AppModalScaffold,
   RatingStars,
@@ -118,6 +119,8 @@ import {
   ReaderSuperResolutionService,
   GalleryTitleTranslationService,
   ReaderThumbnailTransitionCoordinator,
+  PageJumpDialogContent,
+  AppIconButton,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -1860,10 +1863,6 @@ export struct GalleryDetailPage {
     }
   }
 
-  private normalizeFullPreviewJumpInput(value: string): string {
-    return (value || '').replace(/[^0-9]/g, '')
-  }
-
   private fullPreviewJumpHelpText(): string {
     const maxPage: number = this.fullPreviewMaxImagePage()
     if (maxPage <= 0) {
@@ -2504,30 +2503,19 @@ export struct GalleryDetailPage {
 
   @Builder
   private TitleTranslationAction(kind: string, label: Resource) {
-    Button({ type: ButtonType.Circle, stateEffect: true }) {
-      if (this.titleTranslationLoadingFor(kind)) {
-        LoadingProgress()
-          .width(TITLE_TRANSLATION_ICON_SIZE)
-          .height(TITLE_TRANSLATION_ICON_SIZE)
-      } else {
-        SymbolGlyph($r('sys.symbol.translate'))
-          .fontSize(TITLE_TRANSLATION_ICON_SIZE)
-          .fontColor([
-            this.titleTranslationShownFor(kind) && this.titleTranslationTextFor(kind).length > 0
-              ? ThemeConstants.BRAND_PRIMARY
-              : $r('sys.color.font_tertiary'),
-          ])
-      }
-    }
-    .buttonStyle(ButtonStyleMode.NORMAL)
-    .backgroundColor(Color.Transparent)
-    .width(TITLE_TRANSLATION_ACTION_SIZE)
-    .height(TITLE_TRANSLATION_ACTION_SIZE)
-    .enabled(!this.titleTranslationBusyFor(kind))
-    .opacity(1)
-    .accessibilityText(label)
-    .onClick(() => {
-      this.toggleOrTranslateTitle(kind)
+    AppIconButton({
+      icon: $r('sys.symbol.translate'),
+      label: label,
+      buttonSize: TITLE_TRANSLATION_ACTION_SIZE,
+      iconSize: TITLE_TRANSLATION_ICON_SIZE,
+      tint: this.titleTranslationShownFor(kind) && this.titleTranslationTextFor(kind).length > 0
+        ? ThemeConstants.BRAND_PRIMARY
+        : $r('sys.color.font_tertiary'),
+      isEnabled: !this.titleTranslationBusyFor(kind),
+      loading: this.titleTranslationLoadingFor(kind),
+      action: () => {
+        this.toggleOrTranslateTitle(kind)
+      },
     })
   }
 
@@ -2813,31 +2801,16 @@ export struct GalleryDetailPage {
 
   @Builder
   private FullPreviewJumpDialogContent() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Text(this.fullPreviewJumpHelpText())
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({
-        text: this.fullPreviewJumpPageText,
-        placeholder: $r('app.string.gallery_preview_jump_placeholder'),
-      })
-        .type(InputType.Number)
-        .inputFilter('^[0-9]*$')
-        .defaultFocus(true)
-        .width('100%')
-        .onChange((value: string) => {
-          this.fullPreviewJumpPageText = this.normalizeFullPreviewJumpInput(value)
-          this.fullPreviewJumpError = ''
-        })
-      if (this.fullPreviewJumpError.length > 0) {
-        Text(this.fullPreviewJumpError)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .width('100%')
-      }
-    }
-    .width('100%')
+    PageJumpDialogContent({
+      helpText: this.fullPreviewJumpHelpText(),
+      value: this.fullPreviewJumpPageText,
+      placeholder: $r('app.string.gallery_preview_jump_placeholder'),
+      errorText: this.fullPreviewJumpError,
+      onChange: (value: string) => {
+        this.fullPreviewJumpPageText = value
+        this.fullPreviewJumpError = ''
+      },
+    })
   }
 
   @Builder
@@ -3049,16 +3022,9 @@ export struct GalleryDetailPage {
             }
           } else if (this.vm.loading && !this.vm.cachedDetailApplied) {
             ListItem() {
-              Row() {
-                LoadingProgress()
-                  .width(ThemeConstants.LOADING_SIZE)
-                  .height(ThemeConstants.LOADING_SIZE)
-                  .color(ThemeConstants.BRAND_PRIMARY)
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              .padding(ThemeConstants.SPACE_MD)
+              PageLoadingState({ expand: false })
             }
+            .padding(ThemeConstants.SPACE_MD)
           } else if (this.vm.error.length > 0) {
             ListItem() {
               PageErrorState({
@@ -3105,15 +3071,7 @@ export struct GalleryDetailPage {
           },
         })
       } else if (this.vm.loading && !this.vm.cachedDetailApplied) {
-        Column() {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE)
-            .height(ThemeConstants.LOADING_SIZE)
-            .color(ThemeConstants.BRAND_PRIMARY)
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
+        PageLoadingState()
       } else if (this.vm.error.length > 0) {
         Column() {
           PageErrorState({

@@ -4,7 +4,8 @@ import {
   ThemeConstants,
   AppStrings,
   connectNavStack,
-  immersiveTitleBarOpts,
+  immersiveTitleBarAction,
+  immersiveTitleBarWithActions,
   SecondaryListScaffold,
   connectCustomProfiles,
   CustomProfilesState,
@@ -14,6 +15,7 @@ import {
   PROFILE_TYPE_WATCHED,
   PROFILE_TYPE_TOPLIST,
   PROFILE_TYPE_FAVORITE,
+  SwipeDeleteAction,
 } from 'shared'
 
 /**
@@ -33,19 +35,11 @@ export struct TabManagerPage {
 
   // Title bar with a top-right '+' that opens the editor in create mode (empty uuid param).
   private titleBar(): Record<string, Object> {
-    const item: Record<string, Object> = {
-      'label': AppStrings.get('tabs_create_title'),
-      'icon': $r('sys.symbol.plus'),
-      'isEnabled': true,
-      'action': (): void => {
+    return immersiveTitleBarWithActions(AppStrings.get('tabs_manage_title'), [
+      immersiveTitleBarAction(AppStrings.get('tabs_create_title'), $r('sys.symbol.plus'), true, () => {
         this.stack.pushPathByName('TabEdit', '')
-      },
-    }
-    const itemWrap: Record<string, Object> = { 'content': item }
-    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
-    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('tabs_manage_title') }
-    const content: Record<string, Object> = { 'title': title, 'menu': menu }
-    return immersiveTitleBarOpts(content)
+      }),
+    ], 1)
   }
 
   private typeKey(listType: string): string {
@@ -105,22 +99,11 @@ export struct TabManagerPage {
 
   @Builder
   private DeleteAction(p: CustomProfile) {
-    Row() {
-      Button() {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(40)
-      .backgroundColor(Color.Red)
-      .onClick(() => {
+    SwipeDeleteAction({
+      action: () => {
         this.confirmDelete(p)
-      })
-    }
-    .height('100%')
-    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-    .justifyContent(FlexAlign.Center)
+      },
+    })
   }
 
   @Builder

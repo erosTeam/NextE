@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, Want } from '@kit.AbilityKit'
-import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   AppStrings,
   ArchiveBotBalanceResult,
@@ -15,7 +15,10 @@ import {
   DownloadSettingsState,
   GroupedListSection,
   SecondaryListScaffold,
+  SettingsTextField,
+  SettingsCheckedMenuItem,
   ThemeConstants,
+  ListRowDivider,
   connectDownloadSettings,
   connectNavStack,
   NavStackHolder,
@@ -209,71 +212,47 @@ export struct DownloadSettingsPage {
   @Builder
   OriginalModeMenu(select: (action: () => void) => void) {
     Menu() {
-      MenuItem({
-        content: $r('app.string.common_off'),
-        symbolEndIcon: this.downloadSettings.originalMode === DownloadOriginalMode.OFF
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setOriginalMode(DownloadOriginalMode.OFF)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.common_off'),
+        selected: this.downloadSettings.originalMode === DownloadOriginalMode.OFF,
+        selectAction: () => {
+          select(() => {
+            this.setOriginalMode(DownloadOriginalMode.OFF)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.download_original_ask'),
-        symbolEndIcon: this.downloadSettings.originalMode === DownloadOriginalMode.ASK
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setOriginalMode(DownloadOriginalMode.ASK)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.download_original_ask'),
+        selected: this.downloadSettings.originalMode === DownloadOriginalMode.ASK,
+        selectAction: () => {
+          select(() => {
+            this.setOriginalMode(DownloadOriginalMode.ASK)
+          })
+        },
       })
-      MenuItem({
-        content: $r('app.string.download_original_always'),
-        symbolEndIcon: this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        select(() => {
-          this.setOriginalMode(DownloadOriginalMode.ALWAYS)
-        })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.download_original_always'),
+        selected: this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS,
+        selectAction: () => {
+          select(() => {
+            this.setOriginalMode(DownloadOriginalMode.ALWAYS)
+          })
+        },
       })
     }
-  }
-
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   @Builder
   private TextInputRow(label: ResourceStr, placeholder: ResourceStr, secret: boolean) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({ text: $$this.archiveBotApiKeyDraft, placeholder: placeholder })
-        .type(secret ? InputType.Password : InputType.Normal)
-        .width('100%')
-        .height(48)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .onChange(() => {
-          this.saveArchiveBotApiKey()
-        })
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
+    SettingsTextField({
+      label: label,
+      value: this.archiveBotApiKeyDraft,
+      placeholder: placeholder,
+      inputType: secret ? InputType.Password : InputType.Normal,
+      onChange: (value: string) => {
+        this.archiveBotApiKeyDraft = value
+        this.saveArchiveBotApiKey()
+      },
     })
   }
 
@@ -318,7 +297,7 @@ export struct DownloadSettingsPage {
                   this.adjustConcurrency(1)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_request_interval'),
                 subtitle: $r('app.string.download_request_interval_hint'),
@@ -337,7 +316,7 @@ export struct DownloadSettingsPage {
                   this.adjustRequestInterval(1)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_retry_count'),
                 subtitle: $r('app.string.download_retry_count_hint'),
@@ -356,7 +335,7 @@ export struct DownloadSettingsPage {
                   this.adjustRetryCount(1)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_auto_retry_failed'),
                 subtitle: $r('app.string.download_auto_retry_failed_hint'),
@@ -368,7 +347,7 @@ export struct DownloadSettingsPage {
                   this.setAutoRetryFailed(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_speed_limit'),
                 subtitle: $r('app.string.download_speed_limit_hint'),
@@ -387,7 +366,7 @@ export struct DownloadSettingsPage {
                   this.adjustSpeedLimit(1)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_notify_complete'),
                 subtitle: $r('app.string.download_notify_complete_hint'),
@@ -399,7 +378,7 @@ export struct DownloadSettingsPage {
                   this.setNotifyOnComplete(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_hide_from_media_library'),
                 subtitle: $r('app.string.download_hide_from_media_library_hint'),
@@ -411,7 +390,7 @@ export struct DownloadSettingsPage {
                   this.setHideFromMediaLibrary(value)
                 },
               })
-              this.rowDivider()
+              ListRowDivider()
               ConciseListRow({
                 title: $r('app.string.download_original_images'),
                 subtitle: $r('app.string.download_original_hint'),
@@ -460,7 +439,7 @@ export struct DownloadSettingsPage {
               leadingIcon: $r('sys.symbol.externaldrive'),
               showChevron: false,
             })
-            this.rowDivider()
+            ListRowDivider()
             ConciseListRow({
               title: $r('app.string.download_archive_bot_get_key'),
               subtitle: $r('app.string.download_archive_bot_get_key_hint'),
@@ -469,13 +448,13 @@ export struct DownloadSettingsPage {
                 this.openArchiveAtHomeBot()
               },
             })
-            this.rowDivider()
+            ListRowDivider()
             this.TextInputRow(
               $r('app.string.download_archive_bot_api_key'),
               $r('app.string.download_archive_bot_api_key_hint'),
               true,
             )
-            this.rowDivider()
+            ListRowDivider()
             if (this.archiveBotBalanceBusy) {
               ConciseListRow({
                 title: $r('app.string.download_archive_bot_balance'),
