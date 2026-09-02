@@ -13,9 +13,12 @@ import { ConciseListRow } from './ConciseListRow'
 @ComponentV2
 export struct InlineEditRow {
   @Param title: ResourceStr = '';
+  @Param subtitle: ResourceStr = '';
+  @Param subtitleMaxLines: number = 2;
   @Param value: string = '';
   @Param placeholder: ResourceStr = '';
   @Param numeric: boolean = false;
+  @Param isEnabled: boolean = true;
   // Optional trailing unit text after the field (e.g. a "px" suffix).
   @Param suffix: string = '';
   @Event onChange: (value: string) => void = () => {};
@@ -35,7 +38,10 @@ export struct InlineEditRow {
   build() {
     ConciseListRow({
       title: this.title,
+      subtitle: this.subtitle,
+      subtitleMaxLines: this.subtitleMaxLines,
       showChevron: false,
+      isEnabled: this.isEnabled,
       suffixPaddingRight: ThemeConstants.SPACE_MD,
       suffixBuilderParam: () => {
         this.InputSuffix()
@@ -54,6 +60,7 @@ export struct InlineEditRow {
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor(Color.Transparent)
         .height(40)
+        .enabled(this.isEnabled)
         .padding({ top: 0, bottom: 0, left: 0, right: 2 })
         .width(this.numeric ? 120 : 200)
         .onChange((v: string) => {

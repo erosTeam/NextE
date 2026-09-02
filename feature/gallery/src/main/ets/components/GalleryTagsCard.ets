@@ -11,6 +11,7 @@ import {
   EhConstants,
   GroupedListSection,
   ConciseListRow,
+  InlineEditRow,
   AppModalScaffold,
   AppColorPicker,
   PageErrorState,
@@ -1154,60 +1155,6 @@ export struct GalleryTagsCard {
   }
 
   @Builder
-  private DraftSwitchRow(title: ResourceStr, checked: boolean, disabled: boolean, onToggle: (value: boolean) => void) {
-    Row({ space: ThemeConstants.SPACE_MD }) {
-      Text(title)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
-      Toggle({ type: ToggleType.Switch, isOn: checked })
-        .selectedColor(ThemeConstants.BRAND_PRIMARY)
-        .enabled(!disabled)
-        .onChange((value: boolean) => {
-          onToggle(value)
-        })
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
-    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    .backgroundColor($r('app.color.card_background'))
-    .onClick(() => {
-      if (!disabled) {
-        onToggle(!checked)
-      }
-    })
-  }
-
-  @Builder
-  private MyTagTitleBlock(title: string, raw: string) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(title.length > 0 ? title : raw)
-        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
-      if (raw.length > 0 && raw !== title) {
-        Text(raw)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-      }
-    }
-    .width('100%')
-  }
-
-  @Builder
   private ResolveUserTagSheet() {
     AppModalScaffold({
       title: $r('app.string.tag_info_manage_mytag'),
@@ -1313,60 +1260,84 @@ export struct GalleryTagsCard {
       },
     }) {
       ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          this.MyTagTitleBlock(this.editTagDisplay, this.editTagRaw.length > 0 ? this.editTagRaw : this.editTagTitle)
-          this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, this.editSubmitting, (value: boolean) => {
-            this.editWatched = value
-            if (value) {
-              this.editHidden = false
-            }
+        GroupedListSection() {
+          ConciseListRow({
+            title: this.editTagDisplay.length > 0
+              ? this.editTagDisplay
+              : (this.editTagRaw.length > 0 ? this.editTagRaw : this.editTagTitle),
+            subtitle: this.editTagRaw.length > 0 && this.editTagRaw !== this.editTagDisplay
+              ? this.editTagRaw
+              : '',
+            subtitleMaxLines: 2,
+            showChevron: false,
           })
-          this.DraftSwitchRow($r('app.string.mytags_hide'), this.editHidden, this.editSubmitting, (value: boolean) => {
-            this.editHidden = value
-            if (value) {
-              this.editWatched = false
-            }
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_watch'),
+            hasSwitch: true,
+            checked: this.editWatched,
+            isEnabled: !this.editSubmitting,
+            switchAction: (value: boolean) => {
+              this.editWatched = value
+              if (value) {
+                this.editHidden = false
+              }
+            },
           })
-          Column({ space: ThemeConstants.SPACE_XS }) {
-            Text($r('app.string.mytags_weight'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .width('100%')
-            TextInput({ text: this.editWeight, placeholder: '10' })
-              .width('100%')
-              .height(48)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .backgroundColor($r('app.color.card_background'))
-              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-              .enabled(!this.editSubmitting)
-              .type(InputType.Normal)
-              .onChange((value: string) => {
-                this.editWeight = value
-              })
-          }
-          .width('100%')
-          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.editDefaultColor, this.editSubmitting, (value: boolean) => {
-            this.editDefaultColor = value
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_hide'),
+            hasSwitch: true,
+            checked: this.editHidden,
+            isEnabled: !this.editSubmitting,
+            switchAction: (value: boolean) => {
+              this.editHidden = value
+              if (value) {
+                this.editWatched = false
+              }
+            },
           })
-          if (!this.editDefaultColor) {
-            AppColorPicker({
-              title: $r('app.string.mytags_color'),
-              color: this.editColor,
-              disabled: this.editSubmitting,
-              colorChange: (value: string) => {
-                this.editColor = value
-              },
-            })
-          }
-          if (this.editError.length > 0) {
-            Text(this.editError)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor(Color.Red)
-              .width('100%')
-          }
+          this.TagsetRowDivider()
+          InlineEditRow({
+            title: $r('app.string.mytags_weight'),
+            value: this.editWeight,
+            placeholder: '10',
+            isEnabled: !this.editSubmitting,
+            onChange: (value: string) => {
+              this.editWeight = value
+            },
+          })
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_default_color'),
+            hasSwitch: true,
+            checked: this.editDefaultColor,
+            isEnabled: !this.editSubmitting,
+            switchAction: (value: boolean) => {
+              this.editDefaultColor = value
+            },
+          })
         }
-        .width('100%')
+      }
+      if (!this.editDefaultColor) {
+        ListItem() {
+          AppColorPicker({
+            title: $r('app.string.mytags_color'),
+            color: this.editColor,
+            disabled: this.editSubmitting,
+            colorChange: (value: string) => {
+              this.editColor = value
+            },
+          })
+        }
+      }
+      if (this.editError.length > 0) {
+        ListItem() {
+          Text(this.editError)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor(Color.Red)
+            .width('100%')
+        }
       }
     }
   }
@@ -1387,60 +1358,82 @@ export struct GalleryTagsCard {
       },
     }) {
       ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          this.MyTagTitleBlock(this.addTagDisplay, this.addTagTitle)
-          this.DraftSwitchRow($r('app.string.mytags_watch'), this.addWatched, this.addSubmitting, (value: boolean) => {
-            this.addWatched = value
-            if (value) {
-              this.addHidden = false
-            }
+        GroupedListSection() {
+          ConciseListRow({
+            title: this.addTagDisplay.length > 0 ? this.addTagDisplay : this.addTagTitle,
+            subtitle: this.addTagDisplay.length > 0 && this.addTagDisplay !== this.addTagTitle
+              ? this.addTagTitle
+              : '',
+            subtitleMaxLines: 2,
+            showChevron: false,
           })
-          this.DraftSwitchRow($r('app.string.mytags_hide'), this.addHidden, this.addSubmitting, (value: boolean) => {
-            this.addHidden = value
-            if (value) {
-              this.addWatched = false
-            }
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_watch'),
+            hasSwitch: true,
+            checked: this.addWatched,
+            isEnabled: !this.addSubmitting,
+            switchAction: (value: boolean) => {
+              this.addWatched = value
+              if (value) {
+                this.addHidden = false
+              }
+            },
           })
-          Column({ space: ThemeConstants.SPACE_XS }) {
-            Text($r('app.string.mytags_weight'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .width('100%')
-            TextInput({ text: this.addWeight, placeholder: '10' })
-              .width('100%')
-              .height(48)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .backgroundColor($r('app.color.card_background'))
-              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-              .enabled(!this.addSubmitting)
-              .type(InputType.Normal)
-              .onChange((value: string) => {
-                this.addWeight = value
-              })
-          }
-          .width('100%')
-          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.addDefaultColor, this.addSubmitting, (value: boolean) => {
-            this.addDefaultColor = value
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_hide'),
+            hasSwitch: true,
+            checked: this.addHidden,
+            isEnabled: !this.addSubmitting,
+            switchAction: (value: boolean) => {
+              this.addHidden = value
+              if (value) {
+                this.addWatched = false
+              }
+            },
           })
-          if (!this.addDefaultColor) {
-            AppColorPicker({
-              title: $r('app.string.mytags_color'),
-              color: this.addColor,
-              disabled: this.addSubmitting,
-              colorChange: (value: string) => {
-                this.addColor = value
-              },
-            })
-          }
-          if (this.addError.length > 0) {
-            Text(this.addError)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor(Color.Red)
-              .width('100%')
-          }
+          this.TagsetRowDivider()
+          InlineEditRow({
+            title: $r('app.string.mytags_weight'),
+            value: this.addWeight,
+            placeholder: '10',
+            isEnabled: !this.addSubmitting,
+            onChange: (value: string) => {
+              this.addWeight = value
+            },
+          })
+          this.TagsetRowDivider()
+          ConciseListRow({
+            title: $r('app.string.mytags_default_color'),
+            hasSwitch: true,
+            checked: this.addDefaultColor,
+            isEnabled: !this.addSubmitting,
+            switchAction: (value: boolean) => {
+              this.addDefaultColor = value
+            },
+          })
         }
-        .width('100%')
+      }
+      if (!this.addDefaultColor) {
+        ListItem() {
+          AppColorPicker({
+            title: $r('app.string.mytags_color'),
+            color: this.addColor,
+            disabled: this.addSubmitting,
+            colorChange: (value: string) => {
+              this.addColor = value
+            },
+          })
+        }
+      }
+      if (this.addError.length > 0) {
+        ListItem() {
+          Text(this.addError)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor(Color.Red)
+            .width('100%')
+        }
       }
     }
   }
