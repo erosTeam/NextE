@@ -20,6 +20,7 @@ const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewM
 const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const constants = read('shared/src/main/ets/constants/EhConstants.ets')
 const simpleTagModel = read('shared/src/main/ets/model/SimpleTag.ets')
+const myTagsPage = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
 
 assert.match(store, /relationalStore\.getRdbStore\(context, LOCAL_DATA_STORE_CONFIG\)/)
 assert.match(store, /CREATE TABLE IF NOT EXISTS tag_translations/)
@@ -87,6 +88,19 @@ assert.match(service, /tag\.endsWith\('\$'\)/)
 assert.match(service, /stripNameMarkdown\(value: string\)/)
 assert.match(service, /new EhTagSuggestion\(namespace, key, name\)/)
 assert.match(suggestion, /displayName:\s*string\s*=\s*''/)
+assert.doesNotMatch(myTagsPage, /addSuppressNextSuggest/)
+assert.match(
+  myTagsPage,
+  /private setAddTagQuery\(value: string\): void \{[\s\S]*if \(value === this\.addTagQuery && tagName === this\.addTagName\) \{[\s\S]*return[\s\S]*this\.addTagTranslate = ''/,
+)
+assert.match(
+  myTagsPage,
+  /const localized: string = this\.localizedFullTagDisplay\(tag, translated\)[\s\S]*if \(localized\.length > 0 \|\| this\.addTagTranslate\.length === 0\)/,
+)
+assert.match(
+  myTagsPage,
+  /private selectAddSuggestion\(s: EhTagSuggestion\): void \{[\s\S]*this\.addTagTranslate = this\.localizedFullTagDisplay\(label, s\.displayName\)/,
+)
 
 assert.match(settingsState, /enabled: boolean = false/)
 assert.match(settingsState, /useCdn: boolean = false/)

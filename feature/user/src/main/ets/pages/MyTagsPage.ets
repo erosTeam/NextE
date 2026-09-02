@@ -85,7 +85,6 @@ export struct MyTagsPage {
   @Local addWeight: string = '10';
   @Local addSuggestions: EhTagSuggestion[] = [];
   @Local addSuggestEpoch: number = 0;
-  @Local addSuppressNextSuggest: boolean = false;
   @Local tagsetSubmitting: boolean = false;
   @Local tagsetError: string = '';
   @Local tagsetAction: string = '';
@@ -541,7 +540,6 @@ export struct MyTagsPage {
     this.addColor = ''
     this.addWeight = '10'
     this.cancelAddSuggestions()
-    this.addSuppressNextSuggest = false
     this.openMyTagsSheet(MYTAGS_SHEET_ADD)
   }
 
@@ -1079,15 +1077,17 @@ export struct MyTagsPage {
   }
 
   private setAddTagQuery(value: string): void {
-    this.addTagQuery = value
-    this.addTagName = value.trim()
-    this.addTagTranslate = ''
-    this.addError = ''
-    if (this.addSuppressNextSuggest) {
-      this.addSuppressNextSuggest = false
-      this.cancelAddSuggestions()
+    const tagName: string = value.trim()
+    // Updating InlineEditRow.value after selecting a suggestion can report the same value back through
+    // TextInput.onChange. Treat that echo as idempotent so it cannot clear the selected translation or restart
+    // suggestion loading.
+    if (value === this.addTagQuery && tagName === this.addTagName) {
       return
     }
+    this.addTagQuery = value
+    this.addTagName = tagName
+    this.addTagTranslate = ''
+    this.addError = ''
     this.clearAddSuggestTimer()
     const epoch: number = this.addSuggestEpoch + 1
     this.addSuggestEpoch = epoch
@@ -1105,7 +1105,12 @@ export struct MyTagsPage {
     }
     const translated: string = await TagTranslationService.translateFullTagAsync(this.ctx(), tag)
     if (epoch === this.addSuggestEpoch) {
-      this.addTagTranslate = this.localizedFullTagDisplay(tag, translated)
+      const localized: string = this.localizedFullTagDisplay(tag, translated)
+      // Local suggestions already carry their translation. A later empty lookup must not erase that valid
+      // selected value; ordinary typing clears addTagTranslate before starting this request.
+      if (localized.length > 0 || this.addTagTranslate.length === 0) {
+        this.addTagTranslate = localized
+      }
     }
   }
 
@@ -1180,7 +1185,6 @@ export struct MyTagsPage {
     this.addTagName = label
     this.addTagTranslate = this.localizedFullTagDisplay(label, s.displayName)
     this.addSuggestions = []
-    this.addSuppressNextSuggest = true
     this.clearAddSuggestTimer()
     this.addSuggesting = false
     this.addSuggestEpoch = this.addSuggestEpoch + 1
