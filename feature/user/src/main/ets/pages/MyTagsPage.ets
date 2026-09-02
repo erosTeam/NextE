@@ -98,6 +98,8 @@ export struct MyTagsPage {
   private loadedContext: UserTagRequestContext | null = null;
   private myTagsManagementRequest: UserTagRequestContext | null = null;
   private myTagsSheetClosing: boolean = false;
+  private refreshEditedTagAfterDismissal: boolean = false;
+  private editedTagsetAfterDismissal: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private addSuggestTimer: number = -1;
@@ -110,6 +112,8 @@ export struct MyTagsPage {
     this.myTagsSheetShown = false
     this.myTagsAnchoredSheetShown = false
     this.myTagsSheetClosing = false
+    this.refreshEditedTagAfterDismissal = false
+    this.editedTagsetAfterDismissal = ''
     this.myTagsSheetKind = kind
     this.myTagsSheetAnchorKey = anchorKey
     if (anchorKey.length > 0) {
@@ -136,6 +140,8 @@ export struct MyTagsPage {
   }
 
   private finishMyTagsSheetDismissal(): void {
+    const shouldRefreshEditedTag: boolean = this.refreshEditedTagAfterDismissal
+    const editedTagset: string = this.editedTagsetAfterDismissal
     this.myTagsSheetShown = false
     this.myTagsAnchoredSheetShown = false
     this.myTagsSheetKind = ''
@@ -145,6 +151,11 @@ export struct MyTagsPage {
     this.tagsetSubmitting = false
     this.myTagsManagementRequest = null
     this.myTagsSheetClosing = false
+    this.refreshEditedTagAfterDismissal = false
+    this.editedTagsetAfterDismissal = ''
+    if (shouldRefreshEditedTag) {
+      this.refreshSavedEditAfterDismissal(editedTagset).then(() => {})
+    }
   }
 
   aboutToDisappear(): void {
@@ -261,7 +272,38 @@ export struct MyTagsPage {
   }
 
   private async reloadCurrentTagset(tagset: string = this.mytags.currentTagset): Promise<void> {
-    await this.load(tagset)
+    const epoch: number = this.mytagsEpoch + 1
+    this.mytagsEpoch = epoch
+    const request: UserTagRequestContext = this.currentRequestContext()
+    if (!this.contextMatchesCurrent(request)) {
+      return
+    }
+    try {
+      const loaded: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset)
+      if (epoch !== this.mytagsEpoch || !this.contextMatchesCurrent(request)) {
+        return
+      }
+      this.mytags = loaded
+      this.loadedContext = request
+      this.showingTagsetList = tagset.length === 0 && this.mytags.tagSets.length > 1
+      if (this.tagTranslation.enabled) {
+        await this.translateLoadedMyTags(epoch, request)
+      }
+      if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request)) {
+        this.publishUserTags(request)
+      }
+    } catch (err) {
+      if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request)) {
+        DiagnosticLogger.warn('mytags', 'refresh_failed', (err as Error).message)
+      }
+    }
+  }
+
+  private async refreshSavedEditAfterDismissal(tagset: string): Promise<void> {
+    await this.reloadCurrentTagset(tagset)
+    this.getUIContext().getPromptAction().showToast({
+      message: $r('app.string.mytags_save_success'),
+    })
   }
 
   private publishUserTags(request: UserTagRequestContext): void {
@@ -711,19 +753,7 @@ export struct MyTagsPage {
     if (request === null) {
       return
     }
-    this.getUIContext().showAlertDialog({
-      message: $r('app.string.mytags_save_confirm'),
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
-      },
-      secondaryButton: {
-        value: $r('app.string.mytags_save'),
-        action: () => {
-          this.submitEdit(request)
-        },
-      },
-    })
+    this.submitEdit(request)
   }
 
   private confirmDeleteTag(): void {
@@ -843,14 +873,9 @@ export struct MyTagsPage {
       if (!this.isCurrentManagementRequest(request)) {
         return
       }
-      await this.reloadCurrentTagset(tagset)
-      if (!this.isCurrentManagementRequest(request)) {
-        return
-      }
+      this.refreshEditedTagAfterDismissal = true
+      this.editedTagsetAfterDismissal = tagset
       this.closeMyTagsSheet()
-      this.getUIContext().getPromptAction().showToast({
-        message: $r('app.string.mytags_save_success'),
-      })
     } catch (err) {
       if (!this.isCurrentManagementRequest(request)) {
         return
@@ -1307,40 +1332,39 @@ export struct MyTagsPage {
 
   @Builder
   private TagRows() {
-    ForEach(
-      this.mytags.tags,
-      (t: EhUsertag, index: number) => {
+    Repeat<EhUsertag>(this.mytags.tags)
+      .each((row: RepeatItem<EhUsertag>) => {
         ListItem() {
           Column() {
-            this.TagRow(t)
-            if (index < this.mytags.tags.length - 1) {
+            this.TagRow(row)
+            if (row.index < this.mytags.tags.length - 1) {
               this.TagRowDivider()
             }
           }
           .width('100%')
         }
-      },
-      (t: EhUsertag) => this.userTagRowKey(t),
-    )
+      })
+      .key((t: EhUsertag) => this.userTagRowKey(t))
+      .virtualScroll({ totalCount: this.mytags.tags.length })
   }
 
   @Builder
-  private TagRow(t: EhUsertag) {
+  private TagRow(row: RepeatItem<EhUsertag>) {
     // Every concrete row remains mounted as a Sheet host. Rendering the host only after its show
     // state becomes true would violate ArkUI's host-mounted requirement and lose the native entry.
     Column() {
-      this.TagRowContent(t)
+      this.TagRowContent(row)
     }
     .width('100%')
     .bindSheet(
-      this.myTagsAnchoredSheetShown && this.myTagsSheetAnchorKey === this.userTagRowKey(t),
+      this.myTagsAnchoredSheetShown && this.myTagsSheetAnchorKey === this.userTagRowKey(row.item),
       this.MyTagsSheet(),
       appSheetOptions({
         detents: this.myTagsSheetDetents(),
         showClose: false,
         keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
         onDisappear: () => {
-          if (this.myTagsSheetAnchorKey === this.userTagRowKey(t)) {
+          if (this.myTagsSheetAnchorKey === this.userTagRowKey(row.item)) {
             this.finishMyTagsSheetDismissal()
           }
         },
@@ -1349,21 +1373,21 @@ export struct MyTagsPage {
   }
 
   @Builder
-  private TagRowContent(t: EhUsertag) {
+  private TagRowContent(row: RepeatItem<EhUsertag>) {
     ConciseListRow({
-      title: this.tagTitle(t),
-      subtitle: this.tagSubtitle(t),
+      title: this.tagTitle(row.item),
+      subtitle: this.tagSubtitle(row.item),
       showChevron: true,
       isEnabled: !this.loading,
       prefixBuilderParam: () => {
-        this.TagStatusPrefix(t)
+        this.TagStatusPrefix(row)
       },
       suffixBuilderParam: () => {
-        this.TagWeightBadge(t)
+        this.TagWeightBadge(row)
       },
       suffixPaddingRight: ThemeConstants.SPACE_SM,
       action: () => {
-        this.openEditTag(t, this.userTagRowKey(t))
+        this.openEditTag(row.item, this.userTagRowKey(row.item))
       },
     })
   }
@@ -1377,13 +1401,13 @@ export struct MyTagsPage {
   }
 
   @Builder
-  private TagStatusPrefix(t: EhUsertag) {
+  private TagStatusPrefix(row: RepeatItem<EhUsertag>) {
     Row() {
-      if (t.watched) {
+      if (row.item.watched) {
         SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
           .fontSize(24)
           .fontColor(['#2BAE85'])
-      } else if (t.hidden) {
+      } else if (row.item.hidden) {
         SymbolGlyph($r('sys.symbol.xmark_circle_fill'))
           .fontSize(24)
           .fontColor(['#DE1C31'])
@@ -1399,11 +1423,11 @@ export struct MyTagsPage {
   }
 
   @Builder
-  private TagWeightBadge(t: EhUsertag) {
-    Text(this.tagWeightLabel(t))
+  private TagWeightBadge(row: RepeatItem<EhUsertag>) {
+    Text(this.tagWeightLabel(row.item))
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontWeight(FontWeight.Medium)
-      .fontColor(this.tagTextColor(t))
+      .fontColor(this.tagTextColor(row.item))
       .textAlign(TextAlign.Center)
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1414,10 +1438,10 @@ export struct MyTagsPage {
         top: ThemeConstants.SPACE_XS,
         bottom: ThemeConstants.SPACE_XS,
       })
-      .backgroundColor(this.tagFillColor(t))
+      .backgroundColor(this.tagFillColor(row.item))
       .borderRadius(ThemeConstants.RADIUS_ROUND)
       .borderWidth(0.5)
-      .borderColor(this.tagBorderColor(t))
+      .borderColor(this.tagBorderColor(row.item))
   }
 
   @Builder

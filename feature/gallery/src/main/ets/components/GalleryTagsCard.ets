@@ -180,6 +180,8 @@ export struct GalleryTagsCard {
   private editResolvedTags: EhUsertag[] = [];
   private myTagsRequest: UserTagRequestContext | null = null;
   private myTagsSheetClosing: boolean = false;
+  private publishEditedTagAfterDismissal: boolean = false;
+  private editedColorAfterDismissal: string = '';
 
   // Member chip background: the user's editable MyTags color, else EH preview fill, else neutral grey.
   // Never namespace.
@@ -277,7 +279,20 @@ export struct GalleryTagsCard {
 
   private finishMyTagsManagementDismissal(): void {
     this.tagsetResolveEpoch = this.tagsetResolveEpoch + 1
+    const request: UserTagRequestContext | null = this.myTagsRequest
+    let publishedEditedTag: boolean = false
+    if (
+      this.publishEditedTagAfterDismissal &&
+      request !== null &&
+      this.isCurrentMyTagsRequest(request) &&
+      this.applyEditedUserTag(this.editedColorAfterDismissal)
+    ) {
+      publishedEditedTag = UserTagContextService.publishMyTags(request, this.editResolvedTags)
+    }
     this.clearMyTagsManagementState()
+    if (publishedEditedTag) {
+      this.showToast($r('app.string.mytags_save_success'))
+    }
   }
 
   private clearMyTagsManagementState(): void {
@@ -296,6 +311,8 @@ export struct GalleryTagsCard {
     this.editApikey = ''
     this.myTagsRequest = null
     this.myTagsSheetClosing = false
+    this.publishEditedTagAfterDismissal = false
+    this.editedColorAfterDismissal = ''
   }
 
   @Monitor('auth.memberId')
@@ -499,6 +516,8 @@ export struct GalleryTagsCard {
     this.editResolvedTags = []
     this.myTagsRequest = request
     this.myTagsSheetClosing = false
+    this.publishEditedTagAfterDismissal = false
+    this.editedColorAfterDismissal = ''
     this.manageSheetKind = TAG_INFO_MANAGE_RESOLVE
     this.editSheetShown = true
     MyTagsTargetService.resolve(request, tagKey).then((result: MyTagsTargetResolveResult | null) => {
@@ -704,19 +723,7 @@ export struct GalleryTagsCard {
     if (request === null) {
       return
     }
-    this.getUIContext().showAlertDialog({
-      message: $r('app.string.mytags_save_confirm'),
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
-      },
-      secondaryButton: {
-        value: $r('app.string.mytags_save'),
-        action: () => {
-          this.submitEdit(request)
-        },
-      },
-    })
+    this.submitEdit(request)
   }
 
   private async submitEdit(request: UserTagRequestContext): Promise<void> {
@@ -740,14 +747,9 @@ export struct GalleryTagsCard {
       if (!this.isCurrentMyTagsRequest(request)) {
         return
       }
-      if (!this.applyEditedUserTag(color)) {
-        return
-      }
-      if (!this.isCurrentMyTagsRequest(request) || !UserTagContextService.publishMyTags(request, this.editResolvedTags)) {
-        return
-      }
+      this.publishEditedTagAfterDismissal = true
+      this.editedColorAfterDismissal = color
       this.discardMyTagsManagement()
-      this.showToast($r('app.string.mytags_save_success'))
     } catch (err) {
       if (!this.isCurrentMyTagsRequest(request)) {
         return
