@@ -30,6 +30,7 @@ const TRANSPARENT_COLOR: string = '#00FFFFFF'
 const ENTRY_PAGE: string = 'pages/Index'
 const FALLBACK_TOP_AVOID: number = 40
 const FALLBACK_BOTTOM_AVOID: number = 0
+const DEFERRED_STARTUP_DELAY_MS: number = 250
 
 /**
  * NextE main ability. Restores persisted settings before the first page mounts, and is the
@@ -57,18 +58,6 @@ export default class EntryAbility extends UIAbility {
     DiagnosticLogger.initializePersistentSink(this.context)
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
     ImagePipelineService.initialize(this.context)
-    try {
-      webview.WebviewController.initializeWebEngine()
-      // Hardening for Cloudflare's Turnstile, which runs in a cross-origin iframe
-      // (challenges.cloudflare.com) and sets verification cookies in a third-party context that
-      // ArkWeb blocks by default. (The actual CF login-loop root cause was the WebView UA's OS token
-      // — see EhLoginWebPage; this just keeps the challenge cookies from being dropped.)
-      webview.WebCookieManager.putAcceptCookieEnabled(true)
-      webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true)
-    } catch (error) {
-      const e = error as Error
-      DiagnosticLogger.warn('app', 'initialize_web_engine_failed', e.message)
-    }
     this.captureIncomingUrl(want)
     // Keep the theme signal fresh when the DEVICE flips dark/light in follow-system mode, so cached sub-tab
     // pills recolor immediately (the rest of the UI rebuilds on the config change on its own).
@@ -109,24 +98,13 @@ export default class EntryAbility extends UIAbility {
       const e = error as Error
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
     }
-    SettingsBootstrap.loadAll(this.context).finally(() => {
-      ComicTranslationDebugProbeService.executePending(this.context)
-        .catch((error: Error) => {
-          DiagnosticLogger.warn(
-            'comic-translation',
-            'debug_probe_failed',
-            error.message,
-          )
-        })
-      SyncScheduler.rememberContext(this.context)
-      HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
-        DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)
-      })
-      SyncScheduler.requestAfterForeground(this.context, 'startup')
+    SettingsBootstrap.loadForFirstContent(this.context).finally(() => {
       // Subscribe grip detection + resolve the Read-button edge now that the alignment mode is restored,
       // so the floating button mounts on the correct side without a post-load hop.
       MotionHandStateService.start()
+      DiagnosticLogger.info('app', 'load_content_requested', ENTRY_PAGE)
       windowStage.loadContent(ENTRY_PAGE, (err) => {
+        DiagnosticLogger.info('app', 'load_content_callback', `code=${err.code}`)
         if (err.code) {
           DiagnosticLogger.warn('app', 'load_content_failed', JSON.stringify(err))
         }
@@ -148,6 +126,7 @@ export default class EntryAbility extends UIAbility {
           SecuritySettings.lockIfNeeded(this.context, 'startup').finally(() => {
             this.probeClipboardLinkIfReady()
           })
+          this.scheduleDeferredStartup()
         }
       })
     })
@@ -211,6 +190,49 @@ export default class EntryAbility extends UIAbility {
       .finally(() => {
         this.clipboardProbeInFlight = false
       })
+  }
+
+  private scheduleDeferredStartup(): void {
+    setTimeout((): void => {
+      SettingsBootstrap.loadDeferred(this.context).finally(() => {
+        ComicTranslationDebugProbeService.executePending(this.context)
+          .catch((error: Error) => {
+            DiagnosticLogger.warn(
+              'comic-translation',
+              'debug_probe_failed',
+              error.message,
+            )
+          })
+        SyncScheduler.rememberContext(this.context)
+        HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
+          DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)
+        })
+        SyncScheduler.requestAfterForeground(this.context, 'startup')
+        this.resumePendingDownloadsIfReady()
+        this.initializeWebEngine()
+      })
+    }, DEFERRED_STARTUP_DELAY_MS)
+  }
+
+  private initializeWebEngine(): void {
+    const startedAt: number = Date.now()
+    try {
+      webview.WebviewController.initializeWebEngine()
+      // Hardening for Cloudflare's Turnstile, which runs in a cross-origin iframe
+      // (challenges.cloudflare.com) and sets verification cookies in a third-party context that
+      // ArkWeb blocks by default. (The actual CF login-loop root cause was the WebView UA's OS token
+      // — see EhLoginWebPage; this just keeps the challenge cookies from being dropped.)
+      webview.WebCookieManager.putAcceptCookieEnabled(true)
+      webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true)
+      DiagnosticLogger.info(
+        'app',
+        'web_engine_initialized',
+        `durationMs=${Date.now() - startedAt}`,
+      )
+    } catch (error) {
+      const e = error as Error
+      DiagnosticLogger.warn('app', 'initialize_web_engine_failed', e.message)
+    }
   }
 
   private applyWindowPrivacy(enabled: boolean): void {

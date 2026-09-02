@@ -56,34 +56,92 @@ import { CustomProfile } from '../model/CustomProfile'
 const MAX_PAGE_CACHE_PRELOAD_CONCURRENCY: number = 2
 
 /**
- * Restores every persisted setting from the preferences store into its AppStorageV2
- * mirror ONCE at startup, before the first page mounts (called from
- * EntryAbility.onWindowStageCreate). Each *Settings class registers its restore here so
- * the UI renders with the user's theme / site-mode / list-mode / reading prefs already
- * applied — no flash, no post-mount re-layout. Must never reject (best-effort).
+ * Restores persisted settings from storage into their AppStorageV2 mirrors. Settings that can affect
+ * the first mounted route are restored by loadForFirstContent; service-only state and maintenance are
+ * restored by loadDeferred after content mounting. loadAll retains the complete explicit reload used by
+ * backup restore. Each phase is best-effort and must never reject.
  *
  * M3: restores the persisted auth cookie bundle (CookieJarSettings) so a logged-in user
  * stays logged in across restarts. Later milestones wire SiteModeSettings / ListModeSettings /
  * ThemeSettings / ReadingSettings / DownloadSettings here too.
  */
 export class SettingsBootstrap {
-  static async loadAll(context: common.UIAbilityContext): Promise<void> {
+  /** Restore state that can affect the first mounted page. */
+  static async loadForFirstContent(context: common.UIAbilityContext): Promise<void> {
+    const startedAt: number = Date.now()
     try {
-      // Theme + language first so the very first paint uses the user's appearance choice (no flash).
-      await ThemeSettings.restore(context)
-      await ThemeColorSettings.restore(context)
-      await ImmersiveMaterialSettings.restore(context)
-      await LanguageSettings.restore(context)
-      await ScreenOrientationSettings.restore(context)
-      await TabletLayoutSettings.restore(context)
-      await SafeModeSettings.restore(context)
+      // These settings read independent keys from one Preferences store. Start the native reads together,
+      // then keep the first mount behind the completed group so appearance never flashes through defaults.
+      await Promise.all([
+        ThemeSettings.restore(context),
+        ThemeColorSettings.restore(context),
+        ImmersiveMaterialSettings.restore(context),
+        LanguageSettings.restore(context),
+        ScreenOrientationSettings.restore(context),
+        TabletLayoutSettings.restore(context),
+        SafeModeSettings.restore(context),
+      ])
+
+      // Auth must be ready before site mode, favorite slots, and persisted sub-tab selection are normalized.
       await CookieJarSettings.restore(context)
-      await SiteModeSettings.restore(context)
-      await ListModeSettings.restore(context)
-      await GalleryDetailTransitionSettings.restore(context)
-      await GalleryTitleSettings.restore(context)
-      await ReadModeSettings.restore(context)
-      await ReaderImageCacheSettings.restore(context)
+
+      await Promise.all([
+        SiteModeSettings.restore(context),
+        ListModeSettings.restore(context),
+        GalleryDetailTransitionSettings.restore(context),
+        GalleryTitleSettings.restore(context),
+        ReadModeSettings.restore(context),
+        ReaderImageCacheSettings.restore(context),
+        ThumbnailModeSettings.restore(context),
+        CoverBackgroundSettings.restore(context),
+        ActionAlignmentSettings.restore(context),
+        ReadButtonStyleSettings.restore(context),
+        SearchFilterSettings.restore(context),
+        FavcatListSettings.restore(context),
+        SubtabSelectionSettings.restore(context),
+        AppColorFavoritesSettings.restore(context),
+        HomeTabSettings.restore(context),
+        ToplistFilterSettings.restore(context),
+        ClipboardLinkSettings.restore(context),
+        WebLoginStyleSettings.restore(context),
+        ImageBlockSettings.restore(context),
+        TagTranslationSettings.restore(context),
+        CommentTranslationSettings.restore(context),
+        ComicTranslationProviderSettings.restore(context),
+        DownloadSettings.restore(context),
+        SecuritySettings.restore(context),
+      ])
+
+      // RDB-backed restores remain ordered: they share migrations/write schedulers and feed the initial
+      // Home/Favorites/Watched state. Parallelizing those stores risks lock contention and stale snapshots.
+      await SearchHistorySettings.restore(context)
+      await LocalFavSettings.restore(context)
+      await ViewedHistorySettings.restore(context)
+      await GalleryReadProgressSettings.restore(context)
+      // Seed/restore the custom home sub-tab profiles (Phase 1: holder only; the bar still reads
+      // HomeSourceState until Phase 2 wires it to profiles). Migrates the legacy HOME_SOURCE selection.
+      await CustomProfilesSettings.restore(context)
+      await LocalBlockSettings.restore(context)
+      DiagnosticLogger.info(
+        'settings',
+        'first_content_settings_loaded',
+        `durationMs=${Date.now() - startedAt}`,
+      )
+    } catch (error) {
+      const e = error as Error
+      DiagnosticLogger.warn('settings', 'first_content_settings_failed', e.message)
+    }
+  }
+
+  /** Restore startup services that do not affect the already mounted first page. */
+  static async loadDeferred(context: common.UIAbilityContext): Promise<void> {
+    const startedAt: number = Date.now()
+    try {
+      await LlmSourceMigrationService.migrateIfNeeded(context)
+      await LlmSourceProfileRepository.restore(context)
+      await SyncSettings.restore(context)
+      await DiagnosticsSettings.restore(context)
+      await DownloadQueueSettings.restore(context)
       ImagePipelineService.pruneReaderFileCache(context).catch((error: Error) => {
         DiagnosticLogger.warn('image-cache', 'reader_disk_startup_prune_failed', error.message)
       })
@@ -93,42 +151,15 @@ export class SettingsBootstrap {
       ImagePipelineService.pruneImageBlockPreviewCache(context).catch((error: Error) => {
         DiagnosticLogger.warn('image-cache', 'image_block_preview_startup_prune_failed', error.message)
       })
-      await ThumbnailModeSettings.restore(context)
-      await CoverBackgroundSettings.restore(context)
-      await ActionAlignmentSettings.restore(context)
-      await ReadButtonStyleSettings.restore(context)
-      await SearchHistorySettings.restore(context)
-      await SearchFilterSettings.restore(context)
-      await FavcatListSettings.restore(context)
-      await LocalFavSettings.restore(context)
-      await ViewedHistorySettings.restore(context)
-      await GalleryReadProgressSettings.restore(context)
-      await SubtabSelectionSettings.restore(context)
-      // Seed/restore the custom home sub-tab profiles (Phase 1: holder only; the bar still reads
-      // HomeSourceState until Phase 2 wires it to profiles). Migrates the legacy HOME_SOURCE selection.
-      await CustomProfilesSettings.restore(context)
-      await AppColorFavoritesSettings.restore(context)
-      await HomeTabSettings.restore(context)
-      await ToplistFilterSettings.restore(context)
-      await ClipboardLinkSettings.restore(context)
-      await WebLoginStyleSettings.restore(context)
-      await ImageBlockSettings.restore(context)
-      await TagTranslationSettings.restore(context)
-      await CommentTranslationSettings.restore(context)
-      await ComicTranslationProviderSettings.restore(context)
-      await LlmSourceMigrationService.migrateIfNeeded(context)
-      await LlmSourceProfileRepository.restore(context)
-      await LocalBlockSettings.restore(context)
-      await SyncSettings.restore(context)
-      await DiagnosticsSettings.restore(context)
-      await DownloadSettings.restore(context)
-      await DownloadQueueSettings.restore(context)
-      await SecuritySettings.restore(context)
       // Cache warming is optional: active Home/Favorites VMs fall back to the same RDB load when it
       // has not completed. Keep durable settings on the startup path, but let windowStage begin mounting first.
       SettingsBootstrap.schedulePageCachePreload(context)
       TagTranslationSettings.scheduleStatusRefresh(context)
-      DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
+      DiagnosticLogger.info(
+        'settings',
+        'bootstrap_loaded',
+        `deferredDurationMs=${Date.now() - startedAt}`,
+      )
       // Fire-and-forget (NOT awaited): reconcile My Tags after both cookies and site mode are restored.
       // It is login-gated and never blocks the first paint.
       UserTagLoader.reconcileActiveContext()
@@ -136,6 +167,12 @@ export class SettingsBootstrap {
       const e = error as Error
       DiagnosticLogger.warn('settings', 'bootstrap_failed', e.message)
     }
+  }
+
+  /** Full reload entrypoint retained for backup restore and other explicit in-process reapplication. */
+  static async loadAll(context: common.UIAbilityContext): Promise<void> {
+    await SettingsBootstrap.loadForFirstContent(context)
+    await SettingsBootstrap.loadDeferred(context)
   }
 
   private static schedulePageCachePreload(context: common.UIAbilityContext): void {
