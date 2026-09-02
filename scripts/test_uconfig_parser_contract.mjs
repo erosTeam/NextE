@@ -83,6 +83,11 @@ uploader2</textarea>
 `
 const ROOT = process.cwd()
 const src = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhUconfigParser.ets'), 'utf8')
+const modelSrc = readFileSync(join(ROOT, 'shared/src/main/ets/model/EhProfileSettings.ets'), 'utf8')
+const pageSrc = readFileSync(
+  join(ROOT, 'feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets'),
+  'utf8',
+)
 let failures = 0
 function ok(name, cond) {
   if (!cond) {
@@ -155,6 +160,60 @@ const parseLanguages = () => {
   return out
 }
 
+// Real EH capability shape: unavailable choices remain present with `disabled`; fields can also be
+// present but disabled. The native editor must distinguish that from simple DOM presence.
+const capabilityHtml = `
+<label class="lr"><input type="radio" name="tr" value="0" checked="checked"><span></span>4</label>
+<label class="lr"><input type="radio" name="tr" value="1" disabled><span></span>8</label>
+<label class="lr"><input type="radio" name="tr" value="2" disabled="disabled"><span></span>20</label>
+<label class="lr"><input type="radio" name="tr" value="3" disabled><span></span>40</label>
+<label class="lr"><input type="radio" name="oi" value="0" checked="checked"><span></span>Resampled</label>
+<label class="lr"><input type="radio" name="oi" value="1" disabled><span></span>Original</label>
+<select name="ms">
+  <option value="0" selected="selected">Align left</option>
+  <option value="1" disabled>Align center</option>
+</select>
+<select name="qb" disabled>
+  <option value="0" selected="selected">Disabled MPV</option>
+</select>
+<input type="text" name="rx" value="0">
+<input type="text" name="hh" value="" disabled>
+<input type="checkbox" name="xn_1" id="xn_1" value="1" disabled> reupload
+`
+const isDisabled = (tag) => /(?:^|\s)disabled(?:\s*=|\s|>)/.test(tag)
+const parseEnabledOptions = (source) => {
+  const out = new Map()
+  const push = (code, value) => {
+    const values = out.get(code) || []
+    if (!values.includes(value)) values.push(value)
+    out.set(code, values)
+  }
+  const radios = /(<input type="radio" name="([a-z]+)" value="(\d+)"[^>]*>)\s*(?:<span><\/span>)?\s*([^<]*)<\/label>/g
+  let m
+  while ((m = radios.exec(source)) !== null) {
+    if (!isDisabled(m[1])) push(m[2], parseInt(m[3], 10))
+  }
+  const selects = /(<select name="([a-z]+)"[^>]*>)([\s\S]*?)<\/select>/g
+  while ((m = selects.exec(source)) !== null) {
+    if (isDisabled(m[1])) continue
+    const options = /(<option value="(\d+)"[^>]*>)([\s\S]*?)<\/option>/g
+    let option
+    while ((option = options.exec(m[3])) !== null) {
+      if (!isDisabled(option[1])) push(m[2], parseInt(option[2], 10))
+    }
+  }
+  return out
+}
+const parseFieldPresence = (source, enabledOnly) => {
+  const out = []
+  const re = /<(?:input|select|textarea)[^>]*name="([a-z0-9_-]+)"[^>]*>/g
+  let m
+  while ((m = re.exec(source)) !== null) {
+    if ((!enabledOnly || !isDisabled(m[0])) && !out.includes(m[1])) out.push(m[1])
+  }
+  return out
+}
+
 // ── Profiles ──
 const selectBlock = (html.match(/<select[^>]*name="profile_set"[^>]*>([\s\S]*?)<\/select>/) || ['', ''])[1]
 const profiles = []
@@ -221,6 +280,17 @@ ok('Japanese·translated (1024) excluded, variant 1', xl[0].ser === 1024 && xl[0
 ok('Japanese·rewrite (2048) not excluded, variant 2', xl[1].ser === 2048 && xl[1].variant === 2 && !xl[1].excluded)
 ok('English·original (1) variant 0, English·translated (1025) excluded', xl[2].ser === 1 && xl[2].lang === 'English' && xl[2].variant === 0 && !xl[2].excluded && xl[3].ser === 1025 && xl[3].excluded && xl[3].variant === 1)
 
+// ── Disabled capability controls ──
+const enabledOptions = parseEnabledOptions(capabilityHtml)
+const presentFields = parseFieldPresence(capabilityHtml, false)
+const enabledFields = parseFieldPresence(capabilityHtml, true)
+ok('disabled thumbnail rows are excluded, leaving only 4', JSON.stringify(enabledOptions.get('tr')) === '[0]')
+ok('disabled original-image value is excluded', JSON.stringify(enabledOptions.get('oi')) === '[0]')
+ok('disabled select option is excluded', JSON.stringify(enabledOptions.get('ms')) === '[0]')
+ok('disabled select field has no enabled options', !enabledOptions.has('qb'))
+ok('disabled field remains present but is not editable', presentFields.includes('hh') && !enabledFields.includes('hh'))
+ok('enabled field remains editable', enabledFields.includes('rx'))
+
 // ── POST body ──
 const body = []
 body.push(`uh=${parseRadio('uh')}`, `xr=${parseRadio('xr')}`, `dm=${parseRadio('dm')}`)
@@ -238,10 +308,16 @@ ok('body ends with apply=apply', joined.endsWith('apply=apply'))
 
 // ── Structural: .ets mirrors the same field→code mapping (mirror stays honest) ──
 for (const code of ['uh', 'xr', 'tl', 'ar', 'dm', 'fs', 'rc', 'lt', 'ts', 'tr', 'cs', 'sc', 'tb', 'pn', 'oi', 'qb', 'ms', 'mt']) {
-  ok(`.ets parses + posts radio ${code}`, src.includes(`parseRadio(html, '${code}')`) && new RegExp(`\`${code}=\\$`).test(src))
+  ok(
+    `.ets parses + capability-gates radio ${code}`,
+    src.includes(`parseRadio(html, '${code}')`) && src.includes(`pushRadio(parts, s, '${code}',`),
+  )
 }
 for (const code of ['rx', 'ry', 'ru', 'ft', 'wt', 'tp', 'vp', 'hh']) {
-  ok(`.ets parses + posts input ${code}`, src.includes(`parseInput(html, '${code}')`) && src.includes(`'${code}',`))
+  ok(
+    `.ets parses + capability-gates input ${code}`,
+    src.includes(`parseInput(html, '${code}')`) && src.includes(`pushText(parts, s, '${code}',`),
+  )
 }
 ok('.ets posts apply=apply', src.includes("parts.push('apply=apply')"))
 ok('.ets profile selection NOT in post body (sp cookie)', !src.includes('profile_set=') && !src.includes('sp='))
@@ -249,6 +325,16 @@ ok('.ets parses the xl language table with variant by id range', src.includes('p
 ok('.ets parses + posts front-page categories (ct_*)', src.includes('parseCategories') && /name="ct_/.test(src) && src.includes('${c.key}=${c.hidden'))
 ok('body posts ct visibility 0/1', joined.includes('ct_doujinshi=0') && joined.includes('ct_misc=1'))
 ok('.ets parses options (radios + selects) WITH page labels + field-name presence', src.includes('parseControlOptions') && src.includes('parseFieldNames') && /type="radio" name=[^]*value="[^]*<\/label>/.test(src) && src.includes('<select name='))
+ok('.ets excludes disabled controls from enabled options and fields', src.includes('parseEnabledFieldNames') && src.includes('EhUconfigParser.disabled(') && src.includes('private static disabled('))
+ok('.ets POST body omits unavailable radios and fields', src.includes('s.radioValueEnabled(code, value)') && src.includes('s.enabledFieldNames.indexOf(code) >= 0'))
+ok('model exposes enabled radio-value lookup', modelSrc.includes('radioValueEnabled(code: string, value: number)'))
+ok('native dropdown disables groups with fewer than two enabled choices', pageSrc.includes('dropdownMenuEnabled: this.options.length > 1') && pageSrc.includes('isEnabled: this.options.length > 1'))
+for (const code of ['oi', 'qb', 'mt']) {
+  ok(`native switch ${code} checks its target capability`, pageSrc.includes(`this.switchEnabled('${code}', target)`))
+}
+for (const code of ['rx', 'ry', 'tp', 'vp', 'ft', 'wt', 'ru', 'hh', 'xu']) {
+  ok(`native field ${code} checks editability`, pageSrc.includes(`this.fieldEnabled('${code}')`))
+}
 ok('.ets parses xu quota into model', src.includes('parseXuQuota') && src.includes('s.xuQuotaUsing') && src.includes('s.xuQuotaMax'))
 
 if (failures === 0) {

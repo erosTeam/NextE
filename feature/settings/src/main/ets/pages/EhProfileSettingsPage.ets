@@ -688,6 +688,14 @@ export struct EhProfileSettingsPage {
     return this.settings.fieldNames.indexOf(code) >= 0
   }
 
+  private fieldEnabled(code: string): boolean {
+    return this.settings.enabledFieldNames.indexOf(code) >= 0
+  }
+
+  private switchEnabled(code: string, targetValue: number): boolean {
+    return this.settings.radioValueEnabled(code, targetValue)
+  }
+
   // ───────────────────────── sections ─────────────────────────
   // Profile management: switch the active profile + create / rename / set-default / delete.
   @Builder
@@ -795,6 +803,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_rx'),
           value: this.settings.imageSizeHorizontal,
           numeric: true,
+          isEnabled: this.fieldEnabled('rx'),
           onChange: (v: string) => {
             this.settings.imageSizeHorizontal = v
           },
@@ -804,6 +813,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_ry'),
           value: this.settings.imageSizeVertical,
           numeric: true,
+          isEnabled: this.fieldEnabled('ry'),
           onChange: (v: string) => {
             this.settings.imageSizeVertical = v
           },
@@ -815,8 +825,15 @@ export struct EhProfileSettingsPage {
             title: $r('app.string.ehp_oi'),
             hasSwitch: true,
             checked: this.settings.originalImages === 1,
+            isEnabled: this.switchEnabled(
+              'oi',
+              this.settings.originalImages === 1 ? 0 : 1,
+            ),
             switchAction: (value: boolean) => {
-              this.settings.originalImages = value ? 1 : 0
+              const target: number = value ? 1 : 0
+              if (this.switchEnabled('oi', target)) {
+                this.settings.originalImages = target
+              }
             },
           })
         }
@@ -873,8 +890,11 @@ export struct EhProfileSettingsPage {
                 title: cat.label,
                 hasSwitch: true,
                 checked: !cat.hidden,
+                isEnabled: this.fieldEnabled(cat.key),
                 switchAction: (value: boolean) => {
-                  cat.hidden = !value
+                  if (this.fieldEnabled(cat.key)) {
+                    cat.hidden = !value
+                  }
                 },
               })
               if (index < this.settings.categories.length - 1) {
@@ -925,6 +945,7 @@ export struct EhProfileSettingsPage {
           value: this.settings.thumbnailScaling,
           numeric: true,
           suffix: '%',
+          isEnabled: this.fieldEnabled('tp'),
           onChange: (v: string) => {
             this.settings.thumbnailScaling = v
           },
@@ -935,6 +956,7 @@ export struct EhProfileSettingsPage {
           value: this.settings.viewportOverride,
           numeric: true,
           suffix: 'px',
+          isEnabled: this.fieldEnabled('vp'),
           onChange: (v: string) => {
             this.settings.viewportOverride = v
           },
@@ -979,6 +1001,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_ft'),
           value: this.settings.tagFilteringThreshold,
           numeric: true,
+          isEnabled: this.fieldEnabled('ft'),
           onChange: (v: string) => {
             this.settings.tagFilteringThreshold = v
           },
@@ -988,6 +1011,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_wt'),
           value: this.settings.tagWatchingThreshold,
           numeric: true,
+          isEnabled: this.fieldEnabled('wt'),
           onChange: (v: string) => {
             this.settings.tagWatchingThreshold = v
           },
@@ -1101,6 +1125,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_ru'),
           value: this.settings.ratings,
           placeholder: 'RRGGB',
+          isEnabled: this.fieldEnabled('ru'),
           onChange: (v: string) => {
             this.settings.ratings = v
           },
@@ -1135,8 +1160,15 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_qb'),
           hasSwitch: true,
           checked: this.settings.alwaysUseMpv === 1,
+          isEnabled: this.switchEnabled(
+            'qb',
+            this.settings.alwaysUseMpv === 1 ? 0 : 1,
+          ),
           switchAction: (value: boolean) => {
-            this.settings.alwaysUseMpv = value ? 1 : 0
+            const target: number = value ? 1 : 0
+            if (this.switchEnabled('qb', target)) {
+              this.settings.alwaysUseMpv = target
+            }
           },
         })
         this.rowDivider()
@@ -1154,8 +1186,15 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_mt'),
           hasSwitch: true,
           checked: this.settings.mpvThumbnailPane === 0,
+          isEnabled: this.switchEnabled(
+            'mt',
+            this.settings.mpvThumbnailPane === 0 ? 1 : 0,
+          ),
           switchAction: (value: boolean) => {
-            this.settings.mpvThumbnailPane = value ? 0 : 1
+            const target: number = value ? 0 : 1
+            if (this.switchEnabled('mt', target)) {
+              this.settings.mpvThumbnailPane = target
+            }
           },
         })
       }
@@ -1171,6 +1210,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_hh'),
           value: this.settings.hentaiAtHomeLocalNetworkHost,
           placeholder: 'IP:Port',
+          isEnabled: this.fieldEnabled('hh'),
           onChange: (v: string) => {
             this.settings.hentaiAtHomeLocalNetworkHost = v
           },
@@ -1194,6 +1234,8 @@ export struct EhProfileSettingsPage {
           .height(116)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .backgroundColor(Color.Transparent)
+          .enabled(this.fieldEnabled('xu'))
+          .opacity(this.fieldEnabled('xu') ? 1.0 : 0.4)
           .padding({
             left: ThemeConstants.SPACE_MD,
             right: ThemeConstants.SPACE_MD,
@@ -1219,6 +1261,7 @@ export struct EhProfileSettingsPage {
               title: `${index}`,
               value: name,
               placeholder: $r('app.string.ehp_fav_name_hint'),
+              isEnabled: this.fieldEnabled(`favorite_${index}`),
               onChange: (v: string) => {
                 this.settings.favorites[index] = v
               },
@@ -1278,7 +1321,8 @@ struct UcSelectRow {
       title: this.title,
       trailingText: this.currentLabel(),
       trailingDropdown: true,
-      dropdownMenuEnabled: true,
+      dropdownMenuEnabled: this.options.length > 1,
+      isEnabled: this.options.length > 1,
       dropdownMenuBuilder: (select: (action: () => void) => void) => {
         this.OptionMenu(select)
       },

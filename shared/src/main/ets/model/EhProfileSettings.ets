@@ -111,12 +111,25 @@ export class EhProfileSettings {
   @Trace excludedLanguages: EhUconfigToggleItem[] = [] // xl_* (only the ones present on the page)
 
   // ── Options parsed straight from the page (value + the page's own label) ──
-  // Per radio/select code, exactly the options this account's page exposes — so the UI shows EH's real
-  // current choices (correct resolutions etc.), not a stale hard-coded list, and Hath/permission gating
-  // is automatic (absent options simply aren't here).
+  // Per radio/select code, exactly the enabled options this account's page exposes — so the UI shows
+  // EH's real current choices (correct resolutions etc.) without offering disabled Hath/perk values.
   radioGroups: Map<string, EhRadioOption[]> = new Map<string, EhRadioOption[]>()
-  // All input/select/textarea field names present (so absent toggles/text/selects are hidden).
+  // All input/select/textarea field names present, plus the subset EH leaves enabled for this account.
   fieldNames: string[] = []
+  enabledFieldNames: string[] = []
+
+  radioValueEnabled(code: string, value: number): boolean {
+    const options: EhRadioOption[] | undefined = this.radioGroups.get(code)
+    if (options === undefined) {
+      return false
+    }
+    for (let i: number = 0; i < options.length; i++) {
+      if (options[i].value === value) {
+        return true
+      }
+    }
+    return false
+  }
 
   /**
    * Use only a profile explicitly selected in the server response when updating EH's `sp` cookie.
@@ -180,6 +193,7 @@ export class EhProfileSettings {
     )
     out.radioGroups = this.radioGroups
     out.fieldNames = this.fieldNames.slice()
+    out.enabledFieldNames = this.enabledFieldNames.slice()
     return out
   }
 }

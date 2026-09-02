@@ -87,9 +87,10 @@ export class EhUconfigParser {
       s.favorites.push(EhUconfigParser.parseInput(html, `favorite_${i}`))
     }
 
-    // ── Options straight from the page (real labels + permission gating) + field-name presence ──
+    // ── Enabled options straight from the page + field presence/editability ──
     s.radioGroups = EhUconfigParser.parseControlOptions(html)
     s.fieldNames = EhUconfigParser.parseFieldNames(html)
+    s.enabledFieldNames = EhUconfigParser.parseEnabledFieldNames(html)
 
     // ── Front-page categories (ct_*) ──
     s.categories = EhUconfigParser.parseCategories(html)
@@ -101,9 +102,8 @@ export class EhUconfigParser {
     return s
   }
 
-  // Every radio group + numeric <select> on the page, with its REAL option labels (so the UI shows EH's
-  // actual current choices — e.g. correct resample resolutions — not a stale hard-coded list). Only the
-  // options this account has are present, so permission/Hath gating is automatic.
+  // Every enabled radio/select option on the page, with its real label. EH keeps perk-gated options in
+  // the DOM with `disabled`, so presence alone is not capability evidence.
   private static parseControlOptions(html: string): Map<string, EhRadioOption[]> {
     const map: Map<string, EhRadioOption[]> = new Map<string, EhRadioOption[]>()
     const push = (code: string, value: number, label: string): void => {
@@ -121,22 +121,28 @@ export class EhUconfigParser {
     }
     // Radios: <label class="lr"><input type="radio" name="C" value="V" ...><span></span> LABEL</label>
     const rre: RegExp =
-      /<input type="radio" name="([a-z]+)" value="(\d+)"[^>]*>\s*(?:<span><\/span>)?\s*([^<]*)<\/label>/g
+      /(<input type="radio" name="([a-z]+)" value="(\d+)"[^>]*>)\s*(?:<span><\/span>)?\s*([^<]*)<\/label>/g
     let m: RegExpExecArray | null = rre.exec(html)
     while (m !== null) {
-      push(m[1], Number.parseInt(m[2], 10), m[3])
+      if (!EhUconfigParser.disabled(m[1])) {
+        push(m[2], Number.parseInt(m[3], 10), m[4])
+      }
       m = rre.exec(html)
     }
     // Numeric <select name="C">: each <option value="V">LABEL</option> (e.g. MPV display style).
-    const sre: RegExp = /<select name="([a-z]+)"[^>]*>([\s\S]*?)<\/select>/g
+    const sre: RegExp = /(<select name="([a-z]+)"[^>]*>)([\s\S]*?)<\/select>/g
     let sm: RegExpExecArray | null = sre.exec(html)
     while (sm !== null) {
-      const code: string = sm[1]
-      const ore: RegExp = /<option value="(\d+)"[^>]*>([\s\S]*?)<\/option>/g
-      let om: RegExpExecArray | null = ore.exec(sm[2])
-      while (om !== null) {
-        push(code, Number.parseInt(om[1], 10), om[2].replace(/<[^>]*>/g, ''))
-        om = ore.exec(sm[2])
+      if (!EhUconfigParser.disabled(sm[1])) {
+        const code: string = sm[2]
+        const ore: RegExp = /(<option value="(\d+)"[^>]*>)([\s\S]*?)<\/option>/g
+        let om: RegExpExecArray | null = ore.exec(sm[3])
+        while (om !== null) {
+          if (!EhUconfigParser.disabled(om[1])) {
+            push(code, Number.parseInt(om[2], 10), om[3].replace(/<[^>]*>/g, ''))
+          }
+          om = ore.exec(sm[3])
+        }
       }
       sm = sre.exec(html)
     }
@@ -155,6 +161,25 @@ export class EhUconfigParser {
       m = re.exec(html)
     }
     return out
+  }
+
+  // A name is editable when at least one matching form control is not disabled. This preserves field
+  // presence for display while separately preventing writes to missing/disabled controls.
+  private static parseEnabledFieldNames(html: string): string[] {
+    const out: string[] = []
+    const re: RegExp = /<(?:input|select|textarea)[^>]*name="([a-z0-9_-]+)"[^>]*>/g
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      if (!EhUconfigParser.disabled(m[0]) && out.indexOf(m[1]) < 0) {
+        out.push(m[1])
+      }
+      m = re.exec(html)
+    }
+    return out
+  }
+
+  private static disabled(tag: string): boolean {
+    return /(?:^|\s)disabled(?:\s*=|\s|>)/.test(tag)
   }
 
   // eros_fe reads #xu.parent.nextElementSibling strong[0..1]. Scoped fallback: first post-xu block with
@@ -185,15 +210,17 @@ export class EhUconfigParser {
     const re: RegExp = /<input[^>]*name="ct_([a-z-]+)"[^>]*value="(\d)"[^>]*>/g
     let m: RegExpExecArray | null = re.exec(html)
     while (m !== null) {
-      const slug: string = m[1]
-      const hidden: boolean = m[2] === '1'
-      const label: string = HtmlSelectorUtils.htmlUnescape(
-        HtmlSelectorUtils.group1(
-          html,
-          new RegExp(`<div[^>]*id="ct_${slug}_div"[^>]*>([^<]*)</div>`),
-        ).trim(),
-      )
-      out.push(new EhUconfigCategory(`ct_${slug}`, label.length > 0 ? label : slug, hidden))
+      if (!EhUconfigParser.disabled(m[0])) {
+        const slug: string = m[1]
+        const hidden: boolean = m[2] === '1'
+        const label: string = HtmlSelectorUtils.htmlUnescape(
+          HtmlSelectorUtils.group1(
+            html,
+            new RegExp(`<div[^>]*id="ct_${slug}_div"[^>]*>([^<]*)</div>`),
+          ).trim(),
+        )
+        out.push(new EhUconfigCategory(`ct_${slug}`, label.length > 0 ? label : slug, hidden))
+      }
       m = re.exec(html)
     }
     return out
@@ -221,10 +248,12 @@ export class EhUconfigParser {
       const re: RegExp = /<input[^>]*name="xl_(\d+)"[^>]*>/g
       let m: RegExpExecArray | null = re.exec(row)
       while (m !== null) {
-        const ser: number = Number.parseInt(m[1], 10)
-        const excluded: boolean = m[0].includes('checked')
-        const variant: number = ser >= 2048 ? 2 : ser >= 1024 ? 1 : 0
-        out.push(new EhUconfigToggleItem(ser, lang, excluded, variant))
+        if (!EhUconfigParser.disabled(m[0])) {
+          const ser: number = Number.parseInt(m[1], 10)
+          const excluded: boolean = m[0].includes('checked')
+          const variant: number = ser >= 2048 ? 2 : ser >= 1024 ? 1 : 0
+          out.push(new EhUconfigToggleItem(ser, lang, excluded, variant))
+        }
         m = re.exec(row)
       }
     }
@@ -234,35 +263,35 @@ export class EhUconfigParser {
   /** Build the application/x-www-form-urlencoded POST body. Profile selection is NOT here (sp cookie). */
   static buildPostBody(s: EhProfileSettings): string {
     const parts: string[] = []
-    parts.push(`uh=${s.loadImageThroughHAtH}`)
-    parts.push(`xr=${s.imageSize}`)
-    parts.push(`tl=${s.galleryNameDisplay}`)
-    parts.push(`ar=${s.archiverSettings}`)
-    parts.push(`dm=${s.frontPageSettings}`)
-    parts.push(`fs=${s.sortOrderFavorites}`)
-    parts.push(`rc=${s.searchResultCount}`)
-    parts.push(`lt=${s.mouseOverThumbnails}`)
-    parts.push(`ts=${s.thumbnailSize}`)
-    parts.push(`tr=${s.thumbnailRows}`)
-    parts.push(`cs=${s.sortOrderComments}`)
-    parts.push(`sc=${s.showCommentVotes}`)
-    parts.push(`tb=${s.sortOrderTags}`)
-    parts.push(`pn=${s.showGalleryPageNumbers}`)
-    parts.push(`oi=${s.originalImages}`)
-    parts.push(`qb=${s.alwaysUseMpv}`)
-    parts.push(`ms=${s.mpvStyle}`)
-    parts.push(`mt=${s.mpvThumbnailPane}`)
-    EhUconfigParser.pushText(parts, 'rx', s.imageSizeHorizontal)
-    EhUconfigParser.pushText(parts, 'ry', s.imageSizeVertical)
-    EhUconfigParser.pushText(parts, 'ru', s.ratings)
-    EhUconfigParser.pushText(parts, 'ft', s.tagFilteringThreshold)
-    EhUconfigParser.pushText(parts, 'wt', s.tagWatchingThreshold)
-    EhUconfigParser.pushText(parts, 'tp', s.thumbnailScaling)
-    EhUconfigParser.pushText(parts, 'vp', s.viewportOverride)
-    EhUconfigParser.pushText(parts, 'hh', s.hentaiAtHomeLocalNetworkHost)
-    EhUconfigParser.pushText(parts, 'xu', s.excludedUploaders)
+    EhUconfigParser.pushRadio(parts, s, 'uh', s.loadImageThroughHAtH)
+    EhUconfigParser.pushRadio(parts, s, 'xr', s.imageSize)
+    EhUconfigParser.pushRadio(parts, s, 'tl', s.galleryNameDisplay)
+    EhUconfigParser.pushRadio(parts, s, 'ar', s.archiverSettings)
+    EhUconfigParser.pushRadio(parts, s, 'dm', s.frontPageSettings)
+    EhUconfigParser.pushRadio(parts, s, 'fs', s.sortOrderFavorites)
+    EhUconfigParser.pushRadio(parts, s, 'rc', s.searchResultCount)
+    EhUconfigParser.pushRadio(parts, s, 'lt', s.mouseOverThumbnails)
+    EhUconfigParser.pushRadio(parts, s, 'ts', s.thumbnailSize)
+    EhUconfigParser.pushRadio(parts, s, 'tr', s.thumbnailRows)
+    EhUconfigParser.pushRadio(parts, s, 'cs', s.sortOrderComments)
+    EhUconfigParser.pushRadio(parts, s, 'sc', s.showCommentVotes)
+    EhUconfigParser.pushRadio(parts, s, 'tb', s.sortOrderTags)
+    EhUconfigParser.pushRadio(parts, s, 'pn', s.showGalleryPageNumbers)
+    EhUconfigParser.pushRadio(parts, s, 'oi', s.originalImages)
+    EhUconfigParser.pushRadio(parts, s, 'qb', s.alwaysUseMpv)
+    EhUconfigParser.pushRadio(parts, s, 'ms', s.mpvStyle)
+    EhUconfigParser.pushRadio(parts, s, 'mt', s.mpvThumbnailPane)
+    EhUconfigParser.pushText(parts, s, 'rx', s.imageSizeHorizontal)
+    EhUconfigParser.pushText(parts, s, 'ry', s.imageSizeVertical)
+    EhUconfigParser.pushText(parts, s, 'ru', s.ratings)
+    EhUconfigParser.pushText(parts, s, 'ft', s.tagFilteringThreshold)
+    EhUconfigParser.pushText(parts, s, 'wt', s.tagWatchingThreshold)
+    EhUconfigParser.pushText(parts, s, 'tp', s.thumbnailScaling)
+    EhUconfigParser.pushText(parts, s, 'vp', s.viewportOverride)
+    EhUconfigParser.pushText(parts, s, 'hh', s.hentaiAtHomeLocalNetworkHost)
+    EhUconfigParser.pushText(parts, s, 'xu', s.excludedUploaders)
     for (let i: number = 0; i < s.favorites.length; i++) {
-      EhUconfigParser.pushText(parts, `favorite_${i}`, s.favorites[i])
+      EhUconfigParser.pushText(parts, s, `favorite_${i}`, s.favorites[i])
     }
     for (let i: number = 0; i < s.categories.length; i++) {
       const c: EhUconfigCategory = s.categories[i]
@@ -284,8 +313,16 @@ export class EhUconfigParser {
     return parts.join('&')
   }
 
-  private static pushText(parts: string[], code: string, value: string): void {
-    parts.push(`${code}=${encodeURIComponent(value)}`)
+  private static pushRadio(parts: string[], s: EhProfileSettings, code: string, value: number): void {
+    if (s.radioValueEnabled(code, value)) {
+      parts.push(`${code}=${value}`)
+    }
+  }
+
+  private static pushText(parts: string[], s: EhProfileSettings, code: string, value: string): void {
+    if (s.enabledFieldNames.indexOf(code) >= 0) {
+      parts.push(`${code}=${encodeURIComponent(value)}`)
+    }
   }
 
   // The selected radio's value (== index). 0 when none is checked.
@@ -336,10 +373,12 @@ export class EhUconfigParser {
     let m: RegExpExecArray | null = re.exec(html)
     while (m !== null) {
       const tag: string = m[1]
-      const ser: number = Number.parseInt(m[2], 10)
-      const excluded: boolean = tag.includes('checked')
-      const name: string = HtmlSelectorUtils.htmlUnescape(m[3].trim())
-      out.push(new EhUconfigToggleItem(ser, name, excluded))
+      if (!EhUconfigParser.disabled(tag)) {
+        const ser: number = Number.parseInt(m[2], 10)
+        const excluded: boolean = tag.includes('checked')
+        const name: string = HtmlSelectorUtils.htmlUnescape(m[3].trim())
+        out.push(new EhUconfigToggleItem(ser, name, excluded))
+      }
       m = re.exec(html)
     }
     return out
