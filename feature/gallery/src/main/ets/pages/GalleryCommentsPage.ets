@@ -31,7 +31,8 @@ import {
   connectGalleryDetailRefreshMutation,
   DiagnosticLogger,
   EhErrorText,
-  AppPrompt,
+  ThemeDisplayState,
+  connectThemeDisplay,
   connectCommentTranslationSettings,
   immersiveTitleBarOpts,
 } from 'shared'
@@ -102,6 +103,7 @@ export struct GalleryCommentsPage {
   @Local commentCount: number = 0;
   @Local initialRefreshStarted: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
 
   // Rebuild the virtualized list from the current comments + filter. A filter toggle preserves existing
@@ -161,6 +163,20 @@ export struct GalleryCommentsPage {
       return COMMENT_COMPOSER_OUTER_GAP
     }
     return this.layout.bottomAvoidHeight
+  }
+
+  private composerBlurTint(): ResourceColor {
+    return this.themeDisplay.effectiveDark
+      ? ThemeConstants.FROSTED_SURFACE_DARK_TINT
+      : ThemeConstants.FROSTED_SURFACE_LIGHT_TINT
+  }
+
+  private composerBorderWidth(): number {
+    return this.themeDisplay.effectiveDark ? ThemeConstants.FROSTED_SURFACE_BORDER_WIDTH : 0
+  }
+
+  private composerBorderColor(): ResourceColor {
+    return this.themeDisplay.effectiveDark ? ThemeConstants.FROSTED_SURFACE_DARK_BORDER : Color.Transparent
   }
 
   private uploaderMemberId(): string {
@@ -1076,7 +1092,7 @@ export struct GalleryCommentsPage {
   }
 
   @Builder
-  private MaterialCommentComposerSurface() {
+  private CommentComposerSurface() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       this.CommentComposerFields()
     }
@@ -1087,24 +1103,9 @@ export struct GalleryCommentsPage {
       top: COMMENT_COMPOSER_INNER_GAP,
       bottom: COMMENT_COMPOSER_INNER_GAP,
     })
-    .backgroundColor(Color.Transparent)
-    .systemMaterial(AppPrompt.composerSystemMaterial())
-    .borderRadius(COMMENT_COMPOSER_RADIUS)
-  }
-
-  @Builder
-  private FallbackCommentComposerSurface() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      this.CommentComposerFields()
-    }
-    .width('100%')
-    .padding({
-      left: COMMENT_COMPOSER_INNER_GAP,
-      right: COMMENT_COMPOSER_INNER_GAP,
-      top: COMMENT_COMPOSER_INNER_GAP,
-      bottom: COMMENT_COMPOSER_INNER_GAP,
-    })
-    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .backdropBlur(ThemeConstants.FROSTED_SURFACE_BLUR_RADIUS)
+    .backgroundColor(this.composerBlurTint())
+    .border({ width: this.composerBorderWidth(), color: this.composerBorderColor() })
     .borderRadius(COMMENT_COMPOSER_RADIUS)
     .shadow(ShadowStyle.OUTER_DEFAULT_MD)
   }
@@ -1112,11 +1113,7 @@ export struct GalleryCommentsPage {
   @Builder
   CommentComposer() {
     Column() {
-      if (AppPrompt.systemMaterialSupported()) {
-        this.MaterialCommentComposerSurface()
-      } else {
-        this.FallbackCommentComposerSurface()
-      }
+      this.CommentComposerSurface()
     }
     .width('100%')
     .padding({

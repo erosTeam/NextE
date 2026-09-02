@@ -67,6 +67,13 @@ export class ThemeConstants {
   // Lock screen overlay: blur the app itself instead of replacing it with an opaque page.
   static readonly LOCK_OVERLAY_TINT: ResourceColor = '#4D808080'
   static readonly LOCK_OVERLAY_BLUR_RADIUS: number = 60
+  // Floating frosted surfaces keep most of the sampled content visible while preserving text contrast
+  // in both application color modes.
+  static readonly FROSTED_SURFACE_LIGHT_TINT: ResourceColor = '#33FFFFFF'
+  static readonly FROSTED_SURFACE_DARK_TINT: ResourceColor = '#33000000'
+  static readonly FROSTED_SURFACE_DARK_BORDER: ResourceColor = '#33FFFFFF'
+  static readonly FROSTED_SURFACE_BORDER_WIDTH: number = 0.5
+  static readonly FROSTED_SURFACE_BLUR_RADIUS: number = 40
 
   // Spacing
   static readonly SPACE_XS: number = 4
