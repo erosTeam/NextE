@@ -78,15 +78,15 @@
     },
     {
       "name": "download_error_resume_unsupported",
-      "value": "归档无法续传，请重新下载。"
+      "value": "归档无法续传，请重新下载"
     },
     {
       "name": "download_error_archive_link_expired",
-      "value": "归档链接失效，请重新获取。"
+      "value": "归档链接失效，请重新获取"
     },
     {
       "name": "download_error_archive_rate_limited",
-      "value": "请求过多，请稍后再试。"
+      "value": "请求过多，请稍后再试"
     },
     {
       "name": "download_pause_all",
@@ -158,11 +158,11 @@
     },
     {
       "name": "download_gallery_next_step",
-      "value": "阅读器图片下载和画廊队列会显示在这里。"
+      "value": "阅读器图片下载和画廊队列会显示在这里"
     },
     {
       "name": "download_archiver_next_step",
-      "value": "从详情页请求的归档下载会显示在这里。"
+      "value": "从详情页请求的归档下载会显示在这里"
     },
     {
       "name": "download_archiver_already_queued",
@@ -282,7 +282,7 @@
     },
     {
       "name": "download_hide_from_media_library_hint",
-      "value": "在下载目录写入 .nomedia，减少媒体库扫描"
+      "value": "写入 .nomedia，防止下载图片出现在系统相册中"
     },
     {
       "name": "download_notify_complete_title",
@@ -298,7 +298,7 @@
     },
     {
       "name": "download_speed_limit_hint",
-      "value": "画廊队列平均速度，0 表示关闭"
+      "value": "限制画廊队列的平均下载速度；设为 0 表示不限速"
     },
     {
       "name": "download_original_hint",
@@ -334,7 +334,7 @@
     },
     {
       "name": "download_archive_bot_balance_hint",
-      "value": "验证接口并读取 Bot 余额"
+      "value": "检查归档 Bot 接口和余额"
     },
     {
       "name": "download_archive_bot_balance_result",
@@ -518,7 +518,7 @@
     },
     {
       "name": "view_follow_global",
-      "value": "跟随全局"
+      "value": "使用全局设置"
     },
     {
       "name": "toplist_all",
@@ -598,47 +598,47 @@
     },
     {
       "name": "error_gallery_unavailable",
-      "value": "该画廊不可用(可能已被删除)。"
+      "value": "该画廊可能已被删除或无法访问"
     },
     {
       "name": "error_gallery_maybe_hidden",
-      "value": "该画廊已被删除或不可用。请稍后重试或检查访问环境。"
+      "value": "无法打开该画廊，请稍后重试或检查网络与账号权限"
     },
     {
       "name": "error_sad_panda",
-      "value": "ExHentai 访问被拒绝,请登录并确认已获取 igneous。"
+      "value": "ExHentai 拒绝访问，请重新登录并确认已获取 igneous"
     },
     {
       "name": "error_login_required",
-      "value": "需要登录,请重新登录。"
+      "value": "登录状态已失效，请重新登录"
     },
     {
       "name": "error_cloudflare",
-      "value": "被 Cloudflare 拦截,请在浏览器中打开或稍后重试。"
+      "value": "访问被 Cloudflare 拦截，请在浏览器中完成验证或稍后重试"
     },
     {
       "name": "error_rate_limited",
-      "value": "已被服务器限流,请稍后再试。"
+      "value": "请求过于频繁，请稍后再试"
     },
     {
       "name": "error_server",
-      "value": "服务器错误,请重试。"
+      "value": "服务器出错，请重试"
     },
     {
       "name": "error_parse",
-      "value": "无法解析此页面,应用可能需要更新。"
+      "value": "页面解析失败，应用可能需要更新"
     },
     {
       "name": "error_empty",
-      "value": "服务器返回为空。"
+      "value": "服务器未返回内容"
     },
     {
       "name": "error_http",
-      "value": "请求失败,请重试。"
+      "value": "请求失败，请重试"
     },
     {
       "name": "error_network",
-      "value": "网络错误,请检查网络连接。"
+      "value": "网络连接失败，请检查网络"
     },
     {
       "name": "settings_hide_gallery_thumbnails",
@@ -786,7 +786,7 @@
     },
     {
       "name": "settings_japanese_title_in_gallery_hint",
-      "value": "画廊详情存在日文标题时，将日文标题作为主标题显示。"
+      "value": "画廊详情存在日文标题时，将日文标题作为主标题显示"
     },
     {
       "name": "detail_more_previews",
@@ -814,7 +814,7 @@
     },
     {
       "name": "gallery_preview_jump_help",
-      "value": "输入图片页码。"
+      "value": "输入图片页码"
     },
     {
       "name": "gallery_preview_jump_placeholder",
@@ -842,7 +842,7 @@
     },
     {
       "name": "gallery_jump_date_after",
-      "value": "按日期后跳"
+      "value": "跳到指定日期之后"
     },
     {
       "name": "favorites_jump_help",
@@ -898,7 +898,7 @@
     },
     {
       "name": "detail_add_tags_unavailable",
-      "value": "请登录并重新载入画廊后再添加标签。"
+      "value": "请登录并重新载入画廊后再添加标签"
     },
     {
       "name": "detail_add_tags_success",
@@ -974,11 +974,11 @@
     },
     {
       "name": "detail_rate_missing_key",
-      "value": "等待详情数据加载完成后，再尝试评分。"
+      "value": "请等待详情数据加载完成后再评分"
     },
     {
       "name": "detail_rate_write_notice",
-      "value": "选择评分。提交后会写入你的 EH 评分。"
+      "value": "选择评分并提交，结果会写入你的 EH 评分"
     },
     {
       "name": "detail_copy_link",
@@ -1074,7 +1074,7 @@
     },
     {
       "name": "tag_vote_unavailable",
-      "value": "请登录并重新载入画廊后再为标签投票。"
+      "value": "请登录并重新载入画廊后再为标签投票"
     },
     {
       "name": "tag_info_title",
@@ -1314,7 +1314,7 @@
     },
     {
       "name": "reader_retry_source_hint",
-      "value": "已尝试备用源，可重试当前图片。"
+      "value": "已尝试备用源，可重试当前图片"
     },
     {
       "name": "reader_error_quota",
@@ -1322,7 +1322,7 @@
     },
     {
       "name": "reader_error_quota_hint",
-      "value": "EH 返回 509 配额图片。请稍后重试，或尝试换源。"
+      "value": "EH 返回 509 配额图片。请稍后重试，或尝试换源"
     },
     {
       "name": "reader_error_rate_limited",
@@ -1330,7 +1330,7 @@
     },
     {
       "name": "reader_error_rate_limited_hint",
-      "value": "EH 正在限制图片请求。请稍后再试。"
+      "value": "EH 正在限制图片请求。请稍后再试"
     },
     {
       "name": "reader_loading_resolving",
@@ -1350,7 +1350,7 @@
     },
     {
       "name": "reader_image_blocked_hint",
-      "value": "命中图片屏蔽规则，可继续阅读其他页。"
+      "value": "命中图片屏蔽规则，可继续阅读其他页"
     },
     {
       "name": "reader_image_block_mark_waiting",
@@ -1450,7 +1450,7 @@
     },
     {
       "name": "tag_translation_enable_hint",
-      "value": "显示中文/本地化标签名，并在搜索候选中匹配。"
+      "value": "显示中文/本地化标签名，并在搜索候选中匹配"
     },
     {
       "name": "tag_translation_database",
@@ -1470,7 +1470,7 @@
     },
     {
       "name": "tag_translation_update_now_hint",
-      "value": "检查最新标签翻译，并保存到本地。"
+      "value": "检查最新标签翻译，并保存到本地"
     },
     {
       "name": "tag_translation_update_started",
@@ -1494,7 +1494,7 @@
     },
     {
       "name": "tag_translation_remove_hint",
-      "value": "删除后需重新下载才能恢复翻译。"
+      "value": "删除后需重新下载才能恢复翻译"
     },
     {
       "name": "tag_translation_remove_confirm_title",
@@ -1502,7 +1502,7 @@
     },
     {
       "name": "tag_translation_remove_confirm_message",
-      "value": "已下载的翻译数据将被删除，需重新下载才能恢复翻译。"
+      "value": "已下载的翻译数据将被删除，需重新下载才能恢复翻译"
     },
     {
       "name": "tag_translation_remove_done",
@@ -1518,7 +1518,7 @@
     },
     {
       "name": "tag_translation_cdn_hint",
-      "value": "默认下载较慢或不可用时，改用镜像源下载。"
+      "value": "默认下载较慢或不可用时，改用镜像源下载"
     },
     {
       "name": "tag_translation_update_mode",
@@ -1538,7 +1538,7 @@
     },
     {
       "name": "tag_translation_intro_image_level_hint",
-      "value": "控制标签翻译简介里的图片显示范围。"
+      "value": "控制标签翻译简介里的图片显示范围"
     },
     {
       "name": "tag_translation_intro_image_disable",
@@ -1582,7 +1582,7 @@
     },
     {
       "name": "about_update_hint",
-      "value": "后台检查更新并加载日志"
+      "value": "检查更新并查看更新日志"
     },
     {
       "name": "about_update_checking",
@@ -1614,7 +1614,7 @@
     },
     {
       "name": "about_update_no_notes",
-      "value": "没有发布说明"
+      "value": "暂无更新说明"
     },
     {
       "name": "about_platform",
@@ -1630,11 +1630,11 @@
     },
     {
       "name": "about_unofficial_notice",
-      "value": "NextE 是非官方客户端,与 E-Hentai 无隶属关系。"
+      "value": "NextE 是非官方客户端,与 E-Hentai 无隶属关系"
     },
     {
       "name": "about_eh_notice",
-      "value": "使用 E-Hentai 服务仍需遵守源站规则。"
+      "value": "使用 E-Hentai 服务仍需遵守源站规则"
     },
     {
       "name": "system_symbol_browser_title",
@@ -1682,7 +1682,7 @@
     },
     {
       "name": "web_login_beautify_setting_hint",
-      "value": "关闭后使用论坛原始登录页，避免页面结构变化时影响登录。"
+      "value": "关闭后使用论坛原始登录页，避免页面结构变化时影响登录"
     },
     {
       "name": "web_login_use_original",
@@ -1702,7 +1702,7 @@
     },
     {
       "name": "password_login_hint",
-      "value": "直接登录，可能被 Cloudflare 拦截；失败请改用网页登录。"
+      "value": "直接登录，可能被 Cloudflare 拦截；失败请改用网页登录"
     },
     {
       "name": "password_login_username",
@@ -1718,7 +1718,7 @@
     },
     {
       "name": "password_login_failed",
-      "value": "登录失败，请检查用户名密码（或被拦截）"
+      "value": "登录失败，请检查用户名和密码；如仍失败，请改用网页登录"
     },
     {
       "name": "cookie_import_title",
@@ -1726,7 +1726,7 @@
     },
     {
       "name": "cookie_import_hint",
-      "value": "粘贴包含 ipb_member_id 与 ipb_pass_hash 的 Cookie 字符串。它仅保存在本机,且只发送给 E-Hentai。"
+      "value": "粘贴包含 ipb_member_id 与 ipb_pass_hash 的 Cookie 字符串。它仅保存在本机,且只发送给 E-Hentai"
     },
     {
       "name": "cookie_import_placeholder",
@@ -1738,7 +1738,7 @@
     },
     {
       "name": "cookie_import_invalid",
-      "value": "Cookie 需包含 ipb_member_id 与 ipb_pass_hash。"
+      "value": "Cookie 需包含 ipb_member_id 与 ipb_pass_hash"
     },
     {
       "name": "cookie_import_preview_title",
@@ -1746,11 +1746,11 @@
     },
     {
       "name": "cookie_import_preview_empty",
-      "value": "粘贴后会在这里预览 Cookie 项。"
+      "value": "粘贴后会在这里预览 Cookie 项"
     },
     {
       "name": "cookie_import_preview_missing",
-      "value": "缺少 ipb_member_id 或 ipb_pass_hash。"
+      "value": "缺少 ipb_member_id 或 ipb_pass_hash"
     },
     {
       "name": "cookie_import_preview_count",
@@ -1822,7 +1822,7 @@
     },
     {
       "name": "account_dashboard_not_available",
-      "value": "不可用"
+      "value": "暂时无法获取"
     },
     {
       "name": "account_dashboard_not_loaded",
@@ -1858,7 +1858,7 @@
     },
     {
       "name": "account_image_reset_confirm",
-      "value": "将消耗 %d GP 重置图片配额。"
+      "value": "将消耗 %d GP 重置图片配额"
     },
     {
       "name": "account_image_reset_success",
@@ -1986,7 +1986,7 @@
     },
     {
       "name": "backup_include_secrets_hint",
-      "value": "登录态、已存账号与 API Key——用密码加密"
+      "value": "登录信息、保存的账号和 API Key 将使用密码加密"
     },
     {
       "name": "backup_password",
@@ -2018,7 +2018,7 @@
     },
     {
       "name": "backup_import_not_json",
-      "value": "备份文件不是有效 JSON"
+      "value": "备份文件不是有效的 JSON"
     },
     {
       "name": "backup_import_too_large",
@@ -2030,7 +2030,7 @@
     },
     {
       "name": "backup_import_unsupported",
-      "value": "备份版本不受支持"
+      "value": "不支持该备份版本"
     },
     {
       "name": "backup_import_bad_checksum",
@@ -2054,7 +2054,7 @@
     },
     {
       "name": "backup_encrypted_hint",
-      "value": "请输入导出时设置的密码。"
+      "value": "请输入导出时设置的密码"
     },
     {
       "name": "backup_restore_confirm_title",
@@ -2062,7 +2062,7 @@
     },
     {
       "name": "backup_restore_confirm_message",
-      "value": "这会覆盖当前设置。"
+      "value": "这会覆盖当前设置"
     },
     {
       "name": "backup_restore_preview_version",
@@ -2110,7 +2110,7 @@
     },
     {
       "name": "download_delete_confirm_message",
-      "value": "将从下载列表移除，并删除本地文件。"
+      "value": "将从下载列表移除，并删除本地文件"
     },
     {
       "name": "download_delete_confirm_action",
@@ -2118,7 +2118,7 @@
     },
     {
       "name": "download_delete_failed",
-      "value": "本地文件删除失败，下载任务已保留。"
+      "value": "本地文件删除失败，下载任务已保留"
     },
     {
       "name": "common_back_to_top",
@@ -2230,7 +2230,7 @@
     },
     {
       "name": "mytags_delete_confirm",
-      "value": "删除这个我的标签？"
+      "value": "从“我的标签”中删除这个标签？"
     },
     {
       "name": "mytags_delete_success",
@@ -2266,7 +2266,7 @@
     },
     {
       "name": "mytags_add_confirm",
-      "value": "添加这个我的标签？"
+      "value": "将这个标签加入“我的标签”？"
     },
     {
       "name": "mytags_add_success",
@@ -2294,7 +2294,7 @@
     },
     {
       "name": "mytags_open_web",
-      "value": "网页打开"
+      "value": "在网页中打开"
     },
     {
       "name": "mytags_tagset_delete",
@@ -2438,7 +2438,7 @@
     },
     {
       "name": "perm_read_pasteboard_reason",
-      "value": "检测从其他应用复制的受支持 EH 链接"
+      "value": "读取从其他应用复制的 EH 画廊或图片页链接"
     },
     {
       "name": "clipboard_link_detection",
@@ -2446,7 +2446,7 @@
     },
     {
       "name": "clipboard_link_detection_hint",
-      "value": "剪贴板中有受支持的 EH 链接时提示打开"
+      "value": "剪贴板中发现 EH 链接时提示打开"
     },
     {
       "name": "clipboard_link_permission_denied",
@@ -2454,7 +2454,7 @@
     },
     {
       "name": "clipboard_link_snackbar_title",
-      "value": "检测到剪贴板链接"
+      "value": "发现剪贴板中的 EH 链接"
     },
     {
       "name": "clipboard_link_snackbar_gallery",
@@ -2470,7 +2470,7 @@
     },
     {
       "name": "clipboard_link_open_accessibility",
-      "value": "打开检测到的链接"
+      "value": "打开剪贴板中的链接"
     },
     {
       "name": "clipboard_link_close_accessibility",
@@ -2486,7 +2486,7 @@
     },
     {
       "name": "sync_webdav_hint",
-      "value": "通过 WebDAV 目录同步选中的数据"
+      "value": "选择要通过 WebDAV 同步的数据"
     },
     {
       "name": "sync_provider_disabled",
@@ -2590,7 +2590,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "使用选定的 LLM 源翻译画廊评论，失败时回退到 Google。"
+      "value": "使用选定的 LLM 源翻译画廊评论，失败时回退到 Google"
     },
     {
       "name": "comment_translation_auto",
@@ -2598,7 +2598,7 @@
     },
     {
       "name": "comment_translation_auto_hint",
-      "value": "打开完整评论页时自动开始翻译。"
+      "value": "进入评论区时自动翻译"
     },
     {
       "name": "comment_translation_display_mode",
@@ -2618,7 +2618,7 @@
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "跳过 LLM，直接使用 Google。"
+      "value": "跳过 LLM，直接使用 Google"
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -2634,7 +2634,7 @@
     },
     {
       "name": "comment_translation_models_empty",
-      "value": "没有返回可用模型"
+      "value": "没有可用模型"
     },
     {
       "name": "comment_translation_models_failed",
@@ -2678,7 +2678,7 @@
     },
     {
       "name": "filter_favorite_scope_hint",
-      "value": "收藏搜索使用你的收藏列表，此范围下不提供画廊专用筛选项。"
+      "value": "收藏搜索使用你的收藏列表，不提供画廊专用筛选项"
     },
     {
       "name": "filter_favorite_folder",
@@ -2866,7 +2866,7 @@
     },
     {
       "name": "settings_reader_image_scaling_quality_hint",
-      "value": "控制缩小显示时的插值算法；优化模式使用 Mipmap，更适合网点漫画。"
+      "value": "控制缩小显示时的插值算法；优化模式使用 Mipmap，更适合网点漫画"
     },
     {
       "name": "settings_reader_image_scaling_quality_standard",
@@ -2882,11 +2882,11 @@
     },
     {
       "name": "settings_reader_crop_borders_paged_hint",
-      "value": "自动去除每页四周检测到的黑边或白边。"
+      "value": "自动去除每页四周检测到的黑边或白边"
     },
     {
       "name": "settings_reader_crop_borders_continuous_hint",
-      "value": "去除左右留边；仅在首尾页裁剪上下边，以保护页面拼接。"
+      "value": "去除左右留边；仅在首尾页裁剪上下边，以保护页面拼接"
     },
     {
       "name": "reader_crop_borders",
@@ -2982,31 +2982,31 @@
     },
     {
       "name": "settings_reader_super_resolution_details_espcn",
-      "value": "特点：亮度通道轻量增强；优点：速度快、体积小；缺点：细节提升有限，彩色纹理主要依赖常规缩放。"
+      "value": "特点：亮度通道轻量增强；优点：速度快、体积小；缺点：细节提升有限，彩色纹理主要依赖常规缩放"
     },
     {
       "name": "settings_reader_super_resolution_details_waifu2x_photo",
-      "value": "特点：照片与扫描图降噪放大；优点：噪点抑制稳定、速度较快；缺点：细小纹理可能被软化。"
+      "value": "特点：照片与扫描图降噪放大；优点：噪点抑制稳定、速度较快；缺点：细小纹理可能被软化"
     },
     {
       "name": "settings_reader_super_resolution_details_waifu2x_art",
-      "value": "特点：漫画、插画和线稿增强；优点：线条清晰、速度快；缺点：照片与复杂纹理可能显得过锐。"
+      "value": "特点：漫画、插画和线稿增强；优点：线条清晰、速度快；缺点：照片与复杂纹理可能显得过锐"
     },
     {
       "name": "settings_reader_super_resolution_details_waifu2x_cunet",
-      "value": "特点：偏重漫画细节和降噪；优点：线稿细节较强；缺点：设备差异较大，部分设备会回退通用计算。"
+      "value": "特点：偏重漫画细节和降噪；优点：线稿细节较强；缺点：设备差异较大，部分设备会回退通用计算"
     },
     {
       "name": "settings_reader_super_resolution_details_realcugan",
-      "value": "特点：保守的漫画修复；优点：线条稳定、较少过度锐化；缺点：增强较克制，照片处理不占优。"
+      "value": "特点：保守的漫画修复；优点：线条稳定、较少过度锐化；缺点：增强较克制，照片处理不占优"
     },
     {
       "name": "settings_reader_super_resolution_details_animevideov3",
-      "value": "特点：轻量动画、漫画增强；优点：模型较小、线条自然；缺点：当前未使用 NPU，处理较慢。"
+      "value": "特点：轻量动画、漫画增强；优点：模型较小、线条自然；缺点：当前未使用 NPU，处理较慢"
     },
     {
       "name": "settings_reader_super_resolution_details_realesrgan_x2plus",
-      "value": "特点：照片与复杂纹理通用增强；优点：细节恢复能力强；缺点：体积和耗时较大，规则网点可能被当作噪点抹平并产生明显块差。"
+      "value": "特点：照片与复杂纹理通用增强；优点：细节恢复能力强；缺点：体积和耗时较大，规则网点可能被当作噪点抹平并产生明显块差"
     },
     {
       "name": "settings_reader_super_resolution_scope_system",
@@ -3018,11 +3018,11 @@
     },
     {
       "name": "settings_reader_super_resolution_details_system",
-      "value": "使用系统提供的图像超分能力，无需下载模型；效果与速度因设备而异。"
+      "value": "使用系统提供的图像超分能力，无需下载模型；效果与速度因设备而异"
     },
     {
       "name": "settings_reader_super_resolution_tiling_limit_description",
-      "value": "规则网点、重复噪点或缺少线条参照的区域，可能被相邻分块以不同强度抹平，形成可见块差。"
+      "value": "规则网点、重复噪点或缺少线条参照的区域，可能被相邻分块以不同强度抹平，形成可见块差"
     },
     {
       "name": "settings_reader_super_resolution_off",
@@ -3086,7 +3086,7 @@
     },
     {
       "name": "settings_reader_super_resolution_max_height_hint",
-      "value": "仅放大高度不超过此值的图片。"
+      "value": "仅放大高度不超过此值的图片"
     },
     {
       "name": "settings_reader_show_page_number",
@@ -3626,7 +3626,7 @@
     },
     {
       "name": "gallery_archiver_download",
-      "value": "Download"
+      "value": "下载"
     },
     {
       "name": "gallery_archiver_hath",
@@ -3642,15 +3642,15 @@
     },
     {
       "name": "gallery_archiver_submit_notice",
-      "value": "这会向 EH 提交请求，并可能消耗 GP 或 Credits。"
+      "value": "这会向 EH 提交请求，并可能消耗 GP 或 Credits"
     },
     {
       "name": "gallery_archiver_submit_free_notice",
-      "value": "将开始归档下载，不会消耗 GP 或 Credits。"
+      "value": "将开始归档下载，不会消耗 GP 或 Credits"
     },
     {
       "name": "gallery_archiver_download_paid_notice",
-      "value": "将开始归档下载，并可能消耗 GP 或 Credits。"
+      "value": "将开始归档下载，并可能消耗 GP 或 Credits"
     },
     {
       "name": "gallery_archiver_submitted",
@@ -3678,7 +3678,7 @@
     },
     {
       "name": "image_page_open_failed",
-      "value": "无法打开此图片页。链接可能已过期或不可用。"
+      "value": "无法打开此图片页。链接可能已过期或不可用"
     },
     {
       "name": "image_page_jump_confirm",
@@ -3694,7 +3694,7 @@
     },
     {
       "name": "local_block_hint",
-      "value": "在本机隐藏命中的画廊和评论。"
+      "value": "在本机隐藏符合规则的画廊和评论"
     },
     {
       "name": "image_block_title",
@@ -3970,7 +3970,7 @@
     },
     {
       "name": "local_block_score_filter_hint",
-      "value": "隐藏评分小于或等于阈值的评论。"
+      "value": "隐藏评分小于或等于阈值的评论"
     },
     {
       "name": "local_block_score_threshold",
@@ -3982,7 +3982,7 @@
     },
     {
       "name": "local_block_comment_display_hint",
-      "value": "命中评论规则或低分阈值后的显示方式。"
+      "value": "命中评论规则或低分阈值后的显示方式"
     },
     {
       "name": "local_block_comment_display_hide",
@@ -4050,7 +4050,7 @@
     },
     {
       "name": "local_block_regex_hint",
-      "value": "按 JavaScript 正则表达式匹配。"
+      "value": "按 JavaScript 正则表达式匹配"
     },
     {
       "name": "local_block_regex_invalid",
@@ -4070,7 +4070,7 @@
     },
     {
       "name": "ehp_entry_hint",
-      "value": "在线修改 EH Profile（uconfig）"
+      "value": "在线管理 EH Profile（uconfig）"
     },
     {
       "name": "ehp_open_web",
@@ -4454,7 +4454,7 @@
     },
     {
       "name": "ehp_profile_delete_confirm",
-      "value": "删除后无法恢复。"
+      "value": "删除后无法恢复"
     },
     {
       "name": "sync_dataset_read_progress",
@@ -4502,7 +4502,7 @@
     },
     {
       "name": "sync_dataset_custom_profiles_hint",
-      "value": "自定义 SubTab 配置"
+      "value": "自定义列表标签配置"
     },
     {
       "name": "tablet_select_detail",
@@ -4534,11 +4534,11 @@
     },
     {
       "name": "comic_translation_multimodal_assist_notice",
-      "value": "开启后向所选 LLM 上传整页和文字区域裁图；关闭后只发送 OCR 文本与上下文。"
+      "value": "开启后会向所选 LLM 上传整页图片和文字区域裁图；关闭后只发送 OCR 文本与上下文"
     },
     {
       "name": "comic_translation_multimodal_source_unsupported",
-      "value": "当前 LLM 源不支持图片输入。"
+      "value": "当前 LLM 源不支持图片输入"
     },
     {
       "name": "comic_visual_route_self_hosted_confirm_title",
@@ -4546,7 +4546,7 @@
     },
     {
       "name": "comic_visual_route_self_hosted_confirm",
-      "value": "只有主动翻译时才会向你配置的服务上传当前漫画页。服务负责检测、OCR、修复和排版；翻译仍使用已选 LLM 源。"
+      "value": "只有主动翻译时才会向你配置的服务上传当前漫画页。服务负责检测、OCR、修复和排版；翻译仍使用已选 LLM 源"
     },
     {
       "name": "comic_visual_route_torii_confirm_title",
@@ -4554,7 +4554,7 @@
     },
     {
       "name": "comic_visual_route_torii_confirm",
-      "value": "只有主动翻译时才会向 Torii 上传当前漫画页和上下文。Torii 返回完整译图，不参与端侧处理管线。"
+      "value": "只有主动翻译时才会向 Torii 上传当前漫画页和上下文。Torii 返回完整译图，不参与端侧处理管线"
     },
     {
       "name": "comic_local_detector_model",
@@ -4582,7 +4582,7 @@
     },
     {
       "name": "comic_local_detector_install_message",
-      "value": "约下载 79.0 MB。"
+      "value": "约下载 79.0 MB"
     },
     {
       "name": "comic_local_detector_install",
@@ -4602,7 +4602,7 @@
     },
     {
       "name": "comic_local_detector_remove_message",
-      "value": "端侧漫画翻译将回退到系统 OCR。"
+      "value": "移除后，端侧漫画翻译将回退到系统 OCR"
     },
     {
       "name": "comic_local_detector_remove",
@@ -4634,7 +4634,7 @@
     },
     {
       "name": "comic_torii_notice_managed",
-      "value": "所选模型使用 Torii credits；图片和上下文仅在云端整图翻译时发送。"
+      "value": "所选模型使用 Torii credits；图片和上下文仅在云端整图翻译时发送"
     },
     {
       "name": "comic_torii_save_failed",
@@ -4750,7 +4750,7 @@
     },
     {
       "name": "comic_render_service_security_hint",
-      "value": "仅在选择自部署时发送漫画页；LLM 凭据不会发给该服务。公网服务必须使用 HTTPS。"
+      "value": "仅在选择自部署时发送漫画页；LLM 凭据不会发给该服务。公网服务必须使用 HTTPS"
     },
     {
       "name": "comic_translation_settings_hint",
@@ -4806,7 +4806,7 @@
     },
     {
       "name": "comic_translation_codex_experimental_hint",
-      "value": "该通道复刻第三方客户端的设备码流程与 ChatGPT Codex 私有后端，并非公开 Platform API；端点、模型权限和风控均可能变化。OAuth 凭据仅保存在本设备，不进入备份或同步。"
+      "value": "该通道复刻第三方客户端的设备码流程与 ChatGPT Codex 私有后端，并非公开 Platform API；端点、模型权限和风控均可能变化。OAuth 凭据仅保存在本设备，不进入备份或同步"
     },
     {
       "name": "comic_translation_live_evaluation_title",
@@ -4822,7 +4822,7 @@
     },
     {
       "name": "comic_translation_live_evaluation_confirm",
-      "value": "使用当前提供方评测 2 张内置原创页？可能消耗额度，不会使用画廊页面。"
+      "value": "使用当前提供方评测 2 张内置原创页？可能消耗额度，不会使用画廊页面"
     },
     {
       "name": "comic_translation_live_evaluation_start",
@@ -4890,7 +4890,7 @@
     },
     {
       "name": "reader_comic_translation_auto_confirm",
-      "value": "本次阅读中自动翻译页面，可能消耗额度并上传图片；退出 Reader 后关闭。"
+      "value": "本次阅读中自动翻译页面，可能消耗额度并上传图片；退出阅读器后关闭"
     },
     {
       "name": "reader_comic_translation_show_original",
@@ -4938,7 +4938,7 @@
     },
     {
       "name": "llm_sources_hint",
-      "value": "统一管理可复用的 API 与 Codex OAuth 连接"
+      "value": "统一管理可复用的 LLM 源（API 与 Codex OAuth）"
     },
     {
       "name": "llm_sources_empty",
@@ -4970,7 +4970,7 @@
     },
     {
       "name": "llm_source_create_failed",
-      "value": "无法创建源：%s"
+      "value": "创建 LLM 源失败：%s"
     },
     {
       "name": "llm_source_detail_title",
@@ -4998,7 +4998,7 @@
     },
     {
       "name": "llm_source_save_failed",
-      "value": "无法保存源：%s"
+      "value": "保存 LLM 源失败：%s"
     },
     {
       "name": "llm_source_support_comments",
@@ -5022,11 +5022,11 @@
     },
     {
       "name": "llm_source_catalog_hint",
-      "value": "验证连接并读取当前模型列表"
+      "value": "测试连接并获取可用模型"
     },
     {
       "name": "llm_source_catalog_count",
-      "value": "可用模型 %d 个"
+      "value": "共有 %d 个可用模型"
     },
     {
       "name": "llm_source_codex_account",
@@ -5062,11 +5062,11 @@
     },
     {
       "name": "llm_source_delete_referenced",
-      "value": "%s 正在使用该源。删除后对应功能将保持未配置，不会自动切换。"
+      "value": "%s 正在使用该 LLM 源。删除后，相关功能将保持未配置，不会自动切换"
     },
     {
       "name": "llm_source_delete_failed",
-      "value": "无法删除源：%s"
+      "value": "删除 LLM 源失败：%s"
     },
     {
       "name": "llm_binding_source",
@@ -5082,19 +5082,19 @@
     },
     {
       "name": "llm_binding_no_compatible_source",
-      "value": "请先在 LLM 源中添加兼容连接"
+      "value": "请先添加支持此功能的 LLM 源"
     },
     {
       "name": "llm_binding_source_hint",
-      "value": "选择一条可复用连接"
+      "value": "选择 LLM 源"
     },
     {
       "name": "llm_binding_model_hint",
-      "value": "查询该源并选择模型"
+      "value": "查看该 LLM 源支持的模型"
     },
     {
       "name": "llm_binding_save_failed",
-      "value": "无法保存选择：%s"
+      "value": "保存翻译设置失败：%s"
     }
   ]
 }
