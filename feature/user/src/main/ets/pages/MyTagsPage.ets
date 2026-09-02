@@ -96,6 +96,7 @@ export struct MyTagsPage {
   @Local mytagsEpoch: number = 0;
   private loadedContext: UserTagRequestContext | null = null;
   private myTagsManagementRequest: UserTagRequestContext | null = null;
+  private myTagsSheetClosing: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private addSuggestTimer: number = -1;
@@ -107,6 +108,7 @@ export struct MyTagsPage {
     }
     this.myTagsSheetShown = false
     this.myTagsAnchoredSheetShown = false
+    this.myTagsSheetClosing = false
     this.myTagsSheetKind = kind
     this.myTagsSheetAnchorKey = anchorKey
     if (anchorKey.length > 0) {
@@ -120,6 +122,19 @@ export struct MyTagsPage {
     if (this.myTagsSheetKind === MYTAGS_SHEET_ADD) {
       this.cancelAddSuggestions()
     }
+    if (this.myTagsSheetClosing) {
+      return
+    }
+    if (this.myTagsSheetShown || this.myTagsAnchoredSheetShown) {
+      this.myTagsSheetClosing = true
+      this.myTagsSheetShown = false
+      this.myTagsAnchoredSheetShown = false
+      return
+    }
+    this.finishMyTagsSheetDismissal()
+  }
+
+  private finishMyTagsSheetDismissal(): void {
     this.myTagsSheetShown = false
     this.myTagsAnchoredSheetShown = false
     this.myTagsSheetKind = ''
@@ -128,6 +143,7 @@ export struct MyTagsPage {
     this.addSubmitting = false
     this.tagsetSubmitting = false
     this.myTagsManagementRequest = null
+    this.myTagsSheetClosing = false
   }
 
   aboutToDisappear(): void {
@@ -1227,6 +1243,9 @@ export struct MyTagsPage {
       detents: this.myTagsSheetDetents(),
       showClose: false,
       keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+      onDisappear: () => {
+        this.finishMyTagsSheetDismissal()
+      },
     }))
     .onReady((context: NavDestinationContext) => {
       if (context.pathInfo.param instanceof MyTagsPageParams) {
@@ -1310,7 +1329,7 @@ export struct MyTagsPage {
         keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
         onDisappear: () => {
           if (this.myTagsSheetAnchorKey === this.userTagRowKey(t)) {
-            this.closeMyTagsSheet()
+            this.finishMyTagsSheetDismissal()
           }
         },
       }),
