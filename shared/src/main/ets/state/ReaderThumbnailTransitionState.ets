@@ -40,6 +40,7 @@ export class ReaderThumbnailTransitionState {
   @Trace overlayOpacity: number = 1
   @Trace backdropOpacity: number = 1
   @Trace openingProxyOpacity: number = 1
+  @Trace openingReaderImageOpacity: number = 1
   @Trace closeTargetSnapshotOpacity: number = 0
   @Trace readerImageReady: boolean = false
   @Trace presentationEpoch: number = 0
@@ -178,6 +179,16 @@ export class ReaderThumbnailTransitionState {
         this.phase === ReaderThumbnailTransitionPhase.REVERSING_OPEN)
   }
 
+  readerImageOpacity(page: number): number {
+    if (page <= 0 || page !== this.image.page) {
+      return 1
+    }
+    if (this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF) {
+      return this.openingReaderImageOpacity
+    }
+    return this.readerImageHidden(page) ? 0 : 1
+  }
+
   private imageRatio(image: EhGalleryImage): number {
     if (image.thumbWidth > 0 && image.thumbHeight > 0) {
       return image.thumbWidth / image.thumbHeight
@@ -248,6 +259,7 @@ export class ReaderThumbnailTransitionState {
     this.overlayOpacity = 0
     this.backdropOpacity = 1
     this.openingProxyOpacity = 1
+    this.openingReaderImageOpacity = 0
     this.closeTargetSnapshotOpacity = 0
     this.readerImageReady = false
     this.phase = ReaderThumbnailTransitionPhase.WAITING_READER
@@ -311,7 +323,10 @@ export class ReaderThumbnailTransitionState {
 
   startOpeningHandoff(): void {
     if (this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF) {
-      this.openingProxyOpacity = 0
+      // The full-resolution image fades in above the still-opaque thumbnail placeholder. If the
+      // Image node has decoded but has not painted its first bitmap yet, the placeholder remains
+      // visible underneath instead of exposing the black Reader canvas.
+      this.openingReaderImageOpacity = 1
     }
   }
 
@@ -321,6 +336,7 @@ export class ReaderThumbnailTransitionState {
     }
     this.phase = ReaderThumbnailTransitionPhase.OPEN
     this.openingProxyOpacity = 1
+    this.openingReaderImageOpacity = 1
     return true
   }
 
@@ -333,6 +349,7 @@ export class ReaderThumbnailTransitionState {
     // is still exactly one image surface throughout the reverse flight.
     this.openingReverseSnapshot = reverseSnapshot
     this.openingProxyOpacity = 1
+    this.openingReaderImageOpacity = 0
     this.phase = ReaderThumbnailTransitionPhase.REVERSING_OPEN
     return true
   }
@@ -495,6 +512,7 @@ export class ReaderThumbnailTransitionState {
     this.overlayOpacity = 1
     this.backdropOpacity = 1
     this.openingProxyOpacity = 1
+    this.openingReaderImageOpacity = 1
     this.closeTargetSnapshotOpacity = 0
     this.readerImageReady = false
     this.presentationGalleryId = ''

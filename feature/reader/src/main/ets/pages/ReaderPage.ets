@@ -6787,7 +6787,7 @@ struct ReaderSpreadImageLayer {
           // Keep that surface transparent until the bitmap is ready so the Reader background and
           // loading chrome remain continuous behind a slow thumbnail-to-Reader handoff.
           .opacity(
-            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
           )
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
@@ -7540,7 +7540,7 @@ struct ReaderImagePage {
         })
           .id(this.snapshotId)
           .opacity(
-            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
           )
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
@@ -8475,7 +8475,7 @@ struct ReaderVerticalImage {
         })
           .id(this.snapshotId)
           .opacity(
-            this.imageLoaded && !this.readerThumbnailTransition.readerImageHidden(this.image.page) ? 1 : 0,
+            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
           )
           .width('100%')
           .aspectRatio(this.ratio)

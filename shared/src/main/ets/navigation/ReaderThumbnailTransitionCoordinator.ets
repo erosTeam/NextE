@@ -210,6 +210,9 @@ export class ReaderThumbnailTransitionCoordinator {
     if (!transition.openingHandoff()) {
       return
     }
+    // Keep the decoded image above an opaque thumbnail placeholder while it fades in. This makes
+    // Image.onComplete's early callback harmless: an unpainted Image node is transparent, so it
+    // cannot expose the black Reader canvas before its first bitmap reaches the display.
     uiContext.animateTo({
       duration: ThemeConstants.ANIM_DURATION * READER_OPEN_CONTENT_HANDOFF_FRACTION,
       curve: Curve.EaseOut,

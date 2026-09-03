@@ -525,6 +525,10 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'),
     'utf8',
   )
+  const readerTransitionCoordinatorSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/navigation/ReaderThumbnailTransitionCoordinator.ets'),
+    'utf8',
+  )
   const loadingStageSrc = readerPageSrc.match(
     /struct ReaderLoadingStage \{[\s\S]*?\n}\n\n@ComponentV2\nstruct ReaderImageBlockedOverlay/,
   )?.[0] ?? ''
@@ -540,6 +544,16 @@ const ok = (name, cond) => {
   ok('opening transition entry and image-level loading calls opt into the optional background',
     (readerPageSrc.match(/showTransitionBackground: this\.readerThumbnailTransition\.readerOpeningProxyVisible\(\)/g) ?? [])
       .length === 4)
+  ok('decoded Reader image fades in above the opaque opening proxy before that proxy is released',
+    /private static startOpeningHandoff\([\s\S]*?animateTo\([\s\S]*?transition\.startOpeningHandoff\(\)/.test(
+      readerTransitionCoordinatorSrc,
+    ) &&
+    (readerTransitionCoordinatorSrc.match(
+      /ReaderThumbnailTransitionCoordinator\.startOpeningHandoff\(uiContext, transition\)/g,
+    ) ?? []).length === 2)
+  ok('all Reader image surfaces use the transition-owned image opacity above the opening proxy',
+    (readerPageSrc.match(/this\.imageLoaded \? this\.readerThumbnailTransition\.readerImageOpacity\(this\.image\.page\) : 0/g) ?? [])
+      .length === 3)
   const detailPageSrc = readFileSync(
     join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
     'utf8',
