@@ -525,6 +525,21 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'),
     'utf8',
   )
+  const loadingStageSrc = readerPageSrc.match(
+    /struct ReaderLoadingStage \{[\s\S]*?\n}\n\n@ComponentV2\nstruct ReaderImageBlockedOverlay/,
+  )?.[0] ?? ''
+  ok('transition loading background stays inside the existing ReaderLoadingStage',
+    /@Param showTransitionBackground: boolean = false/.test(loadingStageSrc) &&
+    /Text\(this\.hasProgress\(\) \? this\.progressPercent\(\) : this\.label\)/.test(loadingStageSrc) &&
+    /constraintSize\(\{ maxWidth: READER_LOADING_BAR_MAX_WIDTH \+ ThemeConstants\.SPACE_MD \* 2 \}\)/.test(loadingStageSrc) &&
+    /padding\(ThemeConstants\.SPACE_MD\)/.test(loadingStageSrc) &&
+    /backgroundBlurStyle\(BlurStyle\.BACKGROUND_THIN\)/.test(loadingStageSrc) &&
+    /borderRadius\(ThemeConstants\.RADIUS_CARD\)/.test(loadingStageSrc) &&
+    !/READER_TRANSITION_LOADING_PANEL_HEIGHT/.test(loadingStageSrc) &&
+    !/this\.hasProgress\(\) \? this\.progressPercent\(\) : '0%'/.test(loadingStageSrc))
+  ok('opening transition entry and image-level loading calls opt into the optional background',
+    (readerPageSrc.match(/showTransitionBackground: this\.readerThumbnailTransition\.readerOpeningProxyVisible\(\)/g) ?? [])
+      .length === 4)
   const detailPageSrc = readFileSync(
     join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
     'utf8',

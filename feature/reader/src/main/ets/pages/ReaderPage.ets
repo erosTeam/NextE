@@ -96,6 +96,7 @@ const READER_LOADING_BAR_WIDTH_PERCENT: string = '80%'
 const READER_LOADING_BAR_MAX_WIDTH: number = 180
 const READER_LOADING_SLIDER_WIDTH_RATIO: number = 0.3
 const READER_LOADING_BAR_RADIUS: number = 2
+const READER_TRANSITION_LOADING_PANEL_COLOR: ResourceColor = '#665F6368'
 const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
 const READER_LOADING_BAR_LIGHT_BG: ResourceColor = '#33000000'
 const READER_LOADING_BAR_FG: ResourceColor = Color.White
@@ -465,7 +466,10 @@ export struct ReaderPage {
             .justifyContent(FlexAlign.Center)
             .padding(ThemeConstants.SPACE_XL)
           } else {
-            ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+            ReaderLoadingStage({
+              label: $r('app.string.reader_loading_resolving'),
+              showTransitionBackground: this.readerThumbnailTransition.readerOpeningProxyVisible(),
+            })
           }
 
           // Only show far-jump resolving UI when there is no readable image surface yet.
@@ -6810,6 +6814,7 @@ struct ReaderSpreadImageLayer {
           total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
             ? this.imageProgressTotal
             : 0,
+          showTransitionBackground: this.readerThumbnailTransition.readerOpeningProxyVisible(),
         })
       }
     }
@@ -7563,6 +7568,7 @@ struct ReaderImagePage {
           total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
             ? this.imageProgressTotal
             : 0,
+          showTransitionBackground: this.readerThumbnailTransition.readerOpeningProxyVisible(),
         })
       }
     }
@@ -8501,6 +8507,7 @@ struct ReaderVerticalImage {
           total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
             ? this.imageProgressTotal
             : 0,
+          showTransitionBackground: this.readerThumbnailTransition.readerOpeningProxyVisible(),
         })
       }
     }
@@ -8769,15 +8776,12 @@ struct ReaderLoadingStage {
   @Param compact: boolean = false;
   @Param loaded: number = 0;
   @Param total: number = 0;
+  @Param showTransitionBackground: boolean = false;
   @Local readMode: ReadModeState = connectReadMode();
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
 
   private contentColor(): ResourceColor {
     return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
-  }
-
-  private secondaryColor(): ResourceColor {
-    return readerSecondaryForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
   }
 
   private trackColor(): ResourceColor {
@@ -8808,30 +8812,52 @@ struct ReaderLoadingStage {
     return `${Math.round(this.progressRatio() * 100)}%`
   }
 
-  build() {
+  @Builder
+  private LoadingElements() {
+    ReaderLoadingBar({
+      compact: this.compact,
+      determinate: this.hasProgress(),
+      ratio: this.progressRatio(),
+      barFillColor: this.contentColor(),
+      barTrackColor: this.trackColor(),
+    })
+    Text(this.hasProgress() ? this.progressPercent() : this.label)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor(this.contentColor())
+      .textAlign(TextAlign.Center)
+  }
+
+  @Builder
+  private LoadingContent() {
     Column({ space: ThemeConstants.SPACE_SM }) {
-      ReaderLoadingBar({
-        compact: this.compact,
-        determinate: this.hasProgress(),
-        ratio: this.progressRatio(),
-        barFillColor: this.contentColor(),
-        barTrackColor: this.trackColor(),
-      })
-      Text(this.label)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(this.contentColor())
-        .textAlign(TextAlign.Center)
-      Text(this.hasProgress() ? this.progressPercent() : '0%')
-        .fontSize(ThemeConstants.FONT_SIZE_META)
-        .fontColor(this.secondaryColor())
-        .textAlign(TextAlign.Center)
-        .opacity(this.hasProgress() ? 1 : 0)
+      this.LoadingElements()
     }
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .padding(ThemeConstants.SPACE_XL)
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.showTransitionBackground) {
+        Column({ space: ThemeConstants.SPACE_SM }) {
+          this.LoadingElements()
+        }
+        .width(READER_LOADING_BAR_WIDTH_PERCENT)
+        .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH + ThemeConstants.SPACE_MD * 2 })
+        .padding(ThemeConstants.SPACE_MD)
+        .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+        .backgroundColor(READER_TRANSITION_LOADING_PANEL_COLOR)
+        .borderRadius(ThemeConstants.RADIUS_CARD)
+        .clip(true)
+      } else {
+        this.LoadingContent()
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 }
 
