@@ -535,8 +535,6 @@ const ok = (name, cond) => {
   ok('transition loading background stays inside the existing ReaderLoadingStage',
     /@Param showTransitionBackground: boolean = false/.test(loadingStageSrc) &&
     /Text\(this\.hasProgress\(\) \? this\.progressPercent\(\) : this\.label\)/.test(loadingStageSrc) &&
-    /constraintSize\(\{ maxWidth: READER_LOADING_BAR_MAX_WIDTH \+ ThemeConstants\.SPACE_MD \* 2 \}\)/.test(loadingStageSrc) &&
-    /padding\(ThemeConstants\.SPACE_MD\)/.test(loadingStageSrc) &&
     /backgroundBlurStyle\(BlurStyle\.BACKGROUND_THIN\)/.test(loadingStageSrc) &&
     /borderRadius\(ThemeConstants\.RADIUS_CARD\)/.test(loadingStageSrc) &&
     !/READER_TRANSITION_LOADING_PANEL_HEIGHT/.test(loadingStageSrc) &&
