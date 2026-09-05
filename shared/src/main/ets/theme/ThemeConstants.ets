@@ -179,6 +179,10 @@ export class ThemeConstants {
   // so they read as one coordinated family (eros_fe: Read filled pill is primary, favourite heart is the
   // secondary bare-icon to its left). ACTION_FAV_ICON is the favourite heart glyph, a peer to the pill.
   static readonly ACTION_HEIGHT: number = 36
+  // Standalone text actions keep a horizontal footprint even with a one-character label.
+  static readonly TEXT_ACTION_HEIGHT: number = 40
+  static readonly TEXT_ACTION_MIN_WIDTH: number = 120
+  static readonly TEXT_ACTION_HORIZONTAL_PADDING: number = 24
   static readonly ACTION_FAV_ICON: number = 18
   static readonly DETAIL_ACTION_CHIP_HEIGHT: number = 28
   static readonly DETAIL_ACTION_CHIP_GAP: number = 2

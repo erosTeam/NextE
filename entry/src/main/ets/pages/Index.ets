@@ -2328,6 +2328,10 @@ struct SecurityLockOverlay {
       } else {
         Button($r('app.string.security_unlock_button'))
           .type(ButtonType.Capsule)
+          .height(ThemeConstants.TEXT_ACTION_HEIGHT)
+          .constraintSize({ minWidth: ThemeConstants.TEXT_ACTION_MIN_WIDTH })
+          .padding({ left: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING, right: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING })
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontColor(ThemeConstants.TEXT_ON_BRAND)
           .backgroundColor(ThemeConstants.BRAND_PRIMARY)
           .onClick(() => {

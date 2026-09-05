@@ -455,6 +455,10 @@ export struct ReaderPage {
                 .textAlign(TextAlign.Center)
               Button($r('app.string.common_retry'))
                 .type(ButtonType.Capsule)
+                .height(ThemeConstants.TEXT_ACTION_HEIGHT)
+                .constraintSize({ minWidth: ThemeConstants.TEXT_ACTION_MIN_WIDTH })
+                .padding({ left: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING, right: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING })
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
                 .fontColor(ThemeConstants.TEXT_ON_BRAND)
                 .backgroundColor(ThemeConstants.BRAND_PRIMARY)
                 .onClick(() => {
@@ -6759,6 +6763,7 @@ struct ReaderSpreadImageLayer {
         ReaderFailureOverlay({
           page: this.image.page,
           kind: this.failureKind,
+          compact: true,
           onRetry: () => {
             this.retrySource()
           },
@@ -9047,6 +9052,9 @@ struct ReaderFailureOverlay {
       }
       Button($r('app.string.reader_retry_source'))
         .type(ButtonType.Capsule)
+        .height(ThemeConstants.TEXT_ACTION_HEIGHT)
+        .constraintSize({ minWidth: ThemeConstants.TEXT_ACTION_MIN_WIDTH })
+        .padding({ left: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING, right: ThemeConstants.TEXT_ACTION_HORIZONTAL_PADDING })
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(this.contentColor())
         .backgroundColor(this.controlTint())
@@ -9054,8 +9062,16 @@ struct ReaderFailureOverlay {
           this.onRetry()
         })
     }
-    .width(this.contentWidth())
+    .width('100%')
+    .constraintSize({ maxWidth: this.contentWidth() })
     .padding(ThemeConstants.SPACE_LG)
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN, {
+      colorMode: readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+        ? ThemeColorMode.DARK : ThemeColorMode.LIGHT,
+    })
+    .backgroundColor(READER_TRANSITION_LOADING_PANEL_COLOR)
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .clip(true)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .hitTestBehavior(HitTestMode.Default)
