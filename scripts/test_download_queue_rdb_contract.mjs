@@ -464,20 +464,20 @@ ok('remove cancels in-flight gallery workers and discards late batch files',
     /deleteDownloadSeedResults\(results: DownloadSeedResult\[\]\)[\s\S]*deleteSandboxPath\(result\.filePath, 'gallery_cancelled_file_delete_failed'\)/.test(settings))
 ok('pause marks running gallery workers cancelled while keeping the task resumable',
   /static async pauseGalleryDownload/.test(settings) &&
-    /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token, preferOriginal\)/.test(settings) &&
+    /cancelGalleryTaskStart\(gid, token, preferOriginal\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token, preferOriginal\)/.test(settings) &&
     /updateGalleryStreamProgress\([\s\S]*preferOriginal: boolean[\s\S]*const key: string = DownloadQueueSettings\.taskKey\(gid, token, preferOriginal\)[\s\S]*cancelledGalleryDownloads\.has\(key\)[\s\S]*return[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*task\.clearActiveDownloadProgress\(\)[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings))
 ok('terminal gallery work clears transient stream state so pause or removal cannot revive a task as downloading',
   /private static clearGalleryRuntimeState\(key: string\): void \{[\s\S]*galleryProgressPulses\.delete\(key\)[\s\S]*galleryProgressLogPulses\.delete\(key\)[\s\S]*galleryProgressSignalWindows\.delete\(key\)[\s\S]*galleryProgressSignalCounts\.delete\(key\)[\s\S]*galleryActiveProgress\.delete\(key\)/.test(settings) &&
     /static async removeGallery[\s\S]*gallerySeedScheduler\.cancelQueued\(key\)[\s\S]*clearGalleryRuntimeState\(key\)/.test(settings) &&
-    /static async pauseGalleryDownload[\s\S]*gallerySeedScheduler\.cancelQueued\(key\)[\s\S]*clearGalleryRuntimeState\(key\)[\s\S]*updateGalleryTaskAfterPause/.test(settings) &&
+    /static async pauseGalleryDownload[\s\S]*cancelGalleryTaskStart\(gid, token, preferOriginal\)[\s\S]*clearGalleryRuntimeState\([\s\S]*updateGalleryTaskAfterPause/.test(settings) &&
     /static async downloadGalleryImages[\s\S]*try \{[\s\S]*await task[\s\S]*\} finally \{[\s\S]*clearGalleryRuntimeState\(key\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings))
 ok('terminal archiver work clears its transient progress clocks',
   /private static clearArchiverRuntimeState\(tag: string\): void \{[\s\S]*archiverProgressPulses\.delete\(tag\)[\s\S]*archiverProgressLogPulses\.delete\(tag\)/.test(settings) &&
     /static async downloadArchiver[\s\S]*try \{[\s\S]*await task[\s\S]*\} finally \{[\s\S]*clearArchiverRuntimeState\(tag\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(settings))
 ok('batch gallery pause action reuses the per-task executor',
   /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings))
+    /canPauseGalleryTask\(task\)[\s\S]*pauseGalleryDownload\(context, task\.gid, task\.token, task\.preferOriginal\)/.test(settings))
 ok('remove deletes archiver package, partial package, metadata sidecar, and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*deleteArchiverContent\(context, task\)[\s\S]*setArchiverTasks\(state, next\)[\s\S]*persistArchiverRemoval\(context, tag\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*archiverMetadataPath\(task\)[\s\S]*deleteRequiredPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
@@ -531,15 +531,15 @@ ok('archiver HTTP 410/404/429 failures use EH archive-specific user messages',
     /DownloadQueueSettings\.isArchiverRateLimitedError\(error\)[\s\S]*download_error_archive_rate_limited/.test(settings))
 ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
   /static async pauseArchiverDownload/.test(settings) &&
-    /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
+    /cancelArchiverTaskStart\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
     /updateArchiverProgress\(tag: string[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*return/.test(settings))
 ok('batch archiver actions reuse per-task resume and pause executors',
   /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /canResumeArchiverTask\(tasks\[i\]\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)/.test(settings) &&
+    /resumeArchiverTasks\(context, connectDownloadQueue\(\)\.archiverTasks\)/.test(settings) &&
     /static async pauseAllArchiverDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseArchiverDownload\(context, tasks\[i\]\.tag\)/.test(settings))
-ok('batch archiver resume starts every eligible task without serially waiting on long downloads',
-  /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.archiverDownloads\.has\(tasks\[i\]\.tag\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)[\s\S]*\.catch/.test(settings) &&
+    /canPauseArchiverTask\(task\)[\s\S]*pauseArchiverDownload\(context, task\.tag\)/.test(settings))
+ok('batch archiver resume delegates to bounded scheduling while retaining per-task execution',
+  /static resumeArchiverTasks[\s\S]*canResumeArchiverTask\(current\)[\s\S]*archiverResumeQueue\.enqueue[\s\S]*await DownloadQueueSettings\.downloadArchiver\(context, task\.tag\)/.test(settings) &&
     /static async downloadArchiver[\s\S]*startArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.set\(tag, task\)/.test(settings))
 ok('archiver tasks can switch a failed official original archive to bot parsing without keeping stale package state',
   /static async switchArchiverToBot\([\s\S]*updateArchiverTask\(context, tag, \(task: DownloadArchiverTask\) =>/.test(settings) &&

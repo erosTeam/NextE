@@ -5095,6 +5095,50 @@
     {
       "name": "llm_binding_save_failed",
       "value": "Could not save selection: %s"
+    },
+    {
+      "name": "download_select",
+      "value": "选择"
+    },
+    {
+      "name": "download_select_all",
+      "value": "全选"
+    },
+    {
+      "name": "download_deselect_all",
+      "value": "取消全选"
+    },
+    {
+      "name": "download_selected_count",
+      "value": "已选择 %s 项"
+    },
+    {
+      "name": "download_pause_selected",
+      "value": "暂停（%s）"
+    },
+    {
+      "name": "download_resume_selected",
+      "value": "继续（%s）"
+    },
+    {
+      "name": "download_batch_queued",
+      "value": "已将 %s 项加入下载队列"
+    },
+    {
+      "name": "download_batch_paused",
+      "value": "已暂停 %1$s 项，%2$s 项失败"
+    },
+    {
+      "name": "download_batch_deleted",
+      "value": "已删除 %1$s 项，%2$s 项失败"
+    },
+    {
+      "name": "download_batch_delete_confirm",
+      "value": "删除选中的 %s 项下载及本地文件？正在进行的下载将先停止。"
+    },
+    {
+      "name": "download_batch_deleting",
+      "value": "正在删除 %s"
     }
   ]
 }

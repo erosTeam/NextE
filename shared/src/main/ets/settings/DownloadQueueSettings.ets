@@ -1,3 +1,4 @@
+import { DownloadResumeJob, DownloadResumeQueue } from './DownloadResumeQueue'
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { util } from '@kit.ArkTS'
@@ -399,6 +400,8 @@ export class DownloadQueueSettings {
   private static galleryDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static readonly gallerySeedScheduler: GallerySeedScheduler = new GallerySeedScheduler()
   private static archiverDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static galleryResumeQueue: DownloadResumeQueue = new DownloadResumeQueue(() => { publishDownloadQueueChanged() })
+  private static archiverResumeQueue: DownloadResumeQueue = new DownloadResumeQueue(() => { publishDownloadQueueChanged() })
   private static cancelledGalleryDownloads: Set<string> = new Set<string>()
   private static cancelledArchiverDownloads: Set<string> = new Set<string>()
   private static galleryProgressPulses: Map<string, number> = new Map<string, number>()
@@ -683,6 +686,10 @@ export class DownloadQueueSettings {
     preferOriginal: boolean = false,
   ): Promise<void> {
     const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
+    DownloadQueueSettings.cancelGalleryTaskStart(gid, token, preferOriginal)
+    await DownloadQueueSettings.galleryResumeQueue.wait(key)
+    const preparing: Promise<void> | undefined = DownloadQueueSettings.galleryPreparations.get(key)
+    if (preparing !== undefined) await preparing
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
     if (running !== undefined) {
       DownloadQueueSettings.cancelledGalleryDownloads.add(key)
@@ -728,53 +735,28 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
     preferOriginal: boolean = false,
-  ): Promise<void> {
-    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
-    if (!DownloadQueueSettings.galleryDownloads.has(key)) {
-      return
-    }
-    DownloadQueueSettings.cancelledGalleryDownloads.add(key)
-    DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
-    DownloadQueueSettings.clearGalleryRuntimeState(key)
+  ): Promise<boolean> {
+    const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
+    if (task === null || task.isDownloadComplete()) return false
+    if (!DownloadQueueSettings.canPauseGalleryTask(task) &&
+      !DownloadQueueSettings.cancelledGalleryDownloads.has(DownloadQueueSettings.taskKey(gid, token, preferOriginal))) return false
+    DownloadQueueSettings.cancelGalleryTaskStart(gid, token, preferOriginal)
+    DownloadQueueSettings.clearGalleryRuntimeState(DownloadQueueSettings.taskKey(gid, token, preferOriginal))
     await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token, preferOriginal)
+    return true
   }
 
   static async resumeAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
-    await DownloadQueueSettings.galleryResumeAllGate.joinOrStart(async (): Promise<void> => {
-      const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
-        (task: DownloadGalleryTask) => task.copy(),
-      )
-      const pending: DownloadGalleryTask[] = []
-      for (let i: number = 0; i < tasks.length; i++) {
-        const key: string = DownloadQueueSettings.taskKey(tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
-        if (DownloadQueueSettings.canResumeGalleryTask(tasks[i]) && !DownloadQueueSettings.galleryDownloads.has(key)) {
-          pending.push(tasks[i])
-        }
-      }
-      await GalleryResumeBatch.start(
-        pending,
-        connectDownloadSettings().concurrency,
-        (task: DownloadGalleryTask): Promise<void> => DownloadQueueSettings.downloadGalleryImages(
-          context,
-          task.gid,
-          task.token,
-          task.preferOriginal,
-        ),
-        (task: DownloadGalleryTask, error: Error): void => {
-          DiagnosticLogger.warn('download', 'gallery_resume_all_task_failed', `gid=${task.gid} ${error.message}`)
-        },
-      )
-    })
+    DownloadQueueSettings.resumeGalleryTasks(context, connectDownloadQueue().galleryTasks)
   }
 
   static async pauseAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
-    const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
-      (task: DownloadGalleryTask) => task.copy(),
+    const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.filter(
+      (task: DownloadGalleryTask) => DownloadQueueSettings.canPauseGalleryTask(task),
     )
-    for (let i: number = 0; i < tasks.length; i++) {
-      if (tasks[i].status === DownloadGalleryTaskStatus.DOWNLOADING) {
-        await DownloadQueueSettings.pauseGalleryDownload(context, tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
-      }
+    tasks.forEach((task: DownloadGalleryTask) => DownloadQueueSettings.cancelGalleryTaskStart(task.gid, task.token, task.preferOriginal))
+    for (const task of tasks) {
+      await DownloadQueueSettings.pauseGalleryDownload(context, task.gid, task.token, task.preferOriginal)
     }
   }
 
@@ -861,6 +843,8 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     tag: string,
   ): Promise<void> {
+    DownloadQueueSettings.cancelArchiverTaskStart(tag)
+    await DownloadQueueSettings.archiverResumeQueue.wait(tag)
     const running: Promise<void> | undefined = DownloadQueueSettings.archiverDownloads.get(tag)
     if (running !== undefined) {
       DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
@@ -921,43 +905,29 @@ export class DownloadQueueSettings {
     })
   }
 
-  static async pauseArchiverDownload(
-    context: common.UIAbilityContext,
-    tag: string,
-  ): Promise<void> {
-    if (!DownloadQueueSettings.archiverDownloads.has(tag)) {
-      return
-    }
-    DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
+  static async pauseArchiverDownload(context: common.UIAbilityContext, tag: string): Promise<boolean> {
+    const task: DownloadArchiverTask | null = DownloadQueueSettings.findArchiverTask(tag)
+    if (task === null || task.status === DownloadGalleryTaskStatus.COMPLETE) return false
+    if (!DownloadQueueSettings.canPauseArchiverTask(task) && !DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) return false
+    DownloadQueueSettings.cancelArchiverTaskStart(tag)
     await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
       it.status = DownloadGalleryTaskStatus.PAUSED
       it.error = ''
     })
+    return true
   }
 
   static async resumeAllArchiverDownloads(context: common.UIAbilityContext): Promise<void> {
-    const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
-      (task: DownloadArchiverTask) => task.copy(),
-    )
-    for (let i: number = 0; i < tasks.length; i++) {
-      if (DownloadQueueSettings.canResumeArchiverTask(tasks[i]) &&
-        !DownloadQueueSettings.archiverDownloads.has(tasks[i].tag)) {
-        DownloadQueueSettings.downloadArchiver(context, tasks[i].tag)
-          .catch((error: Error) => {
-            DiagnosticLogger.warn('download', 'archiver_resume_all_task_failed', error.message)
-          })
-      }
-    }
+    DownloadQueueSettings.resumeArchiverTasks(context, connectDownloadQueue().archiverTasks)
   }
 
   static async pauseAllArchiverDownloads(context: common.UIAbilityContext): Promise<void> {
-    const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
-      (task: DownloadArchiverTask) => task.copy(),
+    const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.filter(
+      (task: DownloadArchiverTask) => DownloadQueueSettings.canPauseArchiverTask(task),
     )
-    for (let i: number = 0; i < tasks.length; i++) {
-      if (tasks[i].status === DownloadGalleryTaskStatus.DOWNLOADING) {
-        await DownloadQueueSettings.pauseArchiverDownload(context, tasks[i].tag)
-      }
+    tasks.forEach((task: DownloadArchiverTask) => DownloadQueueSettings.cancelArchiverTaskStart(task.tag))
+    for (const task of tasks) {
+      await DownloadQueueSettings.pauseArchiverDownload(context, task.tag)
     }
   }
 
@@ -974,7 +944,7 @@ export class DownloadQueueSettings {
       }
       return
     }
-    DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
+    if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) return
     const task: Promise<void> = DownloadQueueSettings.startArchiverDownload(context, tag)
     DownloadQueueSettings.archiverDownloads.set(tag, task)
     try {
@@ -982,7 +952,6 @@ export class DownloadQueueSettings {
     } finally {
       DownloadQueueSettings.clearArchiverRuntimeState(tag)
       DownloadQueueSettings.archiverDownloads.delete(tag)
-      DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
     }
   }
 
@@ -1220,6 +1189,7 @@ export class DownloadQueueSettings {
         task.token,
         true,
       )
+      if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) return
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.url = DownloadQueueSettings.normalizeArchiverDownloadUrl(result.url)
         it.error = ''
@@ -1230,6 +1200,7 @@ export class DownloadQueueSettings {
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(tag)}`,
       )
     } catch (error) {
+      if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) return
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.ERROR
         it.error = DownloadQueueSettings.userError(error as Object)
@@ -1249,6 +1220,7 @@ export class DownloadQueueSettings {
     isEx: boolean,
     preferOriginal: boolean = false,
   ): Promise<void> {
+    if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
     const before: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
     const beforeSeeds: number = before !== null ? before.imageSeeds.length : 0
     const beforeDownloaded: number = before !== null ? before.downloadedCount() : 0
@@ -1265,6 +1237,7 @@ export class DownloadQueueSettings {
         isEx,
         preferOriginal,
       )
+      if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
       if (detail === null) {
         return
       }
@@ -1284,6 +1257,7 @@ export class DownloadQueueSettings {
         `gid=${gid} seeds=${after !== null ? after.imageSeeds.length : 0} downloaded=${after !== null ? after.downloadedCount() : 0}`,
       )
     } catch (error) {
+      if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
       await DownloadQueueSettings.updateDownloadTaskStatus(
         context,
         gid,
@@ -1316,6 +1290,7 @@ export class DownloadQueueSettings {
           await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
           return detail
         } catch (error) {
+          if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) throw error as Error
           await DownloadQueueSettings.updateDownloadTaskStatus(
             context,
             gid,
@@ -1385,6 +1360,7 @@ export class DownloadQueueSettings {
       'gallery_prepare_start',
       `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} firstImages=${firstPageImages.length} previewPages=${previewPageCount}`,
     )
+    if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
     let seedImages: EhGalleryImage[] = firstPageImages.map((image: EhGalleryImage) => image.copy())
     let resolvedPreviewPageCount: number = previewPageCount
     if (seedImages.length === 0) {
@@ -1396,6 +1372,7 @@ export class DownloadQueueSettings {
           isEx,
           preferOriginal,
         )
+        if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
         if (detail === null) {
           return
         }
@@ -1407,6 +1384,7 @@ export class DownloadQueueSettings {
           `gid=${gid} images=${seedImages.length} previewPages=${resolvedPreviewPageCount}`,
         )
       } catch (error) {
+        if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
         await DownloadQueueSettings.updateDownloadTaskStatus(
           context,
           gid,
@@ -1423,6 +1401,7 @@ export class DownloadQueueSettings {
         return
       }
     }
+    if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
     const initialSeeds: DownloadImageSeed[] = DownloadQueueSettings.imagesToSeeds(seedImages)
     await DownloadQueueSettings.updatePreparedTask(
       context,
@@ -1447,16 +1426,19 @@ export class DownloadQueueSettings {
         preferOriginal,
       )
       for (let p = 1; p < totalPreviewPages; p++) {
+        if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
         const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
           gid,
           token,
           isEx,
           p,
         )
+        if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
         more.forEach((image: EhGalleryImage) => {
           allImages.push(image.copy())
         })
       }
+      if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
       await DownloadQueueSettings.updatePreparedTask(
         context,
         gid,
@@ -1474,6 +1456,7 @@ export class DownloadQueueSettings {
         `gid=${gid} seeds=${DownloadQueueSettings.imagesToSeeds(allImages).length} previewPages=${totalPreviewPages}`,
       )
     } catch (error) {
+      if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
       await DownloadQueueSettings.updateDownloadTaskStatus(
         context,
         gid,
@@ -1498,6 +1481,8 @@ export class DownloadQueueSettings {
     token: string,
     preferOriginal: boolean = false,
   ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
+    if (!DownloadQueueSettings.galleryCanContinue(gid, token, preferOriginal)) return
     const found: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
     if (found !== null && (
       found.imageSeeds.length === 0 ||
@@ -1506,7 +1491,6 @@ export class DownloadQueueSettings {
       await DownloadQueueSettings.refreshGallerySeedsFromRemote(context, gid, token, connectSiteMode().isEx, preferOriginal)
       return
     }
-    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
     if (running !== undefined) {
       await running
@@ -1516,7 +1500,6 @@ export class DownloadQueueSettings {
       }
       return
     }
-    DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     const task: Promise<void> = DownloadQueueSettings.startGalleryImageDownload(context, gid, token, preferOriginal)
     DownloadQueueSettings.galleryDownloads.set(key, task)
     try {
@@ -1524,7 +1507,6 @@ export class DownloadQueueSettings {
     } finally {
       DownloadQueueSettings.clearGalleryRuntimeState(key)
       DownloadQueueSettings.galleryDownloads.delete(key)
-      DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     }
   }
 
@@ -1954,7 +1936,94 @@ export class DownloadQueueSettings {
     return DownloadGalleryTaskStatus.PARTIAL
   }
 
-  private static canResumeGalleryTask(task: DownloadGalleryTask): boolean {
+  static canPauseGalleryTask(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.DOWNLOADING || task.status === DownloadGalleryTaskStatus.PREPARING ||
+      DownloadQueueSettings.galleryResumeQueue.has(DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal))
+  }
+
+  static canPauseArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.DOWNLOADING || task.status === DownloadGalleryTaskStatus.PREPARING ||
+      DownloadQueueSettings.archiverResumeQueue.has(task.tag)
+  }
+
+  static cancelGalleryTaskStart(gid: string, token: string, original: boolean): void {
+    const key: string = DownloadQueueSettings.taskKey(gid, token, original)
+    DownloadQueueSettings.galleryResumeQueue.cancel(key)
+    DownloadQueueSettings.cancelledGalleryDownloads.add(key)
+    DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
+  }
+
+  static cancelArchiverTaskStart(tag: string): void {
+    DownloadQueueSettings.archiverResumeQueue.cancel(tag)
+    DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
+  }
+
+  private static galleryCanContinue(gid: string, token: string, original: boolean): boolean {
+    return !DownloadQueueSettings.cancelledGalleryDownloads.has(DownloadQueueSettings.taskKey(gid, token, original)) &&
+      DownloadQueueSettings.findTask(gid, token, original) !== null
+  }
+
+  static resumeGalleryTasks(context: common.UIAbilityContext, tasks: DownloadGalleryTask[]): number {
+    let accepted: number = 0
+    tasks.forEach((task: DownloadGalleryTask) => {
+      const current: DownloadGalleryTask | null = DownloadQueueSettings.findTask(task.gid, task.token, task.preferOriginal)
+      if (current === null || !DownloadQueueSettings.canResumeGalleryTask(current)) return
+      const key: string = DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal)
+      if (DownloadQueueSettings.galleryResumeQueue.enqueue(key, connectDownloadSettings().concurrency,
+        async (job: DownloadResumeJob): Promise<void> => {
+          try {
+            const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
+            if (running !== undefined) await running
+            const preparing: Promise<void> | undefined = DownloadQueueSettings.galleryPreparations.get(key)
+            if (preparing !== undefined) await preparing
+            if (job.cancelled || DownloadQueueSettings.findTask(task.gid, task.token, task.preferOriginal) === null) return
+            DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
+            await DownloadQueueSettings.downloadGalleryImages(context, task.gid, task.token, task.preferOriginal)
+          } catch (error) {
+            DiagnosticLogger.warn('download', 'gallery_selected_resume_failed', (error as Error).message)
+          } finally {
+            publishDownloadQueueChanged()
+          }
+        })) {
+        current.status = DownloadGalleryTaskStatus.QUEUED
+        DownloadQueueSettings.persistGalleryTaskHeader(context, current, false)
+        accepted++
+      }
+    })
+    publishDownloadQueueChanged()
+    return accepted
+  }
+
+  static resumeArchiverTasks(context: common.UIAbilityContext, tasks: DownloadArchiverTask[]): number {
+    let accepted: number = 0
+    tasks.forEach((task: DownloadArchiverTask) => {
+      const current: DownloadArchiverTask | null = DownloadQueueSettings.findArchiverTask(task.tag)
+      if (current === null || !DownloadQueueSettings.canResumeArchiverTask(current)) return
+      if (DownloadQueueSettings.archiverResumeQueue.enqueue(task.tag, connectDownloadSettings().concurrency,
+        async (job: DownloadResumeJob): Promise<void> => {
+          try {
+            const running: Promise<void> | undefined = DownloadQueueSettings.archiverDownloads.get(task.tag)
+            if (running !== undefined) await running
+            if (job.cancelled || DownloadQueueSettings.findArchiverTask(task.tag) === null) return
+            DownloadQueueSettings.cancelledArchiverDownloads.delete(task.tag)
+            await DownloadQueueSettings.downloadArchiver(context, task.tag)
+          } catch (error) {
+            DiagnosticLogger.warn('download', 'archiver_selected_resume_failed', (error as Error).message)
+          } finally {
+            publishDownloadQueueChanged()
+          }
+        })) {
+        current.status = DownloadGalleryTaskStatus.QUEUED
+        DownloadQueueSettings.persistArchiverTask(context, current)
+        accepted++
+      }
+    })
+    publishDownloadQueueChanged()
+    return accepted
+  }
+
+  static canResumeGalleryTask(task: DownloadGalleryTask): boolean {
+    if (DownloadQueueSettings.galleryResumeQueue.has(DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal))) return false
     return task.status === DownloadGalleryTaskStatus.QUEUED ||
       task.status === DownloadGalleryTaskStatus.READY ||
       task.status === DownloadGalleryTaskStatus.PAUSED ||
@@ -1962,7 +2031,8 @@ export class DownloadQueueSettings {
       task.status === DownloadGalleryTaskStatus.ERROR
   }
 
-  private static canResumeArchiverTask(task: DownloadArchiverTask): boolean {
+  static canResumeArchiverTask(task: DownloadArchiverTask): boolean {
+    if (DownloadQueueSettings.archiverResumeQueue.has(task.tag)) return false
     return task.status === DownloadGalleryTaskStatus.QUEUED ||
       task.status === DownloadGalleryTaskStatus.PREPARING ||
       task.status === DownloadGalleryTaskStatus.PAUSED ||

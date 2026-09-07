@@ -5095,6 +5095,50 @@
     {
       "name": "llm_binding_save_failed",
       "value": "選択を保存できません：%s"
+    },
+    {
+      "name": "download_select",
+      "value": "選択"
+    },
+    {
+      "name": "download_select_all",
+      "value": "すべて選択"
+    },
+    {
+      "name": "download_deselect_all",
+      "value": "選択を解除"
+    },
+    {
+      "name": "download_selected_count",
+      "value": "%s 件選択中"
+    },
+    {
+      "name": "download_pause_selected",
+      "value": "一時停止（%s）"
+    },
+    {
+      "name": "download_resume_selected",
+      "value": "再開（%s）"
+    },
+    {
+      "name": "download_batch_queued",
+      "value": "%s 件をダウンロード待ちに追加しました"
+    },
+    {
+      "name": "download_batch_paused",
+      "value": "%1$s 件を一時停止、%2$s 件失敗"
+    },
+    {
+      "name": "download_batch_deleted",
+      "value": "%1$s 件を削除、%2$s 件失敗"
+    },
+    {
+      "name": "download_batch_delete_confirm",
+      "value": "選択した %s 件のダウンロードとローカルファイルを削除しますか？実行中のダウンロードは先に停止します。"
+    },
+    {
+      "name": "download_batch_deleting",
+      "value": "削除中 %s"
     }
   ]
 }

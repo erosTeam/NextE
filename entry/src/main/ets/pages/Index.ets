@@ -1,3 +1,4 @@
+import { AppStrings } from 'shared'
 import {
   HdsNavigation,
   HdsTabs,
@@ -665,6 +666,14 @@ struct Index {
   private readonly IMAGE_BLOCK_QA_FILE_COUNT: number = 6;
   private readonly IMAGE_BLOCK_QA_TITLE: string = '[pulpawoelbo] D.VA advertisement (Overwatch)';
 
+  onBackPress(): boolean {
+    if (this.logicalCurrentTab() === 3 && this.stack.getAllPathName().length === 0 && this.downloadView.selectionMode) {
+      this.downloadSelectionCommand('cancelSelection')
+      return true
+    }
+    return false
+  }
+
   aboutToAppear(): void {
     this.readerOverlay.reset()
     this.handlePendingEhUrl()
@@ -1271,7 +1280,34 @@ struct Index {
     return { 'value': items, 'maxCount': 2 }
   }
 
+  private downloadSelectionCommand(kind: string): void {
+    if (this.downloadView.batchBusy) return
+    this.downloadView.cmdKind = kind
+    this.downloadView.cmdSeq += 1
+  }
+
+  private downloadSelectionMenuItem(label: ResourceStr, icon: Resource, command: string, enabled: boolean): Record<string, Object> {
+    const content: Record<string, Object> = { 'label': label, 'icon': icon, 'isEnabled': enabled && !this.downloadView.batchBusy,
+      'action': () => { this.downloadSelectionCommand(command) } }
+    return { 'content': content }
+  }
+
+  private downloadSelectionMenu(): Record<string, Object> {
+    const items: Record<string, Object>[] = [
+      this.downloadSelectionMenuItem(this.downloadView.allSelected ? $r('app.string.download_deselect_all') : $r('app.string.download_select_all'),
+        $r('sys.symbol.checkmark_square'), 'selectAll', this.downloadView.visibleCount > 0),
+      this.downloadSelectionMenuItem(AppStrings.get('download_pause_selected').replace('%s', `${this.downloadView.selectedPausable}`),
+        $r('sys.symbol.pause'), 'pauseSelected', this.downloadView.selectedPausable > 0),
+      this.downloadSelectionMenuItem(AppStrings.get('download_resume_selected').replace('%s', `${this.downloadView.selectedResumable}`),
+        $r('sys.symbol.play_fill'), 'resumeSelected', this.downloadView.selectedResumable > 0),
+      this.downloadSelectionMenuItem($r('app.string.download_delete_task'), $r('sys.symbol.trash'),
+        'deleteSelected', this.downloadView.selectedCount > 0),
+    ]
+    return { 'value': items, 'maxCount': 3 }
+  }
+
   private downloadMenu(): Record<string, Object> {
+    if (this.downloadView.selectionMode) return this.downloadSelectionMenu()
     const signalVersion: number = this.downloadQueueSignal.version
     const items: Record<string, Object>[] = []
     const searchInner: Record<string, Object> = {
@@ -1284,6 +1320,8 @@ struct Index {
     }
     items.push({ 'content': searchInner })
     items.push(this.downloadSortMenuItem())
+    items.push(this.downloadSelectionMenuItem($r('app.string.download_select'), $r('sys.symbol.checkmark_square'),
+      'select', this.downloadView.visibleCount > 0))
     const resumeInner: Record<string, Object> = {
       'label': $r('app.string.download_resume_all'),
       'icon': $r('sys.symbol.play_fill'),
@@ -1338,29 +1376,16 @@ struct Index {
 
   private downloadHasResumable(): boolean {
     const queue = connectDownloadQueue()
-    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
-      return queue.archiverTasks.some((task: DownloadArchiverTask) => {
-        return task.status === DownloadGalleryTaskStatus.QUEUED ||
-          task.status === DownloadGalleryTaskStatus.ERROR
-      })
-    }
-    return queue.galleryTasks.some((task: DownloadGalleryTask) => {
-      return task.status === DownloadGalleryTaskStatus.QUEUED ||
-        task.status === DownloadGalleryTaskStatus.READY ||
-        task.status === DownloadGalleryTaskStatus.PAUSED ||
-        task.status === DownloadGalleryTaskStatus.PARTIAL ||
-        task.status === DownloadGalleryTaskStatus.ERROR
-    })
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? queue.archiverTasks.some((task: DownloadArchiverTask) => DownloadQueueSettings.canResumeArchiverTask(task))
+      : queue.galleryTasks.some((task: DownloadGalleryTask) => DownloadQueueSettings.canResumeGalleryTask(task))
   }
 
   private downloadHasPausable(): boolean {
     const queue = connectDownloadQueue()
-    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
-      return false
-    }
-    return queue.galleryTasks.some((task: DownloadGalleryTask) => {
-      return task.status === DownloadGalleryTaskStatus.DOWNLOADING
-    })
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? queue.archiverTasks.some((task: DownloadArchiverTask) => DownloadQueueSettings.canPauseArchiverTask(task))
+      : queue.galleryTasks.some((task: DownloadGalleryTask) => DownloadQueueSettings.canPauseGalleryTask(task))
   }
 
   private resumeVisibleDownloads(): void {
@@ -1456,6 +1481,13 @@ struct Index {
             : 0),
         )
         content['menu'] = this.downloadMenu()
+        if (this.downloadView.selectionMode) {
+          title['mainTitle'] = this.downloadView.batchProgress.length > 0 ? this.downloadView.batchProgress :
+            AppStrings.get('download_selected_count').replace('%s', `${this.downloadView.selectedCount}`)
+          const cancel: Record<string, Object> = { 'label': $r('app.string.common_cancel'), 'icon': $r('sys.symbol.xmark'),
+            'action': () => { this.downloadSelectionCommand('cancelSelection') } }
+          content['backIcon'] = cancel
+        }
       }
       if (tab !== 2 && tab !== 3) {
         content['menu'] = this.emptyMenu()
@@ -2009,6 +2041,7 @@ struct Index {
             }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
           }
         }
+        .enabled(!this.downloadView.batchBusy)
         .barOverlap(true)
         .barPosition(BarPosition.End)
         .barMode(BarMode.Fixed)
@@ -2033,6 +2066,7 @@ struct Index {
             this.stack.clear(false)
             this.navStackHolder.clearSecondaryEntry()
           }
+          if (changed) this.downloadView.selectionMode = false
           this.currentTab = index
           this.syncDownloadQueuePageActive()
           // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
@@ -2069,12 +2103,12 @@ struct Index {
       .enableDragBar(true)
       .titleBar(this.titleBarOpts())
       .titleMode(HdsNavigationTitleMode.MINI)
-      .hideBackButton(true)
+      .hideBackButton(this.logicalCurrentTab() !== 3 || !this.downloadView.selectionMode)
       // Scroll-up auto-hide of the title area (V2Next Index.ets:650-661). The bottomBuilder (源/周期条)
       // stays pinned (hideBottomBuilder:false), matching V2Next keeping its feed pills reachable while
       // scrolled. Bound to the active tab's scroller (rebound in onChange).
       .dynamicHideTitleBar({
-        hideTitleArea: true,
+        hideTitleArea: !this.downloadView.selectionMode,
         hideBottomBuilder: false,
         hideStatusBar: false,
         mode: HideMode.SCROLL_UP,

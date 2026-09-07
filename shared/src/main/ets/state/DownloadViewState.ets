@@ -19,6 +19,14 @@ export class DownloadSortMode {
  */
 @ObservedV2
 export class DownloadViewState {
+  @Trace selectionMode: boolean = false
+  @Trace selectedCount: number = 0
+  @Trace selectedPausable: number = 0
+  @Trace selectedResumable: number = 0
+  @Trace visibleCount: number = 0
+  @Trace allSelected: boolean = false
+  @Trace batchBusy: boolean = false
+  @Trace batchProgress: string = ''
   @Trace viewType: string = DownloadViewType.GALLERY
   @Trace searchActive: boolean = false
   @Trace searchText: string = ''

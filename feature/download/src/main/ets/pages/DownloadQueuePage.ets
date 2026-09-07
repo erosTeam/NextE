@@ -67,6 +67,8 @@ export struct DownloadQueuePage {
   @Local actionMenuKey: string = '';
   @Local exportingKey: string = '';
   @Local sortMenuShown: boolean = false;
+  @Local selectedKeys: Set<string> = new Set<string>();
+  private suppressSelectionClick: string = '';
   @Local swiperIndex: number = 0;
   @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   private stack: NavPathStack = connectNavStack().stack;
@@ -84,6 +86,192 @@ export struct DownloadQueuePage {
     alignment: DialogAlignment.Center,
     customStyle: false,
   });
+
+  @Monitor('downloadView.selectionMode')
+  private onSelectionModeChanged(): void {
+    if (!this.downloadView.selectionMode) {
+      this.selectedKeys = new Set<string>()
+      this.suppressSelectionClick = ''
+      this.publishSelection()
+    }
+  }
+
+  private visibleSelectionKeys(): string[] {
+    const keys: string[] = []
+    if (this.downloadView.viewType === DownloadViewType.GALLERY) {
+      this.galleryTaskGroups.forEach((group: DownloadGalleryTask[]) => {
+        group.forEach((task: DownloadGalleryTask) => { keys.push(this.galleryActionKey(task)) })
+      })
+    } else {
+      this.archiverTaskGroups.forEach((group: DownloadArchiverTask[]) => {
+        group.forEach((task: DownloadArchiverTask) => { keys.push(this.archiverActionKey(task)) })
+      })
+    }
+    return keys
+  }
+
+  private selectedGalleryTasks(): DownloadGalleryTask[] {
+    return this.downloadQueue.galleryTasks.filter((task: DownloadGalleryTask) => this.selectedKeys.has(this.galleryActionKey(task)))
+  }
+
+  private selectedArchiverTasks(): DownloadArchiverTask[] {
+    return this.downloadQueue.archiverTasks.filter((task: DownloadArchiverTask) => this.selectedKeys.has(this.archiverActionKey(task)))
+  }
+
+  private publishSelection(): void {
+    const visible: string[] = this.visibleSelectionKeys()
+    const kept: string[] = Array.from(this.selectedKeys).filter((key: string) => visible.includes(key))
+    if (kept.length !== this.selectedKeys.size) this.selectedKeys = new Set<string>(kept)
+    this.downloadView.visibleCount = visible.length
+    this.downloadView.selectedCount = this.selectedKeys.size
+    this.downloadView.allSelected = visible.length > 0 && kept.length === visible.length
+    this.downloadView.selectedPausable = this.selectedGalleryTasks().filter((task: DownloadGalleryTask) => this.canPauseTask(task)).length +
+      this.selectedArchiverTasks().filter((task: DownloadArchiverTask) => this.canPauseArchiverTask(task)).length
+    this.downloadView.selectedResumable = this.selectedGalleryTasks().filter((task: DownloadGalleryTask) => this.canResumeTask(task)).length +
+      this.selectedArchiverTasks().filter((task: DownloadArchiverTask) => this.canResumeArchiverTask(task)).length
+  }
+
+  private beginSelection(key: string = ''): void {
+    if (this.downloadView.batchBusy || this.downloadView.selectionMode) return
+    this.closeActionMenu()
+    this.sortMenuShown = false
+    this.selectedKeys = new Set<string>(key.length > 0 ? [key] : [])
+    this.downloadView.selectionMode = true
+    this.suppressSelectionClick = key
+    this.publishSelection()
+  }
+
+  private exitSelection(): void {
+    this.downloadView.selectionMode = false
+    this.selectedKeys = new Set<string>()
+    this.suppressSelectionClick = ''
+    this.publishSelection()
+  }
+
+  private selectAllTasks(): void {
+    this.selectedKeys = new Set<string>(this.downloadView.allSelected ? [] : this.visibleSelectionKeys())
+    this.publishSelection()
+  }
+
+  private setSelected(key: string, selected: boolean): void {
+    if (!this.downloadView.selectionMode || this.downloadView.batchBusy || this.selectedKeys.has(key) === selected) return
+    const next: Set<string> = new Set<string>(this.selectedKeys)
+    if (selected) next.add(key)
+    else next.delete(key)
+    this.selectedKeys = next
+    this.publishSelection()
+  }
+
+  private handleSelectionClick(key: string): boolean {
+    if (this.suppressSelectionClick === key) {
+      this.suppressSelectionClick = ''
+      return true
+    }
+    if (!this.downloadView.selectionMode) return false
+    this.setSelected(key, !this.selectedKeys.has(key))
+    return true
+  }
+
+  private selectionTouch(event: TouchEvent): void {
+    if (event.type === TouchType.Down) this.suppressSelectionClick = ''
+  }
+
+  private selectionToast(message: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: message })
+  }
+
+  private batchSummary(key: string, success: number, failed: number): string {
+    return AppStrings.get(key).replace('%1$s', `${success}`).replace('%2$s', `${failed}`)
+  }
+
+  private resumeSelected(): void {
+    const accepted: number = DownloadQueueSettings.resumeGalleryTasks(this.ctx(), this.selectedGalleryTasks()) +
+      DownloadQueueSettings.resumeArchiverTasks(this.ctx(), this.selectedArchiverTasks())
+    this.publishSelection()
+    this.selectionToast(AppStrings.get('download_batch_queued').replace('%s', `${accepted}`))
+  }
+
+  private async pauseSelected(): Promise<void> {
+    const galleries: DownloadGalleryTask[] = this.selectedGalleryTasks().filter((task: DownloadGalleryTask) => this.canPauseTask(task))
+    const archives: DownloadArchiverTask[] = this.selectedArchiverTasks().filter((task: DownloadArchiverTask) => this.canPauseArchiverTask(task))
+    this.downloadView.batchBusy = true
+    galleries.forEach((task: DownloadGalleryTask) => DownloadQueueSettings.cancelGalleryTaskStart(task.gid, task.token, task.preferOriginal))
+    archives.forEach((task: DownloadArchiverTask) => DownloadQueueSettings.cancelArchiverTaskStart(task.tag))
+    let success: number = 0
+    let failed: number = 0
+    try {
+      for (const task of galleries) {
+        try { if (await DownloadQueueSettings.pauseGalleryDownload(this.ctx(), task.gid, task.token, task.preferOriginal)) success++ }
+        catch (error) { failed++; DiagnosticLogger.warn('download', 'batch_pause_failed', (error as Error).message) }
+      }
+      for (const task of archives) {
+        try { if (await DownloadQueueSettings.pauseArchiverDownload(this.ctx(), task.tag)) success++ }
+        catch (error) { failed++; DiagnosticLogger.warn('download', 'batch_pause_failed', (error as Error).message) }
+      }
+    } finally {
+      this.downloadView.batchBusy = false
+      this.publishSelection()
+    }
+    this.selectionToast(this.batchSummary('download_batch_paused', success, failed))
+  }
+
+  private confirmDeleteSelected(): void {
+    const galleries: DownloadGalleryTask[] = this.selectedGalleryTasks().map((task: DownloadGalleryTask) => task.copy())
+    const archives: DownloadArchiverTask[] = this.selectedArchiverTasks().map((task: DownloadArchiverTask) => task.copy())
+    const total: number = galleries.length + archives.length
+    if (total === 0) return
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.download_delete_confirm_title'),
+      message: AppStrings.get('download_batch_delete_confirm').replace('%s', `${total}`),
+      primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
+      secondaryButton: {
+        value: $r('app.string.download_delete_confirm_action'), fontColor: Color.Red,
+        action: () => { this.deleteSelected(galleries, archives) },
+      },
+    })
+  }
+
+  private async deleteSelected(galleries: DownloadGalleryTask[], archives: DownloadArchiverTask[]): Promise<void> {
+    if (this.downloadView.batchBusy) return
+    this.downloadView.batchBusy = true
+    galleries.forEach((task: DownloadGalleryTask) => DownloadQueueSettings.cancelGalleryTaskStart(task.gid, task.token, task.preferOriginal))
+    archives.forEach((task: DownloadArchiverTask) => DownloadQueueSettings.cancelArchiverTaskStart(task.tag))
+    const failedKeys: string[] = []
+    const total: number = galleries.length + archives.length
+    let processed: number = 0
+    try {
+      for (const task of galleries) {
+        this.downloadView.batchProgress = AppStrings.get('download_batch_deleting').replace('%s', `${processed + 1}/${total}`)
+        try { await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token, task.preferOriginal) }
+        catch (error) { failedKeys.push(this.galleryActionKey(task)); DiagnosticLogger.warn('download', 'batch_delete_failed', (error as Error).message) }
+        processed++
+      }
+      for (const task of archives) {
+        this.downloadView.batchProgress = AppStrings.get('download_batch_deleting').replace('%s', `${processed + 1}/${total}`)
+        try { await DownloadQueueSettings.removeArchiver(this.ctx(), task.tag) }
+        catch (error) { failedKeys.push(this.archiverActionKey(task)); DiagnosticLogger.warn('download', 'batch_delete_failed', (error as Error).message) }
+        processed++
+      }
+    } finally {
+      this.downloadView.batchBusy = false
+      this.downloadView.batchProgress = ''
+      this.selectedKeys = new Set<string>(failedKeys)
+      if (failedKeys.length === 0) this.exitSelection()
+      else this.publishSelection()
+    }
+    this.selectionToast(this.batchSummary('download_batch_deleted', total - failedKeys.length, failedKeys.length))
+  }
+
+  @Builder
+  private TaskSelectionCheckbox(key: string, title: string) {
+    Checkbox({ name: key })
+      .select(this.selectedKeys.has(key))
+      .selectedColor(ThemeConstants.BRAND_PRIMARY)
+      .width(24).height(24).margin(0)
+      .enabled(!this.downloadView.batchBusy)
+      .accessibilityText(title)
+      .onChange((selected: boolean) => { this.setSelected(key, selected) })
+  }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -127,6 +315,8 @@ export struct DownloadQueuePage {
 
   @Monitor('downloadView.viewType')
   private onDownloadViewTypeChanged(): void {
+    this.exitSelection()
+    this.publishSelection()
     const target: number = this.selectedIndex()
     if (target === this.swiperIndex) {
       this.notifyActiveScroller()
@@ -178,6 +368,7 @@ export struct DownloadQueuePage {
     this.archiverTaskGroups = projection.archiverGroups
     this.galleryVisibleTaskCount = projection.galleryVisibleCount
     this.archiverVisibleTaskCount = projection.archiverVisibleCount
+    this.publishSelection()
     this.syncPinnedTaskGroup(this.downloadView.viewType)
   }
 
@@ -270,6 +461,13 @@ export struct DownloadQueuePage {
 
   @Monitor('downloadView.cmdSeq')
   private onDownloadViewCommand(): void {
+    if (this.downloadView.batchBusy) return
+    if (this.downloadView.cmdKind === 'select') this.beginSelection()
+    if (this.downloadView.cmdKind === 'cancelSelection') this.exitSelection()
+    if (this.downloadView.cmdKind === 'selectAll') this.selectAllTasks()
+    if (this.downloadView.cmdKind === 'pauseSelected') this.pauseSelected()
+    if (this.downloadView.cmdKind === 'resumeSelected') this.resumeSelected()
+    if (this.downloadView.cmdKind === 'deleteSelected') this.confirmDeleteSelected()
     if (this.downloadView.cmdKind === 'openSortMenu') {
       this.sortMenuShown = true
     }
@@ -554,7 +752,7 @@ export struct DownloadQueuePage {
   }
 
   private async resumeTask(task: DownloadGalleryTask): Promise<void> {
-    await DownloadQueueSettings.downloadGalleryImages(this.ctx(), task.gid, task.token, task.preferOriginal)
+    DownloadQueueSettings.resumeGalleryTasks(this.ctx(), [task])
   }
 
   private async pauseTask(task: DownloadGalleryTask): Promise<void> {
@@ -873,7 +1071,7 @@ export struct DownloadQueuePage {
   }
 
   private async resumeArchiverTask(task: DownloadArchiverTask): Promise<void> {
-    await DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag)
+    DownloadQueueSettings.resumeArchiverTasks(this.ctx(), [task])
   }
 
   private async pauseArchiverTask(task: DownloadArchiverTask): Promise<void> {
@@ -881,12 +1079,7 @@ export struct DownloadQueuePage {
   }
 
   private canResumeTask(task: DownloadGalleryTask): boolean {
-    const status: string = this.effectiveGalleryStatus(task.status, task.downloadedCount(), task.pageCount)
-    return status === DownloadGalleryTaskStatus.QUEUED ||
-      status === DownloadGalleryTaskStatus.ERROR ||
-      status === DownloadGalleryTaskStatus.PAUSED ||
-      status === DownloadGalleryTaskStatus.PARTIAL ||
-      status === DownloadGalleryTaskStatus.READY
+    return DownloadQueueSettings.canResumeGalleryTask(task)
   }
 
   private galleryResumeActionIcon(task: DownloadGalleryTask): Resource {
@@ -901,8 +1094,7 @@ export struct DownloadQueuePage {
   }
 
   private canPauseTask(task: DownloadGalleryTask): boolean {
-    return this.effectiveGalleryStatus(task.status, task.downloadedCount(), task.pageCount) ===
-      DownloadGalleryTaskStatus.DOWNLOADING
+    return DownloadQueueSettings.canPauseGalleryTask(task)
   }
 
   private canReadTask(task: DownloadGalleryTask): boolean {
@@ -923,10 +1115,7 @@ export struct DownloadQueuePage {
   }
 
   private canResumeArchiverTask(task: DownloadArchiverTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.ERROR ||
-      task.status === DownloadGalleryTaskStatus.PREPARING ||
-      task.status === DownloadGalleryTaskStatus.PAUSED ||
-      task.status === DownloadGalleryTaskStatus.QUEUED
+    return DownloadQueueSettings.canResumeArchiverTask(task)
   }
 
   private archiverResumeActionIcon(task: DownloadArchiverTask): Resource {
@@ -942,7 +1131,7 @@ export struct DownloadQueuePage {
   }
 
   private canPauseArchiverTask(task: DownloadArchiverTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.DOWNLOADING
+    return DownloadQueueSettings.canPauseArchiverTask(task)
   }
 
   private setSortMode(mode: string): void {
@@ -1249,9 +1438,13 @@ export struct DownloadQueuePage {
       .layoutWeight(1)
       .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
       .justifyContent(FlexAlign.Start)
-      .onClick(() => {
-        this.openTaskIfComplete(task)
-      })
+      .onTouch((event: TouchEvent) => { this.selectionTouch(event) })
+      .gesture(GestureGroup(GestureMode.Exclusive,
+        LongPressGesture({ repeat: false, duration: 500 }).onAction(() => { this.beginSelection(this.galleryActionKey(task)) }),
+        TapGesture().onAction(() => {
+          if (!this.handleSelectionClick(this.galleryActionKey(task))) this.openTaskIfComplete(task)
+        })
+      ))
     }
     .width('100%')
     .padding({ left: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING, right: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING,
@@ -1335,9 +1528,13 @@ export struct DownloadQueuePage {
       .layoutWeight(1)
       .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
       .justifyContent(FlexAlign.Start)
-      .onClick(() => {
-        this.openArchiverTaskIfComplete(task)
-      })
+      .onTouch((event: TouchEvent) => { this.selectionTouch(event) })
+      .gesture(GestureGroup(GestureMode.Exclusive,
+        LongPressGesture({ repeat: false, duration: 500 }).onAction(() => { this.beginSelection(this.archiverActionKey(task)) }),
+        TapGesture().onAction(() => {
+          if (!this.handleSelectionClick(this.archiverActionKey(task))) this.openArchiverTaskIfComplete(task)
+        })
+      ))
     }
     .width('100%')
     .padding({ left: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING, right: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING,
@@ -1367,9 +1564,13 @@ export struct DownloadQueuePage {
       thumbHeight: ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT,
       radius: ThemeConstants.DOWNLOAD_TASK_COVER_RADIUS,
     })
-      .onClick(() => {
-        this.openGalleryTaskSource(task)
-      })
+      .onTouch((event: TouchEvent) => { this.selectionTouch(event) })
+      .priorityGesture(GestureGroup(GestureMode.Exclusive,
+        LongPressGesture({ repeat: false, duration: 500 }).onAction(() => { this.beginSelection(this.galleryActionKey(task)) }),
+        TapGesture().onAction(() => {
+          if (!this.handleSelectionClick(this.galleryActionKey(task))) this.openGalleryTaskSource(task)
+        })
+      ))
   }
 
   @Builder
@@ -1381,9 +1582,13 @@ export struct DownloadQueuePage {
         thumbHeight: ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT,
         radius: ThemeConstants.DOWNLOAD_TASK_COVER_RADIUS,
       })
-        .onClick(() => {
-          this.openArchiverTaskSource(task)
+        .onTouch((event: TouchEvent) => { this.selectionTouch(event) })
+      .priorityGesture(GestureGroup(GestureMode.Exclusive,
+        LongPressGesture({ repeat: false, duration: 500 }).onAction(() => { this.beginSelection(this.archiverActionKey(task)) }),
+        TapGesture().onAction(() => {
+          if (!this.handleSelectionClick(this.archiverActionKey(task))) this.openArchiverTaskSource(task)
         })
+      ))
     } else {
       Column() {
         SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
@@ -1396,9 +1601,13 @@ export struct DownloadQueuePage {
       .alignItems(HorizontalAlign.Center)
       .borderRadius(ThemeConstants.DOWNLOAD_TASK_COVER_RADIUS)
       .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-      .onClick(() => {
-        this.openArchiverTaskSource(task)
-      })
+      .onTouch((event: TouchEvent) => { this.selectionTouch(event) })
+      .priorityGesture(GestureGroup(GestureMode.Exclusive,
+        LongPressGesture({ repeat: false, duration: 500 }).onAction(() => { this.beginSelection(this.archiverActionKey(task)) }),
+        TapGesture().onAction(() => {
+          if (!this.handleSelectionClick(this.archiverActionKey(task))) this.openArchiverTaskSource(task)
+        })
+      ))
     }
   }
 
@@ -1484,8 +1693,12 @@ export struct DownloadQueuePage {
   @Builder
   private GalleryTaskInlineActionColumn(task: DownloadGalleryTask) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      this.GalleryPrimaryAction(task)
-      this.GalleryTaskMoreButton(task)
+      if (this.downloadView.selectionMode) {
+        this.TaskSelectionCheckbox(this.galleryActionKey(task), task.displayTitle())
+      } else {
+        this.GalleryPrimaryAction(task)
+        this.GalleryTaskMoreButton(task)
+      }
     }
     .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
     .height('100%')
@@ -1496,8 +1709,12 @@ export struct DownloadQueuePage {
   @Builder
   private ArchiverTaskInlineActionColumn(task: DownloadArchiverTask) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      this.ArchiverPrimaryAction(task)
-      this.ArchiverTaskMoreButton(task)
+      if (this.downloadView.selectionMode) {
+        this.TaskSelectionCheckbox(this.archiverActionKey(task), task.displayTitle())
+      } else {
+        this.ArchiverPrimaryAction(task)
+        this.ArchiverTaskMoreButton(task)
+      }
     }
     .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
     .height('100%')

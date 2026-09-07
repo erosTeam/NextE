@@ -43,6 +43,7 @@ export struct DownloadTypeBar {
             this.downloadView.searchText = value
           },
         })
+          .enabled(!this.downloadView.selectionMode && !this.downloadView.batchBusy)
           .layoutWeight(1)
       }
       .width('100%')
@@ -82,6 +83,7 @@ export struct DownloadTypeBar {
             this.setSelectedIndex(index)
           },
         })
+          .enabled(!this.downloadView.batchBusy)
           .width(ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH)
       }
       .width('100%')
