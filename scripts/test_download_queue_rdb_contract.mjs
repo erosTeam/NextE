@@ -308,7 +308,7 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     !/JSON\.stringify\(\[task\]\)/.test(settings) &&
     /galleryMetadataPath\(task: DownloadGalleryTask\)[\s\S]*ensureGalleryDownloadDir\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
     /archiverMetadataPath\(task: DownloadArchiverTask\)[\s\S]*ensureArchiverDownloadDir\(\)[\s\S]*ARCHIVER_METADATA_SUFFIX/.test(settings) &&
-    /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*new util\.TextEncoder\(\)\.encodeInto\(text\)[\s\S]*bytes\.byteLength > 0[\s\S]*fs\.writeSync\(file\.fd, bytes\.buffer\)/.test(settings) &&
+    /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*text\.length > 0[\s\S]*new util\.TextEncoder\(\)\.encodeInto\(text\)[\s\S]*fs\.writeSync\(file\.fd, bytes\.buffer\)/.test(settings) &&
     !/fs\.writeSync\(file\.fd, text\)/.test(settings))
 ok('restore merges current download metadata sidecars without overriding RDB rows',
     /const rdbGalleryTasks: DownloadGalleryTask\[\] =[\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(restoreBody) &&

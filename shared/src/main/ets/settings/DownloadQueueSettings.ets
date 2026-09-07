@@ -3017,8 +3017,8 @@ export class DownloadQueueSettings {
     let file: fs.File | null = null
     try {
       file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
-      const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
-      if (bytes.byteLength > 0) {
+      if (text.length > 0) {
+        const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
         fs.writeSync(file.fd, bytes.buffer)
       }
     } catch (error) {
@@ -3150,6 +3150,9 @@ export class DownloadQueueSettings {
         const names: string[] = fs.listFileSync(root)
         for (let i: number = 0; i < names.length; i++) {
           const dir: string = DownloadQueueSettings.joinPath(root, names[i])
+          if (!fs.statSync(dir).isDirectory()) {
+            continue
+          }
           const metadataPath: string = DownloadQueueSettings.joinPath(dir, DOWNLOAD_METADATA_FILE)
           if (!fs.accessSync(metadataPath)) {
             continue
@@ -3269,6 +3272,9 @@ export class DownloadQueueSettings {
   }
 
   private static utf8ByteLength(value: string): number {
+    if (value.length === 0) {
+      return 0
+    }
     return new util.TextEncoder().encodeInto(value).byteLength
   }
 
