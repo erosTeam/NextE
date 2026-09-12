@@ -2590,7 +2590,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "Translate gallery comments with the selected LLM source, with Google as fallback."
+      "value": "Translate gallery comments with the selected LLM source, with the built-in online translator as fallback."
     },
     {
       "name": "comment_translation_auto",
@@ -2614,11 +2614,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "Use Google Translate"
+      "value": "Use free online translation"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "Skip LLM and use Google directly."
+      "value": "Skip the LLM and use the built-in online translator."
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -5035,6 +5035,10 @@
     {
       "name": "llm_source_add_hint",
       "value": "API and Codex OAuth sources can coexist"
+    },
+    {
+      "name": "llm_source_add_action",
+      "value": "Choose type"
     },
     {
       "name": "llm_source_type",

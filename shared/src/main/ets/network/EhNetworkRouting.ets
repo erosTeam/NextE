@@ -43,6 +43,15 @@ const BUILT_IN_RULES: EhHostRule[] = [
     host: 'github-releases.githubusercontent.com',
     ips: ['185.199.108.154', '185.199.109.154', '185.199.110.154', '185.199.111.154'],
   },
+  {
+    // Release downloads now redirect to this name instead of the legacy one above, and it answers
+    // from the same Fastly block as `objects.githubusercontent.com` (measured 185.199.108-111.133,
+    // byte-for-byte the same four addresses). Both names stay listed: a redirect that still lands on
+    // the legacy host keeps its pinned answer, and this entry is what lets the model installs reach
+    // their second hop when the system resolver is the thing that is broken.
+    host: 'release-assets.githubusercontent.com',
+    ips: ['185.199.108.133', '185.199.109.133', '185.199.110.133', '185.199.111.133'],
+  },
 ]
 
 const BUILT_EX_RULES: EhHostRule[] = [

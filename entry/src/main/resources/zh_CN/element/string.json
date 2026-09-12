@@ -2590,7 +2590,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "使用选定的 LLM 源翻译画廊评论，失败时回退到 Google"
+      "value": "使用选定的 LLM 源翻译画廊评论，失败时回退到内置在线翻译"
     },
     {
       "name": "comment_translation_auto",
@@ -2614,11 +2614,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "使用 Google 翻译"
+      "value": "使用免费在线翻译"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "跳过 LLM，直接使用 Google"
+      "value": "跳过 LLM，直接使用内置在线翻译"
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -5035,6 +5035,10 @@
     {
       "name": "llm_source_add_hint",
       "value": "API 与 Codex OAuth 源可以同时存在"
+    },
+    {
+      "name": "llm_source_add_action",
+      "value": "选择类型"
     },
     {
       "name": "llm_source_type",

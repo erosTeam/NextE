@@ -2590,7 +2590,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "選択したLLMソースでギャラリーコメントを翻訳し、失敗時はGoogleにフォールバックします。"
+      "value": "選択したLLMソースでギャラリーコメントを翻訳し、失敗時は内蔵のオンライン翻訳にフォールバックします。"
     },
     {
       "name": "comment_translation_auto",
@@ -2614,11 +2614,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "Google翻訳を使用"
+      "value": "無料のオンライン翻訳を使用"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "LLMを使わずGoogleを直接使用します。"
+      "value": "LLMを使わず、内蔵のオンライン翻訳を直接使用します。"
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -5035,6 +5035,10 @@
     {
       "name": "llm_source_add_hint",
       "value": "API と Codex OAuth ソースを併用できます"
+    },
+    {
+      "name": "llm_source_add_action",
+      "value": "タイプを選択"
     },
     {
       "name": "llm_source_type",
