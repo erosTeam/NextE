@@ -866,6 +866,11 @@ export { DiagnosticLogger, DiagnosticLogLevel } from './diagnostics/DiagnosticLo
 export { DiagnosticsLogFileSink, DiagnosticsLogFileInfo } from './diagnostics/DiagnosticsLogFileSink'
 export { DiagnosticsStore } from './diagnostics/DiagnosticsStore'
 export { DiagnosticsSettings, DiagnosticsSettingsSnapshot } from './settings/DiagnosticsSettings'
+export {
+  EhNetworkRoutingSettings,
+  EhNetworkRoutingSnapshot,
+} from './settings/EhNetworkRoutingSettings'
+export { EhNetworkRouting, EhHostRule, EhRequestPlan } from './network/EhNetworkRouting'
 export { DiagnosticsFileExport, DiagnosticsExportFile } from './settings/DiagnosticsFileExport'
 
 // utils
@@ -1037,6 +1042,10 @@ export { SearchActionState, connectSearchAction } from './state/SearchActionStat
 export { AppColorFavoritesState, connectAppColorFavorites } from './state/AppColorFavoritesState'
 export { HomeTabAutoHideState, connectHomeTabAutoHide } from './state/HomeTabAutoHideState'
 export { DiagnosticsState, connectDiagnostics } from './state/DiagnosticsState'
+export {
+  EhNetworkRoutingState,
+  connectEhNetworkRouting,
+} from './state/EhNetworkRoutingState'
 export {
   TagTranslationSettingsState,
   connectTagTranslationSettings,

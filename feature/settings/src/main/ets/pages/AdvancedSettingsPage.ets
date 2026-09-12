@@ -3,6 +3,7 @@ import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { systemShare } from '@kit.ShareKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { CustomContentDialog } from '@kit.ArkUI'
 import {
   AppStrings,
   ConciseListRow,
@@ -13,6 +14,10 @@ import {
   DiagnosticsLogFileSink,
   DiagnosticsSettings,
   DiagnosticsState,
+  EhNetworkRouting,
+  EhNetworkRoutingSettings,
+  EhNetworkRoutingSnapshot,
+  EhNetworkRoutingState,
   GroupedListSection,
   SecondaryListScaffold,
   SettingsCheckedMenuItem,
@@ -20,6 +25,7 @@ import {
   ListRowDivider,
   connectDiagnostics,
   connectNavStack,
+  connectEhNetworkRouting,
   NavStackHolder,
   immersiveTitleBar,
 } from 'shared'
@@ -27,13 +33,42 @@ import {
 @ComponentV2
 export struct AdvancedSettingsPage {
   @Local private diagnostics: DiagnosticsState = connectDiagnostics();
+  @Local private networkRouting: EhNetworkRoutingState = connectEhNetworkRouting();
   @Local private logCount: number = 0;
   @Local private logFiles: DiagnosticsLogFileInfo[] = [];
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
+  @Local private proxyServerInput: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private shareController?: systemShare.ShareController;
+  private proxyServerDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.network_proxy_server'),
+      contentBuilder: () => {
+        this.ProxyServerDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeProxyServerDialog()
+          },
+        },
+        {
+          value: $r('app.string.common_save'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmProxyServerDialog()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   aboutToAppear(): void {
     this.refreshLogState()
@@ -64,6 +99,130 @@ export struct AdvancedSettingsPage {
     const snapshot = DiagnosticsSettings.current()
     snapshot.minLevel = DiagnosticsSettings.normalizeLevel(level)
     DiagnosticsSettings.save(this.ctx(), snapshot)
+  }
+
+  /**
+   * Saves the whole routing snapshot rather than one field, because the store writes every key on
+   * each save and a partial snapshot would silently reset the others to their defaults.
+   */
+  private saveRouting(update: (snapshot: EhNetworkRoutingSnapshot) => void): void {
+    const snapshot: EhNetworkRoutingSnapshot = EhNetworkRoutingSettings.current()
+    update(snapshot)
+    EhNetworkRoutingSettings.save(this.ctx(), snapshot)
+    // The pinned-address rules live on the platform rather than in this snapshot, so toggling them
+    // only takes effect once they are re-applied. Cheap to call: it no-ops when nothing changed.
+    EhNetworkRouting.ensureHostRules().catch((error: Error) => {
+      DiagnosticLogger.warn('network', 'host_rules_reapply_failed', error.message)
+    })
+  }
+
+  private updateFrontingEnabled(enabled: boolean): void {
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.frontingEnabled = enabled
+    })
+  }
+
+  private updateBuiltInHostsEnabled(enabled: boolean): void {
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.builtInHostsEnabled = enabled
+    })
+  }
+
+  private updateDnsOverHttpsEnabled(enabled: boolean): void {
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.dnsOverHttpsEnabled = enabled
+    })
+  }
+
+  private updateDohProvider(provider: string): void {
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.dohProvider = provider
+    })
+  }
+
+  private updateProxyMode(mode: string): void {
+    if (mode === EhNetworkRoutingSettings.PROXY_SOCKS && !EhNetworkRouting.socks5Supported()) {
+      // SOCKS5 needs API 26 and silently falling back to the system proxy would look like the
+      // setting took effect when it did not, so the choice is refused instead.
+      return
+    }
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.proxyMode = mode
+    })
+  }
+
+  private editProxyServer(): void {
+    this.proxyServerInput = this.networkRouting.proxyServer
+    this.proxyServerDialogController.open()
+  }
+
+  private closeProxyServerDialog(): void {
+    try {
+      this.proxyServerDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
+  private confirmProxyServerDialog(): void {
+    // Save-time normalization is what actually decides whether the value is usable, so the field
+    // is handed over raw and the row shows the cleaned result on the next render.
+    this.saveRouting((snapshot: EhNetworkRoutingSnapshot) => {
+      snapshot.proxyServer = this.proxyServerInput
+    })
+    this.closeProxyServerDialog()
+  }
+
+  private dohProviderLabel(): string {
+    return this.networkRouting.dohProvider
+  }
+
+  private proxyModeLabel(): string {
+    return this.proxyModeLabelFor(this.networkRouting.proxyMode)
+  }
+
+  private proxyModeLabelFor(mode: string): string {
+    if (mode === EhNetworkRoutingSettings.PROXY_OFF) {
+      return AppStrings.get('network_proxy_mode_off')
+    }
+    if (mode === EhNetworkRoutingSettings.PROXY_HTTP) {
+      return AppStrings.get('network_proxy_mode_http')
+    }
+    if (mode === EhNetworkRoutingSettings.PROXY_SOCKS) {
+      return AppStrings.get('network_proxy_mode_socks')
+    }
+    return AppStrings.get('network_proxy_mode_system')
+  }
+
+  /** The server field is only meaningful for the two manual proxy modes. */
+  private proxyServerSubtitle(): ResourceStr {
+    const mode: string = this.networkRouting.proxyMode
+    const manual: boolean = mode === EhNetworkRoutingSettings.PROXY_HTTP ||
+      mode === EhNetworkRoutingSettings.PROXY_SOCKS
+    if (!manual) {
+      return $r('app.string.network_proxy_server_idle_hint')
+    }
+    if (this.networkRouting.proxyServer.length <= 0) {
+      return $r('app.string.network_proxy_server_unset')
+    }
+    return $r('app.string.network_proxy_server_value', this.networkRouting.proxyServer)
+  }
+
+  @Builder
+  ProxyServerDialogContent() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text($r('app.string.network_proxy_server_dialog_hint'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .width('100%')
+      TextInput({ text: this.proxyServerInput, placeholder: $r('app.string.network_proxy_server_placeholder') })
+        .defaultFocus(true)
+        .width('100%')
+        .onChange((value: string) => {
+          this.proxyServerInput = value
+        })
+    }
+    .width('100%')
   }
 
   private exportCurrentLog(): void {
@@ -208,6 +367,54 @@ export struct AdvancedSettingsPage {
   }
 
   @Builder
+  private DohProviderMenu(select: (action: () => void) => void) {
+    Menu() {
+      this.DohProviderMenuItem(EhNetworkRoutingSettings.PROVIDER_YANDEX, select)
+      this.DohProviderMenuItem(EhNetworkRoutingSettings.PROVIDER_CLOUDFLARE, select)
+      this.DohProviderMenuItem(EhNetworkRoutingSettings.PROVIDER_GOOGLE, select)
+    }
+  }
+
+  @Builder
+  private DohProviderMenuItem(provider: string, select: (action: () => void) => void) {
+    SettingsCheckedMenuItem({
+      label: provider,
+      selected: this.networkRouting.dohProvider === provider,
+      selectAction: () => {
+        select(() => {
+          this.updateDohProvider(provider)
+        })
+      },
+    })
+  }
+
+  @Builder
+  private ProxyModeMenu(select: (action: () => void) => void) {
+    Menu() {
+      this.ProxyModeMenuItem(EhNetworkRoutingSettings.PROXY_SYSTEM, select)
+      this.ProxyModeMenuItem(EhNetworkRoutingSettings.PROXY_HTTP, select)
+      // Offered only where the platform can honour it, so the list never shows a dead choice.
+      if (EhNetworkRouting.socks5Supported()) {
+        this.ProxyModeMenuItem(EhNetworkRoutingSettings.PROXY_SOCKS, select)
+      }
+      this.ProxyModeMenuItem(EhNetworkRoutingSettings.PROXY_OFF, select)
+    }
+  }
+
+  @Builder
+  private ProxyModeMenuItem(mode: string, select: (action: () => void) => void) {
+    SettingsCheckedMenuItem({
+      label: this.proxyModeLabelFor(mode),
+      selected: this.networkRouting.proxyMode === mode,
+      selectAction: () => {
+        select(() => {
+          this.updateProxyMode(mode)
+        })
+      },
+    })
+  }
+
+  @Builder
   private NavigationSection() {
     GroupedListSection() {
       ConciseListRow({
@@ -243,6 +450,87 @@ export struct AdvancedSettingsPage {
         dropdownMenuEnabled: true,
         dropdownMenuBuilder: (select: (action: () => void) => void) => {
           this.LevelMenu(select)
+        },
+      })
+    }
+  }
+
+  /**
+   * EH network routing, ordered from the layer that fixes the most to the one that fixes the least.
+   *
+   * Fronting is first because it is the only layer that survives name-based blocking, and its row
+   * says plainly what it costs: dialing a literal address means the certificate presented can
+   * never match, so identity validation is skipped for those requests. The rows below it are
+   * progressively cheaper fallbacks for networks where that cost is not worth paying.
+   */
+  @Builder
+  private NetworkSection() {
+    GroupedListSection() {
+      ConciseListRow({
+        title: $r('app.string.network_fronting'),
+        subtitle: $r('app.string.network_fronting_hint'),
+        leadingIcon: $r('sys.symbol.network_acceleration'),
+        hasSwitch: true,
+        checked: this.networkRouting.frontingEnabled,
+        switchAction: (value: boolean) => {
+          this.updateFrontingEnabled(value)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.network_built_in_hosts'),
+        subtitle: $r('app.string.network_built_in_hosts_hint'),
+        leadingIcon: $r('sys.symbol.wifi_router'),
+        hasSwitch: true,
+        checked: this.networkRouting.builtInHostsEnabled,
+        switchAction: (value: boolean) => {
+          this.updateBuiltInHostsEnabled(value)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.network_doh'),
+        subtitle: $r('app.string.network_doh_hint'),
+        leadingIcon: $r('sys.symbol.lock_shield'),
+        hasSwitch: true,
+        checked: this.networkRouting.dnsOverHttpsEnabled,
+        switchAction: (value: boolean) => {
+          this.updateDnsOverHttpsEnabled(value)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.network_doh_provider'),
+        subtitle: $r('app.string.network_doh_provider_hint'),
+        leadingIcon: $r('sys.symbol.cloud'),
+        trailingText: this.dohProviderLabel(),
+        trailingDropdown: true,
+        // Only meaningful once encrypted DNS is on, so the picker stays inert until then.
+        dropdownMenuEnabled: this.networkRouting.dnsOverHttpsEnabled,
+        dropdownMenuBuilder: (select: (action: () => void) => void) => {
+          this.DohProviderMenu(select)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.network_proxy_mode'),
+        subtitle: $r('app.string.network_proxy_mode_hint'),
+        leadingIcon: $r('sys.symbol.arrow_left_arrow_right'),
+        trailingText: this.proxyModeLabel(),
+        trailingDropdown: true,
+        dropdownMenuEnabled: true,
+        dropdownMenuBuilder: (select: (action: () => void) => void) => {
+          this.ProxyModeMenu(select)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.network_proxy_server'),
+        subtitle: this.proxyServerSubtitle(),
+        leadingIcon: $r('sys.symbol.link'),
+        showChevron: false,
+        action: () => {
+          this.editProxyServer()
         },
       })
     }
@@ -342,6 +630,9 @@ export struct AdvancedSettingsPage {
         }
         ListItem() {
           this.DiagnosticsSection()
+        }
+        ListItem() {
+          this.NetworkSection()
         }
         ListItem() {
           this.ActionsSection()

@@ -3425,6 +3425,86 @@
       "value": "已写入诊断标记"
     },
     {
+      "name": "network_fronting",
+      "value": "按地址直连"
+    },
+    {
+      "name": "network_fronting_hint",
+      "value": "改用已知地址连接并显式声明站点域名，可绕过封锁域名的网络。这些请求会跳过证书校验。"
+    },
+    {
+      "name": "network_built_in_hosts",
+      "value": "内置地址"
+    },
+    {
+      "name": "network_built_in_hosts_hint",
+      "value": "把 EH 域名映射到已知地址，对整个应用生效，证书校验保持不变。"
+    },
+    {
+      "name": "network_doh",
+      "value": "加密 DNS"
+    },
+    {
+      "name": "network_doh_hint",
+      "value": "通过 HTTPS 解析域名，取代明文 DNS。需要所选服务在你的网络下可达。"
+    },
+    {
+      "name": "network_doh_provider",
+      "value": "DNS 服务商"
+    },
+    {
+      "name": "network_doh_provider_hint",
+      "value": "由哪家服务商处理加密 DNS 查询。"
+    },
+    {
+      "name": "network_proxy_mode",
+      "value": "代理模式"
+    },
+    {
+      "name": "network_proxy_mode_hint",
+      "value": "通过代理发送请求；跟随系统指使用设备当前的代理设置。"
+    },
+    {
+      "name": "network_proxy_mode_system",
+      "value": "跟随系统"
+    },
+    {
+      "name": "network_proxy_mode_http",
+      "value": "HTTP"
+    },
+    {
+      "name": "network_proxy_mode_socks",
+      "value": "SOCKS5"
+    },
+    {
+      "name": "network_proxy_mode_off",
+      "value": "关闭"
+    },
+    {
+      "name": "network_proxy_server",
+      "value": "代理服务器"
+    },
+    {
+      "name": "network_proxy_server_idle_hint",
+      "value": "仅在 HTTP 与 SOCKS5 代理模式下使用。"
+    },
+    {
+      "name": "network_proxy_server_unset",
+      "value": "未设置"
+    },
+    {
+      "name": "network_proxy_server_value",
+      "value": "当前：%s"
+    },
+    {
+      "name": "network_proxy_server_dialog_hint",
+      "value": "代理的主机与端口，用冒号分隔。"
+    },
+    {
+      "name": "network_proxy_server_placeholder",
+      "value": "127.0.0.1:7890"
+    },
+    {
       "name": "diagnostics_enabled",
       "value": "保留诊断日志"
     },

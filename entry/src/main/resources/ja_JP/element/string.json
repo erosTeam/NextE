@@ -3425,6 +3425,86 @@
       "value": "診断マーカーを書き込みました"
     },
     {
+      "name": "network_fronting",
+      "value": "アドレスで直接接続"
+    },
+    {
+      "name": "network_fronting_hint",
+      "value": "既知のアドレスに接続し、サイト名を明示して要求します。ドメイン名を遮断するネットワークを回避できます。これらの要求では証明書の検証を省略します。"
+    },
+    {
+      "name": "network_built_in_hosts",
+      "value": "内蔵アドレス"
+    },
+    {
+      "name": "network_built_in_hosts_hint",
+      "value": "EH のドメインを既知のアドレスに対応付けます。アプリ全体に適用され、証明書の検証は維持されます。"
+    },
+    {
+      "name": "network_doh",
+      "value": "暗号化 DNS"
+    },
+    {
+      "name": "network_doh_hint",
+      "value": "平文 DNS の代わりに HTTPS で名前解決します。到達可能な事業者が必要です。"
+    },
+    {
+      "name": "network_doh_provider",
+      "value": "DNS 事業者"
+    },
+    {
+      "name": "network_doh_provider_hint",
+      "value": "暗号化 DNS の問い合わせを処理する事業者です。"
+    },
+    {
+      "name": "network_proxy_mode",
+      "value": "プロキシ"
+    },
+    {
+      "name": "network_proxy_mode_hint",
+      "value": "プロキシ経由で要求を送信します。システムは端末の設定に従います。"
+    },
+    {
+      "name": "network_proxy_mode_system",
+      "value": "システム"
+    },
+    {
+      "name": "network_proxy_mode_http",
+      "value": "HTTP"
+    },
+    {
+      "name": "network_proxy_mode_socks",
+      "value": "SOCKS5"
+    },
+    {
+      "name": "network_proxy_mode_off",
+      "value": "オフ"
+    },
+    {
+      "name": "network_proxy_server",
+      "value": "プロキシサーバー"
+    },
+    {
+      "name": "network_proxy_server_idle_hint",
+      "value": "HTTP と SOCKS5 のプロキシモードでのみ使用します。"
+    },
+    {
+      "name": "network_proxy_server_unset",
+      "value": "未設定"
+    },
+    {
+      "name": "network_proxy_server_value",
+      "value": "使用中: %s"
+    },
+    {
+      "name": "network_proxy_server_dialog_hint",
+      "value": "プロキシのホストとポートをコロンで区切って入力します。"
+    },
+    {
+      "name": "network_proxy_server_placeholder",
+      "value": "127.0.0.1:7890"
+    },
+    {
       "name": "diagnostics_enabled",
       "value": "診断ログを保持"
     },

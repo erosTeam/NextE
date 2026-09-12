@@ -7,8 +7,10 @@ import axios, {
 } from '@ohos/axios'
 import { http } from '@kit.NetworkKit'
 import { fileIo as fs } from '@kit.CoreFileKit'
+import { util } from '@kit.ArkTS'
 import { EhConstants } from '../constants/EhConstants'
 import { EhCookieStore } from './EhCookieStore'
+import { EhNetworkRouting, EhRequestPlan } from './EhNetworkRouting'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 export interface EhTextResponse {
@@ -40,12 +42,16 @@ const STREAM_PROGRESS_INTERVAL_MS: number = 250
  * a timeout after EH applied a comment, vote, tag, favorite, or archive request is ambiguous and
  * must not be turned into a duplicate write by the transport layer.
  *
- * Anti-block (per the dropped-domain-fronting decision): standard requests + DoH/fallback-IP
- * resolution + user proxy/VPN are layered in later via a pluggable resolver; M1 connects
- * directly (the table site is reachable on the test network).
+ * Anti-block: EH routing (pinned addresses, address fronting, encrypted DNS and proxy selection)
+ * is applied to every request through EhNetworkRouting. With every switch at its default-off
+ * position the transport is untouched; see that class for what each layer costs.
  */
 export class EhHttpClient {
   private static instance: EhHttpClient
+  // Cached stock adapter for the override-inactive path. Held as a nullable field rather than a
+  // lazy initializer because resolving it touches axios, which is not yet configured at class
+  // definition time.
+  private static stockAdapterRef: AxiosAdapter | null = null
 
   static getInstance(): EhHttpClient {
     if (!EhHttpClient.instance) {
@@ -214,6 +220,12 @@ export class EhHttpClient {
       readTimeout: READ_TIMEOUT_MS,
       timeout: READ_TIMEOUT_MS,
       validateStatus: EhHttpClient.acceptStatus,
+      // @ohos/axios copies request options through a fixed whitelist that drops every transport
+      // field EH routing needs (remoteValidation, dnsOverHttps, usingProxy), so those options can
+      // only reach the wire through our own adapter. With every routing switch off the adapter
+      // delegates straight back to the stock path, keeping the default transport byte-for-byte
+      // identical.
+      adapter: EhHttpClient.createTextAdapter(),
     }
     if (method === 'POST') {
       config.data = body
@@ -243,6 +255,186 @@ export class EhHttpClient {
       header['Content-Type'] = contentType
     }
     return header
+  }
+
+  /**
+   * Text-request adapter. Every request keeps the stock adapter unless a routing switch is on, in
+   * which case it is issued through @ohos.net.http directly so that address rewriting, the
+   * matching `Host` header, encrypted DNS and the proxy can reach the wire.
+   *
+   * Only the transport changes on that path: method, headers (including the injected Cookie),
+   * body, timeouts and the accept-any-status semantics are reproduced so callers cannot observe
+   * a behavioural difference beyond how the connection was established.
+   */
+  private static createTextAdapter(): AxiosAdapter {
+    const adapter: AxiosAdapter = async (
+      config: InternalAxiosRequestConfig,
+    ): AxiosPromise<string> => {
+      if (!EhNetworkRouting.overridesTransport()) {
+        return await EhHttpClient.stockAdapter()(config)
+      }
+      const plan: EhRequestPlan = EhNetworkRouting.createPlan(EhHttpClient.requiredUrl(config))
+      return await EhHttpClient.requestTextViaHttpOnce(config, plan)
+    }
+    return adapter
+  }
+
+  /**
+   * The stock @ohos/axios adapter, resolved once behind a name the ArkTS compiler can see. The
+   * package exports the adapter registry but not its type, so this reads the same object axios
+   * itself would have picked and keeps the fallback path identical to the pre-override build.
+   */
+  private static stockAdapter(): AxiosAdapter {
+    if (EhHttpClient.stockAdapterRef === null) {
+      EhHttpClient.stockAdapterRef = axios.defaults.adapter as AxiosAdapter
+    }
+    return EhHttpClient.stockAdapterRef
+  }
+
+  private static async requestTextViaHttpOnce(
+    config: InternalAxiosRequestConfig,
+    plan: EhRequestPlan,
+  ): Promise<AxiosResponse<string, string>> {
+    const method: string = (config.method ? config.method : 'GET').toUpperCase()
+    const header: Record<string, string> = EhHttpClient.headerRecord(config.headers)
+    // The stock adapter sits behind the platform's automatic decompression; this one does not, and
+    // the SDK exposes no in-memory inflate. Asking for identity keeps the body readable here and
+    // costs only a few KB on the text pages this path carries. The endpoint's own semantics are
+    // untouched — gzip stays advertised on every request the override does not claim.
+    header['Accept-Encoding'] = 'identity'
+    if (plan.fronted) {
+      // The authority has been replaced by a literal address, so the platform can no longer derive
+      // the name the server actually routes on. Without this the origin would see a request for
+      // the address itself and answer for the wrong virtual host.
+      header['Host'] = plan.host
+    }
+    const req: http.HttpRequest = http.createHttp()
+    const chunks: ArrayBuffer[] = []
+    // requestInStream never exposes the response header on its return value, so it has to be
+    // captured from the event. It arrives before any body byte.
+    let responseHeader: Record<string, string> = {}
+    req.on('headersReceive', (heard: Object) => {
+      responseHeader = heard as Record<string, string>
+    })
+    req.on('dataReceive', (data: ArrayBuffer) => {
+      chunks.push(data)
+    })
+    const startedAt: number = Date.now()
+    let outcomeRecorded: boolean = false
+    try {
+      const body: string = EhHttpClient.bodyOf(config.data)
+      const options: http.HttpRequestOptions = {
+        method: EhHttpClient.httpMethod(method),
+        header: header,
+        connectTimeout: EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS),
+        readTimeout: EhHttpClient.timeoutValue(config.readTimeout, READ_TIMEOUT_MS),
+        usingCache: false,
+      }
+      if (body.length > 0) {
+        options.extraData = body
+      }
+      EhNetworkRouting.applyToOptions(options, plan)
+      const code: number = await req.requestInStream(plan.url, options)
+      EhNetworkRouting.recordOutcome(plan, EhNetworkRouting.isReachableStatus(code), Date.now() - startedAt)
+      outcomeRecorded = true
+      if (code < 100 || code > 599) {
+        // Mirrors the stock adapter, which rejects anything outside the accepted range.
+        throw new Error(`HTTP ${code}`)
+      }
+      const text: string = EhHttpClient.decodeBody(chunks)
+      const resp: AxiosResponse<string, string> = {
+        data: text,
+        status: code,
+        statusText: '',
+        // Passed through as-is: requestTextOnceWithAxios re-serializes it into the rawHeader that
+        // EhTextResponse promises, so the shape only has to match what the stock path produces.
+        headers: responseHeader,
+        config: config,
+      }
+      return resp
+    } catch (error) {
+      if (!outcomeRecorded) {
+        // A transport failure is the strongest possible signal that this address is wrong.
+        EhNetworkRouting.recordOutcome(plan, false, Date.now() - startedAt)
+      }
+      // ArkTS requires a typed throw, so the caught value is re-typed rather than forwarded raw.
+      throw error as Error
+    } finally {
+      req.destroy()
+    }
+  }
+
+  private static httpMethod(method: string): http.RequestMethod {
+    if (method === 'POST') {
+      return http.RequestMethod.POST
+    }
+    if (method === 'PUT') {
+      return http.RequestMethod.PUT
+    }
+    if (method === 'DELETE') {
+      return http.RequestMethod.DELETE
+    }
+    if (method === 'HEAD') {
+      return http.RequestMethod.HEAD
+    }
+    if (method === 'OPTIONS') {
+      return http.RequestMethod.OPTIONS
+    }
+    if (method === 'TRACE') {
+      return http.RequestMethod.TRACE
+    }
+    if (method === 'CONNECT') {
+      return http.RequestMethod.CONNECT
+    }
+    return http.RequestMethod.GET
+  }
+
+  private static bodyOf(data: Object | undefined): string {
+    if (data === undefined || data === null) {
+      return ''
+    }
+    return typeof data === 'string' ? data : JSON.stringify(data)
+  }
+
+  private static headerRecord(headers: Object): Record<string, string> {
+    const source: Record<string, string> = headers as Record<string, string>
+    const result: Record<string, string> = {}
+    const keys: string[] = Object.keys(source)
+    for (let i = 0; i < keys.length; i++) {
+      const key: string = keys[i]
+      const value: string = source[key]
+      if (value !== undefined && value !== null) {
+        result[key] = `${value}`
+      }
+    }
+    return result
+  }
+
+  /** Joins the received chunks and decodes them as UTF-8. */
+  private static decodeBody(chunks: ArrayBuffer[]): string {
+    const merged: Uint8Array = EhHttpClient.concatChunks(chunks)
+    if (merged.byteLength === 0) {
+      return ''
+    }
+    return EhHttpClient.bytesToUtf8(merged)
+  }
+
+  private static concatChunks(chunks: ArrayBuffer[]): Uint8Array {
+    let total: number = 0
+    for (let i = 0; i < chunks.length; i++) {
+      total += chunks[i].byteLength
+    }
+    const merged: Uint8Array = new Uint8Array(total)
+    let offset: number = 0
+    for (let i = 0; i < chunks.length; i++) {
+      merged.set(new Uint8Array(chunks[i]), offset)
+      offset += chunks[i].byteLength
+    }
+    return merged
+  }
+
+  private static bytesToUtf8(bytes: Uint8Array): string {
+    return util.TextDecoder.create('utf-8').decodeToString(bytes)
   }
 
   private static acceptStatus(status: number): boolean {
@@ -369,6 +561,9 @@ export class EhHttpClient {
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
     while (attempt < attempts) {
+      // Re-planned per attempt rather than once per download: a failed attempt has just demoted the
+      // address it used, so the retry should be free to pick a different one.
+      const plan: EhRequestPlan = EhNetworkRouting.createPlan(url)
       const req: http.HttpRequest = http.createHttp()
       let noProgressTimer: number = -1
       let noProgressTimedOut: boolean = false
@@ -391,8 +586,11 @@ export class EhHttpClient {
       let file: fs.File | null = null
       let openedTarget: boolean = false
       let shouldDeleteFile: boolean = false
+      let streamStartedAt: number = 0
+      let streamOutcomeRecorded: boolean = false
       try {
         const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
+        EhHttpClient.applyFrontedHost(header, plan)
         file = fs.openSync(
           filePath,
           fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
@@ -440,13 +638,22 @@ export class EhHttpClient {
           }
           emitProgress(progressLoaded, progressTotal)
         })
-        const code: number = await req.requestInStream(url, {
+        const streamOptions: http.HttpRequestOptions = {
           method: http.RequestMethod.GET,
           header: header,
           connectTimeout: connectTimeoutMs,
           readTimeout: readTimeoutMs,
           usingCache: false,
-        })
+        }
+        EhNetworkRouting.applyToOptions(streamOptions, plan)
+        streamStartedAt = Date.now()
+        const code: number = await req.requestInStream(plan.url, streamOptions)
+        streamOutcomeRecorded = true
+        EhNetworkRouting.recordOutcome(
+          plan,
+          EhNetworkRouting.isReachableStatus(code),
+          Date.now() - streamStartedAt,
+        )
         if (noProgressTimedOut) {
           throw new Error('binary no progress timeout')
         }
@@ -469,6 +676,11 @@ export class EhHttpClient {
       } catch (error) {
         const e = error as Error
         shouldDeleteFile = openedTarget
+        if (!streamOutcomeRecorded) {
+          // A download that never produced a status is the clearest sign the address is unusable.
+          EhNetworkRouting.recordOutcome(plan, false, Date.now() - streamStartedAt)
+          streamOutcomeRecorded = true
+        }
         lastError = noProgressTimedOut ? new Error('binary no progress timeout') : e
         DiagnosticLogger.warn(
           'network',
@@ -571,6 +783,9 @@ export class EhHttpClient {
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
     while (attempt < attempts) {
+      // Re-planned per attempt: an attempt that just failed has demoted the address it used, so the
+      // retry should be free to dial a different one.
+      const plan: EhRequestPlan = EhNetworkRouting.createPlan(url)
       const req: http.HttpRequest = http.createHttp()
       let file: fs.File | null = null
       let openedTarget: boolean = false
@@ -586,6 +801,8 @@ export class EhHttpClient {
       let prepared: boolean = false
       let cancelled: boolean = false
       let streamError: string = ''
+      let resumeStartedAt: number = 0
+      let resumeOutcomeRecorded: boolean = false
       const emitProgress = (loaded: number, total: number, force: boolean = false): void => {
         if (loaded <= 0) {
           return
@@ -607,6 +824,7 @@ export class EhHttpClient {
           emitProgress(attemptStart, knownTotal, true)
         }
         const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
+        EhHttpClient.applyFrontedHost(header, plan)
         if (attemptStart > 0) {
           header['Range'] = `bytes=${attemptStart}-`
         }
@@ -671,13 +889,22 @@ export class EhHttpClient {
             req.destroy()
           }
         })
-        const code: number = await req.requestInStream(url, {
+        const resumeOptions: http.HttpRequestOptions = {
           method: http.RequestMethod.GET,
           header: header,
           connectTimeout: CONNECT_TIMEOUT_MS,
           readTimeout: readTimeoutMs,
           usingCache: false,
-        })
+        }
+        EhNetworkRouting.applyToOptions(resumeOptions, plan)
+        resumeStartedAt = Date.now()
+        const code: number = await req.requestInStream(plan.url, resumeOptions)
+        resumeOutcomeRecorded = true
+        EhNetworkRouting.recordOutcome(
+          plan,
+          EhNetworkRouting.isReachableStatus(code),
+          Date.now() - resumeStartedAt,
+        )
         req.destroy()
         if (file !== null) {
           fs.closeSync(file)
@@ -711,6 +938,12 @@ export class EhHttpClient {
         return written
       } catch (error) {
         const e = error as Error
+        if (!resumeOutcomeRecorded) {
+          // Includes the cancelled case, which is harmless: cancel is rare next to the failures
+          // this signal exists for, and one demotion does not remove an address from rotation.
+          EhNetworkRouting.recordOutcome(plan, false, Date.now() - resumeStartedAt)
+          resumeOutcomeRecorded = true
+        }
         lastError = streamError.length > 0 ? new Error(streamError) : e
         if (!cancelled && streamError.length === 0 && e.message !== 'binary download cancelled') {
           DiagnosticLogger.warn(
@@ -792,6 +1025,19 @@ export class EhHttpClient {
       'Accept': accept,
       'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
       'Cookie': EhCookieStore.getInstance().header(),
+    }
+  }
+
+  /**
+   * Adds the `Host` header a fronted request needs.
+   *
+   * Swapping the authority for a literal address means the platform can no longer derive the name
+   * the origin routes on, so the plan's original authority has to be sent explicitly. Non-fronted
+   * requests are left alone and keep the platform-derived header.
+   */
+  private static applyFrontedHost(header: Record<string, string>, plan: EhRequestPlan): void {
+    if (plan.fronted && plan.host.length > 0) {
+      header['Host'] = plan.host
     }
   }
 
