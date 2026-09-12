@@ -98,6 +98,7 @@ Allowed `Sync` values:
 | StorageKeys.SECURITY_RECENT_TASKS_PROTECTION | setting | plaintext | excluded | Recent-task protection |
 | StorageKeys.SECURITY_AUTO_LOCK_SEC | setting | plaintext | excluded | App lock timeout |
 | StorageKeys.SECURITY_LAST_BACKGROUND_AT | runtime | excluded | excluded | App-lock runtime marker |
+| StorageKeys.BACK_GUARD_ENABLED | setting | plaintext | excluded | Home double-back exit guard toggle |
 | StorageKeys.HOME_SOURCE | setting | plaintext | excluded | Home tab source |
 | StorageKeys.FAVORITES_FAVCAT | setting | plaintext | excluded | Favorites tab choice |
 | StorageKeys.TOPLIST_TL | setting | plaintext | excluded | Toplist period |
