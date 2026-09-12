@@ -50,6 +50,18 @@ const COMMENT_LANGUAGE_URL_RE: RegExp = /https?:\/\/[^\s<>"']+/g
 const COMMENT_LANGUAGE_DOMAIN_RE: RegExp =
   /\b(?:www\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?:\/[^\s<>"']*)?/g
 const COMMENT_LANGUAGE_TOKEN_RE: RegExp = /NEXTEATHEX[0-9a-fA-F]+TOKEN/g
+const BING_ORIGIN: string = 'https://cn.bing.com'
+const BING_TRANSLATOR_PAGE_URL: string = 'https://cn.bing.com/translator'
+const BING_TRANSLATE_ENDPOINT: string = 'https://cn.bing.com/ttranslatev3?isVertical=1'
+const BING_IID: string = 'translator.5028.1'
+/** The translator page mints a key/token pair plus this instrumentation id; the POST needs all three. */
+const BING_ABUSE_TICKET_RE: RegExp =
+  /params_AbusePreventionHelper\s*=\s*\[\s*(\d+)\s*,\s*"([^"]+)"(?:\s*,\s*(\d+))?/
+const BING_IG_RE: RegExp = /IG:"([0-9A-Fa-f]+)"/
+const BING_TICKET_DEFAULT_LIFETIME_MS: number = 30 * 60 * 1000
+const BING_TICKET_MIN_LIFETIME_MS: number = 60 * 1000
+/** Stop using a ticket this long before its advertised expiry, so a POST never races the rotation. */
+const BING_TICKET_SAFETY_MS: number = 60 * 1000
 
 class ChatMessage {
   role: string = ''
@@ -73,6 +85,22 @@ class ChatCompletionChoice {
 
 class ChatCompletionResponse {
   choices: ChatCompletionChoice[] = []
+}
+
+class BingTranslationItem {
+  text: string = ''
+}
+
+class BingTranslateResponse {
+  translations: BingTranslationItem[] = []
+}
+
+/** Credentials one POST spends: the minted key/token pair plus the page's instrumentation id. */
+class BingTranslatorTicket {
+  key: string = ''
+  token: string = ''
+  ig: string = ''
+  expiresAt: number = 0
 }
 
 class MemoryTranslationEntry {
@@ -411,6 +439,8 @@ export class CommentTranslationService {
   private static persistedCacheWritesSinceMaintenance: number = -1
   private static persistedCacheMaintenanceInFlight: boolean = false
   private static persistedCacheMaintenanceFollowUp: boolean = false
+  // One live ticket covers a whole batch of comments; it is minted lazily and re-minted on expiry.
+  private static bingTicket: BingTranslatorTicket | null = null
 
   static targetLanguage(): string {
     const locale: string = connectLanguageState().effectiveLocale
@@ -1014,22 +1044,22 @@ export class CommentTranslationService {
         )
         return llmResult
       } catch (error) {
-        DiagnosticLogger.warn('translation', 'llm_failed_google_fallback', (error as Error).message)
+        DiagnosticLogger.warn('translation', 'llm_failed_free_fallback', (error as Error).message)
       }
     }
-    const googleStartedAt: number = Date.now()
+    const freeStartedAt: number = Date.now()
     DiagnosticLogger.info(
       'translation',
-      'comment_google_start',
+      'comment_bing_start',
       `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
     )
-    const googleResult: string = await CommentTranslationService.callGoogle(text, targetLang)
+    const bingResult: string = await CommentTranslationService.callBing(text, targetLang)
     DiagnosticLogger.info(
       'translation',
-      'comment_google_done',
-      `target=${targetLang} resultLen=${googleResult.length} elapsedMs=${Date.now() - googleStartedAt}`,
+      'comment_bing_done',
+      `target=${targetLang} resultLen=${bingResult.length} elapsedMs=${Date.now() - freeStartedAt}`,
     )
-    return googleResult
+    return bingResult
   }
 
   private static async callLlm(
@@ -1090,61 +1120,148 @@ export class CommentTranslationService {
     }
   }
 
-  private static async callGoogle(text: string, targetLang: string): Promise<string> {
-    const to: string =
-      targetLang === 'zh-CN' ? 'zh-cn' : targetLang === 'zh-TW' ? 'zh-tw' : targetLang
+  /**
+   * The keyless Bing web translator, in two steps: the translator page mints a key/token pair plus
+   * the `IG` instrumentation id, and `ttranslatev3` spends them.
+   *
+   * The POST targets `cn.bing.com` directly on purpose. `www.bing.com` answers 302 to it, and a
+   * redirected POST loses its body — the reply is then an empty 200, which reads like a silent
+   * server failure rather than a transport mistake.
+   */
+  private static async callBing(text: string, targetLang: string): Promise<string> {
+    const ticket: BingTranslatorTicket = await CommentTranslationService.bingTicketFor(false)
+    try {
+      return await CommentTranslationService.bingTranslate(text, targetLang, ticket)
+    } catch (_error) {
+      // The likely cause is a ticket that expired between minting and spending. One forced refresh
+      // separates that from a genuine failure; the second outcome is what the caller sees.
+      const refreshed: BingTranslatorTicket = await CommentTranslationService.bingTicketFor(true)
+      return await CommentTranslationService.bingTranslate(text, targetLang, refreshed)
+    }
+  }
+
+  private static async bingTranslate(
+    text: string,
+    targetLang: string,
+    ticket: BingTranslatorTicket,
+  ): Promise<string> {
+    const form: string =
+      `fromLang=auto-detect&text=${CommentTranslationService.bingFormEncode(text)}` +
+      `&to=${CommentTranslationService.bingFormEncode(CommentTranslationService.bingLanguageCode(targetLang))}` +
+      `&token=${CommentTranslationService.bingFormEncode(ticket.token)}` +
+      `&key=${CommentTranslationService.bingFormEncode(ticket.key)}`
     const url: string =
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(to)}` +
-      `&dt=t&q=${encodeURIComponent(text)}`
+      `${BING_TRANSLATE_ENDPOINT}&IG=${CommentTranslationService.bingFormEncode(ticket.ig)}` +
+      `&IID=${BING_IID}`
     const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
       url,
-      'GET',
+      'POST',
       {
         'User-Agent': EhConstants.USER_AGENT,
         'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': BING_ORIGIN,
+        'Referer': BING_TRANSLATOR_PAGE_URL,
+        // Without this header the endpoint still answers 200, but the body carries no translations.
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      form,
+      TRANSLATION_CONNECT_TIMEOUT_MS,
+      TRANSLATION_READ_TIMEOUT_MS,
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`Bing Translate HTTP ${resp.statusCode}`)
+    }
+    const translated: string = CommentTranslationService.parseBingBody(resp.body)
+    if (translated.length === 0) {
+      throw new Error('Bing Translate returned empty response')
+    }
+    return translated
+  }
+
+  /** Reuses the live ticket when one exists, and mints a new one otherwise (or when forced). */
+  private static async bingTicketFor(force: boolean): Promise<BingTranslatorTicket> {
+    const cached: BingTranslatorTicket | null = CommentTranslationService.bingTicket
+    if (!force && cached !== null && cached.expiresAt > Date.now()) {
+      return cached
+    }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      BING_TRANSLATOR_PAGE_URL,
+      'GET',
+      {
+        'User-Agent': EhConstants.USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
       },
       '',
       TRANSLATION_CONNECT_TIMEOUT_MS,
       TRANSLATION_READ_TIMEOUT_MS,
     )
-    const body: string = resp.body
     if (resp.statusCode !== 200) {
-      throw new Error(`Google Translate HTTP ${resp.statusCode}`)
+      throw new Error(`Bing translator page HTTP ${resp.statusCode}`)
     }
-    const translated: string = CommentTranslationService.parseGoogleBody(body)
-    if (translated.length === 0) {
-      throw new Error('Google Translate returned empty response')
-    }
-    return translated
+    const ticket: BingTranslatorTicket = CommentTranslationService.parseBingTicket(resp.body)
+    CommentTranslationService.bingTicket = ticket
+    return ticket
   }
 
-  private static parseGoogleBody(body: string): string {
+  private static parseBingTicket(html: string): BingTranslatorTicket {
+    const abuse: RegExpMatchArray | null = html.match(BING_ABUSE_TICKET_RE)
+    if (abuse === null) {
+      throw new Error('Bing translator ticket not found')
+    }
+    const ig: RegExpMatchArray | null = html.match(BING_IG_RE)
+    if (ig === null) {
+      throw new Error('Bing translator IG not found')
+    }
+    const ticket: BingTranslatorTicket = new BingTranslatorTicket()
+    ticket.key = abuse[1]
+    ticket.token = abuse[2]
+    ticket.ig = ig[1]
+    // A missing or implausible advertised lifetime falls back to a conservative default rather than
+    // pinning a ticket that is already dead.
+    const advertisedRaw: string | undefined = abuse[3]
+    const advertised: number = advertisedRaw === undefined ? 0 : Number.parseInt(advertisedRaw, 10)
+    const lifetime: number = advertised > BING_TICKET_MIN_LIFETIME_MS
+      ? advertised
+      : BING_TICKET_DEFAULT_LIFETIME_MS
+    ticket.expiresAt = Date.now() + lifetime - BING_TICKET_SAFETY_MS
+    return ticket
+  }
+
+  /** `application/x-www-form-urlencoded` wants a literal plus for a space, not `%20`. */
+  private static bingFormEncode(value: string): string {
+    return encodeURIComponent(value).replace(/%20/g, '+')
+  }
+
+  /** Bing spells the Chinese targets by script rather than by region. */
+  private static bingLanguageCode(targetLang: string): string {
+    if (targetLang === 'zh-CN') {
+      return 'zh-Hans'
+    }
+    if (targetLang === 'zh-TW') {
+      return 'zh-Hant'
+    }
+    return targetLang
+  }
+
+  private static parseBingBody(body: string): string {
     let root: Object
     try {
       root = JSON.parse(body) as Object
     } catch (_error) {
       return ''
     }
-    if (!Array.isArray(root)) {
+    const parsed: BingTranslateResponse = root as BingTranslateResponse
+    if (!Array.isArray(parsed.translations) || parsed.translations.length === 0) {
       return ''
     }
-    const top: Object[] = root as Object[]
-    if (top.length === 0 || !Array.isArray(top[0])) {
+    const first: BingTranslationItem | undefined = parsed.translations[0]
+    if (first === undefined || typeof first.text !== 'string') {
       return ''
     }
-    const lines: Object[] = top[0] as Object[]
-    let out: string = ''
-    for (let i = 0; i < lines.length; i++) {
-      const lineObj: Object = lines[i]
-      if (Array.isArray(lineObj)) {
-        const line: Object[] = lineObj as Object[]
-        if (line.length > 0 && typeof line[0] === 'string') {
-          out += line[0] as string
-        }
-      }
-    }
-    return out.trim()
+    return first.text.trim()
   }
 
   private static putMemory(key: string, translated: string, expiresAt: number): void {
@@ -1199,7 +1316,9 @@ export class CommentTranslationService {
   /** Keeps cached output attached to the selected route, source revision and model. */
   private static cacheScope(targetLang: string): string {
     if (CommentTranslationSettings.current().useGoogleOnly) {
-      return `${targetLang}|google-v1`
+      // The scope names the provider that produced the cached text, so switching providers must
+      // switch the scope: a Bing result must never be served as a Google one, or vice versa.
+      return `${targetLang}|bing-v1`
     }
     try {
       const binding: LlmConsumerBinding = LlmSourceProfileRepository.currentBinding(
@@ -1213,9 +1332,10 @@ export class CommentTranslationService {
         return `${targetLang}|${resolution.profile.sourceProfileId}|r${resolution.profile.sourceRevision}|${resolution.modelId}`
       }
     } catch (_error) {
-      // Missing or damaged source selection follows the same explicit Google fallback as the request path.
+      // Missing or damaged source selection follows the same explicit free-translator fallback as
+      // the request path.
     }
-    return `${targetLang}|google-fallback-v1`
+    return `${targetLang}|bing-fallback-v1`
   }
 
   private static cacheKey(text: string, cacheScope: string): string {

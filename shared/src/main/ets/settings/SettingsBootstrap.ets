@@ -38,6 +38,8 @@ import { LlmSourceProfileRepository } from './LlmSourceProfileRepository'
 import { LlmSourceMigrationService } from '../services/LlmSourceMigrationService'
 import { LocalBlockSettings } from './LocalBlockSettings'
 import { DiagnosticsSettings } from './DiagnosticsSettings'
+import { EhNetworkRoutingSettings } from './EhNetworkRoutingSettings'
+import { EhNetworkRouting } from '../network/EhNetworkRouting'
 import { SyncSettings } from './SyncSettings'
 import { ThemeSettings } from './ThemeSettings'
 import { ThemeColorSettings } from './ThemeColorSettings'
@@ -103,6 +105,8 @@ export class SettingsBootstrap {
         HomeTabSettings.restore(context),
         ToplistFilterSettings.restore(context),
         ClipboardLinkSettings.restore(context),
+        // Decides how the very first EH request is dialed, so it must land before first content.
+        EhNetworkRoutingSettings.restore(context),
         WebLoginStyleSettings.restore(context),
         ImageBlockSettings.restore(context),
         TagTranslationSettings.restore(context),
@@ -141,6 +145,13 @@ export class SettingsBootstrap {
       await LlmSourceProfileRepository.restore(context)
       await SyncSettings.restore(context)
       await DiagnosticsSettings.restore(context)
+      // Routing rules and the network-change listener are platform calls that do not block first
+      // paint, and the layer they serve (pinned DNS answers) is not on the critical path: address
+      // fronting already carries the first requests without them.
+      EhNetworkRouting.registerNetworkChangeListener(context)
+      EhNetworkRouting.ensureHostRules().catch((error: Error): void => {
+        DiagnosticLogger.warn('network', 'host_rules_startup_failed', error.message)
+      })
       await DownloadQueueSettings.restore(context)
       ImagePipelineService.pruneReaderFileCache(context).catch((error: Error) => {
         DiagnosticLogger.warn('image-cache', 'reader_disk_startup_prune_failed', error.message)

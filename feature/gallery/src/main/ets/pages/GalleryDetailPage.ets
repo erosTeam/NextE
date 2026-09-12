@@ -499,8 +499,13 @@ export struct GalleryDetailPage {
     return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
   }
 
-  private readFabRailBottomInset(): number {
-    return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
+  // The rail is centred on the pane, and the pane spans the whole window: the title-bar region sits at
+  // the top and the navigation inset at the bottom, neither of which the eye counts as "the page". So
+  // the exact middle reads high and the button is pushed back down by two and a half title-bar heights
+  // (2.5 x 56vp = 140vp). This is the only knob for the vertical position — change this value to move
+  // the button up or down.
+  private readFabCenterBiasY(): number {
+    return ThemeConstants.TITLE_BAR_HEIGHT * 2.5
   }
 
   private readFabOuterHeight(): number {
@@ -2881,27 +2886,37 @@ export struct GalleryDetailPage {
 
   @Builder
   private ReadFabRail() {
-    Row() {
+    Column() {
       Row() {
-        this.ReadFabButton()
+        Row() {
+          this.ReadFabButton()
+        }
+        .height(this.readFabOuterHeight())
+        .translate({ x: this.readFabVisualX() })
+        .opacity(this.readFabLayoutReady ? 1 : 0)
+        .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
+        .onAreaChange((_oldArea: Area, area: Area) => {
+          this.readFabWidth = area.width as number
+          this.updateReadFabLayoutReady()
+        })
       }
-      .height(this.readFabOuterHeight())
-      .translate({ x: this.readFabVisualX() })
-      .opacity(this.readFabLayoutReady ? 1 : 0)
-      .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
-      .onAreaChange((_oldArea: Area, area: Area) => {
-        this.readFabWidth = area.width as number
-        this.updateReadFabLayoutReady()
-      })
+      // Full-width rail; the button is Start-anchored and slid horizontally by translate so the
+      // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
+      // its internal activity padding for edge clearance, so the rail padding is style-dependent.
+      .width('100%')
+      .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
+      .justifyContent(FlexAlign.Start)
+      .hitTestBehavior(HitTestMode.Transparent)
     }
-    // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
-    // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
-    // its internal activity padding for edge clearance, so the rail padding is style-dependent.
+    // The rail spans the pane and centres the button vertically, so the Read action sits in the middle
+    // of the page rather than hugging the bottom edge, then readFabCenterBiasY() drops it below the
+    // exact middle. The full-height host keeps hit testing passthrough so only the button itself
+    // takes touches.
     .width('100%')
-    .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
-    .justifyContent(FlexAlign.Start)
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .offset({ y: this.readFabCenterBiasY() })
     .hitTestBehavior(HitTestMode.Transparent)
-    .position({ left: 0, bottom: this.readFabRailBottomInset() })
   }
 
   @Builder

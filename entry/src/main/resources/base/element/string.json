@@ -2590,7 +2590,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "Translate gallery comments with the selected LLM source, with Google as fallback."
+      "value": "Translate gallery comments with the selected LLM source, with the built-in online translator as fallback."
     },
     {
       "name": "comment_translation_auto",
@@ -2614,11 +2614,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "Use Google Translate"
+      "value": "Use free online translation"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "Skip LLM and use Google directly."
+      "value": "Skip the LLM and use the built-in online translator."
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -3423,6 +3423,86 @@
     {
       "name": "advanced_marker_written",
       "value": "Diagnostic marker written"
+    },
+    {
+      "name": "network_fronting",
+      "value": "Connect by address"
+    },
+    {
+      "name": "network_fronting_hint",
+      "value": "Dials a known address and names the site explicitly, which gets through networks that block the domain name. Certificate identity checks are skipped for these requests."
+    },
+    {
+      "name": "network_built_in_hosts",
+      "value": "Built-in addresses"
+    },
+    {
+      "name": "network_built_in_hosts_hint",
+      "value": "Maps EH domains to known addresses across the whole app. Certificate checks stay on."
+    },
+    {
+      "name": "network_doh",
+      "value": "Encrypted DNS"
+    },
+    {
+      "name": "network_doh_hint",
+      "value": "Resolves names over HTTPS instead of plain DNS. Needs a provider your network can reach."
+    },
+    {
+      "name": "network_doh_provider",
+      "value": "DNS provider"
+    },
+    {
+      "name": "network_doh_provider_hint",
+      "value": "Which resolver answers encrypted DNS queries."
+    },
+    {
+      "name": "network_proxy_mode",
+      "value": "Proxy mode"
+    },
+    {
+      "name": "network_proxy_mode_hint",
+      "value": "Sends requests through a proxy. System follows your device settings."
+    },
+    {
+      "name": "network_proxy_mode_system",
+      "value": "System"
+    },
+    {
+      "name": "network_proxy_mode_http",
+      "value": "HTTP"
+    },
+    {
+      "name": "network_proxy_mode_socks",
+      "value": "SOCKS5"
+    },
+    {
+      "name": "network_proxy_mode_off",
+      "value": "Off"
+    },
+    {
+      "name": "network_proxy_server",
+      "value": "Proxy server"
+    },
+    {
+      "name": "network_proxy_server_idle_hint",
+      "value": "Only used by the HTTP and SOCKS5 proxy modes."
+    },
+    {
+      "name": "network_proxy_server_unset",
+      "value": "Not set"
+    },
+    {
+      "name": "network_proxy_server_value",
+      "value": "Using: %s"
+    },
+    {
+      "name": "network_proxy_server_dialog_hint",
+      "value": "Host and port of the proxy, separated by a colon."
+    },
+    {
+      "name": "network_proxy_server_placeholder",
+      "value": "127.0.0.1:7890"
     },
     {
       "name": "diagnostics_enabled",
@@ -4594,7 +4674,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "On-device manga model download failed"
+      "value": "On-device manga model download failed: %s"
     },
     {
       "name": "comic_local_detector_remove_title",
@@ -4955,6 +5035,10 @@
     {
       "name": "llm_source_add_hint",
       "value": "API and Codex OAuth sources can coexist"
+    },
+    {
+      "name": "llm_source_add_action",
+      "value": "Choose type"
     },
     {
       "name": "llm_source_type",

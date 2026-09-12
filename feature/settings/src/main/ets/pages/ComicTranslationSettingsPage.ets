@@ -225,12 +225,16 @@ export struct ComicTranslationSettingsPage {
       this.localDetectorInstalled = true
       this.toast($r('app.string.comic_local_detector_install_success'))
     } catch (error) {
+      // The service fails over across several sources, so the message carries which asset and which
+      // failure ended the chain. Without it the user only sees "download failed" and cannot tell a
+      // dead host from a slow link, which is what made this unactionable in the field.
+      const reason: string = (error as Error).message
       DiagnosticLogger.warn(
         'comic-translation',
         'local_detector_install_failed',
-        (error as Error).message,
+        reason,
       )
-      this.toast($r('app.string.comic_local_detector_install_failed'))
+      this.toast($r('app.string.comic_local_detector_install_failed', reason))
     } finally {
       this.localDetectorBusy = false
     }

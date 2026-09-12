@@ -95,6 +95,13 @@ export class StorageKeys {
   static readonly TOPLIST_APPLY_HIDDEN_USER_TAGS: string = 'toplist.applyHiddenUserTags'
   static readonly CLIPBOARD_LINK_ENABLED: string = 'clipboardLink.enabled'
   static readonly CLIPBOARD_LINK_CHANGE_COUNT: string = 'clipboardLink.changeCount'
+  // EH network routing: pinned addresses, system DNS rules, encrypted DNS and proxy selection.
+  static readonly NETWORK_FRONTING_ENABLED: string = 'network.frontingEnabled'
+  static readonly NETWORK_BUILT_IN_HOSTS_ENABLED: string = 'network.builtInHostsEnabled'
+  static readonly NETWORK_DOH_ENABLED: string = 'network.dohEnabled'
+  static readonly NETWORK_DOH_PROVIDER: string = 'network.dohProvider'
+  static readonly NETWORK_PROXY_MODE: string = 'network.proxyMode'
+  static readonly NETWORK_PROXY_SERVER: string = 'network.proxyServer'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
   static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'

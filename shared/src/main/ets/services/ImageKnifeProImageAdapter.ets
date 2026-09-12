@@ -7,7 +7,6 @@ import {
   ContentTransitionType,
   DownSamplingStrategy,
   EventImage,
-  HeaderOptions,
   ImageKnife,
   ImageInfo,
   ImageKnifeOptionV2,
@@ -147,19 +146,18 @@ export struct ImageKnifeProImageAdapter {
     this.retriesUsed = 0
     this.completionNotified = false
     const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
-    option.loadSrc = this.src
+    ImageKnifeProRuntime.applyTransportPlan(
+      option,
+      this.src,
+      ImageKnifeProRuntime.defaultHeaders(),
+      this.connectTimeoutMs,
+      this.readTimeoutMs,
+    )
     option.objectFit = this.objectFit
     option.writeCacheStrategy = this.memoryOnly
       ? CacheStrategy.MEMORY
       : (this.enableCache ? CacheStrategy.DEFAULT : CacheStrategy.NONE)
-    option.headerOption = this.headers()
     option.priority = this.imageKnifePriority()
-    if (this.connectTimeoutMs > 0 && this.readTimeoutMs > 0) {
-      option.httpOption = {
-        connectTimeout: this.connectTimeoutMs,
-        readTimeout: this.readTimeoutMs,
-      }
-    }
     if (this.fileCacheName.length > 0) {
       option.fileCacheName = this.fileCacheName
     }
@@ -321,10 +319,6 @@ export struct ImageKnifeProImageAdapter {
   private defaultContext(): common.UIAbilityContext | undefined {
     const context = getContext(this)
     return context === undefined ? undefined : context as common.UIAbilityContext
-  }
-
-  private headers(): HeaderOptions[] {
-    return ImageKnifeProRuntime.defaultHeaders()
   }
 
   private imageKnifePriority(): Priority {

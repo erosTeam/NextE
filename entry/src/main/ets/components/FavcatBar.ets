@@ -18,9 +18,9 @@ import {
 /**
  * Favorites favcat switcher, PINNED in the HDS title bar via a `bottomBuilder`. CHIPS-ONLY (search +
  * order are HDS title-bar actions). '全部' (all) is a synthetic favId 'a' whose count is the remote 0-9
- * aggregate; slots 0-9 come from `favList` (name + count). It uses the shared SubTabBar's V2Next
- * sliding indicator, driven by the per-frame favcat visual index that FavoritesPage's retained Swiper
- * publishes — so the bar tracks the finger/page swipe.
+ * aggregate; slots 0-9 come from `favList` (name + count). It uses the shared SubTabBar, whose capsule
+ * highlight follows the per-frame favcat visual index that FavoritesPage's retained Swiper publishes —
+ * so the bar tracks the finger/page swipe.
  * Many favcats overflow, so the bar scrolls horizontally and auto-centres the active favcat. A chip tap
  * requests the host's native transition; FavoritesPage writes the selected favcat after it settles.
  */

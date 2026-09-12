@@ -74,7 +74,7 @@ ok(/cursorHash=/.test(favoritesVm) && /nextHash=/.test(favoritesVm),
 const commentTranslation = read('shared/src/main/ets/services/CommentTranslationService.ets')
 ok(/comment_translate_start/.test(commentTranslation) && /comment_translate_done/.test(commentTranslation),
   'comment translation records request lifecycle diagnostics')
-ok(/comment_llm_start/.test(commentTranslation) && /comment_google_start/.test(commentTranslation),
+ok(/comment_llm_start/.test(commentTranslation) && /comment_bing_start/.test(commentTranslation),
   'comment translation records provider selection diagnostics')
 
 const imageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')

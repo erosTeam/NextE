@@ -174,6 +174,12 @@ Allowed `Sync` values:
 | StorageKeys.LOCAL_BLOCK_RULES | legacy-local-data | excluded | excluded | RDB source is local block tables |
 | StorageKeys.DIAGNOSTICS_ENABLED | setting | plaintext | excluded | Diagnostics switch |
 | StorageKeys.DIAGNOSTICS_MIN_LEVEL | setting | plaintext | excluded | Diagnostics level |
+| StorageKeys.NETWORK_FRONTING_ENABLED | setting | plaintext | excluded | EH address fronting switch |
+| StorageKeys.NETWORK_BUILT_IN_HOSTS_ENABLED | setting | plaintext | excluded | EH pinned-address DNS rules switch |
+| StorageKeys.NETWORK_DOH_ENABLED | setting | plaintext | excluded | Encrypted DNS switch |
+| StorageKeys.NETWORK_DOH_PROVIDER | setting | plaintext | excluded | Encrypted DNS provider |
+| StorageKeys.NETWORK_PROXY_MODE | setting | plaintext | excluded | Proxy mode selection |
+| StorageKeys.NETWORK_PROXY_SERVER | setting | plaintext | excluded | Manual proxy host and port |
 | StorageKeys.COOKIE_JAR | secret | encrypted-only | excluded | EH cookie jar |
 | StorageKeys.AUTH_ACCOUNTS | secret | encrypted-only | excluded | Saved EH account bundles |
 | StorageKeys.USER_PROFILE_PREFIX | secret-prefix | encrypted-only | excluded | Saved EH account profile prefix |

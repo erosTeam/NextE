@@ -14,9 +14,9 @@ const PERIOD_TLS: number[] = [11, 12, 13, 15]
 
 /**
  * Toplist-tab period switcher, PINNED in the HDS title bar via a `bottomBuilder`. The period (全部/年榜/
- * 月榜/昨日 = tl 11/12/13/15) is presented as a subtab, so the indicator is the shared SubTabBar's sliding
- * underline driven by the per-frame visual index that ToplistPage's retained Swiper publishes — the bar
- * tracks the finger/page swipe. A tap requests the host's native transition; the period settles afterward.
+ * 月榜/昨日 = tl 11/12/13/15) is presented as a subtab, so the shared SubTabBar's capsule highlight follows
+ * the per-frame visual index that ToplistPage's retained Swiper publishes — the bar tracks the finger/page
+ * swipe. A tap requests the host's native transition; the period settles afterward.
  */
 @ComponentV2
 export struct ToplistPeriodBar {

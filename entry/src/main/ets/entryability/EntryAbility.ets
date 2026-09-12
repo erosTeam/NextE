@@ -24,6 +24,7 @@ import {
   connectSecuritySettings,
   connectSafeMode,
   SyncScheduler,
+  EhNetworkRouting,
 } from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
@@ -143,6 +144,9 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     this.abilityForeground = true
+    // A connection parked while this ability was suspended may no longer be usable, so requests
+    // started just after a real resume dial fresh instead of reusing a dead socket.
+    EhNetworkRouting.refreshAfterForeground()
     this.resumePendingDownloadsIfReady()
     SyncScheduler.rememberContext(this.context)
     SyncScheduler.requestAfterForeground(this.context, 'foreground')

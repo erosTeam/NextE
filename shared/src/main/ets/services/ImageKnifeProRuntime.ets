@@ -4,6 +4,7 @@ import {
   CacheStrategy,
   CacheErrorCode,
   HeaderOptions,
+  HttpRequestOption,
   ImageKnife,
   ImageKnifeOptionV2,
   ImageKnifeRequest,
@@ -13,6 +14,7 @@ import {
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhConstants } from '../constants/EhConstants'
 import { EhCookieStore } from '../network/EhCookieStore'
+import { EhNetworkRouting, EhRequestPlan } from '../network/EhNetworkRouting'
 import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
 import {
@@ -157,14 +159,15 @@ export class ImageKnifeProRuntime {
     }
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
-      option.loadSrc = url
-      option.headerOption = ImageKnifeProRuntime.defaultHeaders()
+      ImageKnifeProRuntime.applyTransportPlan(
+        option,
+        url,
+        ImageKnifeProRuntime.defaultHeaders(),
+        EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+        EH_THUMBNAIL_READ_TIMEOUT_MS,
+      )
       option.writeCacheStrategy = fileCacheOnly ? CacheStrategy.FILE : CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
-      option.httpOption = {
-        connectTimeout: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
-        readTimeout: EH_THUMBNAIL_READ_TIMEOUT_MS,
-      }
       let settled: boolean = false
       const settle = (): void => {
         if (settled) {
@@ -240,9 +243,14 @@ export class ImageKnifeProRuntime {
     )
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
-      option.loadSrc = url
       option.context = context
-      option.headerOption = ImageKnifeProRuntime.readerHeaders()
+      ImageKnifeProRuntime.applyTransportPlan(
+        option,
+        url,
+        ImageKnifeProRuntime.readerHeaders(),
+        IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
+        IMAGEKNIFE_READER_READ_TIMEOUT_MS,
+      )
       option.writeCacheStrategy = CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
       option.signature = cacheKey
@@ -254,10 +262,6 @@ export class ImageKnifeProRuntime {
       }
       if (readerCacheReady) {
         option.fileCacheName = IMAGEKNIFE_READER_CACHE_NAME
-      }
-      option.httpOption = {
-        connectTimeout: IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
-        readTimeout: IMAGEKNIFE_READER_READ_TIMEOUT_MS,
       }
       const filePath: string = await ImageKnife.getInstance().preloadCache(option)
       const bytes: number = ImageKnifeProRuntime.fileSize(filePath)
@@ -309,16 +313,17 @@ export class ImageKnifeProRuntime {
     )
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
-      option.loadSrc = url
       option.context = context
-      option.headerOption = ImageKnifeProRuntime.readerHeaders()
+      ImageKnifeProRuntime.applyTransportPlan(
+        option,
+        url,
+        ImageKnifeProRuntime.readerHeaders(),
+        IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
+        IMAGEKNIFE_READER_READ_TIMEOUT_MS,
+      )
       option.writeCacheStrategy = CacheStrategy.DEFAULT
       option.priority = Priority.LOW
       option.signature = cacheKey
-      option.httpOption = {
-        connectTimeout: IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
-        readTimeout: IMAGEKNIFE_READER_READ_TIMEOUT_MS,
-      }
       const filePath: string = await ImageKnife.getInstance().preloadCache(option)
       const bytes: number = ImageKnifeProRuntime.fileSize(filePath)
       if (filePath.length === 0 || bytes <= 0) {
@@ -379,6 +384,53 @@ export class ImageKnifeProRuntime {
         'reader_imageknife_cache_remove_failed',
         `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)} error=${(error as Error).message}`,
       )
+    }
+  }
+
+  /**
+   * Points one image request at its transport decision.
+   *
+   * Cover thumbnails are served from a name that is blocked on its own in the TLS handshake, and
+   * this library resolves and dials through its own stack — installing pinned answers for the
+   * platform resolver does not reach it, and keeping the name in the URL leaves the name in the
+   * handshake either way. So the same rule the API transport uses is applied here: the authority
+   * becomes a literal address, the original name is restated as `Host` so the origin still routes
+   * to the right virtual host, and — because a certificate can never match a literal address —
+   * identity validation is dropped for exactly those requests. Left unfronted, the request keeps
+   * the plain URL and the plain options.
+   */
+  static applyTransportPlan(
+    option: ImageKnifeOptionV2,
+    url: string,
+    headers: HeaderOptions[],
+    connectTimeoutMs: number,
+    readTimeoutMs: number,
+  ): void {
+    const plan: EhRequestPlan = EhNetworkRouting.createPlan(url)
+    option.loadSrc = plan.url
+    if (plan.fronted) {
+      headers.push({ key: 'Host', value: EhNetworkRouting.hostHeaderFor(plan) })
+    }
+    option.headerOption = headers
+    if (connectTimeoutMs > 0 && readTimeoutMs > 0) {
+      const settings: HttpRequestOption = {
+        connectTimeout: connectTimeoutMs,
+        readTimeout: readTimeoutMs,
+      }
+      if (plan.fronted) {
+        settings.skipValidation = true
+      }
+      option.httpOption = settings
+      return
+    }
+    if (plan.fronted) {
+      // The caller left the timeouts at the library defaults; fronting still has to drop identity
+      // validation, so the thumbnail budget stands in rather than waiting on a stalled address.
+      option.httpOption = {
+        connectTimeout: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+        readTimeout: EH_THUMBNAIL_READ_TIMEOUT_MS,
+        skipValidation: true,
+      }
     }
   }
 
