@@ -23,9 +23,9 @@ import {
  * pattern) — never a scrolling list item. 默认 (front page) + 热门 (popular) always show; 订阅 (watched)
  * only when logged in (its tab list must match HomePage.visibleSources()).
  *
- * The indicator is the shared SubTabBar's sliding underline, driven by the per-frame visual index that
- * HomePage's retained Swiper publishes — so the bar tracks the finger/page swipe instead of jumping on
- * settle. A tap requests the host's native transition; the selected profile is published after it settles.
+ * The selected glass capsule is driven by the per-frame visual index that HomePage's retained Swiper
+ * publishes — so the highlight tracks the finger/page swipe instead of jumping on settle. A tap requests the
+ * host's native transition; the selected profile is published after it settles.
  */
 @ComponentV2
 export struct HomeSourceBar {
@@ -73,8 +73,11 @@ export struct HomeSourceBar {
       })
         .layoutWeight(1)
       // Pinned trailing affordance to manage tabs (outside the scroll so it never scrolls away).
-      // Top-aligned (alignSelf) so the chip sits on the same line as the top-aligned tab labels — only
-      // the chip moves; the SubTabBar position is untouched.
+      // The capsules centre themselves on the bar's cross axis, so the chip simply inherits this Row's
+      // VerticalAlign.Center — no alignSelf/offset nudge (that existed only for the old top-aligned labels).
+      // No left margin: the bar's own contentEndOffset already leaves SPACE_MD of clear space in front of the
+      // chip (a touch wider than the 8vp between capsules — the separation a different-kind control wants).
+      // The right margin mirrors the bar's inset so both screen edges breathe equally.
       if (!this.safeMode.restricted()) {
         Button({ type: ButtonType.Circle }) {
           SymbolGlyph($r('sys.symbol.list_square'))
@@ -83,11 +86,8 @@ export struct HomeSourceBar {
         }
         .width(28)
         .height(28)
-        .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
+        .margin({ right: ThemeConstants.SPACE_MD })
         .backgroundColor(Color.Transparent)
-        .alignSelf(ItemAlign.Start)
-        // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
-        .offset({ y: -2 })
         .onClick(() => {
           connectNavStack().stack.pushPathByName('TabManager', null)
         })

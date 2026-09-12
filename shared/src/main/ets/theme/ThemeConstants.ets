@@ -17,6 +17,9 @@ export class ThemeConstants {
   static readonly BRAND_ACCENT: ResourceColor = $r('sys.color.font_secondary')
   // Readable text on a saturated/brand-colored surface (selected chips, badges). White both themes.
   static readonly TEXT_ON_BRAND: ResourceColor = $r('app.color.text_on_brand')
+  // Readable text on a LIGHT accent fill. The synthetic favcat chips carry pastel accents (#B5A4A4 / #A99E68),
+  // where white would wash out; fixed in both themes because it sits on a fixed accent fill, not a themed surface.
+  static readonly TEXT_ON_LIGHT_ACCENT: ResourceColor = $r('app.color.text_on_light_accent')
   // Fallback heart color when a favorited gallery's favcat slot is unresolved (eros_fe default red).
   static readonly FAV_HEART_DEFAULT: ResourceColor = $r('app.color.fav_heart_default')
 

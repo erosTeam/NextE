@@ -1,3 +1,5 @@
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { uiMaterial } from '@kit.ArkUI'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { SELECTOR_BAR_HEIGHT } from '../state/HomeSourceState'
 import { TabItem } from '../model/TabItem'
@@ -8,50 +10,53 @@ import {
   LanguageState,
 } from '../state/AppearanceState'
 
-const INDICATOR_W: number = 18
-const TAB_GAP: number = ThemeConstants.SPACE_XS
-const BAR_PAD: number = 0
-// Underline baseline (V2Next FeedPills: indicator at TAB_BAR_HEIGHT - 14): the tab labels are TOP-aligned
-// with a small top padding, and the 3px indicator sits just under them — so the bar fills its height
-// tightly instead of floating a centred label with empty space above/below (which read as a tall bar).
-const INDICATOR_Y: number = SELECTOR_BAR_HEIGHT - 14
+const TAB_GAP: number = ThemeConstants.SPACE_SM
+// Breathing room between the bar's edges and the first/last capsule. SPACE_MD is what the project already
+// uses for its sibling chip surfaces (DownloadTypeBar's HDS selector bar and its segmented button,
+// CategorySelector), so the capsules line up with them instead of running flush to the screen edge.
+const BAR_INSET: number = ThemeConstants.SPACE_MD
+// Capsule height inside the fixed SELECTOR_BAR_HEIGHT bar: 30 leaves room above and below, so each pill reads
+// as a separate floating button rather than a full-height block.
+const PILL_HEIGHT: number = 30
 
 /**
- * Shared selector sub-tab bar with a V2Next-style SLIDING indicator (FeedPills / IndexTitleBarComponents
- * pattern). The retained Swiper publishes an interpolated `visualIndex` (a float) as the user swipes;
- * this bar positions a single underline by interpolating between the measured tab CENTERS, so the bar
- * animation tracks the finger/page transition instead of jumping after the page settles. The discrete
- * highlight (brand colour + Medium weight) follows round(visualIndex). Reused by HomeSourceBar /
- * ToplistPeriodBar / FavcatBar so the indicator math is not hand-rolled per bar.
+ * Shared selector sub-tab bar — one capsule per sub-tab, in the shape the design guide's 子页签 / 胶囊样式
+ * (single-select) prescribes. This replaces the previous V2Next FeedPills look (a flat bar with a single
+ * sliding underline): with a filled pill as the selection target, a sliding underline reads as stray
+ * decoration, so the capsule itself carries the state instead.
  *
- * Every surface uses the same native horizontal List. When its content fits it remains visually static;
- * when it overflows the List scrolls naturally and recentres the selected tab. Keeping one layout path makes
- * the indicator geometry consistent for compact Toplist, dynamic Home sources, and Favorites favcats.
+ * The guide's rule for this control is explicit — 「建议使用品牌色对激活的子页签进行色彩填充」 — so the ACTIVE
+ * capsule is a solid accent fill with text that contrasts against it, exactly like CategorySelector, the
+ * project's other chip group. The INACTIVE capsules are the frosted (沉浸光感) surface instead — see
+ * inactiveMaterial(); on API < 26 they fall back to the platform's neutral chip fill, so the capsules still
+ * read as capsules instead of bare text.
+ *
+ * Every surface uses the same native horizontal List. When its content fits it remains visually static; when
+ * it overflows the List scrolls naturally and recentres the selected tab. Reused by HomeSourceBar /
+ * ToplistPeriodBar / FavcatBar, so all three sub-tab surfaces change together; 下载 uses TabSegmentButtonV2
+ * and is unaffected.
+ *
+ * Non-negotiable SDK contract: systemMaterial() owns backgroundColor / borderColor / borderWidth / shadow on
+ * the node it decorates. That is why the two states never mix — the active capsule sets a real backgroundColor
+ * and NO material, the inactive one sets the material and an explicit transparent backgroundColor.
  */
 @ComponentV2
 export struct SubTabBar {
   @Require @Param tabs: TabItem[];
-  // Interpolated active index (float) from the Swiper — the source of the indicator position + highlight.
+  // Interpolated active index (float) from the Swiper — drives the discrete capsule highlight while swiping.
   @Param visualIndex: number = 0;
   // Discrete selected index from the selection bus. Scrolling listens to this, not visualIndex.
   @Param selectedIndex: number = -1;
   @Event onSelect: (index: number) => void = (_i: number) => {};
-  // Per-tab measured widths (onAreaChange) so the indicator tracks real tab centres, not a uniform guess.
-  @Local tabWidths: number[] = [];
-  @Local tabLefts: number[] = [];
-  // The indicator is overlaid above the horizontal List, so it must compensate for the List's content
-  // offset instead of being left behind at a tab's original viewport coordinate.
-  @Local scrollOffsetX: number = 0;
   // Reading this signal in the color helper makes this bar (hosted in a CACHED ComponentContent) repaint on
   // a system dark/light flip — without it the unselected $r('sys.color.*') tokens stay stale.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
-  // Same idea for language: reading effectiveLocale in selectedIndex() (called for every tab) + folding it
-  // into the ForEach key makes a language switch rebuild + re-key the cached bar, so even the SELECTED tab's
-  // $r label re-resolves (otherwise only the unselected pills, which read a signal, refresh).
+  // Same idea for language: reading effectiveLocale in visualSelectedIndex() (called for every capsule) +
+  // folding it into the ForEach key makes a language switch rebuild + re-key the cached bar, so even the
+  // SELECTED capsule's $r label re-resolves (otherwise only the unselected pills, which read a signal, refresh).
   @Local language: LanguageState = connectLanguageState();
   private scroller: Scroller = new Scroller();
   private containerReady: boolean = false;
-  private containerGlobalLeft: number = 0;
   private pendingCenterIndex: number = -1;
   private pendingCenterSmooth: boolean = false;
   private centeredTarget: number = -1;
@@ -66,9 +71,70 @@ export struct SubTabBar {
     return this.themeDisplay.effectiveDark ? color : color
   }
 
+  /**
+   * An INACTIVE capsule's 沉浸光感 system material, or undefined on API < 26 (and where the component-level
+   * system material is unavailable) — there inactive capsules take the platform's neutral chip fill instead,
+   * so the geometry never regresses to invisible bare text.
+   *
+   * The grade is FIXED at the thinnest one rather than taken from 「沉浸光感材质」 on purpose: that setting
+   * maps its top grade to REGULAR/THICK, and a 30vp capsule at THICK turns into an opaque grey blob. The bar
+   * also sits ON the title-bar surface that the setting grades, so the user's choice still reaches these
+   * capsules through the surface behind them. applyShadow is off: up to 12 frosted capsules scrolling
+   * horizontally would otherwise pay the material's shadow draw cost for a cue nobody reads.
+   */
+  private inactiveMaterial(): uiMaterial.Material | undefined {
+    if (!deviceInfo.apiAvailable('26.0.0')) {
+      return undefined
+    }
+    return new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      // Complementary text adaptation, same as the title bar's material.
+      colorInvert: true,
+      applyShadow: false,
+      // No press deformation — a tap switches the whole page underneath.
+      interactive: false,
+    })
+  }
+
+  // The ACTIVE capsule's grid fill (the guide's 「品牌色填充」 rule). Per-tab accents are honoured — the
+  // favourites slots carry their own colours and the shared brand colour is the default for every other bar.
+  private activeFill(i: number): ResourceColor {
+    return this.tabAccentColor(i)
+  }
+
+  // Text/icon colour ON that fill. The accent is not always saturated — the synthetic favcat capsules are
+  // pastel (#B5A4A4 all / #A99E68 local) where white washes out — so pick white or near-black from the
+  // accent's relative luminance rather than assuming white like a fixed brand fill would.
+  private onFillTextColor(i: number): ResourceColor {
+    const hex: string = this.accentHex(i)
+    if (hex.length === 0) {
+      return ThemeConstants.TEXT_ON_BRAND
+    }
+    const r: number = Number.parseInt(hex.substring(1, 3), 16)
+    const g: number = Number.parseInt(hex.substring(3, 5), 16)
+    const b: number = Number.parseInt(hex.substring(5, 7), 16)
+    const luminance: number = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.6 ? ThemeConstants.TEXT_ON_LIGHT_ACCENT : ThemeConstants.TEXT_ON_BRAND
+  }
+
+  // The INACTIVE capsule's fill. With the system material available the material owns the paint, and the SDK
+  // says not to combine it with a real backgroundColor — so the only value that belongs there is transparent.
+  private inactiveFill(): ResourceColor {
+    return deviceInfo.apiAvailable('26.0.0')
+      ? Color.Transparent
+      : $r('sys.color.ohos_id_color_button_normal')
+  }
+
+  // The tab's accent as #RRGGBB, or '' when it is not a literal hex (then the capsule keeps the untinted
+  // grade). tabAccentColor() already resolves the shared brand colour to a hex string for every surface.
+  private accentHex(i: number): string {
+    const color: ResourceColor = this.tabAccentColor(i)
+    return typeof color === 'string' ? this.normalizedHex(color) : ''
+  }
+
   private visualSelectedIndex(): number {
     // Touch the locale signal so the whole bar depends on it (length is never < 0; this only registers the
-    // @Trace read). selectedIndex() runs in every tab's fontColor/fontWeight, so the bar rebuilds on switch.
+    // @Trace read). selectedIndex() runs in every capsule's fontColor/fontWeight, so the bar rebuilds on switch.
     if (this.language.effectiveLocale.length < 0) {
       return 0
     }
@@ -77,94 +143,6 @@ export struct SubTabBar {
       return 0
     }
     return Math.max(0, Math.min(n - 1, Math.round(this.visualIndex)))
-  }
-
-  // Left edge of tab i in the List content coordinate space: bar padding + cumulative prior tab widths +
-  // inter-tab gaps. The overlaid indicator converts this to viewport space with scrollOffsetX.
-  private tabLeft(i: number): number {
-    if (i < this.tabLefts.length && this.tabLefts[i] >= 0) {
-      return this.tabLefts[i]
-    }
-    let left: number = BAR_PAD
-    for (let k = 0; k < i; k++) {
-      const w: number = k < this.tabWidths.length ? this.tabWidths[k] : 0
-      left += w + TAB_GAP
-    }
-    return left
-  }
-
-  private tabCenter(i: number): number {
-    const wi: number = i < this.tabWidths.length ? this.tabWidths[i] : 0
-    return this.tabLeft(i) + wi / 2
-  }
-
-  // Interpolated indicator left edge: lerp between the from/to tab centres by the fractional visual index.
-  private indicatorLeft(): number {
-    const n: number = this.tabs.length
-    if (n <= 0) {
-      return 0
-    }
-    const vi: number = Math.max(0, Math.min(n - 1, this.visualIndex))
-    const from: number = Math.floor(vi)
-    const to: number = Math.min(from + 1, n - 1)
-    const frac: number = vi - from
-    const center: number = this.tabCenter(from) + (this.tabCenter(to) - this.tabCenter(from)) * frac
-    const left: number = center - INDICATOR_W / 2
-    return left - this.scrollOffsetX
-  }
-
-  private setTabWidth(i: number, w: number): void {
-    const next: number[] = this.tabWidths.slice()
-    while (next.length <= i) {
-      next.push(0)
-    }
-    next[i] = w
-    this.tabWidths = next
-  }
-
-  private updateTabLayout(i: number, area: Area): void {
-    const width: number = area.width as number
-    if (width <= 0) {
-      return
-    }
-    this.setTabWidth(i, width)
-    const scrollOffsetX: number = this.currentScrollOffsetX()
-    this.setScrollOffsetX(scrollOffsetX)
-    const nextLefts: number[] = this.tabLefts.slice()
-    while (nextLefts.length <= i) {
-      nextLefts.push(-1)
-    }
-    // globalPosition is viewport-relative while the List scrolls. Persist an invariant content-space
-    // left edge so an item can leave the List's viewport without pulling its indicator back to where it
-    // was first measured.
-    nextLefts[i] = this.areaX(area.globalPosition?.x) - this.containerGlobalLeft + scrollOffsetX
-    this.tabLefts = nextLefts
-    if (this.pendingCenterIndex === i) {
-      this.centerTab(i, this.pendingCenterSmooth)
-    }
-  }
-
-  private areaX(value: Length | undefined): number {
-    if (typeof value === 'number') {
-      return value
-    }
-    if (typeof value === 'string') {
-      const parsed: number = Number.parseFloat(value)
-      return Number.isNaN(parsed) ? 0 : parsed
-    }
-    return 0
-  }
-
-  private currentScrollOffsetX(): number {
-    const offset: number = this.scroller.currentOffset().xOffset
-    return offset > 0 && !Number.isNaN(offset) ? offset : 0
-  }
-
-  private setScrollOffsetX(offset: number): void {
-    const next: number = offset > 0 && !Number.isNaN(offset) ? offset : 0
-    if (this.scrollOffsetX !== next) {
-      this.scrollOffsetX = next
-    }
   }
 
   private safeKeyPart(value: string): string {
@@ -184,29 +162,6 @@ export struct SubTabBar {
     return ThemeConstants.BRAND_PRIMARY
   }
 
-  private indicatorColor(): ResourceColor {
-    const n: number = this.tabs.length
-    if (n <= 0) {
-      return ThemeConstants.BRAND_PRIMARY
-    }
-    const vi: number = Math.max(0, Math.min(n - 1, this.visualIndex))
-    const from: number = Math.floor(vi)
-    const to: number = Math.min(from + 1, n - 1)
-    const frac: number = vi - from
-    const fromColor: string = this.normalizedHex(this.tabs[from].selectedColor)
-    const toColor: string = this.normalizedHex(this.tabs[to].selectedColor)
-    if (fromColor.length > 0 && toColor.length > 0) {
-      return this.lerpHexColor(fromColor, toColor, frac)
-    }
-    if (fromColor.length > 0) {
-      return fromColor
-    }
-    if (toColor.length > 0) {
-      return toColor
-    }
-    return ThemeConstants.BRAND_PRIMARY
-  }
-
   private normalizedHex(color: string): string {
     let c: string = color.trim()
     if (c.length === 0) {
@@ -221,22 +176,8 @@ export struct SubTabBar {
     return /^[0-9a-fA-F]{6}$/.test(c) ? `#${c.toUpperCase()}` : ''
   }
 
-  private lerpHexColor(fromColor: string, toColor: string, frac: number): string {
-    const a: number = Number.parseInt(fromColor.substring(1), 16)
-    const b: number = Number.parseInt(toColor.substring(1), 16)
-    const r: number = Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * frac)
-    const g: number = Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * frac)
-    const bl: number = Math.round((a & 255) + ((b & 255) - (a & 255)) * frac)
-    return `#${this.hex2(r)}${this.hex2(g)}${this.hex2(bl)}`
-  }
-
-  private hex2(value: number): string {
-    const s: string = Math.max(0, Math.min(255, value)).toString(16).toUpperCase()
-    return s.length === 1 ? `0${s}` : s
-  }
-
   // Keep the active tab visible whenever natural content overflow makes that necessary. This follows the
-  // discrete selection bus, matching V2Next FeedPills; visualIndex is high-frequency indicator state only.
+  // discrete selection bus, matching V2Next FeedPills; visualIndex is high-frequency highlight state only.
   @Monitor('selectedIndex')
   onSelectedIndexChange(): void {
     this.centerSelectedTab(true, false)
@@ -273,78 +214,79 @@ export struct SubTabBar {
     return Math.max(0, Math.min(n - 1, raw))
   }
 
-  // The single sliding indicator is overlaid above the List and tracks its horizontal content offset.
-  @Builder
-  indicatorBar() {
-    Row()
-      .width(INDICATOR_W)
-      .height(3)
-      .borderRadius(1.5)
-      .backgroundColor(this.indicatorColor())
-      .position({ x: this.indicatorLeft(), y: INDICATOR_Y })
-      .hitTestBehavior(HitTestMode.None)
+  // A capsule can only be scrolled to once it has been laid out, so the first centring pass is deferred to the
+  // target item's onAreaChange (the bar itself measures before any item does).
+  private updateTabLayout(i: number, area: Area): void {
+    if ((area.width as number) <= 0) {
+      return
+    }
+    if (this.pendingCenterIndex === i) {
+      this.centerTab(i, this.pendingCenterSmooth)
+    }
   }
 
   build() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      List({ space: TAB_GAP, scroller: this.scroller }) {
-        ForEach(
-          this.tabs,
-          (tab: TabItem, index: number) => {
-            ListItem() {
-              Row({ space: 3 }) {
-                Text(tab.label)
-                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+    List({ space: TAB_GAP, scroller: this.scroller }) {
+      ForEach(
+        this.tabs,
+        (tab: TabItem, index: number) => {
+          ListItem() {
+            Row({ space: 3 }) {
+              Text(tab.label)
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor(
+                  this.visualSelectedIndex() === index
+                    ? this.onFillTextColor(index)
+                    : this.themeTracked($r('sys.color.font_secondary')),
+                )
+                .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
+                .maxLines(1)
+              if (tab.count >= 0) {
+                Text(`${tab.count}`)
+                  .fontSize(ThemeConstants.FONT_SIZE_TINY)
                   .fontColor(
                     this.visualSelectedIndex() === index
-                      ? this.tabAccentColor(index)
-                      : this.themeTracked($r('sys.color.font_secondary')),
+                      ? this.onFillTextColor(index)
+                      : this.themeTracked($r('sys.color.font_tertiary')),
                   )
-                  .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
-                  .maxLines(1)
-                if (tab.count >= 0) {
-                  Text(`${tab.count}`)
-                    .fontSize(ThemeConstants.FONT_SIZE_TINY)
-                    .fontColor(
-                      this.visualSelectedIndex() === index
-                        ? this.tabAccentColor(index)
-                        : this.themeTracked($r('sys.color.font_tertiary')),
-                    )
-                }
               }
-              .padding({
-                left: ThemeConstants.SPACE_MD,
-                right: ThemeConstants.SPACE_MD,
-                top: ThemeConstants.SPACE_XS,
-              })
-              .onClick(() => {
-                this.onSelect(index)
-              })
-              .onAreaChange((_oldValue: Area, newValue: Area) => {
-                this.updateTabLayout(index, newValue)
-              })
             }
-          },
-          (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
-        )
-      }
-      .listDirection(Axis.Horizontal)
-      .onDidScroll((_scrollOffset: number, _scrollState: ScrollState) => {
-        this.setScrollOffsetX(this.currentScrollOffsetX())
-      })
-      .onScrollIndex((_start: number, _end: number) => {
-        this.setScrollOffsetX(this.currentScrollOffsetX())
-      })
-      .scrollBar(BarState.Off)
-      .padding({ left: BAR_PAD, right: BAR_PAD })
-      .width('100%')
-      .height(SELECTOR_BAR_HEIGHT)
-      this.indicatorBar()
+            .height(PILL_HEIGHT)
+            .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+            .borderRadius(ThemeConstants.RADIUS_ROUND)
+            .clip(true)
+            // The two states never share an attribute: the filled capsule has no material (the fill is its
+            // paint), the frosted one has no real background (see the struct doc).
+            .systemMaterial(this.visualSelectedIndex() === index ? undefined : this.inactiveMaterial())
+            .backgroundColor(
+              this.visualSelectedIndex() === index ? this.activeFill(index) : this.inactiveFill(),
+            )
+            .onClick(() => {
+              this.onSelect(index)
+            })
+            .onAreaChange((_oldValue: Area, newValue: Area) => {
+              this.updateTabLayout(index, newValue)
+            })
+          }
+        },
+        (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
+      )
     }
+    .listDirection(Axis.Horizontal)
+    // Capsules are shorter than the bar, so the cross axis must centre them explicitly (the default Start
+    // alignment would sink the row to the top and leave a gap under it).
+    .alignListItem(ListItemAlign.Center)
+    .scrollBar(BarState.Off)
+    // Applied as CONTENT offsets, not padding. List padding is a CLIP boundary: the capsules would vanish
+    // BAR_INSET short of the edge while scrolling, as if an invisible wall sat at each end. These only
+    // displace the resting position — the row still scrolls flush to the screen edge, which is what makes it
+    // read as content sliding under a floating bar. (The platform resets both to 0 if their sum exceeds the
+    // content length; 24vp never comes close on a sub-tab row.)
+    .contentStartOffset(BAR_INSET)
+    .contentEndOffset(BAR_INSET)
     .width('100%')
     .height(SELECTOR_BAR_HEIGHT)
-    .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
+    .onAreaChange((_oldValue: Area, _newValue: Area) => {
       this.containerReady = true
       if (this.pendingCenterIndex >= 0) {
         this.centerTab(this.pendingCenterIndex, this.pendingCenterSmooth)
