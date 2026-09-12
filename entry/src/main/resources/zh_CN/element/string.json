@@ -5145,10 +5145,6 @@
       "value": "双击返回退出"
     },
     {
-      "name": "navigation_back_guard_hint",
-      "value": "开启后，主页第一次返回会提示，1 秒内再次返回才会退出应用"
-    },
-    {
       "name": "navigation_back_guard_toast",
       "value": "再按一次返回退出"
     }

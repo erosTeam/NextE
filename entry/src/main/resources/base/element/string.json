@@ -5145,10 +5145,6 @@
       "value": "Double-back to exit"
     },
     {
-      "name": "navigation_back_guard_hint",
-      "value": "When enabled, the first back press on the home pages a hint; a second press within 1 second exits the app"
-    },
-    {
       "name": "navigation_back_guard_toast",
       "value": "Press back again to exit"
     }

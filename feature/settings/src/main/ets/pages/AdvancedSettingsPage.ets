@@ -228,7 +228,6 @@ export struct AdvancedSettingsPage {
       ListRowDivider()
       ConciseListRow({
         title: $r('app.string.navigation_back_guard'),
-        subtitle: $r('app.string.navigation_back_guard_hint'),
         leadingIcon: $r('sys.symbol.arrow_left'),
         hasSwitch: true,
         checked: this.backGuard.enabled,
