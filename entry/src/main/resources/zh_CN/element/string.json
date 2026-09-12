@@ -4674,7 +4674,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "端侧漫画模型下载失败"
+      "value": "端侧漫画模型下载失败：%s"
     },
     {
       "name": "comic_local_detector_remove_title",

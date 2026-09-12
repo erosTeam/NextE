@@ -606,7 +606,11 @@ export class EhHttpClient {
           if (loaded <= 0) {
             return
           }
-          clearNoProgressTimer()
+          // Refresh rather than cancel: the guard exists to catch a stream that stops delivering, so
+          // every chunk has to renew it. Cancelling here made it a first-byte timeout instead, which
+          // left a connection that died mid-body to sit until the much longer read timeout expired.
+          // It stays inert for callers that pass 0 (every caller except the model download).
+          armNoProgressTimer()
           const now: number = force ? 0 : Date.now()
           if (!force && now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS) {
             return

@@ -4674,7 +4674,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "On-device manga model download failed"
+      "value": "On-device manga model download failed: %s"
     },
     {
       "name": "comic_local_detector_remove_title",

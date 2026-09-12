@@ -4674,7 +4674,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "端末内漫画モデルのダウンロードに失敗しました"
+      "value": "端末内漫画モデルのダウンロードに失敗しました：%s"
     },
     {
       "name": "comic_local_detector_remove_title",
