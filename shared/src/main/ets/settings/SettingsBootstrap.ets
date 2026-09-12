@@ -22,6 +22,7 @@ import { GalleryReadProgressSettings } from './GalleryReadProgressSettings'
 import { DownloadSettings } from './DownloadSettings'
 import { DownloadQueueSettings } from './DownloadQueueSettings'
 import { SecuritySettings } from './SecuritySettings'
+import { BackGuardSettings } from './BackGuardSettings'
 import { UserTagLoader } from '../services/UserTagLoader'
 import { SubtabSelectionSettings } from './SubtabSelectionSettings'
 import { CustomProfilesSettings } from './CustomProfilesSettings'
@@ -110,6 +111,7 @@ export class SettingsBootstrap {
         ComicTranslationProviderSettings.restore(context),
         DownloadSettings.restore(context),
         SecuritySettings.restore(context),
+        BackGuardSettings.restore(context),
       ])
 
       // RDB-backed restores remain ordered: they share migrations/write schedulers and feed the initial

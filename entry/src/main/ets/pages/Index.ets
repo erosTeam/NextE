@@ -45,6 +45,8 @@ import {
   DownloadQueueSignalState,
   DownloadViewState,
   DownloadViewType,
+  BackGuardState,
+  connectBackGuard,
   connectSearchAction,
   SearchActionState,
   connectSiteMode,
@@ -654,12 +656,15 @@ struct Index {
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
+  @Local backGuard: BackGuardState = connectBackGuard();
   @Local currentTab: number = 0;
   @Local readerOverlay: ReaderOverlayNavigationState = connectReaderOverlayNavigation();
   @Local readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
   private lastHandledSignal: string = '';
   private lastHandledClipboardCandidateSignal: string = '';
   private clipboardSnackBar: HdsSnackBar = new HdsSnackBar(this.getUIContext());
+  private lastBackPressAt: number = 0;
+  private readonly BACK_GUARD_BLOCK_WINDOW_MS: number = 1000;
   private lastHandledQuery: string = '';
   private readonly IMAGE_BLOCK_QA_GID: string = '3049882';
   private readonly IMAGE_BLOCK_QA_TOKEN: string = 'd7e740a39e';
@@ -669,6 +674,21 @@ struct Index {
   onBackPress(): boolean {
     if (this.logicalCurrentTab() === 3 && this.stack.getAllPathName().length === 0 && this.downloadView.selectionMode) {
       this.downloadSelectionCommand('cancelSelection')
+      return true
+    }
+    // Back on a root home tab (empty route stack): first press shows a toast, a second press
+    // within 1s passes through so the system exits the app (eros_fe doubleClickBack). Guarded by
+    // the settings toggle; deeper routes own their own back handling and are unaffected.
+    if (this.backGuard.enabled && this.stack.getAllPathName().length === 0) {
+      const now: number = Date.now()
+      if (now - this.lastBackPressAt < this.BACK_GUARD_BLOCK_WINDOW_MS) {
+        this.lastBackPressAt = 0
+        return false
+      }
+      this.lastBackPressAt = now
+      this.getUIContext().getPromptAction()
+        .openToast({ message: $r('app.string.navigation_back_guard_toast') })
+        .catch((_toastError: Error) => {})
       return true
     }
     return false

@@ -5139,6 +5139,18 @@
     {
       "name": "download_batch_deleting",
       "value": "削除中 %s"
+    },
+    {
+      "name": "navigation_back_guard",
+      "value": "ダブルバックで終了"
+    },
+    {
+      "name": "navigation_back_guard_hint",
+      "value": "有効な場合、ホームで最初のバックでヒントを表示し、1 秒以内に 2 回目のバックでアプリを終了します"
+    },
+    {
+      "name": "navigation_back_guard_toast",
+      "value": "一度押して終了します"
     }
   ]
 }

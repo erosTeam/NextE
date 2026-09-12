@@ -5,6 +5,8 @@ import { systemShare } from '@kit.ShareKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
+  BackGuardSettings,
+  BackGuardState,
   ConciseListRow,
   DiagnosticLogger,
   DiagnosticsExportFile,
@@ -18,6 +20,7 @@ import {
   SettingsCheckedMenuItem,
   ThemeConstants,
   ListRowDivider,
+  connectBackGuard,
   connectDiagnostics,
   connectNavStack,
   NavStackHolder,
@@ -27,6 +30,7 @@ import {
 @ComponentV2
 export struct AdvancedSettingsPage {
   @Local private diagnostics: DiagnosticsState = connectDiagnostics();
+  @Local private backGuard: BackGuardState = connectBackGuard();
   @Local private logCount: number = 0;
   @Local private logFiles: DiagnosticsLogFileInfo[] = [];
   @Local navStackHolder: NavStackHolder = connectNavStack();
@@ -58,6 +62,10 @@ export struct AdvancedSettingsPage {
     const snapshot = DiagnosticsSettings.current()
     snapshot.enabled = enabled
     DiagnosticsSettings.save(this.ctx(), snapshot)
+  }
+
+  private updateBackGuard(enabled: boolean): void {
+    BackGuardSettings.setEnabled(this.ctx(), enabled)
   }
 
   private updateMinLevel(level: string): void {
@@ -215,6 +223,17 @@ export struct AdvancedSettingsPage {
         leadingIcon: $r('sys.symbol.lock'),
         action: () => {
           this.stack.pushPathByName('SecuritySettings', null)
+        },
+      })
+      ListRowDivider()
+      ConciseListRow({
+        title: $r('app.string.navigation_back_guard'),
+        subtitle: $r('app.string.navigation_back_guard_hint'),
+        leadingIcon: $r('sys.symbol.arrow_left'),
+        hasSwitch: true,
+        checked: this.backGuard.enabled,
+        switchAction: (value: boolean) => {
+          this.updateBackGuard(value)
         },
       })
     }

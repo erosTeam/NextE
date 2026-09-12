@@ -85,6 +85,7 @@ export class StorageKeys {
   static readonly SECURITY_RECENT_TASKS_PROTECTION: string = 'security.recentTasksProtection'
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
   static readonly SECURITY_LAST_BACKGROUND_AT: string = 'security.lastBackgroundAt'
+  static readonly BACK_GUARD_ENABLED: string = 'navigation.backGuardEnabled'
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
