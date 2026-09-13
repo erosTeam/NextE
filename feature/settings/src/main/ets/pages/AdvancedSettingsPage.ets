@@ -83,6 +83,9 @@ export struct AdvancedSettingsPage {
     this.logFiles = DiagnosticsLogFileSink.listRetainedLogFiles()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private writeMarker(): void {
     DiagnosticLogger.info('diagnostics', 'manual_marker', `ts=${Date.now()}`)
     this.refreshLogState()
@@ -225,6 +228,9 @@ export struct AdvancedSettingsPage {
     .width('100%')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private exportCurrentLog(): void {
     try {
       const file: DiagnosticsExportFile = DiagnosticsFileExport.create(this.ctx())
@@ -237,11 +243,17 @@ export struct AdvancedSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private shareLogFile(file: DiagnosticsLogFileInfo): void {
     DiagnosticLogger.info('diagnostics', 'share_log_file', `file=${file.fileName} current=${file.isCurrent}`)
     this.shareFile(file.fileName, file.uri, DiagnosticsLogFileSink.readLogFileText(file.fileName))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private shareFile(fileName: string, uri: string, fallbackText: string): void {
     try {
       const record: systemShare.SharedRecord = {
@@ -270,6 +282,9 @@ export struct AdvancedSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private copyTextWithToast(text: string): void {
     try {
       const fallback = text.length > 0 ? text : DiagnosticsSettings.exportText()
@@ -282,12 +297,18 @@ export struct AdvancedSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private clearDiagnosticsText(): void {
     DiagnosticsSettings.clearLogs()
     this.refreshLogState()
     this.toast($r('app.string.diagnostics_boot_records_cleared'))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }

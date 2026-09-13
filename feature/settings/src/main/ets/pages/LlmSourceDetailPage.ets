@@ -66,6 +66,9 @@ export struct LlmSourceDetailPage {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToDisappear(): void {
     if (!this.deleting && !this.suppressDisappearSave) {
       this.persistDrafts(false)
@@ -81,6 +84,9 @@ export struct LlmSourceDetailPage {
     return this.sources.findById(this.sourceProfileId)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async load(sourceProfileId: string): Promise<void> {
     const profile: LlmSourceProfile | null = this.sources.findById(sourceProfileId)
     if (profile === null) {
@@ -124,6 +130,9 @@ export struct LlmSourceDetailPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async persistDrafts(showFailureToast: boolean = true): Promise<boolean> {
     const current: LlmSourceProfile | null = this.profile()
     if (!this.loaded || current === null) {
@@ -171,6 +180,9 @@ export struct LlmSourceDetailPage {
       : $r('app.string.llm_source_type_api')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private saveAndExit(): boolean {
     if (!this.loaded || this.deleting || this.profile() === null) {
       return false
@@ -209,6 +221,9 @@ export struct LlmSourceDetailPage {
     return $r('app.string.llm_source_catalog_hint')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async fetchModels(): Promise<void> {
     if (this.modelCatalogLoading || !await this.persistDrafts(true)) {
       return
@@ -256,6 +271,9 @@ export struct LlmSourceDetailPage {
     return ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private copyCodexUserCode(): void {
     if (this.codexUserCode.length === 0) {
       return
@@ -273,6 +291,9 @@ export struct LlmSourceDetailPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private handleCodexAccountAction(): void {
     if (this.codexConnected) {
       this.confirmCodexLogout()
@@ -285,6 +306,9 @@ export struct LlmSourceDetailPage {
     this.startCodexLogin()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private startCodexLogin(): void {
     if (this.codexLoginBusy) {
       return
@@ -364,6 +388,9 @@ export struct LlmSourceDetailPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async logoutCodex(): Promise<void> {
     try {
       await LlmSourceSecretStore.clearCodexTokens(this.ctx(), this.sourceProfileId)
@@ -486,6 +513,9 @@ export struct LlmSourceDetailPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }

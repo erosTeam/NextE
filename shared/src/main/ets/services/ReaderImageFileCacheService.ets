@@ -275,6 +275,9 @@ export class ReaderImageFileCacheService {
     return `reader:v1:${gid}:${token}:${page}:${original ? 'original' : 'resampled'}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static cached(
     context: common.UIAbilityContext,
     cacheKey: string,
@@ -301,6 +304,9 @@ export class ReaderImageFileCacheService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(
     context: common.UIAbilityContext,
     url: string,
@@ -432,6 +438,9 @@ export class ReaderImageFileCacheService {
     task.markSettled()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static cancelQueued(context: common.UIAbilityContext, cacheKey: string): boolean {
     if (cacheKey.length === 0) {
       return false
@@ -581,6 +590,9 @@ export class ReaderImageFileCacheService {
     ReaderImageFileCacheService.maintenanceBytesSincePrune = 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static remove(context: common.UIAbilityContext, cacheKey: string): void {
     if (cacheKey.length === 0) {
       return
@@ -690,6 +702,9 @@ export class ReaderImageFileCacheService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static filePath(context: common.UIAbilityContext, cacheKey: string): string {
     const dir: string = ReaderImageFileCacheService.cacheDir(context)
     ReaderImageFileCacheService.ensureDir(dir)
@@ -704,6 +719,9 @@ export class ReaderImageFileCacheService {
     return url.startsWith('file://') ? url.substring('file://'.length) : ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)

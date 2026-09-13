@@ -317,7 +317,7 @@ export struct ImageKnifeProImageAdapter {
   }
 
   private defaultContext(): common.UIAbilityContext | undefined {
-    const context = getContext(this)
+    const context = this.getUIContext().getHostContext()
     return context === undefined ? undefined : context as common.UIAbilityContext
   }
 

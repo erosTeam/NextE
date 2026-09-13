@@ -452,6 +452,9 @@ export struct LayoutSettingsPage {
     ThumbnailModeSettings.setHideGalleryThumbnails(this.ctx(), value)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private setHomeTabAutoHide(value: boolean): void {
     HomeTabSettings.save(this.ctx(), value)
   }

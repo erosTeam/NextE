@@ -181,6 +181,9 @@ export class ComicVisualProviderSettings {
     return ComicVisualProviderSettings.runtimeRevisionValue
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(
     context: common.UIAbilityContext,
   ): Promise<ComicVisualProviderSettingsSnapshot> {
@@ -215,6 +218,9 @@ export class ComicVisualProviderSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async save(
     context: common.UIAbilityContext,
     snapshot: ComicVisualProviderSettingsSnapshot,
@@ -236,6 +242,9 @@ export class ComicVisualProviderSettings {
     ComicVisualProviderSettings.runtimeRevisionValue++
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static retireLegacyByokSettings(store: preferences.Preferences): void {
     const billingMode: string = store.getSync(
       StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE,
@@ -261,6 +270,9 @@ export class ComicVisualProviderSettings {
     store.flushSync()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static deleteLegacyByokSettings(store: preferences.Preferences): void {
     store.deleteSync(StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BILLING_MODE)
     store.deleteSync(StorageKeys.COMIC_TRANSLATION_TORII_LEGACY_BYOK_PROVIDER)

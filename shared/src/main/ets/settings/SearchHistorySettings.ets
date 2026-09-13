@@ -50,6 +50,9 @@ export class SearchHistorySettings {
     await SearchHistorySettings.persistAdd(context, q)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     connectSearchHistory().items = []
     SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
@@ -104,12 +107,18 @@ export class SearchHistorySettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<string[]> {
     await SearchHistorySettings.migrateLegacyPreferences(context)
     await SearchHistorySettings.flushForSync(context)
     return SearchHistoryRepository.load(context, MAX_HISTORY)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(context: common.UIAbilityContext, items: string[]): Promise<void> {
     SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
     await SearchHistorySettings.enqueueRdbWrite(
@@ -123,6 +132,9 @@ export class SearchHistorySettings {
     SyncScheduler.requestAfterLocalWrite(context, 'search_history_restore_backup')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const revision: number = SearchHistorySettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
@@ -188,7 +200,10 @@ export class SearchHistorySettings {
     return next
   }
 
-  /** Avoid replacing a newer in-memory submit/delete with a stale RDB snapshot. */
+  /**
+   * Avoid replacing a newer in-memory submit/delete with a stale RDB snapshot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
     for (let attempt: number = 0; attempt < 2; attempt++) {
       await SearchHistorySettings.rdbWriteTail
@@ -230,6 +245,9 @@ export class SearchHistorySettings {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

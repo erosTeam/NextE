@@ -99,6 +99,9 @@ export class DefaultCodexUsageHttpTransport implements CodexUsageHttpTransport {
 
 /** Queries the same undocumented account usage surface as current Codex clients. */
 export class ComicTranslationCodexUsageService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async fetch(
     context: common.UIAbilityContext,
     transport: CodexUsageHttpTransport = new DefaultCodexUsageHttpTransport(),
@@ -111,6 +114,9 @@ export class ComicTranslationCodexUsageService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async fetchSource(
     context: common.UIAbilityContext,
     sourceProfileId: string,

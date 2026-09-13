@@ -201,6 +201,9 @@ export class ReaderSuperResolutionModelService {
     return paths
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async install(context: common.UIAbilityContext, model: string): Promise<void> {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
@@ -373,6 +376,9 @@ export class ReaderSuperResolutionModelService {
       canIUse('SystemCapability.AI.Vision.VisionBase')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async installWaifu2x(context: common.UIAbilityContext): Promise<void> {
     if (await ReaderSuperResolutionModelService.isWaifu2xInstalled(context)) {
       return
@@ -388,6 +394,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async installRealEsrgan(context: common.UIAbilityContext): Promise<void> {
     if (await ReaderSuperResolutionModelService.isRealEsrganInstalled(context)) {
       return
@@ -403,6 +412,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installEspcn(
     context: common.UIAbilityContext,
     definition: ReaderSuperResolutionModelDefinition,
@@ -456,6 +468,9 @@ export class ReaderSuperResolutionModelService {
     ReaderSuperResolutionModelService.removeIfExists(`${paths.acceleratedModelPath}.part`)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installDirectNow(
     context: common.UIAbilityContext,
     definition: ReaderSuperResolutionModelDefinition,
@@ -516,6 +531,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installEspcnNow(
     context: common.UIAbilityContext,
     definition: ReaderSuperResolutionModelDefinition,
@@ -610,6 +628,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static createEspcnRuntimeFiles(
     onnxPath: string,
     paramPath: string,
@@ -709,6 +730,9 @@ export class ReaderSuperResolutionModelService {
     return sign | (halfExponent << 10) | (significand >>> 13)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readExactFile(path: string, expectedBytes: number): ArrayBuffer {
     const buffer: ArrayBuffer = new ArrayBuffer(expectedBytes)
     const output: Uint8Array = new Uint8Array(buffer)
@@ -737,6 +761,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeFile(path: string, buffer: ArrayBuffer): void {
     let file: fileIo.File | null = null
     let offset: number = 0
@@ -764,6 +791,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installWaifu2xNow(context: common.UIAbilityContext): Promise<void> {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X)
@@ -826,6 +856,9 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installRealEsrganNow(context: common.UIAbilityContext): Promise<void> {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS)
@@ -965,6 +998,7 @@ export class ReaderSuperResolutionModelService {
    * The source graph expands PixelUnshuffle into dynamic shape operators that the HarmonyOS ncnn
    * build cannot load. Reorg(stride=2, mode=0) is the same space-to-depth channel order, so the
    * compatible graph replaces only that prelude and leaves every learned layer untouched.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   private static createRealEsrganRuntimeParam(sourcePath: string, targetPath: string): void {
     const source: string = fileIo.readTextSync(sourcePath)
@@ -1012,6 +1046,7 @@ export class ReaderSuperResolutionModelService {
    * The pinned model bin starts with five int64 values used only by the removed dynamic-shape
    * prelude. They are verified as part of the immutable source hash, then omitted while writing a
    * temporary runtime file. The verified runtime file atomically replaces the source file.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   private static createRealEsrganRuntimeModel(path: string): void {
     if (fileIo.statSync(path).size !== REAL_ESRGAN_SOURCE_MODEL_BYTES) {
@@ -1112,6 +1147,9 @@ export class ReaderSuperResolutionModelService {
     throw lastError !== null ? lastError : new Error('model asset download failed')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installAcceleratedAsset(
     paths: ReaderSuperResolutionModelPaths,
     definition: ReaderSuperResolutionModelDefinition,
@@ -1189,7 +1227,11 @@ export class ReaderSuperResolutionModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static hashFile(path: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     let file: fileIo.File | null = null
     try {
@@ -1316,6 +1358,9 @@ export class ReaderSuperResolutionModelService {
     return paths
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)

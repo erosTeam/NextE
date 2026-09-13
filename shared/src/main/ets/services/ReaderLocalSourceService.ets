@@ -51,6 +51,9 @@ export class ReaderLocalSourceService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async archiveTaskParams(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,

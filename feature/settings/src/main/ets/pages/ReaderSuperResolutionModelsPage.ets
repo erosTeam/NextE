@@ -60,6 +60,9 @@ export struct ReaderSuperResolutionModelsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -188,6 +191,9 @@ export struct ReaderSuperResolutionModelsPage {
     return `${scope} · ${performance} · ${size}\n${details}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async downloadModel(state: ReaderSuperResolutionModelFileState): Promise<void> {
     if (state.definition.systemModel || state.installed || state.downloading) {
       return
@@ -231,6 +237,9 @@ export struct ReaderSuperResolutionModelsPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private removeModel(state: ReaderSuperResolutionModelFileState): void {
     if (state.definition.systemModel || !state.installed || state.downloading) {
       return

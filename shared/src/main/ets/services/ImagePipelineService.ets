@@ -62,6 +62,9 @@ export class ImagePipelineService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadReaderFile(
     context: common.UIAbilityContext,
     url: string,
@@ -85,6 +88,9 @@ export class ImagePipelineService {
     return ReaderImageFileCacheService.cacheKey(gid, token, page, original)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static cachedReaderFile(
     context: common.UIAbilityContext,
     cacheKey: string,
@@ -92,11 +98,17 @@ export class ImagePipelineService {
     return ReaderImageFileCacheService.cached(context, cacheKey)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static removeReaderFile(context: common.UIAbilityContext, cacheKey: string): void {
     ReaderImageFileCacheService.remove(context, cacheKey)
   }
 
-  /** Cancel a stale Reader prefetch only while it is still waiting for the low-priority slot. */
+  /**
+   * Cancel a stale Reader prefetch only while it is still waiting for the low-priority slot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static cancelQueuedReaderFile(context: common.UIAbilityContext, cacheKey: string): boolean {
     return ReaderImageFileCacheService.cancelQueued(context, cacheKey)
   }

@@ -45,6 +45,9 @@ export struct SearchSettingsPage {
       : $r('app.string.search_settings_filter_clean')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async clearHistory(): Promise<void> {
     await SearchHistorySettings.clear(this.ctx())
   }

@@ -218,6 +218,9 @@ export class ComicTranslationModelService {
       ComicTranslationModelService.textMaskPathsIfReady(context) !== null
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async install(context: common.UIAbilityContext): Promise<void> {
     if (await ComicTranslationModelService.isInstalled(context)) {
       return
@@ -274,6 +277,9 @@ export class ComicTranslationModelService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async installNow(context: common.UIAbilityContext): Promise<void> {
     const directory: string = ComicTranslationModelService.directory(context)
     const paths: ComicTranslationModelPaths = ComicTranslationModelService.paths(context)
@@ -498,7 +504,11 @@ export class ComicTranslationModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static hashFile(path: string): string {
+    // @SuppressWarnings syscap
     const digest = cryptoFramework.createMd('SHA256')
     let file: fileIo.File | null = null
     try {
@@ -524,6 +534,9 @@ export class ComicTranslationModelService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)

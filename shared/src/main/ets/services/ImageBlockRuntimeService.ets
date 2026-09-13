@@ -370,6 +370,9 @@ export class ImageBlockRuntimeService {
     new ImageBlockThumbnailHashQueueScheduler()
   private static previewWriteInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async decisionForFile(
     context: common.UIAbilityContext,
     filePath: string,
@@ -400,6 +403,9 @@ export class ImageBlockRuntimeService {
     return ImageBlockService.decisionForHash(hash, rules)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async decisionForThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -468,6 +474,9 @@ export class ImageBlockRuntimeService {
     return ImageBlockService.decisionForHash(hash, rules)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async decisionForCachedThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -522,6 +531,9 @@ export class ImageBlockRuntimeService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async addLocalRuleForFile(
     context: common.UIAbilityContext,
     filePath: string,
@@ -559,6 +571,9 @@ export class ImageBlockRuntimeService {
     return rule
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async addWhitelistForFile(
     context: common.UIAbilityContext,
     filePath: string,
@@ -578,6 +593,9 @@ export class ImageBlockRuntimeService {
     return ImageBlockRepository.upsertWhitelistHash(context, hash, '')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async addWhitelistForHash(
     context: common.UIAbilityContext,
     hash: string,
@@ -586,6 +604,9 @@ export class ImageBlockRuntimeService {
     return ImageBlockRepository.upsertWhitelistHash(context, hash, previewPath)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async addLocalRuleForThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -637,6 +658,9 @@ export class ImageBlockRuntimeService {
     return rule
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async addWhitelistForThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -671,6 +695,9 @@ export class ImageBlockRuntimeService {
     return ImageBlockRepository.upsertWhitelistHash(context, hash, '')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async previewPathForRuleSource(
     context: common.UIAbilityContext,
     rule: ImageBlockRule,
@@ -862,6 +889,9 @@ export class ImageBlockRuntimeService {
     out.push(candidate)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hashForFile(
     context: common.UIAbilityContext,
     filePath: string,
@@ -878,6 +908,9 @@ export class ImageBlockRuntimeService {
     return hash
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadEnabledRulesCached(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const signal: string = connectImageBlockRuntime().signal
     if (ImageBlockRuntimeService.cachedRulesSignal === signal) {
@@ -889,6 +922,9 @@ export class ImageBlockRuntimeService {
     return rules
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async thumbnailPreviewPath(
     context: common.UIAbilityContext,
     sourcePath: string,
@@ -934,6 +970,9 @@ export class ImageBlockRuntimeService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeThumbnailPreview(
     context: common.UIAbilityContext,
     sourcePath: string,
@@ -975,6 +1014,9 @@ export class ImageBlockRuntimeService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadThumbnailFile(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -1002,6 +1044,9 @@ export class ImageBlockRuntimeService {
     return CachedImageFileService.load(context, url, cacheKey, (_progress) => {})
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static cachedThumbnailFile(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -1077,6 +1122,9 @@ export class ImageBlockRuntimeService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadAndHashThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
@@ -1111,6 +1159,9 @@ export class ImageBlockRuntimeService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hashForThumbnail(
     context: common.UIAbilityContext,
     filePath: string,
@@ -1162,6 +1213,9 @@ export class ImageBlockRuntimeService {
     return hash
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadStableThumbnailHash(
     context: common.UIAbilityContext,
     stableKey: string,

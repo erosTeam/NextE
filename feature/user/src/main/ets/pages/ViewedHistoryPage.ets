@@ -57,6 +57,9 @@ export struct ViewedHistoryPage {
   // viewport, so this is the only conversion needed to compare them with the HDS pin surface.
   private historyListGlobalY: number = -1
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.resetPinnedDayHeader()
     this.vm.setContext(this.ctx())
@@ -186,6 +189,9 @@ export struct ViewedHistoryPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private refreshCurrentDay(): void {
     const currentDayStart: number = historyLocalDayStart(Date.now())
     this.currentDayStart = currentDayStart
@@ -210,6 +216,9 @@ export struct ViewedHistoryPage {
     }, Math.max(1, nextLocalMidnight - now.getTime() + 1))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private onHistoryDidScroll(_offset: number): void {
     this.syncPinnedDayHeader()
   }
@@ -218,11 +227,17 @@ export struct ViewedHistoryPage {
     this.pinnedDayHeaderState.visible = false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private onHistoryListArea(area: Area): void {
     this.historyListGlobalY = area.globalPosition.y as number
     this.syncPinnedDayHeader()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('pinnedDayHeaderState.pinSurfaceTopY')
   private onPinnedDaySurfaceChanged(): void {
     this.syncPinnedDayHeader()
@@ -233,6 +248,9 @@ export struct ViewedHistoryPage {
     this.vm.reloadIfChanged(this.history.revision)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private syncPinnedDayHeader(): void {
     const pinSurfaceTopY: number = this.pinnedDayHeaderState.pinSurfaceTopY
     if (pinSurfaceTopY < 0 || this.historyListGlobalY < 0) {

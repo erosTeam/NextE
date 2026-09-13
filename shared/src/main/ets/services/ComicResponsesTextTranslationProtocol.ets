@@ -90,6 +90,9 @@ export class ComicResponsesTextTranslationProtocol {
     return prompt
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static contextFingerprint(
     request: ComicTextTranslationRequest,
     inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,
@@ -102,6 +105,7 @@ export class ComicResponsesTextTranslationProtocol {
         ComicResponsesTextTranslationProtocol.payloadLines(request),
       ]),
     )
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
     const digest: Uint8Array = md.digestSync().data
@@ -112,6 +116,9 @@ export class ComicResponsesTextTranslationProtocol {
     return parts.join('')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static parse(
     request: ComicTextTranslationRequest,
     rawText: string,

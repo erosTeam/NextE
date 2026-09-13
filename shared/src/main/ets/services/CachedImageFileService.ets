@@ -48,6 +48,9 @@ export class CachedImageFileService {
   private static maintenanceWritesSincePrune: number = -1
   private static maintenanceBytesSincePrune: number = 0
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static cached(
     context: common.UIAbilityContext,
     url: string,
@@ -83,6 +86,9 @@ export class CachedImageFileService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(
     context: common.UIAbilityContext,
     url: string,
@@ -138,6 +144,9 @@ export class CachedImageFileService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async downloadAndStore(
     context: common.UIAbilityContext,
     url: string,
@@ -207,6 +216,9 @@ export class CachedImageFileService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static remove(context: common.UIAbilityContext, url: string, cacheKey: string): void {
     const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
     CachedImageFileService.removeIfExists(filePath)
@@ -354,6 +366,9 @@ export class CachedImageFileService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static filePath(context: common.UIAbilityContext, url: string, cacheKey: string): string {
     const dir: string = CachedImageFileService.cacheDir(context)
     CachedImageFileService.ensureDir(dir)
@@ -382,6 +397,9 @@ export class CachedImageFileService {
     return url.substring('file://'.length)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)

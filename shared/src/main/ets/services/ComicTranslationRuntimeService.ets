@@ -115,6 +115,9 @@ export class ComicTranslationRuntimeService {
     new Map<string, ComicWholePageTranslationOrchestrator>()
   private static toriiContextStore: ToriiWholePageContextStore | null = null
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async runReaderPage(
     context: common.UIAbilityContext,
     input: ComicTranslationReaderPageInput,
@@ -163,6 +166,9 @@ export class ComicTranslationRuntimeService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runRegionPage(
     context: common.UIAbilityContext,
     input: ComicTranslationReaderPageInput,
@@ -202,6 +208,9 @@ export class ComicTranslationRuntimeService {
     return orchestrator.run(request, forceRefresh)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clearGeneratedCache(context: common.UIAbilityContext): Promise<void> {
     ComicTranslationRuntimeService.orchestrators.forEach(
       (orchestrator: ComicVisualTranslationOrchestrator): void => {
@@ -222,6 +231,9 @@ export class ComicTranslationRuntimeService {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async statGeneratedCache(context: common.UIAbilityContext): Promise<CacheStat> {
     const stats: CacheStat[] = await Promise.all([
       ComicTranslationRuntimeService.documentRepositoryFor(context).stat(),
@@ -236,6 +248,9 @@ export class ComicTranslationRuntimeService {
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runToriiWholePage(
     context: common.UIAbilityContext,
     input: ComicTranslationReaderPageInput,
@@ -283,6 +298,9 @@ export class ComicTranslationRuntimeService {
     return orchestrator.run(request, forceRefresh)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runSelfHostedPage(
     context: common.UIAbilityContext,
     input: ComicTranslationReaderPageInput,
@@ -331,6 +349,9 @@ export class ComicTranslationRuntimeService {
       : COMIC_TEXT_TRANSLATION_INPUT_TEXT_ONLY
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static orchestrator(
     context: common.UIAbilityContext,
     backend: ComicRegionRenderBackend,
@@ -417,6 +438,9 @@ export class ComicTranslationRuntimeService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static wholePageOrchestrator(
     context: common.UIAbilityContext,
     backend: ToriiWholePageRenderBackend,
@@ -516,6 +540,9 @@ export class ComicTranslationRuntimeService {
     return profile
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static selfHostedRegionRevision(
     config: MangaTranslatorUiSidecarConfig,
   ): number {
@@ -528,6 +555,9 @@ export class ComicTranslationRuntimeService {
     return Math.max(1, Number.parseInt(fingerprint.substring(0, 12), 16))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static credentialRuntimeFingerprint(
     credential: MangaRenderingServiceCredential,
   ): string {
@@ -592,6 +622,9 @@ export class ComicTranslationRuntimeService {
       ComicTranslationRuntimeService.nonNegativeSafeInteger(value)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async fileMetadata(path: string): Promise<ComicTranslationReaderFileMetadata> {
     const stat: fileIo.Stat = fileIo.statSync(path)
     if (stat.size <= 0 || stat.size > COMIC_READER_MAX_IMAGE_BYTES) {
@@ -606,6 +639,7 @@ export class ComicTranslationRuntimeService {
       metadata.mimeType = ComicTranslationRuntimeService.detectMime(
         new Uint8Array(headerBuffer, 0, headerRead),
       )
+      // @SuppressWarnings syscap
       const md = cryptoFramework.createMd('SHA256')
       md.updateSync({ data: new Uint8Array(headerBuffer, 0, headerRead) })
       while (true) {
@@ -667,8 +701,12 @@ export class ComicTranslationRuntimeService {
     throw new Error('Comic provider image MIME type is unsupported')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static digest(value: string): string {
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(value)
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
     return ComicTranslationRuntimeService.toHex(md.digestSync().data)

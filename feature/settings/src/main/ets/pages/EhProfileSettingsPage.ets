@@ -148,6 +148,9 @@ export struct EhProfileSettingsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -1369,6 +1372,9 @@ struct LanguageVariantRow {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Builder
   SegmentSuffix() {
     MultiCapsuleSegmentButtonV2({

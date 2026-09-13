@@ -50,6 +50,9 @@ class ComicResponsesTextTranslatorCore {
     this.inputMode = inputMode
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async translate(
     request: ComicTextTranslationRequest,
     config: ComicResponsesCallConfig,
@@ -144,6 +147,9 @@ class ComicResponsesTextTranslatorCore {
       : COMIC_RESPONSES_TEXT_TRANSLATION_PROMPT_VERSION
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicTextTranslationRequest): string {
     return ComicResponsesTextTranslationProtocol.contextFingerprint(request, this.inputMode)
   }
@@ -188,10 +194,16 @@ export class OpenAiApiComicTextTranslator implements ComicTextTranslator {
     return this.core.promptVersion()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicTextTranslationRequest): string {
     return this.core.contextFingerprint(request)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   translate(request: ComicTextTranslationRequest): Promise<ComicTextTranslationResult> {
     return this.core.translate(request, this.config, this.revision)
   }
@@ -235,10 +247,16 @@ export class ExperimentalCodexComicTextTranslator implements ComicTextTranslator
     return this.core.promptVersion()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicTextTranslationRequest): string {
     return this.core.contextFingerprint(request)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async translate(request: ComicTextTranslationRequest): Promise<ComicTextTranslationResult> {
     let tokens: CodexOAuthTokenSet = await ExperimentalCodexOAuthService.usableSourceTokens(
       this.context,
@@ -273,6 +291,9 @@ export class ExperimentalCodexComicTextTranslator implements ComicTextTranslator
 }
 
 export class ComicTextTranslatorFactory {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async create(
     context: common.UIAbilityContext,
     inputMode: string = COMIC_TEXT_TRANSLATION_INPUT_MULTIMODAL,

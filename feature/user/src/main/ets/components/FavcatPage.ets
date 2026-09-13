@@ -268,6 +268,9 @@ export struct FavcatPage {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     if (this.loadedOnce) {

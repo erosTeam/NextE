@@ -48,6 +48,9 @@ const SQL_DELETE_ARCHIVER_TASK: string =
   'DELETE FROM download_archiver_tasks WHERE scope_key = ? AND tag = ?'
 
 export class DownloadQueueRepository {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(context: common.UIAbilityContext): Promise<DownloadGalleryTask[]> {
     const out: DownloadGalleryTask[] = []
     const tasksByKey: Map<string, DownloadGalleryTask> = new Map<string, DownloadGalleryTask>()
@@ -106,6 +109,9 @@ export class DownloadQueueRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(context: common.UIAbilityContext, tasks: DownloadGalleryTask[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -122,6 +128,9 @@ export class DownloadQueueRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceGalleryTask(context: common.UIAbilityContext, task: DownloadGalleryTask): Promise<void> {
     if (task.gid.length === 0) {
       return
@@ -137,7 +146,10 @@ export class DownloadQueueRepository {
     }
   }
 
-  /** Ordinary enqueue refreshes one task and removes only the queue entries displaced by its cap. */
+  /**
+   * Ordinary enqueue refreshes one task and removes only the queue entries displaced by its cap.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceGalleryTaskAndRemove(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
@@ -163,7 +175,10 @@ export class DownloadQueueRepository {
     }
   }
 
-  /** Ordinary explicit removal deletes one task and its own seeds without touching other queue rows. */
+  /**
+   * Ordinary explicit removal deletes one task and its own seeds without touching other queue rows.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeGalleryTask(
     context: common.UIAbilityContext,
     gid: string,
@@ -184,6 +199,9 @@ export class DownloadQueueRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async updateGalleryTaskDelta(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
@@ -216,6 +234,9 @@ export class DownloadQueueRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadArchiver(context: common.UIAbilityContext): Promise<DownloadArchiverTask[]> {
     const out: DownloadArchiverTask[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -233,6 +254,9 @@ export class DownloadQueueRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAllArchiver(context: common.UIAbilityContext, tasks: DownloadArchiverTask[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -248,6 +272,9 @@ export class DownloadQueueRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceArchiverTask(context: common.UIAbilityContext, task: DownloadArchiverTask): Promise<void> {
     if (task.tag.length === 0) {
       return
@@ -256,7 +283,10 @@ export class DownloadQueueRepository {
     await DownloadQueueRepository.upsertArchiverTask(store, task)
   }
 
-  /** Ordinary enqueue refreshes one archiver task and removes only entries displaced by its cap. */
+  /**
+   * Ordinary enqueue refreshes one archiver task and removes only entries displaced by its cap.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceArchiverTaskAndRemove(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -282,7 +312,10 @@ export class DownloadQueueRepository {
     }
   }
 
-  /** Ordinary explicit removal deletes one archiver task without rewriting its queue peers. */
+  /**
+   * Ordinary explicit removal deletes one archiver task without rewriting its queue peers.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeArchiverTask(context: common.UIAbilityContext, tag: string): Promise<void> {
     if (tag.length === 0) {
       return
@@ -291,6 +324,9 @@ export class DownloadQueueRepository {
     await store.executeSql(SQL_DELETE_ARCHIVER_TASK, [SCOPE_GLOBAL, tag])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertTask(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -307,6 +343,9 @@ export class DownloadQueueRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async replaceGalleryTaskWithStore(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -320,6 +359,9 @@ export class DownloadQueueRepository {
     await DownloadQueueRepository.upsertTask(store, task)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async removeGalleryTaskWithStore(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -335,6 +377,9 @@ export class DownloadQueueRepository {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async removeGalleryTaskByKeyWithStore(
     store: relationalStore.RdbStore,
     gid: string,
@@ -364,6 +409,9 @@ export class DownloadQueueRepository {
     return `${gid.length}:${gid}${token.length}:${token}:${preferOriginal ? '1' : '0'}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertTaskHeader(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -394,6 +442,9 @@ export class DownloadQueueRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertSeed(
     store: relationalStore.RdbStore,
     gid: string,
@@ -432,6 +483,9 @@ export class DownloadQueueRepository {
     return Math.max(0, seed.page - 1)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readTask(resultSet: relationalStore.ResultSet): DownloadGalleryTask {
     const task: DownloadGalleryTask = new DownloadGalleryTask()
     task.gid = DownloadQueueRepository.stringColumn(resultSet, 'gid')
@@ -455,6 +509,9 @@ export class DownloadQueueRepository {
     return task
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readSeed(resultSet: relationalStore.ResultSet): DownloadImageSeed {
     const seed: DownloadImageSeed = new DownloadImageSeed()
     seed.page = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'page'))
@@ -472,6 +529,9 @@ export class DownloadQueueRepository {
     return seed
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertArchiverTask(
     store: relationalStore.RdbStore,
     task: DownloadArchiverTask,
@@ -504,6 +564,9 @@ export class DownloadQueueRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readArchiverTask(resultSet: relationalStore.ResultSet): DownloadArchiverTask {
     const task: DownloadArchiverTask = new DownloadArchiverTask()
     task.tag = DownloadQueueRepository.stringColumn(resultSet, 'tag')
@@ -563,11 +626,17 @@ export class DownloadQueueRepository {
     return DownloadArchiverParseSource.OFFICIAL
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

@@ -82,6 +82,9 @@ export class DefaultCodexResponsesTextHttpTransport implements CodexResponsesTex
 
 /** Executes a text-only Responses request through one stored experimental Codex OAuth source. */
 export class ExperimentalCodexResponsesTextService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async generate(
     context: common.UIAbilityContext,
     sourceProfileId: string,

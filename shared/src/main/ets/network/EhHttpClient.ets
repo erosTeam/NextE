@@ -546,6 +546,9 @@ export class EhHttpClient {
     return adapter
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async downloadBinaryToFileInStreamWithConfig(
     config: InternalAxiosRequestConfig,
     filePath: string,
@@ -771,6 +774,9 @@ export class EhHttpClient {
     return adapter
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async downloadBinaryToFileInStreamResumableWithConfig(
     config: InternalAxiosRequestConfig,
     partialPath: string,
@@ -988,6 +994,9 @@ export class EhHttpClient {
     return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {
     let file: fs.File | null = null
     try {

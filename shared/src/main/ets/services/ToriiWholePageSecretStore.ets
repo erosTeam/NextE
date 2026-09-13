@@ -86,6 +86,9 @@ export class ToriiWholePageCredential {
 }
 
 export class ToriiWholePageSecretStore {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async read(context: common.UIAbilityContext): Promise<ToriiWholePageCredential> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
@@ -96,6 +99,9 @@ export class ToriiWholePageSecretStore {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async save(
     context: common.UIAbilityContext,
     value: ToriiWholePageCredential,

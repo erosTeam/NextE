@@ -256,12 +256,18 @@ export class LlmSourceProfileRepository {
     return next
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readProfiles(store: preferences.Preferences): LlmSourceProfile[] {
     return LlmSourceProfileCodec.decode(
       store.getSync(StorageKeys.LLM_SOURCE_PROFILES, '') as string,
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readBinding(
     store: preferences.Preferences,
     consumerId: string,

@@ -37,6 +37,9 @@ export class MangaTranslatorUiExportFiles {
  * local ZIP records. zlib never sees an unchecked filename or unbounded entry.
  */
 export class MangaTranslatorUiSidecarArchive {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async extract(
     context: common.UIAbilityContext,
     archive: Uint8Array,
@@ -228,6 +231,9 @@ export class MangaTranslatorUiSidecarArchive {
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readBounded(path: string, maxBytes: number): Uint8Array {
     const stat: fileIo.Stat = fileIo.statSync(path)
     const length: number = Math.floor(stat.size)
@@ -256,6 +262,9 @@ export class MangaTranslatorUiSidecarArchive {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeExact(path: string, bytes: Uint8Array): void {
     let file: fileIo.File | null = null
     let offset: number = 0
@@ -286,6 +295,9 @@ export class MangaTranslatorUiSidecarArchive {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)

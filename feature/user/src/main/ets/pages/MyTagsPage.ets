@@ -124,6 +124,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private closeMyTagsSheet(): void {
     if (this.myTagsSheetKind === MYTAGS_SHEET_ADD) {
       this.cancelAddSuggestions()
@@ -140,6 +143,9 @@ export struct MyTagsPage {
     this.finishMyTagsSheetDismissal()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private finishMyTagsSheetDismissal(): void {
     const shouldRefreshEditedTag: boolean = this.refreshEditedTagAfterDismissal
     const editedTagset: string = this.editedTagsetAfterDismissal
@@ -159,6 +165,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToDisappear(): void {
     this.closeMyTagsSheet()
   }
@@ -300,6 +309,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async refreshSavedEditAfterDismissal(tagset: string): Promise<void> {
     await this.reloadCurrentTagset(tagset)
     this.getUIContext().getPromptAction().showToast({
@@ -321,6 +333,9 @@ export struct MyTagsPage {
     return t.display.length > 0 ? t.display : t.tag
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     if (this.loading) {
@@ -337,16 +352,25 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('auth.memberId')
   private onAccountChanged(): void {
     this.reloadForContextChange()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('site.isEx')
   private onSiteChanged(): void {
     this.reloadForContextChange()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private reloadForContextChange(): void {
     this.mytagsEpoch = this.mytagsEpoch + 1
     this.loadedContext = null
@@ -362,6 +386,9 @@ export struct MyTagsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateLoadedMyTags(epoch: number, request: UserTagRequestContext): Promise<void> {
     const source: EhMytags = this.mytags
     const tags: EhUsertag[] = []
@@ -545,6 +572,9 @@ export struct MyTagsPage {
     this.openMyTagsSheet(MYTAGS_SHEET_ADD)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openAddTargetTag(fullTag: string): void {
     this.openAddTag()
     this.addTagQuery = fullTag
@@ -555,6 +585,9 @@ export struct MyTagsPage {
     this.loadAddTagTranslation(fullTag, epoch).then(() => {})
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async openTargetTagAfterLoad(epoch: number, request: UserTagRequestContext): Promise<void> {
     const targetTag: string = this.params.targetTag.trim()
     if (targetTag.length === 0) {
@@ -745,6 +778,9 @@ export struct MyTagsPage {
     return $r('app.string.mytags_tagset_create')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private confirmSubmitEdit(): void {
     if (!this.canSubmitEdit()) {
       return
@@ -852,6 +888,9 @@ export struct MyTagsPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async submitEdit(request: UserTagRequestContext): Promise<void> {
     if (!this.isCurrentManagementRequest(request) || !this.canSubmitEdit()) {
       return
@@ -895,6 +934,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async submitAdd(request: UserTagRequestContext): Promise<void> {
     if (!this.isCurrentManagementRequest(request) || !this.canSubmitAdd()) {
       return
@@ -942,6 +984,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async deleteTag(request: UserTagRequestContext): Promise<void> {
     if (!this.isCurrentManagementRequest(request) || !this.canDeleteTag()) {
       return
@@ -985,6 +1030,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async submitTagset(request: UserTagRequestContext): Promise<void> {
     if (!this.isCurrentManagementRequest(request) || !this.canSubmitTagset()) {
       return
@@ -1034,6 +1082,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async deleteCurrentTagset(request: UserTagRequestContext): Promise<void> {
     if (!this.isCurrentManagementRequest(request) || !this.canManageCurrentTagset() || !this.mytags.canDelete) {
       return
@@ -1078,6 +1129,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private setAddTagQuery(value: string): void {
     const tagName: string = value.trim()
     // Updating InlineEditRow.value after selecting a suggestion can report the same value back through
@@ -1097,6 +1151,9 @@ export struct MyTagsPage {
     this.loadAddSuggestions(value, epoch)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadAddTagTranslation(value: string, epoch: number): Promise<void> {
     const tag: string = value.trim()
     if (!this.tagTranslation.enabled || tag.length === 0) {
@@ -1181,6 +1238,9 @@ export struct MyTagsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectAddSuggestion(s: EhTagSuggestion): void {
     const label: string = s.label()
     this.addTagQuery = label

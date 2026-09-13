@@ -108,23 +108,35 @@ export struct DownloadQueuePage {
     return error.message.length > 0 ? `${base}: ${error.message}` : base
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
     this.rebuildTaskProjection()
     this.downloadQueueTick = this.downloadQueueTick + 1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('downloadView.searchText', 'downloadView.sortMode')
   private onDownloadViewFilterChanged(): void {
     this.rebuildTaskProjection()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.swiperIndex = this.selectedIndex()
     this.rebuildTaskProjection()
     this.notifyActiveScroller()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('downloadView.viewType')
   private onDownloadViewTypeChanged(): void {
     const target: number = this.selectedIndex()
@@ -156,6 +168,9 @@ export struct DownloadQueuePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private onSwiperChanged(index: number): void {
     this.swiperIndex = index
     const next: string = this.viewTypeForIndex(index)
@@ -167,6 +182,9 @@ export struct DownloadQueuePage {
     this.syncPinnedTaskGroup(this.downloadView.viewType)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private rebuildTaskProjection(): void {
     const projection: DownloadQueueTaskProjection = DownloadQueueTaskProjection.build(
       this.downloadQueue.galleryTasks,
@@ -191,10 +209,16 @@ export struct DownloadQueuePage {
     return groups
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private onQueueDidScroll(viewType: string, _offset: number): void {
     this.syncPinnedTaskGroup(viewType)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private onQueueListArea(viewType: string, area: Area): void {
     if (viewType === DownloadViewType.ARCHIVER) {
       this.archiverListGlobalY = area.globalPosition.y as number
@@ -204,6 +228,9 @@ export struct DownloadQueuePage {
     this.syncPinnedTaskGroup(viewType)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('downloadView.hdsSelectorBottomY')
   private onPinnedTaskSurfaceChanged(): void {
     this.syncPinnedTaskGroup(this.downloadView.viewType)
@@ -225,6 +252,9 @@ export struct DownloadQueuePage {
     return -1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private syncPinnedTaskGroup(viewType: string): void {
     if (viewType !== this.downloadView.viewType) {
       return
@@ -872,6 +902,9 @@ export struct DownloadQueuePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async resumeArchiverTask(task: DownloadArchiverTask): Promise<void> {
     await DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag)
   }
@@ -955,6 +988,9 @@ export struct DownloadQueuePage {
     return DownloadQueueSettings.isArchiverTaskComplete(task)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openArchiverTaskIfComplete(task: DownloadArchiverTask): void {
     if (this.canReadArchiverTask(task)) {
       this.openArchiverTask(task)
@@ -1084,6 +1120,9 @@ export struct DownloadQueuePage {
     connectReaderOverlayNavigation().open(params)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async openArchiverTask(task: DownloadArchiverTask): Promise<void> {
     if (this.openingArchiverTag.length > 0) {
       return

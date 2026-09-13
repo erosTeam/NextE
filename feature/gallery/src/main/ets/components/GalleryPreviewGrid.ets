@@ -336,6 +336,9 @@ export struct GalleryPreviewGrid {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private applyPinch(scale: number): void {
     if (this.pinchCommitted || this.measuredWidth <= 0) {
       return

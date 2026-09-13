@@ -273,6 +273,9 @@ export struct PullRefreshWaterFlowScaffold {
   // that one gesture may cross at most one column boundary — the instant the column count changes we lock
   // (pinchCommitted) so a single pinch can't skip from 3 to 5. The stored width is the organic value where
   // the gesture landed, never a snapped/computed boundary. Column count is read only to lock + toast.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private applyPinch(scale: number): void {
     if (this.pinchModeKey.length === 0 || this.pinchCommitted || this.measuredWidth <= 0) {
       return

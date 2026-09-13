@@ -87,6 +87,9 @@ export struct TagTranslationSettingsPage {
     TagTranslationSettings.setIntroImageLevel(this.ctx(), level)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private updateNow(): void {
     if (this.updating) {
       return

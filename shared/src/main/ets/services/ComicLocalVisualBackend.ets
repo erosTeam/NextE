@@ -419,6 +419,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
     ComicVisualTranslationContract.validateRegionAnalysisRequest(request)
     const analysisStartedAt: number = Date.now()
@@ -600,6 +603,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async render(request: ComicRegionRenderRequest): Promise<ComicRenderedPage> {
     ComicVisualTranslationContract.validateStagedRenderRequest(request)
     this.validateTemplate(request)
@@ -3154,6 +3160,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return document
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static template(
     request: ComicRegionAnalysisRequest,
     document: ComicPageDocument,
@@ -3188,6 +3197,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return template
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private validateTemplate(request: ComicRegionRenderRequest): void {
     if (request.adapterTemplate.backendId !== LOCAL_VISUAL_BACKEND_ID ||
       request.adapterTemplate.profileId !== this.profileId() ||
@@ -6500,6 +6512,9 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     return rect
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)
@@ -6518,17 +6533,28 @@ export class ComicLocalVisualBackend implements ComicRegionRenderBackend {
     } catch (_error) {}
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256Text(value: string): string {
     return ComicLocalVisualBackend.sha256(new util.TextEncoder().encodeInto(value))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(bytes: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: bytes })
     return ComicLocalVisualBackend.toHex(md.digestSync().data)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256File(path: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     let file: fileIo.File | null = null
     try {

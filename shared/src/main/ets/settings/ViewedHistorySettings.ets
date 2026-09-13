@@ -41,6 +41,9 @@ export class ViewedHistorySettings {
     await ViewedHistorySettings.persist(context, nextEntry)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     ViewedHistorySettings.mutationRevision = ViewedHistorySettings.mutationRevision + 1
     await ViewedHistorySettings.enqueueRdbWrite(
@@ -73,6 +76,9 @@ export class ViewedHistorySettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadPage(
     context: common.UIAbilityContext,
     limit: number,
@@ -103,12 +109,18 @@ export class ViewedHistorySettings {
     await ViewedHistorySettings.rdbWriteTail
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
     await ViewedHistorySettings.migrateLegacyPreferences(context)
     await ViewedHistorySettings.flushForSync(context)
     return ViewedHistoryRepository.loadAll(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
     ViewedHistorySettings.mutationRevision = ViewedHistorySettings.mutationRevision + 1
     await ViewedHistorySettings.enqueueRdbWrite(
@@ -119,6 +131,9 @@ export class ViewedHistorySettings {
     SyncScheduler.requestAfterLocalWrite(context, 'viewed_history_restore_backup')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const revision: number = ViewedHistorySettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
@@ -172,6 +187,9 @@ export class ViewedHistorySettings {
     state.revision = state.revision + 1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

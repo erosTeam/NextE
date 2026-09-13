@@ -62,6 +62,9 @@ export class DefaultMangaTranslatorUiSidecarConnectionTransport implements
 
 /** Probes the pinned export/import capability without uploading a manga image. */
 export class MangaTranslatorUiSidecarConnectionService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async check(
     config: MangaTranslatorUiSidecarConfig,
     transport: MangaTranslatorUiSidecarConnectionTransport =

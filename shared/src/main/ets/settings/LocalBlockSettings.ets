@@ -129,12 +129,18 @@ export class LocalBlockSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
     await LocalBlockSettings.migrateLegacyPreferences(context)
     await LocalBlockSettings.flushForSync(context)
     return LocalBlockRepository.load(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(
     context: common.UIAbilityContext,
     snapshot: LocalBlockSettingsSnapshot,
@@ -148,6 +154,9 @@ export class LocalBlockSettings {
     SyncScheduler.requestAfterLocalWrite(context, 'local_block_restore_backup')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const revision: number = LocalBlockSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
@@ -318,7 +327,10 @@ export class LocalBlockSettings {
     return next
   }
 
-  /** Do not replace a newer page mutation with an RDB snapshot that started before it. */
+  /**
+   * Do not replace a newer page mutation with an RDB snapshot that started before it.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
     for (let attempt: number = 0; attempt < 2; attempt++) {
       await LocalBlockSettings.rdbWriteTail
@@ -408,6 +420,9 @@ export class LocalBlockSettings {
     return snapshot
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
     store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)

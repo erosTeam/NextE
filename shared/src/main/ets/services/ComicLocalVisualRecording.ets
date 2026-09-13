@@ -408,6 +408,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     return this.rootDir
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   recordAnalysis(recording: ComicLocalVisualAnalysisRecording): void {
     const pageDir: string = this.beginPageDir(recording.source.pageIndex)
     ComicLocalVisualFileRecorder.ensureDir(pageDir)
@@ -447,6 +450,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     this.writeManifest(pageDir, recording.source.pageIndex, sourceFile, false, false, false, false)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   recordRender(recording: ComicLocalVisualRenderRecording): void {
     const pageDir: string = this.activePageDir(recording.source.pageIndex)
     ComicLocalVisualFileRecorder.ensureDir(pageDir)
@@ -572,6 +578,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private copySource(source: ComicVisualPageSource, pageDir: string): string {
     const fileName: string = `source${ComicLocalVisualFileRecorder.imageSuffix(
       source.imageFilePath,
@@ -583,6 +592,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     return fileName
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private writeManifest(
     pageDir: string,
     pageIndex: number,
@@ -634,6 +646,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     return '.img'
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeJson(path: string, value: Object): void {
     const text: string = JSON.stringify(value)
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
@@ -643,6 +658,9 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     ComicLocalVisualFileRecorder.writeBytes(path, bytes)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeBytes(path: string, bytes: Uint8Array): void {
     let file: fileIo.File | null = null
     try {
@@ -665,10 +683,16 @@ export class ComicLocalVisualFileRecorder implements ComicLocalVisualRecordingSi
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static copyFile(sourcePath: string, targetPath: string): void {
     fileIo.copyFileSync(sourcePath, targetPath)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)

@@ -82,6 +82,9 @@ export class ToriiWholePageConfig {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   sourceProfileId(): string {
     this.assertValid()
     return `torii-whole-page:managed:${ToriiWholePageConfig.sha256Text(
@@ -96,7 +99,11 @@ export class ToriiWholePageConfig {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256Text(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     return ToriiWholePageRenderBackend.toHex(md.digestSync().data)
@@ -167,6 +174,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     this.transport = transport
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   sourceProfileId(): string {
     return this.config.sourceProfileId()
   }
@@ -183,6 +193,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     return TORII_WHOLE_PAGE_PROMPT_VERSION
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicWholePageRenderRequest): string {
     const context: string = ToriiWholePageRenderBackend.providerContext(request)
     return ToriiWholePageRenderBackend.sha256Text(JSON.stringify([
@@ -199,6 +212,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     ]))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextScope(
     projectId: string,
     pageIndex: number,
@@ -216,6 +232,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     return scope
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async render(request: ComicWholePageRenderRequest): Promise<ComicRenderedPage> {
     ComicVisualTranslationContract.validateWholePageRenderRequest(request)
     if (!ToriiFontCatalog.supports(
@@ -500,6 +519,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readSourceImage(source: ComicVisualPageSource): ToriiSourceImage {
     const stat: fileIo.Stat = fileIo.statSync(source.imageFilePath)
     if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_TORII_SOURCE_IMAGE_BYTES) {
@@ -664,6 +686,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async normalizeRenderedPng(
     context: common.UIAbilityContext,
     decoded: ToriiDecodedImage,
@@ -842,6 +867,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     return dimensions
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static persistRenderedPage(
     context: common.UIAbilityContext,
     identityKey: string,
@@ -870,6 +898,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readExact(path: string, length: number): Uint8Array {
     const output: Uint8Array = new Uint8Array(length)
     let file: fileIo.File | null = null
@@ -893,6 +924,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeExact(path: string, bytes: Uint8Array): void {
     let file: fileIo.File | null = null
     let offset: number = 0
@@ -919,6 +953,9 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)
@@ -981,12 +1018,19 @@ export class ToriiWholePageRenderBackend implements ComicWholePageRenderBackend 
       (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(bytes: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: bytes })
     return ToriiWholePageRenderBackend.toHex(md.digestSync().data)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256Text(value: string): string {
     return ToriiWholePageRenderBackend.sha256(new util.TextEncoder().encodeInto(value))
   }

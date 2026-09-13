@@ -64,6 +64,9 @@ class WebDavBuiltShard {
   updatedAt: number = 0
 }
 
+/**
+ * @throws { Error } Propagated from the underlying SDK call when it fails.
+ */
 @Concurrent
 function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
   const shardCount: number = 64
@@ -344,14 +347,6 @@ function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
     }
     return parts.join('')
   }
-  const hashText = (text: string): string => {
-    const md = cryptoFramework.createMd('SHA256')
-    const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
-    md.updateSync({ data: bytes })
-    const digest = md.digestSync()
-    return toHex(digest.data)
-  }
-
   const envelope: SyncEnvelopeV1 = JSON.parse(rawEnvelope) as SyncEnvelopeV1
   normalizeEnvelope(envelope)
   const shardIds: string[] = []
@@ -370,7 +365,11 @@ function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
     shard['id'] = shardId
     shard['path'] = 'datasets/' + datasetId + '/' + shardId + '.json'
     shard['raw'] = raw
-    shard['sha256'] = hashText(raw)
+    // @SuppressWarnings syscap
+    const md = cryptoFramework.createMd('SHA256')
+    const digestBytes: Uint8Array = new util.TextEncoder().encodeInto(raw)
+    md.updateSync({ data: digestBytes })
+    shard['sha256'] = toHex(md.digestSync().data)
     shard['recordCount'] = datasetRecordCount(shardEnvelope)
     shard['updatedAt'] = datasetUpdatedAt(shardEnvelope)
     out.push(shard)
@@ -388,6 +387,9 @@ export class WebDavSyncConfig {
 export class WebDavSyncService {
   private static activeRuns: Map<string, Promise<void>> = new Map<string, Promise<void>>()
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static syncNow(
     context: common.UIAbilityContext,
     config: WebDavSyncConfig,
@@ -405,6 +407,9 @@ export class WebDavSyncService {
     return run
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runTracked(
     runKey: string,
     context: common.UIAbilityContext,
@@ -423,6 +428,9 @@ export class WebDavSyncService {
     connectSyncSettings().webdavSyncing = WebDavSyncService.activeRuns.size > 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async syncOnce(
     context: common.UIAbilityContext,
     config: WebDavSyncConfig,
@@ -788,6 +796,9 @@ export class WebDavSyncService {
     return false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async buildShards(envelope: SyncEnvelopeV1, datasetId: string): Promise<WebDavBuiltShard[]> {
     const rawEnvelope: string = JSON.stringify(WebDavSyncService.selectDataset(envelope, datasetId))
     let rawShards: string = ''

@@ -195,7 +195,7 @@ export struct PullRefresh {
       await this.onRefresh()
     } catch (_error) {
       try {
-        RefreshFeedback.notifyRefreshFailed()
+        RefreshFeedback.notifyRefreshFailed(this.getUIContext())
       } catch (_feedbackError) {}
     } finally {
       this.refreshState = 3
@@ -208,7 +208,7 @@ export struct PullRefresh {
       await this.onBottomRefresh()
     } catch (_error) {
       try {
-        RefreshFeedback.notifyRefreshFailed()
+        RefreshFeedback.notifyRefreshFailed(this.getUIContext())
       } catch (_feedbackError) {}
     } finally {
       this.bottomRefreshState = 3

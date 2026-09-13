@@ -48,11 +48,17 @@ export struct MangaRenderingServiceSettingsPage {
   private loadedCredential: MangaRenderingServiceCredential =
     new MangaRenderingServiceCredential();
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.load()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToDisappear(): void {
     if (this.loaded) {
       this.persist(false)
@@ -64,6 +70,9 @@ export struct MangaRenderingServiceSettingsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async load(): Promise<void> {
     try {
       const snapshot: MangaRenderingServiceSettingsSnapshot =
@@ -85,6 +94,9 @@ export struct MangaRenderingServiceSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async persist(showFailureToast: boolean = true): Promise<boolean> {
     const snapshot: MangaRenderingServiceSettingsSnapshot =
       new MangaRenderingServiceSettingsSnapshot()
@@ -160,6 +172,9 @@ export struct MangaRenderingServiceSettingsPage {
     return error.message
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async checkConnection(): Promise<void> {
     if (this.connectionState === CONNECTION_RUNNING || !await this.persist(true)) {
       return
@@ -194,6 +209,9 @@ export struct MangaRenderingServiceSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -210,12 +228,18 @@ export struct MangaRenderingServiceSettingsPage {
       : $r('app.string.comic_render_service_inpainting_quality')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectDetectionProfile(value: string): void {
     this.detectionProfile = value
     this.connectionState = CONNECTION_IDLE
     this.persist(true)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectInpaintingProfile(value: string): void {
     this.inpaintingProfile = value
     this.connectionState = CONNECTION_IDLE

@@ -132,6 +132,9 @@ export class ComicTranslationDebugProbeResult {
  * selected LLM profile and every credential remain owned and read by the main application process.
  */
 export class ComicTranslationDebugProbeService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static exportRequest(
     context: common.UIAbilityContext,
     probeId: string,
@@ -156,6 +159,9 @@ export class ComicTranslationDebugProbeService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async executePending(context: common.UIAbilityContext): Promise<boolean> {
     if (!ComicTranslationDebugProbeService.debugBuild(context)) {
       return false
@@ -175,6 +181,9 @@ export class ComicTranslationDebugProbeService {
     return true
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async execute(
     context: common.UIAbilityContext,
     probeId: string,
@@ -230,6 +239,9 @@ export class ComicTranslationDebugProbeService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static importResult(
     context: common.UIAbilityContext,
     probeId: string,
@@ -306,6 +318,9 @@ export class ComicTranslationDebugProbeService {
     return raw
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static request(
     context: common.UIAbilityContext,
     raw: RawProbeRequest,
@@ -453,6 +468,9 @@ export class ComicTranslationDebugProbeService {
       value.totalMs >= value.prepareMs + value.providerMs
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readRawRequest(
     context: common.UIAbilityContext,
     probeId: string,
@@ -467,6 +485,9 @@ export class ComicTranslationDebugProbeService {
     return raw
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static validateRequest(
     context: common.UIAbilityContext,
     request: ComicTextTranslationRequest,
@@ -485,8 +506,12 @@ export class ComicTranslationDebugProbeService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static requestHash(raw: RawProbeRequest): string {
     const payload: string = ComicTranslationDebugProbeService.encode(raw)
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(payload) })
     const digest: Uint8Array = md.digestSync().data
@@ -497,6 +522,9 @@ export class ComicTranslationDebugProbeService {
     return parts.join('')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeStatus(
     context: common.UIAbilityContext,
     probeId: string,
@@ -517,11 +545,17 @@ export class ComicTranslationDebugProbeService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static directory(context: common.UIAbilityContext, probeId: string): string {
     ComicTranslationDebugProbeService.validateProbeId(probeId)
     return `${ComicTranslationDebugProbeService.root(context)}/${probeId}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static root(context: common.UIAbilityContext): string {
     const root: string =
       `${context.getApplicationContext().cacheDir}/${PROBE_ROOT_NAME}`
@@ -529,12 +563,18 @@ export class ComicTranslationDebugProbeService {
     return root
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDirectory(path: string): void {
     if (!fileIo.accessSync(path)) {
       fileIo.mkdirSync(path, true)
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeAtomic(path: string, payload: string): void {
     const partial: string = `${path}.partial`
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(payload)
@@ -557,6 +597,9 @@ export class ComicTranslationDebugProbeService {
     fileIo.renameSync(partial, path)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readBounded(path: string): string {
     const payload: string = fileIo.readTextSync(path)
     if (payload.length <= 0 || payload.length > MAX_PROBE_PAYLOAD_CHARS) {

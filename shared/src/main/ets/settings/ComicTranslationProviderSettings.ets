@@ -125,6 +125,9 @@ export class ComicTranslationProviderSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveCodexTokens(
     context: common.UIAbilityContext,
     tokens: CodexOAuthTokenSet,
@@ -139,6 +142,9 @@ export class ComicTranslationProviderSettings {
     ComicTranslationProviderSettings.applyCodexStatus(tokens)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clearCodexTokens(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

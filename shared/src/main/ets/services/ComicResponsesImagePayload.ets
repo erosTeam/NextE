@@ -6,6 +6,9 @@ const COMIC_RESPONSES_MAX_IMAGE_BYTES: number = 20 * 1024 * 1024
 
 /** Builds one verified image data URL immediately before a Responses request. */
 export class ComicResponsesImagePayload {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static dataUrl(
     imageFilePath: string,
     expectedImageHash: string,
@@ -48,7 +51,11 @@ export class ComicResponsesImagePayload {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static imageHash(bytes: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: bytes })
     const digest: Uint8Array = md.digestSync().data

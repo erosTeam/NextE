@@ -30,6 +30,9 @@ import {
 } from './BackupTypes'
 
 export class BackupLocalDataAdapter {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportSection(context: common.UIAbilityContext): Promise<BackupLocalDataSection> {
     return {
       readProgress: await BackupLocalDataAdapter.exportReadProgress(context),
@@ -42,6 +45,9 @@ export class BackupLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportReadProgress(
     context: common.UIAbilityContext,
   ): Promise<BackupReadProgressEntry[]> {
@@ -56,6 +62,9 @@ export class BackupLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportViewedHistory(
     context: common.UIAbilityContext,
   ): Promise<BackupViewedHistoryEntry[]> {
@@ -87,6 +96,9 @@ export class BackupLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportLocalFavorites(
     context: common.UIAbilityContext,
   ): Promise<BackupLocalFavoriteEntry[]> {
@@ -123,6 +135,9 @@ export class BackupLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportSearchHistory(context: common.UIAbilityContext): Promise<string[]> {
     const source: string[] = await SearchHistorySettings.exportForBackup(context)
     const out: string[] = []
@@ -135,6 +150,9 @@ export class BackupLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportLocalBlock(
     context: common.UIAbilityContext,
   ): Promise<BackupLocalBlockSection> {
@@ -161,6 +179,9 @@ export class BackupLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportImageBlock(
     context: common.UIAbilityContext,
   ): Promise<BackupImageBlockSection> {
@@ -188,6 +209,9 @@ export class BackupLocalDataAdapter {
     return { rules: rules }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async exportCustomProfiles(
     context: common.UIAbilityContext,
   ): Promise<BackupCustomProfilesSection> {
@@ -451,6 +475,9 @@ export class BackupLocalDataAdapter {
     return value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreSection(
     context: common.UIAbilityContext,
     section: BackupLocalDataSection,
@@ -627,6 +654,9 @@ export class BackupLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     await GalleryReadProgressSettings.migrateLegacyPreferences(context)
     await ViewedHistorySettings.migrateLegacyPreferences(context)

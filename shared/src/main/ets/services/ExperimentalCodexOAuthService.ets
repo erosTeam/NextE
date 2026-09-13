@@ -171,6 +171,9 @@ export class ExperimentalCodexOAuthService {
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async completeDeviceLogin(
     context: common.UIAbilityContext,
     session: CodexOAuthDeviceSession,
@@ -184,6 +187,9 @@ export class ExperimentalCodexOAuthService {
     return tokens.copy()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async completeSourceDeviceLogin(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -198,6 +204,9 @@ export class ExperimentalCodexOAuthService {
     return tokens.copy()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async usableTokens(
     context: common.UIAbilityContext,
     forceRefresh: boolean = false,
@@ -220,6 +229,9 @@ export class ExperimentalCodexOAuthService {
     return refreshed.copy()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async usableSourceTokens(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -252,13 +264,17 @@ export class ExperimentalCodexOAuthService {
     return ExperimentalCodexOAuthService.jwtStringClaim(token, 'chatgpt_account_id')
   }
 
-  /** Stable non-secret account identity used only to invalidate source-scoped request caches. */
+  /**
+   * Stable non-secret account identity used only to invalidate source-scoped request caches.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static accountIdentityHash(accountId: string): string {
     const normalized: string = accountId.trim()
     if (normalized.length === 0) {
       return ''
     }
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(normalized)
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
     const bytes: Uint8Array = md.digestSync().data

@@ -131,6 +131,9 @@ export class MangaRenderingServiceCredential {
 
 /** Stores sidecar account credentials separately from ordinary settings. */
 export class MangaRenderingServiceSecretStore {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async read(
     context: common.UIAbilityContext,
   ): Promise<MangaRenderingServiceCredential> {
@@ -143,6 +146,9 @@ export class MangaRenderingServiceSecretStore {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async save(
     context: common.UIAbilityContext,
     value: MangaRenderingServiceCredential,

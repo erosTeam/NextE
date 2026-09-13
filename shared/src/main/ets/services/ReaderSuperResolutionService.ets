@@ -1397,6 +1397,9 @@ export class ReaderSuperResolutionService {
     return entries
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static outputPath(context: common.UIAbilityContext, identity: string): string {
     const dir: string = ReaderSuperResolutionService.cacheDir(context)
     ReaderSuperResolutionService.ensureDir(dir)
@@ -1407,6 +1410,9 @@ export class ReaderSuperResolutionService {
     return `${context.cacheDir}/${CACHE_DIR_NAME}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)
@@ -1503,7 +1509,11 @@ export class ReaderSuperResolutionService {
     return hash.toString(16)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static hashFile(path: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     let file: fileIo.File | null = null
     try {

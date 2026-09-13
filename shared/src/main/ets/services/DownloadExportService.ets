@@ -58,6 +58,9 @@ class PdfImageInfo {
   idatRanges: PngIdatRange[] = []
 }
 
+/**
+ * @throws { Error } Propagated from the underlying SDK call when it fails.
+ */
 @Concurrent
 function writeZipStoreFileTask(filePath: string, entriesJson: string): string {
   const fileChunkSize: number = 256 * 1024
@@ -249,11 +252,17 @@ export class DownloadExportService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static fileMtime(path: string): number {
     const stat: fileIo.Stat = fileIo.statSync(path)
     return stat.mtime
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static newestEntryMtime(entries: DownloadExportEntry[]): number {
     let newest: number = 0
     for (let i: number = 0; i < entries.length; i++) {
@@ -287,6 +296,9 @@ export class DownloadExportService {
     return null
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportGallery(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
@@ -325,6 +337,9 @@ export class DownloadExportService {
     return DownloadExportService.exportFile(fileName, filePath, title)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportArchiver(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -365,6 +380,9 @@ export class DownloadExportService {
     return DownloadExportService.exportFile(fileName, filePath, title)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static originalArchiverFile(task: DownloadArchiverTask): DownloadExportFile {
     if (task.filePath.length === 0) {
       throw new Error('archive file missing')
@@ -378,6 +396,9 @@ export class DownloadExportService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportArchiverOriginal(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -427,6 +448,9 @@ export class DownloadExportService {
     return 'zip'
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static galleryEntries(task: DownloadGalleryTask): DownloadExportEntry[] {
     const seeds: DownloadImageSeed[] = task.imageSeeds.slice()
     seeds.sort((a: DownloadImageSeed, b: DownloadImageSeed) => a.page - b.page)
@@ -660,6 +684,9 @@ export class DownloadExportService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async copyFile(sourcePath: string, targetPath: string): Promise<void> {
     let src: fileIo.File | null = null
     let dest: fileIo.File | null = null
@@ -683,6 +710,9 @@ class PdfImageWriter {
   private static readonly KIND_JPEG: string = 'jpeg'
   private static readonly KIND_PNG: string = 'png'
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async write(filePath: string, entries: DownloadExportEntry[]): Promise<void> {
     const images: PdfImageInfo[] = []
     for (let i: number = 0; i < entries.length; i++) {
@@ -754,6 +784,9 @@ class PdfImageWriter {
       'endstream\n'
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeObject(
     file: fileIo.File,
     offsets: number[],
@@ -769,6 +802,9 @@ class PdfImageWriter {
     return next
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeImageObject(
     file: fileIo.File,
     offsets: number[],
@@ -792,6 +828,9 @@ class PdfImageWriter {
     return next
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeAlphaObject(
     file: fileIo.File,
     offsets: number[],
@@ -828,6 +867,9 @@ class PdfImageWriter {
       `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageInfo.streamLength} >>\nstream\n`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async imageInfo(path: string): Promise<PdfImageInfo> {
     let header: Uint8Array
     try {
@@ -897,6 +939,9 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static pngInfo(path: string): PdfImageInfo {
     let file: fileIo.File | null = null
     try {
@@ -1015,6 +1060,9 @@ class PdfImageWriter {
     image.paletteHex = hex
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static jpegInfo(path: string): PdfImageInfo {
     let file: fileIo.File | null = null
     try {
@@ -1071,6 +1119,9 @@ class PdfImageWriter {
       marker === 0xcf
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writePngIdat(file: fileIo.File, image: PdfImageInfo): number {
     let source: fileIo.File | null = null
     try {
@@ -1101,6 +1152,9 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeFileBytes(file: fileIo.File, path: string): number {
     let source: fileIo.File | null = null
     try {
@@ -1123,14 +1177,23 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeDecodedRgb(file: fileIo.File, imageInfo: PdfImageInfo): Promise<number> {
     return await PdfImageWriter.writeDecodedRgbaChannel(file, imageInfo, false)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeDecodedAlpha(file: fileIo.File, imageInfo: PdfImageInfo): Promise<number> {
     return await PdfImageWriter.writeDecodedRgbaChannel(file, imageInfo, true)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeDecodedRgbaChannel(
     file: fileIo.File,
     imageInfo: PdfImageInfo,
@@ -1193,6 +1256,9 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readFileHeader(path: string, length: number): Uint8Array {
     let file: fileIo.File | null = null
     try {
@@ -1205,6 +1271,9 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static createImageSource(path: string): image.ImageSource {
     let file: fileIo.File | null = null
     try {
@@ -1222,6 +1291,9 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readExact(file: fileIo.File, length: number): Uint8Array {
     const output: Uint8Array = new Uint8Array(length)
     let offset: number = 0
@@ -1238,11 +1310,17 @@ class PdfImageWriter {
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readByte(file: fileIo.File): number {
     const data: Uint8Array = PdfImageWriter.readExact(file, 1)
     return data[0]
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static skipBytes(file: fileIo.File, length: number): void {
     const buffer: ArrayBuffer = new ArrayBuffer(PdfImageWriter.CHUNK_SIZE)
     let remaining: number = length
@@ -1256,11 +1334,17 @@ class PdfImageWriter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeAscii(file: fileIo.File, text: string): number {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
     return PdfImageWriter.writeBytes(file, bytes)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeBytes(file: fileIo.File, bytes: Uint8Array): number {
     const buffer: ArrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
     return fileIo.writeSync(file.fd, buffer)
@@ -1314,6 +1398,9 @@ class PdfImageWriter {
 }
 
 class ZipStoreWriter {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async write(filePath: string, entries: ZipStoreEntry[]): Promise<void> {
     const payload: string = JSON.stringify(entries)
     await taskpool.execute<[string, string], string>(writeZipStoreFileTask, filePath, payload)

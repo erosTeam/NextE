@@ -77,10 +77,14 @@ export class ComicResponsesProtocol {
     return prompt
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static contextFingerprint(request: ComicPageAnalysisRequest): string {
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(
       JSON.stringify(ComicResponsesProtocol.contextLines(request.context, request.pageIndex)),
     )
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
     const digest: Uint8Array = md.digestSync().data

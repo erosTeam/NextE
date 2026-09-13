@@ -72,6 +72,9 @@ export class DefaultComicModelCatalogHttpTransport implements ComicModelCatalogH
 
 /** Queries each provider's account-scoped model catalog without inventing a shared static allowlist. */
 export class ComicTranslationModelCatalogService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async fetchConfigured(
     context: common.UIAbilityContext,
     transport: ComicModelCatalogHttpTransport = new DefaultComicModelCatalogHttpTransport(),
@@ -80,6 +83,9 @@ export class ComicTranslationModelCatalogService {
     return ComicTranslationModelCatalogService.fetchRuntime(context, runtime, transport)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async fetchSource(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -92,6 +98,9 @@ export class ComicTranslationModelCatalogService {
     return ComicTranslationModelCatalogService.fetchRuntime(context, runtime, transport)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static fetchRuntime(
     context: common.UIAbilityContext,
     runtime: LlmSourceRuntimeConfig,
@@ -192,6 +201,9 @@ export class ComicTranslationModelCatalogService {
     return ComicTranslationModelCatalogService.parseApiModels(response.body)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async fetchCodex(
     context: common.UIAbilityContext,
     sourceProfileId: string,

@@ -76,6 +76,9 @@ export struct EhSettingsPage {
 
   // Selecting a site from the dropdown (not a tap-to-cycle toggle). E-Hentai is always allowed;
   // ExHentai requires login + a real igneous, fetched on demand the first time (eros_fe getExIgneous).
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectSite(toEx: boolean): void {
     this.desiredSiteIsEx = toEx
     const ctx: common.UIAbilityContext = this.ctx()
@@ -150,6 +153,9 @@ export struct EhSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }

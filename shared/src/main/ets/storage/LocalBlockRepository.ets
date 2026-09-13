@@ -90,7 +90,10 @@ const SQL_HAS_PERSISTED_RULES: string =
   'SELECT 1 AS has_state FROM local_block_rules WHERE scope_key = ? LIMIT 1'
 
 export class LocalBlockRepository {
-  /** Any row, including a tombstone, makes RDB the canonical source over a stale legacy JSON copy. */
+  /**
+   * Any row, including a tombstone, makes RDB the canonical source over a stale legacy JSON copy.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const settings: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_SETTINGS, [SCOPE_GLOBAL])
@@ -109,6 +112,9 @@ export class LocalBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const snapshot: LocalBlockSettingsSnapshot = new LocalBlockSettingsSnapshot()
@@ -131,6 +137,9 @@ export class LocalBlockRepository {
     return snapshot
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(
     context: common.UIAbilityContext,
     snapshot: LocalBlockSettingsSnapshot,
@@ -170,7 +179,10 @@ export class LocalBlockRepository {
     }
   }
 
-  /** Ordinary score/comment-mode changes write only the settings row. */
+  /**
+   * Ordinary score/comment-mode changes write only the settings row.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertSettings(
     context: common.UIAbilityContext,
     snapshot: LocalBlockSettingsSnapshot,
@@ -188,7 +200,10 @@ export class LocalBlockRepository {
     }
   }
 
-  /** Ordinary rule edits preserve an existing rule's order or append a new durable row. */
+  /**
+   * Ordinary rule edits preserve an existing rule's order or append a new durable row.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertRule(
     context: common.UIAbilityContext,
     rule: LocalBlockRuleSnapshot,
@@ -217,7 +232,10 @@ export class LocalBlockRepository {
     }
   }
 
-  /** Persist a per-rule tombstone even when an older sync record is the only later arrival. */
+  /**
+   * Persist a per-rule tombstone even when an older sync record is the only later arrival.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async tombstoneRule(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -239,6 +257,9 @@ export class LocalBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextMutationTime(
     store: relationalStore.RdbStore,
     requestedTime: number,
@@ -262,6 +283,9 @@ export class LocalBlockRepository {
     return Math.max(Date.now(), requested, latest + 1)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async positionForUpsert(
     store: relationalStore.RdbStore,
     ruleId: string,
@@ -296,6 +320,9 @@ export class LocalBlockRepository {
     return 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeSettings(
     store: relationalStore.RdbStore,
     snapshot: LocalBlockSettingsSnapshot,
@@ -311,6 +338,9 @@ export class LocalBlockRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeRule(
     store: relationalStore.RdbStore,
     rule: LocalBlockRuleSnapshot,
@@ -331,6 +361,9 @@ export class LocalBlockRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadRules(store: relationalStore.RdbStore): Promise<LocalBlockRuleSnapshot[]> {
     const out: LocalBlockRuleSnapshot[] = []
     const rules: relationalStore.ResultSet = await store.querySql(SQL_SELECT_RULES, [SCOPE_GLOBAL])
@@ -352,11 +385,17 @@ export class LocalBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

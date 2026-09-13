@@ -93,6 +93,9 @@ export class ToriiCreditsService {
     return ToriiCreditsService.parse(response.body)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async cached(
     context: common.UIAbilityContext,
     apiKey: string,
@@ -110,6 +113,9 @@ export class ToriiCreditsService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveCached(
     context: common.UIAbilityContext,
     apiKey: string,
@@ -126,6 +132,9 @@ export class ToriiCreditsService {
     store.flushSync()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static serializeCached(apiKey: string, snapshot: ToriiCreditsSnapshot): string {
     ToriiCreditsService.validateApiKey(apiKey)
     ToriiCreditsService.validateSnapshot(snapshot)
@@ -204,7 +213,11 @@ export class ToriiCreditsService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static keyFingerprint(apiKey: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(apiKey) })
     const bytes: Uint8Array = md.digestSync().data

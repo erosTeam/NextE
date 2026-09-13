@@ -32,6 +32,9 @@ export class ImageBlockPreviewCacheService {
   private static maintenanceWritesSincePrune: number = -1
   private static maintenanceBytesSincePrune: number = 0
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static filePath(context: common.UIAbilityContext, fileName: string): string {
     const dir: string = ImageBlockPreviewCacheService.cacheDir(context)
     ImageBlockPreviewCacheService.ensureDir(dir)
@@ -207,6 +210,9 @@ export class ImageBlockPreviewCacheService {
     return `${context.cacheDir}/${CACHE_DIR_NAME}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)

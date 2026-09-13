@@ -38,6 +38,9 @@ export class MangaRenderingServiceSettingsSnapshot {
 
 /** Persists non-secret manga rendering service configuration. */
 export class MangaRenderingServiceSettings {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(
     context: common.UIAbilityContext,
   ): Promise<MangaRenderingServiceSettingsSnapshot> {
@@ -69,6 +72,9 @@ export class MangaRenderingServiceSettings {
     return snapshot
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async save(
     context: common.UIAbilityContext,
     snapshot: MangaRenderingServiceSettingsSnapshot,

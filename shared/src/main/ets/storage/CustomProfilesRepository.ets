@@ -88,7 +88,10 @@ class CustomProfileClock {
 }
 
 export class CustomProfilesRepository {
-  /** Any profile or selection row, including a tombstone, makes RDB canonical over stale legacy JSON. */
+  /**
+   * Any profile or selection row, including a tombstone, makes RDB canonical over stale legacy JSON.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const profiles: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_PROFILES, [SCOPE_GLOBAL])
@@ -107,6 +110,9 @@ export class CustomProfilesRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadProfiles(context: common.UIAbilityContext): Promise<CustomProfile[]> {
     const out: CustomProfile[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -124,6 +130,9 @@ export class CustomProfilesRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadSelected(context: common.UIAbilityContext): Promise<string> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SELECTED, [SCOPE_GLOBAL])
@@ -137,6 +146,9 @@ export class CustomProfilesRepository {
     return ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(
     context: common.UIAbilityContext,
     profiles: CustomProfile[],
@@ -172,6 +184,7 @@ export class CustomProfilesRepository {
   /**
    * Persist only the rows changed by an ordinary UI mutation. Rewriting the full profile table makes
    * unrelated rows look newer to Huawei Cloud's TIME_FIRST sync and can roll back another device.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   static async saveChanges(
     context: common.UIAbilityContext,
@@ -214,6 +227,9 @@ export class CustomProfilesRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveSelected(context: common.UIAbilityContext, selectedUuid: string): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -226,6 +242,9 @@ export class CustomProfilesRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertProfile(
     store: relationalStore.RdbStore,
     profile: CustomProfile,
@@ -261,6 +280,9 @@ export class CustomProfilesRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async tombstoneProfile(
     store: relationalStore.RdbStore,
     uuid: string,
@@ -274,6 +296,9 @@ export class CustomProfilesRepository {
     await store.executeSql(SQL_TOMBSTONE_PROFILE, [deletedAt, SCOPE_GLOBAL, uuid, deletedAt])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextProfileClock(
     store: relationalStore.RdbStore,
     uuid: string,
@@ -288,6 +313,9 @@ export class CustomProfilesRepository {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readProfileClock(
     store: relationalStore.RdbStore,
     uuid: string,
@@ -319,6 +347,9 @@ export class CustomProfilesRepository {
     return -1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async saveSelectedWithStore(
     store: relationalStore.RdbStore,
     selectedUuid: string,
@@ -335,6 +366,9 @@ export class CustomProfilesRepository {
     await store.executeSql(SQL_UPSERT_SELECTED, [SCOPE_GLOBAL, selectedUuid, updatedAt])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readSelectedState(
     store: relationalStore.RdbStore,
   ): Promise<CustomProfileSelectionState> {
@@ -353,6 +387,9 @@ export class CustomProfilesRepository {
     return state
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readProfile(resultSet: relationalStore.ResultSet): CustomProfile {
     const p: CustomProfile = new CustomProfile()
     p.uuid = CustomProfilesRepository.stringColumn(resultSet, 'uuid')
@@ -382,11 +419,17 @@ export class CustomProfilesRepository {
     return p
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

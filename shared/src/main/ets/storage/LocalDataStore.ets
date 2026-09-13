@@ -595,6 +595,9 @@ export class LocalDataStore {
   private static schemaInitialized: boolean = false
   private static schemaInitialization: Promise<void> | null = null
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
     const store: relationalStore.RdbStore =
       await relationalStore.getRdbStore(context, LOCAL_DATA_STORE_CONFIG)
@@ -602,6 +605,9 @@ export class LocalDataStore {
     return store
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async ensureSchema(store: relationalStore.RdbStore): Promise<void> {
     if (LocalDataStore.schemaInitialized) {
       return
@@ -622,6 +628,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
     // v25 adds the bounded, regenerable comic-translation document cache. Only a current, intact store may skip the
     // cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
@@ -694,6 +703,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateCustomProfilesUuidColumn(store: relationalStore.RdbStore): Promise<void> {
     const hasOldUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'uuid')
     const hasProfileUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'profile_uuid')
@@ -715,6 +727,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateGalleryReadProgressColumnMode(store: relationalStore.RdbStore): Promise<void> {
     const hasColumnMode: boolean = await LocalDataStore.hasColumn(
       store,
@@ -727,6 +742,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_GALLERY_READ_PROGRESS_COLUMN_MODE)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateViewedHistorySnapshotColumns(store: relationalStore.RdbStore): Promise<void> {
     if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'post_time')) {
       await store.executeSql(SQL_ADD_VIEWED_HISTORY_POST_TIME)
@@ -745,6 +763,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadGalleryPreferOriginal(store: relationalStore.RdbStore): Promise<void> {
     const hasPreferOriginal: boolean = await LocalDataStore.hasColumn(
       store,
@@ -757,6 +778,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateImageBlockRuleSourceMetadata(store: relationalStore.RdbStore): Promise<void> {
     const hasSourceUrl: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'source_url')
     if (!hasSourceUrl) {
@@ -772,6 +796,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateImageBlockLegacyTables(store: relationalStore.RdbStore): Promise<void> {
     const hasWhitelist: boolean = await LocalDataStore.hasTable(store, 'image_block_whitelist')
     const hasOverrides: boolean = await LocalDataStore.hasTable(store, 'image_block_rule_overrides')
@@ -815,6 +842,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateImageBlockUserRuleColumnOrder(store: relationalStore.RdbStore): Promise<void> {
     const columns: string[] = await LocalDataStore.tableColumns(store, 'image_block_user_rules')
     if (LocalDataStore.sameColumns(columns, IMAGE_BLOCK_USER_RULE_COLUMNS)) {
@@ -867,6 +897,9 @@ export class LocalDataStore {
     return '\'\''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadGalleryUpgradeFromGid(store: relationalStore.RdbStore): Promise<void> {
     const hasUpgradeFromGid: boolean = await LocalDataStore.hasColumn(
       store,
@@ -879,6 +912,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadGalleryCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
     const hasImgWidth: boolean = await LocalDataStore.hasColumn(
       store,
@@ -898,6 +934,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadGalleryTaskQualityKey(store: relationalStore.RdbStore): Promise<void> {
     const tasksUsePreferOriginalKey: boolean = await LocalDataStore.hasPrimaryKeyColumn(
       store,
@@ -930,6 +969,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hasPrimaryKeyColumn(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -951,6 +993,9 @@ export class LocalDataStore {
     return false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadArchiverToken(store: relationalStore.RdbStore): Promise<void> {
     const hasToken: boolean = await LocalDataStore.hasColumn(
       store,
@@ -963,6 +1008,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_TOKEN)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadArchiverThumbUrl(store: relationalStore.RdbStore): Promise<void> {
     const hasThumbUrl: boolean = await LocalDataStore.hasColumn(
       store,
@@ -975,6 +1023,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadArchiverCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
     const hasImgWidth: boolean = await LocalDataStore.hasColumn(
       store,
@@ -994,6 +1045,9 @@ export class LocalDataStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateDownloadArchiverParseSource(store: relationalStore.RdbStore): Promise<void> {
     const hasParseSource: boolean = await LocalDataStore.hasColumn(
       store,
@@ -1006,6 +1060,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_PARSE_SOURCE)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hasColumn(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -1025,6 +1082,9 @@ export class LocalDataStore {
     return false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async tableColumns(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -1044,6 +1104,9 @@ export class LocalDataStore {
     return columns
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hasTable(
     store: relationalStore.RdbStore,
     tableName: string,

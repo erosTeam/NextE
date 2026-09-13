@@ -54,7 +54,10 @@ const SQL_HAS_PERSISTED_STATE: string =
   'SELECT 1 AS has_state FROM local_favorites WHERE scope_key = ? LIMIT 1'
 
 export class LocalFavoriteRepository {
-  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  /**
+   * Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
@@ -65,6 +68,9 @@ export class LocalFavoriteRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(context: common.UIAbilityContext): Promise<EhGallery[]> {
     const out: EhGallery[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -82,6 +88,9 @@ export class LocalFavoriteRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -113,7 +122,10 @@ export class LocalFavoriteRepository {
     }
   }
 
-  /** Normal local-favorite adds must touch just their own durable row. */
+  /**
+   * Normal local-favorite adds must touch just their own durable row.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsert(context: common.UIAbilityContext, item: EhGallery): Promise<number> {
     if (item.gid.length === 0) {
       return 0
@@ -134,7 +146,10 @@ export class LocalFavoriteRepository {
     }
   }
 
-  /** Persist a tombstone even when a delayed add has not created its row yet. */
+  /**
+   * Persist a tombstone even when a delayed add has not created its row yet.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async tombstone(
     context: common.UIAbilityContext,
     gid: string,
@@ -156,7 +171,10 @@ export class LocalFavoriteRepository {
     }
   }
 
-  /** Advance above every active row and tombstone so a rapid toggle has a stable LWW version. */
+  /**
+   * Advance above every active row and tombstone so a rapid toggle has a stable LWW version.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextMutationTime(
     store: relationalStore.RdbStore,
     requestedTime: number,
@@ -179,6 +197,9 @@ export class LocalFavoriteRepository {
     return Math.max(Date.now(), requested, latest + 1)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeItem(
     store: relationalStore.RdbStore,
     item: EhGallery,
@@ -210,6 +231,9 @@ export class LocalFavoriteRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readGallery(resultSet: relationalStore.ResultSet): EhGallery {
     const g: EhGallery = new EhGallery(
       LocalFavoriteRepository.stringColumn(resultSet, 'gid'),
@@ -240,11 +264,17 @@ export class LocalFavoriteRepository {
     return g
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

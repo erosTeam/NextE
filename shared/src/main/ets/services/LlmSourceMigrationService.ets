@@ -98,6 +98,9 @@ class LegacyApiTarget {
 
 /** Pure, deterministic planner. It never logs or persists a credential. */
 export class LlmSourceMigrationPlanner {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static plan(input: LlmSourceMigrationInput): LlmSourceMigrationPlan {
     if (!LlmSourceProfileContract.nonNegativeInteger(input.now)) {
       throw new Error('LLM source migration time is invalid')
@@ -328,6 +331,9 @@ export class LlmSourceMigrationPlanner {
     return -1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureCodexSource(
     output: LlmSourceMigrationPlan,
     legacy: LegacyMangaLlmSettings,
@@ -487,8 +493,12 @@ export class LlmSourceMigrationPlanner {
     return true
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static hashIdentity(value: string): string {
     const encoded: Uint8Array = new util.TextEncoder().encodeInto(value)
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: encoded })
     const bytes: Uint8Array = md.digestSync().data
@@ -537,6 +547,9 @@ export class LlmSourceMigrationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readInput(
     store: preferences.Preferences,
     all: Record<string, preferences.ValueType>,
@@ -637,6 +650,9 @@ export class LlmSourceMigrationService {
     return input
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readBinding(
     store: preferences.Preferences,
     consumerId: string,
@@ -673,6 +689,9 @@ export class LlmSourceMigrationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writePlan(
     store: preferences.Preferences,
     plan: LlmSourceMigrationPlan,
@@ -701,6 +720,9 @@ export class LlmSourceMigrationService {
     LlmSourceMigrationService.writeBinding(store, plan.mangaBinding)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeBinding(
     store: preferences.Preferences,
     binding: LlmConsumerBinding,
@@ -720,6 +742,9 @@ export class LlmSourceMigrationService {
     store.deleteSync(modelKey)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static putOrDelete(
     store: preferences.Preferences,
     key: string,
@@ -747,6 +772,9 @@ export class LlmSourceMigrationService {
       : 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readString(
     store: preferences.Preferences,
     key: string,

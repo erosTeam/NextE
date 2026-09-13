@@ -72,6 +72,9 @@ export struct ComicTranslationSettingsPage {
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.restoreBinding()
@@ -79,6 +82,9 @@ export struct ComicTranslationSettingsPage {
     this.refreshLocalDetector()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToDisappear(): void {
     if (this.visualSettingsLoaded) {
       this.persistVisualSettings(false)
@@ -90,6 +96,9 @@ export struct ComicTranslationSettingsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadVisualSettings(): Promise<void> {
     try {
       const snapshot: ComicVisualProviderSettingsSnapshot =
@@ -126,6 +135,9 @@ export struct ComicTranslationSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async persistVisualSettings(showFailureToast: boolean = true): Promise<boolean> {
     const snapshot: ComicVisualProviderSettingsSnapshot =
       new ComicVisualProviderSettingsSnapshot()
@@ -215,6 +227,9 @@ export struct ComicTranslationSettingsPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async installLocalDetector(): Promise<void> {
     if (this.localDetectorBusy) {
       return
@@ -250,6 +265,9 @@ export struct ComicTranslationSettingsPage {
     return $r('app.string.comic_visual_route_local')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectVisualRoute(route: string): void {
     if (route === this.visualRoute) {
       return
@@ -318,6 +336,9 @@ export struct ComicTranslationSettingsPage {
     return `${model.displayName} · ${model.baseCredits}+`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectToriiModel(modelId: string): void {
     this.toriiModelId = modelId
     this.persistVisualSettings(true)
@@ -333,6 +354,9 @@ export struct ComicTranslationSettingsPage {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private selectToriiFont(fontId: string): void {
     if (!ToriiFontCatalog.supports(
       fontId,
@@ -436,6 +460,9 @@ export struct ComicTranslationSettingsPage {
     return this.toriiApiKeyDraft.trim().length > 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async runToriiLiveEvaluation(): Promise<void> {
     if (this.toriiLiveEvaluationRunning || !this.toriiReady()) {
       return
@@ -543,6 +570,9 @@ export struct ComicTranslationSettingsPage {
     this.fetchModels()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private setMultimodalTranslationEnabled(value: boolean): void {
     if (value) {
       const profile: LlmSourceProfile | null = this.llmSources.findById(this.selectedSourceId)
@@ -665,6 +695,9 @@ export struct ComicTranslationSettingsPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async runLiveEvaluation(): Promise<void> {
     if (!this.liveEvaluationAvailable() || this.liveEvaluationRunning) {
       return
@@ -685,6 +718,9 @@ export struct ComicTranslationSettingsPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }

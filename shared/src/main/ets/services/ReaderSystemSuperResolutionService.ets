@@ -91,6 +91,9 @@ export class ReaderSystemSuperResolutionService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async ensureAnalyzer(): Promise<imageSuperResolution.ImageSRAnalyzer> {
     if (ReaderSystemSuperResolutionService.analyzer !== null) {
       return ReaderSystemSuperResolutionService.analyzer

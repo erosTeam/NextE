@@ -37,6 +37,9 @@ export class BackupCrypto {
       typeof meta.iv === 'string' && meta.iv.length > 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static seal(plaintext: string, password: string): BackupSealResult {
     const salt = BackupCrypto.randomBytes(BACKUP_CIPHER_SALT_BYTES)
     const iv = BackupCrypto.randomBytes(BACKUP_CIPHER_IV_BYTES)
@@ -44,7 +47,9 @@ export class BackupCrypto {
     const symKey = BackupCrypto.importKey(keyBytes)
 
     const gcmParams = BackupCrypto.gcmParams(iv, null)
+    // @SuppressWarnings syscap
     const cipher = cryptoFramework.createCipher('AES256|GCM|PKCS7')
+    // @SuppressWarnings syscap
     cipher.initSync(cryptoFramework.CryptoMode.ENCRYPT_MODE, symKey, gcmParams)
 
     const plainBytes = new util.TextEncoder().encodeInto(plaintext)
@@ -64,6 +69,9 @@ export class BackupCrypto {
     return { cipherMeta: cipherMeta, ciphertext: BackupCrypto.toBase64(sealed) }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static open(ciphertextBase64: string, password: string, meta: BackupCipherMeta): string {
     if (!BackupCrypto.isSupportedMeta(meta)) {
       throw new Error('unsupported backup cipher metadata')
@@ -82,7 +90,9 @@ export class BackupCrypto {
     const symKey = BackupCrypto.importKey(keyBytes)
 
     const gcmParams = BackupCrypto.gcmParams(iv, tag)
+    // @SuppressWarnings syscap
     const cipher = cryptoFramework.createCipher('AES256|GCM|PKCS7')
+    // @SuppressWarnings syscap
     cipher.initSync(cryptoFramework.CryptoMode.DECRYPT_MODE, symKey, gcmParams)
     const out1 = cipher.updateSync({ data: body })
     const out2 = cipher.doFinalSync(null)
@@ -93,6 +103,9 @@ export class BackupCrypto {
     return BackupCrypto.decodeUtf8(plain)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static deriveKey(
     password: string,
     salt: Uint8Array,
@@ -104,12 +117,17 @@ export class BackupCrypto {
       iterations: BACKUP_KDF_ITERATIONS,
       keySize: BACKUP_KDF_KEY_SIZE,
     }
+    // @SuppressWarnings syscap
     const kdf = cryptoFramework.createKdf('PBKDF2|SHA256')
     const secret = kdf.generateSecretSync(spec)
     return secret.data
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static importKey(keyBytes: Uint8Array): cryptoFramework.SymKey {
+    // @SuppressWarnings syscap
     const generator = cryptoFramework.createSymKeyGenerator('AES256')
     const keyBlob: cryptoFramework.DataBlob = { data: keyBytes }
     return generator.convertKeySync(keyBlob)
@@ -127,8 +145,13 @@ export class BackupCrypto {
     return { iv: ivBlob, aad: aadBlob, authTag: tagBlob, algName: 'GcmParamsSpec' }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static randomBytes(len: number): Uint8Array {
+    // @SuppressWarnings syscap
     const rand = cryptoFramework.createRandom()
+    // @SuppressWarnings syscap
     return rand.generateRandomSync(len).data
   }
 

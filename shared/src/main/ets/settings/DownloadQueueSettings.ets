@@ -676,6 +676,9 @@ export class DownloadQueueSettings {
     return !existed
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeGallery(
     context: common.UIAbilityContext,
     gid: string,
@@ -857,6 +860,9 @@ export class DownloadQueueSettings {
       DownloadQueueSettings.downloadedFileSize(task.filePath) > 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeArchiver(
     context: common.UIAbilityContext,
     tag: string,
@@ -961,6 +967,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async downloadArchiver(
     context: common.UIAbilityContext,
     tag: string,
@@ -986,6 +995,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async startArchiverDownload(
     context: common.UIAbilityContext,
     tag: string,
@@ -1079,6 +1091,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runArchiverDownload(
     context: common.UIAbilityContext,
     tag: string,
@@ -1338,6 +1353,7 @@ export class DownloadQueueSettings {
   /**
    * Prepare the EH-correct image-page seed list for a gallery task: preview pages yield `/s/`
    * imagePageUrl entries; a later downloader resolves each image page to the real one-shot image URL.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   static async prepareGallerySeeds(
     context: common.UIAbilityContext,
@@ -1371,6 +1387,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runPrepareGallerySeeds(
     context: common.UIAbilityContext,
     gid: string,
@@ -2009,6 +2028,9 @@ export class DownloadQueueSettings {
     return `gid=${gid} batch=${batchIndex} ok=${ok} failed=${failed} bytes=${bytes}${errorPart}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async updatePreparedTask(
     context: common.UIAbilityContext,
     gid: string,
@@ -2357,6 +2379,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
@@ -2676,6 +2701,9 @@ export class DownloadQueueSettings {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureGalleryDownloadDir(
     gid: string,
     preferOriginal: boolean,
@@ -2714,6 +2742,9 @@ export class DownloadQueueSettings {
     throw lastError ?? new Error('download directory unavailable')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureArchiverDownloadDir(): string {
     const roots: string[] = DownloadQueueSettings.archiverWriteRootDirs()
     let lastError: Error | null = null
@@ -2739,6 +2770,9 @@ export class DownloadQueueSettings {
     throw lastError ?? new Error('download directory unavailable')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static galleryMetadataPath(task: DownloadGalleryTask): string {
     return `${DownloadQueueSettings.ensureGalleryDownloadDir(
       task.gid,
@@ -2747,6 +2781,9 @@ export class DownloadQueueSettings {
     )}/${DOWNLOAD_METADATA_FILE}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static archiverMetadataPath(task: DownloadArchiverTask): string {
     return `${DownloadQueueSettings.ensureArchiverDownloadDir()}/${DownloadQueueSettings.safePathPart(task.tag)}${ARCHIVER_METADATA_SUFFIX}`
   }
@@ -3013,6 +3050,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeTextFile(path: string, text: string, event: string): void {
     let file: fs.File | null = null
     try {
@@ -3096,6 +3136,9 @@ export class DownloadQueueSettings {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static deleteGalleryContent(task: DownloadGalleryTask): void {
     if (task.gid.length === 0) {
       return
@@ -3122,6 +3165,7 @@ export class DownloadQueueSettings {
   /**
    * Resolve physical ownership from current naming, persisted seed paths and every metadata sidecar.
    * One logical task may own more than one directory after a title/path naming change.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   private static galleryContentDirs(task: DownloadGalleryTask): string[] {
     const out: string[] = []
@@ -3183,6 +3227,9 @@ export class DownloadQueueSettings {
     return DownloadQueueSettings.joinPath(root, relative.substring(0, slash))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static deleteArchiverContent(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
     DownloadQueueSettings.deleteRequiredPath(
       DownloadQueueSettings.archiverMetadataPath(task),
@@ -3243,6 +3290,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static deleteRequiredPath(path: string, event: string): boolean {
     if (path.length === 0 || !fs.accessSync(path)) {
       return false
@@ -3602,6 +3652,9 @@ export class DownloadQueueSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async finalizeArchiverPartial(partialPath: string, filePath: string): Promise<void> {
     DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_replace_delete_failed')
     try {
@@ -3765,6 +3818,9 @@ export class DownloadQueueSettings {
     return false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async inheritDownloadedSeedsFromParent(
     context: common.UIAbilityContext,
     gid: string,
@@ -3814,6 +3870,9 @@ export class DownloadQueueSettings {
     return inherited
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async copyInheritedSeedFile(
     context: common.UIAbilityContext,
     gid: string,

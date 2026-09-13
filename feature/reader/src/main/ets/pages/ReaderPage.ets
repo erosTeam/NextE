@@ -851,15 +851,18 @@ export struct ReaderPage {
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
         if (visible) {
+          // @SuppressWarnings syscap
           return win.setWindowSystemBarProperties({
             statusBarContentColor: contentColor,
             isStatusBarLightIcon: lightIcon,
           })
             .catch((_e: Error) => {})
             .then(() => {
+              // @SuppressWarnings syscap
               return win.setSpecificSystemBarEnabled('status', true, false)
             })
         }
+        // @SuppressWarnings syscap
         return win.setSpecificSystemBarEnabled('status', false, false)
       })
       .catch((_e: Error) => {})
@@ -870,6 +873,7 @@ export struct ReaderPage {
       .getLastWindow(this.hostContext())
       .then((win: window.Window): Promise<boolean> => {
         const requestVisible = (): Promise<boolean> => {
+          // @SuppressWarnings syscap
           return win.setWindowSystemBarProperties({
             statusBarContentColor: this.appStatusBarContentColor(),
             isStatusBarLightIcon: this.themeDisplay.effectiveDark,
@@ -877,9 +881,7 @@ export struct ReaderPage {
             .catch((error: Error): void => {
               DiagnosticLogger.warn('reader-transition', 'close_status_bar_properties_failed', error.message)
             })
-            .then((): Promise<void> => {
-              return win.setSpecificSystemBarEnabled('status', true, false)
-            })
+            .then((): Promise<void> => win.setSpecificSystemBarEnabled('status', true, false))
             .then((): boolean => true)
             .catch((error: Error): boolean => {
               DiagnosticLogger.warn('reader-transition', 'close_status_bar_restore_failed', error.message)
@@ -1377,6 +1379,9 @@ export struct ReaderPage {
     return AppStrings.get('reader_image_info_enhancement').replace('%s', detail)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private rememberImageFile(page: number, filePath: string, bytes: number): void {
     const previousFilePath: string = this.imageBlockFileForPage(page)
     if (previousFilePath.length > 0 && previousFilePath !== filePath) {
@@ -1714,6 +1719,9 @@ export struct ReaderPage {
     }, 0)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private runComicTranslationAutoForCurrentPage(): void {
     if (!this.comicTranslationAutoEnabled || this.comicTranslationRunning ||
       this.readerClosing || !this.readerRouteVisible) {
@@ -1916,6 +1924,9 @@ export struct ReaderPage {
     return `${this.vm.pageRenderKey(index)}-${state}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private rememberReaderDisplayFile(page: number, filePath: string, bytes: number): void {
     if (!this.comicTranslationVisibleForPage(page)) {
       this.rememberImageFile(page, filePath, bytes)
@@ -1968,6 +1979,9 @@ export struct ReaderPage {
     return `nexte-gallery:${isEx ? 'ex' : 'eh'}:${this.params.gid}:${targetLanguage}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openCurrentPageComicTranslationAction(): void {
     if (!this.vm.hasPreviewAt(this.vm.currentIndex)) {
       this.showComicTranslationImageUnavailable()
@@ -2003,10 +2017,16 @@ export struct ReaderPage {
       : 'reader_comic_translation_show_result')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private startCurrentPageComicTranslation(forceRefresh: boolean = false): void {
     this.startComicTranslationForPage(this.vm.currentIndex, forceRefresh, false)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private startComicTranslationForPage(
     pageIndex: number,
     forceRefresh: boolean = false,
@@ -2140,6 +2160,9 @@ export struct ReaderPage {
     return this.imageBlockFileForPage(this.vm.imageAt(pageIndex).page) === filePath
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private showComicTranslationImageUnavailable(): void {
     this.getUIContext().getPromptAction().showToast({
       message: $r('app.string.reader_comic_translation_image_unavailable'),
@@ -2457,6 +2480,9 @@ export struct ReaderPage {
     return true
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private hasCachedOriginal(image: EhGalleryImage): boolean {
     return ImagePipelineService.cachedReaderFile(
       this.hostContext(),
@@ -2464,6 +2490,9 @@ export struct ReaderPage {
     ) !== null
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async enableOriginalImages(indexes: number[]): Promise<void> {
     for (let i: number = 0; i < indexes.length; i++) {
       const index: number = indexes[i]
@@ -2499,6 +2528,9 @@ export struct ReaderPage {
     return AppStrings.get('reader_spread_original_pages_unavailable').replace('%s', pageText)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async enableOriginalImagesWithPageFeedback(indexes: number[]): Promise<void> {
     const missingPages: number[] = []
     for (let i: number = 0; i < indexes.length; i++) {
@@ -2532,6 +2564,9 @@ export struct ReaderPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toggleOriginalImagesAtIndexes(indexes: number[]): void {
     if (indexes.length === 0 || this.originalImageResolving) {
       return
@@ -2556,10 +2591,16 @@ export struct ReaderPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toggleOriginalImage(): void {
     this.toggleOriginalImagesAtIndexes([this.vm.currentIndex])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openOriginalAction(): void {
     if (this.originalImageResolving || !this.originalActionEnabled()) {
       return
@@ -2634,6 +2675,9 @@ export struct ReaderPage {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async saveImagesSequential(indexes: number[]): Promise<void> {
     for (let i: number = 0; i < indexes.length; i++) {
       const index: number = indexes[i]
@@ -2658,6 +2702,9 @@ export struct ReaderPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private saveImagesAtIndexes(indexes: number[]): void {
     if (this.savingCurrentImage) {
       return
@@ -2683,10 +2730,16 @@ export struct ReaderPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private saveCurrentImage(): void {
     this.saveImagesAtIndexes([this.vm.currentIndex])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openSaveAction(): void {
     if (this.savingCurrentImage) {
       return
@@ -2766,6 +2819,9 @@ export struct ReaderPage {
     this.syncCurrentImageBlockFile()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private markCurrentImageAsBlocked(): void {
     if (this.imageBlockRuleSaving) {
       return
@@ -2828,6 +2884,9 @@ export struct ReaderPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private allowImageBlockForPage(page: number): void {
     if (this.imageBlockWhitelistSaving) {
       return
@@ -5385,6 +5444,9 @@ struct ReaderInterpolatedImage {
   }
 }
 
+/**
+ * @throws { Error } Propagated from the underlying SDK call when it fails.
+ */
 function readerImageFormatFromFile(filePath: string): string {
   let file: fileIo.File | null = null
   try {
@@ -5440,26 +5502,41 @@ struct ReaderCacheWarmImage {
   private decodedKey: string = '';
   @Local warmDisplayUri: string = '';
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.warm()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToDisappear(): void {
     this.cancelQueuedWarm()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('sourceUrl')
   onSourceUrlChanged(): void {
     this.cancelQueuedWarm()
     this.warm()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('imageKey')
   onImageKeyChanged(): void {
     this.cancelQueuedWarm()
     this.warm()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('fileCacheKey')
   onFileCacheKeyChanged(): void {
     this.cancelQueuedWarm()
@@ -5505,6 +5582,9 @@ struct ReaderCacheWarmImage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private cancelQueuedWarm(): void {
     if (this.warmingKey.length === 0) {
       return
@@ -5517,6 +5597,9 @@ struct ReaderCacheWarmImage {
     ImagePipelineService.cancelQueuedReaderFile(context, key)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private warm(): void {
     if (this.page <= 0 || this.fileCacheKey.length === 0) {
       this.cancelQueuedWarm()
@@ -6268,6 +6351,9 @@ struct ReaderSpreadImageLayer {
   private sourceDecodedWidth: number = 0;
   private sourceDecodedHeight: number = 0;
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.resolve()
   }
@@ -6278,12 +6364,18 @@ struct ReaderSpreadImageLayer {
     this.cropRequestKey = ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('imageKey')
   onImageKeyChanged(): void {
     this.resetImageState()
     this.resolve()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('preferOriginal')
   onPreferOriginalChanged(): void {
     this.resetImageState()
@@ -6297,6 +6389,9 @@ struct ReaderSpreadImageLayer {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('sourceReloadRequestId')
   onSourceReloadRequested(): void {
     if (this.sourceReloadRequestId > 0 && this.sourceReloadPage === this.image.page) {
@@ -6304,6 +6399,9 @@ struct ReaderSpreadImageLayer {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('active')
   onActiveChanged(): void {
     if (!this.active) {
@@ -6375,6 +6473,9 @@ struct ReaderSpreadImageLayer {
     this.resetCropBounds()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async resolve(changeSource: boolean = false): Promise<void> {
     const source: ReaderImageSourceRequest = this.sourceRequests.begin(
       this.image,
@@ -6459,6 +6560,9 @@ struct ReaderSpreadImageLayer {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadResolvedImage(
     source: ReaderImageSourceRequest,
     resolved: string,
@@ -6689,6 +6793,9 @@ struct ReaderSpreadImageLayer {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -6708,6 +6815,9 @@ struct ReaderSpreadImageLayer {
     this.resolve(!this.localSource)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -6899,6 +7009,9 @@ struct ReaderImagePage {
   private sourceDecodedWidth: number = 0;
   private sourceDecodedHeight: number = 0;
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.resolve()
   }
@@ -6909,6 +7022,9 @@ struct ReaderImagePage {
     this.cropRequestKey = ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('imageKey')
   onImageKeyChanged(): void {
     this.resetSourceState()
@@ -6917,6 +7033,9 @@ struct ReaderImagePage {
     this.resolve()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('preferOriginal')
   onPreferOriginalChanged(): void {
     this.resetSourceState()
@@ -6930,6 +7049,9 @@ struct ReaderImagePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('sourceReloadRequestId')
   onSourceReloadRequested(): void {
     if (this.sourceReloadRequestId > 0 && this.sourceReloadPage === this.image.page) {
@@ -6946,6 +7068,9 @@ struct ReaderImagePage {
     this.onDoubleTap(this.doubleTapX, this.doubleTapY)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('activeIndex')
   onActiveIndexChanged(): void {
     if (!this.isActive()) {
@@ -7002,6 +7127,9 @@ struct ReaderImagePage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async resolve(changeSource: boolean = false): Promise<void> {
     const source: ReaderImageSourceRequest = this.sourceRequests.begin(
       this.image,
@@ -7086,6 +7214,9 @@ struct ReaderImagePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadResolvedImage(
     source: ReaderImageSourceRequest,
     resolved: string,
@@ -7339,6 +7470,9 @@ struct ReaderImagePage {
   }
 
   // Retry on failure: re-source (换源) — clear the dead URL and re-resolve from a different host.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -7358,6 +7492,9 @@ struct ReaderImagePage {
     this.resolve(!this.localSource)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -7761,6 +7898,9 @@ struct ReaderVerticalImage {
   private sourceDecodedWidth: number = 0;
   private sourceDecodedHeight: number = 0;
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.resolve()
   }
@@ -7778,6 +7918,9 @@ struct ReaderVerticalImage {
     this.notifyZoom()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('imageKey')
   onImageKeyChanged(): void {
     this.resetSourceState()
@@ -7786,6 +7929,9 @@ struct ReaderVerticalImage {
     this.resolve()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('preferOriginal')
   onPreferOriginalChanged(): void {
     this.resetSourceState()
@@ -7799,6 +7945,9 @@ struct ReaderVerticalImage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('sourceReloadRequestId')
   onSourceReloadRequested(): void {
     if (this.sourceReloadRequestId > 0 && this.sourceReloadPage === this.image.page) {
@@ -7806,6 +7955,9 @@ struct ReaderVerticalImage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('visible')
   onVisibleChanged(): void {
     if (!this.visible) {
@@ -7858,6 +8010,9 @@ struct ReaderVerticalImage {
   }
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async resolve(changeSource: boolean = false): Promise<void> {
     const source: ReaderImageSourceRequest = this.sourceRequests.begin(
       this.image,
@@ -7942,6 +8097,9 @@ struct ReaderVerticalImage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadResolvedImage(
     source: ReaderImageSourceRequest,
     resolved: string,
@@ -8199,6 +8357,9 @@ struct ReaderVerticalImage {
     this.intrinsicH = 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -8218,6 +8379,9 @@ struct ReaderVerticalImage {
     this.resolve(!this.localSource)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext

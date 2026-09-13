@@ -132,6 +132,9 @@ const SQL_APPLY_CUSTOM_PROFILE: string =
   'INSERT INTO custom_profiles (scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.last_edit_time, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.last_edit_time, 0) END >= CASE WHEN COALESCE(custom_profiles.deleted_at, 0) > COALESCE(custom_profiles.last_edit_time, 0) THEN COALESCE(custom_profiles.deleted_at, 0) ELSE COALESCE(custom_profiles.last_edit_time, 0) END'
 export class SyncLocalDataAdapter {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async prepareHuaweiCloudTables(
     context: common.UIAbilityContext,
     _selection: SyncDatasetSelection,
@@ -150,6 +153,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async applyHuaweiCloudTables(
     context: common.UIAbilityContext,
     selection: SyncDatasetSelection,
@@ -161,6 +167,9 @@ export class SyncLocalDataAdapter {
     await store.executeSql(SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportEnvelope(
     context: common.UIAbilityContext,
     deviceId: string = '',
@@ -197,6 +206,9 @@ export class SyncLocalDataAdapter {
     return envelope
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async applyEnvelope(context: common.UIAbilityContext, envelope: SyncEnvelopeV1): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -289,6 +301,9 @@ export class SyncLocalDataAdapter {
       envelope.datasets !== null
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readProgress(store: relationalStore.RdbStore): Promise<SyncReadProgressRecord[]> {
     const out: SyncReadProgressRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_READ_PROGRESS)
@@ -311,6 +326,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readViewedHistory(store: relationalStore.RdbStore): Promise<SyncViewedHistoryRecord[]> {
     const out: SyncViewedHistoryRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_VIEWED_HISTORY)
@@ -344,6 +362,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readLocalFavorites(store: relationalStore.RdbStore): Promise<SyncLocalFavoriteRecord[]> {
     const out: SyncLocalFavoriteRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_FAVORITES)
@@ -382,6 +403,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readSearchHistory(store: relationalStore.RdbStore): Promise<SyncSearchHistoryRecord[]> {
     const out: SyncSearchHistoryRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEARCH_HISTORY)
@@ -403,6 +427,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readLocalBlockSettings(store: relationalStore.RdbStore): Promise<SyncLocalBlockSettingsRecord[]> {
     const out: SyncLocalBlockSettingsRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_BLOCK_SETTINGS)
@@ -425,6 +452,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readLocalBlockRules(store: relationalStore.RdbStore): Promise<SyncLocalBlockRuleRecord[]> {
     const out: SyncLocalBlockRuleRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_BLOCK_RULES)
@@ -450,6 +480,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readImageBlockSubscriptions(store: relationalStore.RdbStore): Promise<SyncImageBlockSubscriptionRecord[]> {
     const out: SyncImageBlockSubscriptionRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS)
@@ -478,6 +511,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readImageBlockRules(store: relationalStore.RdbStore): Promise<SyncImageBlockRuleRecord[]> {
     const out: SyncImageBlockRuleRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_RULES)
@@ -508,6 +544,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readCustomProfiles(store: relationalStore.RdbStore): Promise<SyncCustomProfileRecord[]> {
     const out: SyncCustomProfileRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_CUSTOM_PROFILES)
@@ -547,6 +586,9 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyReadProgress(store: relationalStore.RdbStore, records: SyncReadProgressRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncReadProgressRecord = records[i]
@@ -563,6 +605,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyViewedHistory(store: relationalStore.RdbStore, records: SyncViewedHistoryRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncViewedHistoryRecord = records[i]
@@ -576,6 +621,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyLocalFavorites(store: relationalStore.RdbStore, records: SyncLocalFavoriteRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncLocalFavoriteRecord = records[i]
@@ -590,6 +638,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applySearchHistory(store: relationalStore.RdbStore, records: SyncSearchHistoryRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncSearchHistoryRecord = records[i]
@@ -601,6 +652,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyLocalBlockSettings(store: relationalStore.RdbStore, records: SyncLocalBlockSettingsRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncLocalBlockSettingsRecord = records[i]
@@ -613,6 +667,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyLocalBlockRules(store: relationalStore.RdbStore, records: SyncLocalBlockRuleRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncLocalBlockRuleRecord = records[i]
@@ -625,6 +682,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyImageBlockSubscriptions(store: relationalStore.RdbStore, records: SyncImageBlockSubscriptionRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncImageBlockSubscriptionRecord = records[i]
@@ -638,6 +698,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyImageBlockRules(store: relationalStore.RdbStore, records: SyncImageBlockRuleRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncImageBlockRuleRecord = records[i]
@@ -651,6 +714,9 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async applyCustomProfiles(store: relationalStore.RdbStore, records: SyncCustomProfileRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncCustomProfileRecord = records[i]
@@ -894,6 +960,9 @@ export class SyncLocalDataAdapter {
     return Math.max(Math.floor(updatedAt), Math.floor(deletedAt))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async logImageBlockCloudPrepare(store: relationalStore.RdbStore): Promise<void> {
     const mainUser: number =
       await SyncLocalDataAdapter.countRows(store, SQL_COUNT_IMAGE_BLOCK_MAIN_USER_RULES)
@@ -908,6 +977,9 @@ export class SyncLocalDataAdapter {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async countRows(store: relationalStore.RdbStore, sql: string): Promise<number> {
     const rs: relationalStore.ResultSet = await store.querySql(sql)
     try {
@@ -920,11 +992,17 @@ export class SyncLocalDataAdapter {
     return 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(rs: relationalStore.ResultSet, name: string): string {
     const index: number = rs.getColumnIndex(name)
     return rs.isColumnNull(index) ? '' : rs.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(rs: relationalStore.ResultSet, name: string): number {
     const index: number = rs.getColumnIndex(name)
     return rs.isColumnNull(index) ? 0 : Math.floor(rs.getDouble(index))

@@ -20,6 +20,9 @@ export class HomeTabSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async save(context: common.UIAbilityContext, autoHide: boolean): Promise<void> {
     HomeTabSettings.apply(autoHide)
     const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)

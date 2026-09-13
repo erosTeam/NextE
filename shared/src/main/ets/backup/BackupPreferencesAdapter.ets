@@ -65,15 +65,24 @@ export class BackupPreferencesAdapter {
   ]
 
   // Non-secret keys → plaintext section.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportPreferences(context: common.UIAbilityContext): Promise<SettingsMap> {
     return BackupPreferencesAdapter.dump(context, false)
   }
 
   // Secret keys → encrypted-only section.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportSecrets(context: common.UIAbilityContext): Promise<SettingsMap> {
     return BackupPreferencesAdapter.dump(context, true)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async dump(
     context: common.UIAbilityContext,
     secret: boolean,
@@ -139,6 +148,9 @@ export class BackupPreferencesAdapter {
   // Write a backed-up map back into the store. `allowSecret=false` re-checks the denylist so a tampered
   // plaintext backup can never smuggle a credential key in; `allowSecret=true` is used only for the
   // section decrypted from the cipher container.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restore(
     context: common.UIAbilityContext,
     map: SettingsMap,
@@ -169,6 +181,7 @@ export class BackupPreferencesAdapter {
    * fields in `secrets`; legacy encrypted backups put URL/username/enabled in preferences and only the
    * password in secrets. A plaintext backup, or an incomplete encrypted group, intentionally leaves the
    * target's existing provider configuration untouched.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   static async restoreWebDavCredentialGroup(
     context: common.UIAbilityContext,
@@ -250,6 +263,9 @@ export class BackupPreferencesAdapter {
     return secrets[key] !== undefined ? secrets[key] : plaintext[key]
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replace(
     context: common.UIAbilityContext,
     map: SettingsMap,

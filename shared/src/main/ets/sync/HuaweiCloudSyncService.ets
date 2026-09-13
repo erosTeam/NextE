@@ -58,6 +58,9 @@ export class HuaweiCloudSyncService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async markDistributedTables(
     context: common.UIAbilityContext,
     selection: SyncDatasetSelection = SyncSettings.selection(SyncSettings.current()),
@@ -242,6 +245,9 @@ export class HuaweiCloudSyncService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async tryEnableStartup(context: common.UIAbilityContext): Promise<void> {
     if (!HuaweiCloudSyncService.available()) {
       return
@@ -357,6 +363,9 @@ export class HuaweiCloudSyncService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static bindCloudListeners(
     context: common.UIAbilityContext,
     store: relationalStore.RdbStore,

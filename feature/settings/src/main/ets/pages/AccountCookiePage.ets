@@ -44,6 +44,9 @@ export struct AccountCookiePage {
     this.reload()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -59,6 +62,9 @@ export struct AccountCookiePage {
     return $r('app.string.account_cookie_ex_locked')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private refreshIgneous(): void {
     if (this.refreshingIgneous) {
       return
@@ -79,6 +85,9 @@ export struct AccountCookiePage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private copyCookie(): void {
     try {
       const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.cookieText())
@@ -90,6 +99,9 @@ export struct AccountCookiePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private exportCookie(): void {
     try {
       const documentPicker = new picker.DocumentViewPicker(this.ctx())
@@ -115,6 +127,9 @@ export struct AccountCookiePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeText(uri: string, raw: string): void {
     let file: fileIo.File | null = null
     try {

@@ -74,6 +74,9 @@ export class AccountListSettings {
     state.activeMemberId = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async read(context: common.UIAbilityContext): Promise<AccountRecord[]> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

@@ -83,6 +83,7 @@ export default class EntryAbility extends UIAbility {
     try {
       win = windowStage.getMainWindowSync()
       win.setWindowLayoutFullScreen(true)
+      // @SuppressWarnings syscap
       win.setWindowSystemBarProperties({
         statusBarColor: TRANSPARENT_COLOR,
         navigationBarColor: TRANSPARENT_COLOR,
@@ -260,6 +261,7 @@ export default class EntryAbility extends UIAbility {
       mode === ScreenOrientationSettings.MODE_AUTO_ROTATION_UNSPECIFIED
         ? window.Orientation.AUTO_ROTATION_UNSPECIFIED
         : window.Orientation.UNSPECIFIED
+    // @SuppressWarnings syscap
     this.mainWindow.setPreferredOrientation(orientation)
       .then(() => {
         DiagnosticLogger.info('window', 'orientation_requested', mode)

@@ -34,7 +34,11 @@ export class BackupChecksum {
     return BackupChecksum.stringifyCanonical(payload)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hashText(text: string): Promise<string> {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     const bytes = new util.TextEncoder().encodeInto(text)
     md.updateSync({ data: bytes })
@@ -42,12 +46,18 @@ export class BackupChecksum {
     return BackupChecksum.toHex(digest.data)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async signEnvelope(envelope: BackupEnvelopeV1): Promise<BackupEnvelopeV1> {
     const value = await BackupChecksum.hashText(BackupChecksum.canonicalEnvelope(envelope))
     envelope.checksum = { algorithm: BACKUP_CHECKSUM_ALGORITHM, value: value }
     return envelope
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async verifyEnvelope(envelope: BackupEnvelopeV1): Promise<boolean> {
     if (!envelope.checksum) {
       return true

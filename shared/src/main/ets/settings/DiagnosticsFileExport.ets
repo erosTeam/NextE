@@ -102,6 +102,9 @@ export class DiagnosticsFileExport {
     throw new Error('Diagnostics export directory unavailable')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureExportDirectory(directory: string): void {
     try {
       fileIo.mkdirSync(directory, true)
@@ -110,6 +113,9 @@ export class DiagnosticsFileExport {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeTextFile(filePath: string, text: string): void {
     let file: fileIo.File | null = null
     try {

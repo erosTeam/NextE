@@ -42,6 +42,9 @@ export class ComicWholePageTranslationOrchestrator {
     this.renderedRepository = renderedRepository
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async run(
     sourceRequest: ComicWholePageTranslationRequest,
     forceRefresh: boolean = false,
@@ -212,7 +215,11 @@ export class ComicWholePageTranslationOrchestrator {
       value <= Number.MAX_SAFE_INTEGER
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static digest(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     const bytes: Uint8Array = md.digestSync().data

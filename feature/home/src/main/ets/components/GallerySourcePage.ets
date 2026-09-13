@@ -85,6 +85,9 @@ export struct GallerySourcePage {
     return connectCustomProfiles().findByUuid(this.sourceKey)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     // Configure the VM from this page's custom profile (sourceKey is the profile uuid) before any load;
     // loadData() runs right after. Fall back to the front-page source if the profile is missing.
@@ -138,6 +141,9 @@ export struct GallerySourcePage {
 
   // Load the first page the first time this source becomes active; retained afterwards. The host's @Trace
   // activeKey reaches even cached pages, so this fires reliably on a bar tap or swipe to this source.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('active.activeKey')
   onActiveChange(): void {
     if (this.isActive()) {
@@ -162,6 +168,9 @@ export struct GallerySourcePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private loadOnce(): void {
     DiagnosticLogger.info(
       'home-list-anchor',
@@ -258,6 +267,9 @@ export struct GallerySourcePage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     if (this.loadedOnce) {

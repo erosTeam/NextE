@@ -139,6 +139,9 @@ export class TagTranslationService {
     return TagTranslationService.fallbackTranslate(normalized)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translateFullTagAsync(
     context: common.UIAbilityContext,
     fullTag: string,
@@ -175,6 +178,9 @@ export class TagTranslationService {
     return TagTranslationService.fallbackTranslate(normalized)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translateGalleryTags(
     context: common.UIAbilityContext,
     gallery: EhGallery,
@@ -203,6 +209,9 @@ export class TagTranslationService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translateGalleries(
     context: common.UIAbilityContext,
     galleries: EhGallery[],
@@ -256,6 +265,9 @@ export class TagTranslationService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async searchSuggestions(
     context: common.UIAbilityContext,
     keyword: string,
@@ -278,6 +290,9 @@ export class TagTranslationService {
     return TagTranslationService.fallbackSuggestions(q.keyword, limit, q.namespace)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translateFullTagsAsync(
     context: common.UIAbilityContext,
     fullTags: string[],
@@ -319,6 +334,9 @@ export class TagTranslationService {
     return translations
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async lookupTagInfo(
     context: common.UIAbilityContext,
     namespace: string,
@@ -376,6 +394,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async status(context: common.UIAbilityContext): Promise<TagTranslationStatus> {
     const out: TagTranslationStatus = new TagTranslationStatus()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -453,6 +474,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async updateFromLatestRelease(
     context: common.UIAbilityContext,
     useCdn: boolean = false,
@@ -524,6 +548,9 @@ export class TagTranslationService {
     return rows
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async translateTagInPlace(
     context: common.UIAbilityContext,
     namespace: string,
@@ -545,6 +572,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async translationMapForGalleries(
     context: common.UIAbilityContext,
     galleries: EhGallery[],
@@ -622,6 +652,9 @@ export class TagTranslationService {
     keys.push(key)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async queryTranslationBatchForNamespace(
     store: relationalStore.RdbStore,
     namespace: string,
@@ -671,6 +704,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async hasRows(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_COUNT_TAG_TRANSLATIONS)
@@ -684,6 +720,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async queryRdbSuggestions(
     context: common.UIAbilityContext,
     query: TagSuggestionQuery,
@@ -719,6 +758,9 @@ export class TagTranslationService {
     return rows
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async replaceRows(
     context: common.UIAbilityContext,
     rows: TagTranslationEntry[],
@@ -839,6 +881,9 @@ export class TagTranslationService {
     throw new Error(`tag translation asset failed: ${errors.join('; ')}`)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async downloadPublicFile(
     url: string,
     filePath: string,
@@ -871,6 +916,9 @@ export class TagTranslationService {
     return TagTranslationService.writeArrayBuffer(filePath, resp.bytes)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeArrayBuffer(filePath: string, bytes: ArrayBuffer): number {
     let file: fileIo.File | null = null
     try {
@@ -1001,6 +1049,9 @@ export class TagTranslationService {
     return rawHeader.substring(start, end).trim()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async readGzipText(path: string): Promise<string> {
     const gzip: zlib.GZip = zlib.createGZipSync()
     const decoder: util.TextDecoder = util.TextDecoder.create('utf-8', { ignoreBOM: true })
@@ -1030,6 +1081,9 @@ export class TagTranslationService {
     return `${TagTranslationService.localDir(context)}/${TAG_DB_GZ_FILE}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)
@@ -1040,6 +1094,9 @@ export class TagTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readNullableString(
     resultSet: relationalStore.ResultSet,
     columnIndex: number,
@@ -1062,6 +1119,9 @@ export class TagTranslationService {
     return value.replace(/!\[(\S+)?\]\(.+?\)(\s+)?(\S+)/g, '$3').trim()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async translateInlineCodeTags(
     context: common.UIAbilityContext,
     intro: string,
@@ -1088,6 +1148,9 @@ export class TagTranslationService {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async lookupCodeTagName(
     context: common.UIAbilityContext,
     raw: string,

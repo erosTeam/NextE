@@ -70,6 +70,9 @@ export class LlmSourceSecretStore {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async readApiKey(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -89,6 +92,9 @@ export class LlmSourceSecretStore {
       : LlmSourceSecretStore.credential(values[sourceProfileId], MAX_LLM_API_KEY_CHARS, false)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveApiKey(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -120,6 +126,9 @@ export class LlmSourceSecretStore {
     store.flushSync()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async readCodexTokens(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -139,6 +148,9 @@ export class LlmSourceSecretStore {
       : CodexOAuthTokenCodec.parse(values[sourceProfileId])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveCodexTokens(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -166,6 +178,9 @@ export class LlmSourceSecretStore {
     store.flushSync()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clearCodexTokens(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -185,6 +200,9 @@ export class LlmSourceSecretStore {
     store.flushSync()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static clearIncompatibleFromStore(
     store: preferences.Preferences,
     sourceProfileId: string,
@@ -209,6 +227,9 @@ export class LlmSourceSecretStore {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static removeAllFromStore(
     store: preferences.Preferences,
     sourceProfileId: string,
@@ -289,6 +310,9 @@ export class LlmSourceSecretStore {
     return encoded
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static removeFromMap(
     store: preferences.Preferences,
     storageKey: string,
@@ -308,6 +332,9 @@ export class LlmSourceSecretStore {
     LlmSourceSecretStore.writeMap(store, storageKey, remaining, maxStoreChars, maxValueChars)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeMap(
     store: preferences.Preferences,
     storageKey: string,

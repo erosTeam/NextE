@@ -32,6 +32,9 @@ export class ComicResponsesRegionImage {
 
 /** Produces bounded, enlarged close-ups so the vision model can verify OCR inside known regions. */
 export class ComicResponsesRegionImagePayload {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async build(request: ComicTextTranslationRequest): Promise<ComicResponsesRegionImage[]> {
     const candidates: ComicRegionCropCandidate[] =
       ComicResponsesRegionImagePayload.candidates(request)

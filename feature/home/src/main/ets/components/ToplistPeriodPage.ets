@@ -102,6 +102,9 @@ export struct ToplistPeriodPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.vm.syncSource('toplist', this.periodTl)
     this.vm.setContext(this.ctx())
@@ -111,6 +114,9 @@ export struct ToplistPeriodPage {
   }
 
   // Host's @Trace activeKey reaches cached pages, so first activation (tap or swipe) fires reliably.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('active.activeKey')
   onActiveChange(): void {
     if (this.isActive()) {
@@ -127,6 +133,9 @@ export struct ToplistPeriodPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private loadOnce(): void {
     if (this.loadedOnce) {
       return
@@ -149,6 +158,9 @@ export struct ToplistPeriodPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     if (this.loadedOnce) {

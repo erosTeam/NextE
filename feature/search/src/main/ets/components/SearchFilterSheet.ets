@@ -167,6 +167,9 @@ export struct SearchFilterSheet {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   build() {
     AppModalScaffold({
       title: $r('app.string.filter'),

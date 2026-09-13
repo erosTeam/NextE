@@ -1,7 +1,6 @@
 import { webview } from '@kit.ArkWeb'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { promptAction } from '@kit.ArkUI'
 import {
   EhConstants,
   CookieJarSettings,
@@ -428,7 +427,10 @@ export struct EhLoginWebPage {
       return
     }
     this.finished = true
-    promptAction.showToast({ message: $r('app.string.login_success') })
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.login_success') })
+    } catch (_error) {
+    }
     closeLoginFlowToAccount(this.stack)
   }
 }

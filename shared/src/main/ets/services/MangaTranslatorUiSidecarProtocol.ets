@@ -277,6 +277,9 @@ class RawMangaTranslatorUiEnvelope {
  * writes validated translations back to the matching region before /import/json.
  */
 export class MangaTranslatorUiSidecarProtocol {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static parseExport(
     request: ComicRegionAnalysisRequest,
     translationJson: Uint8Array,
@@ -356,6 +359,9 @@ export class MangaTranslatorUiSidecarProtocol {
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static buildImportJson(
     document: ComicPageDocument,
     translations: ComicTranslationBatch,
@@ -691,6 +697,9 @@ export class MangaTranslatorUiSidecarProtocol {
     return Math.min(edge, Math.max(0, value))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static validateTemplate(template: ComicBackendTemplate): void {
     if (template.backendId !== MANGA_TRANSLATOR_UI_BACKEND_ID ||
       !MangaTranslatorUiSidecarProtocol.isProfileId(template.profileId) ||
@@ -721,7 +730,11 @@ export class MangaTranslatorUiSidecarProtocol {
     return decoder.decodeToString(value)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(value: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: value })
     const digest: Uint8Array = md.digestSync().data

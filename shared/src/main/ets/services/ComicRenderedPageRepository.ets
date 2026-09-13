@@ -203,6 +203,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async save(lookupKey: string, page: ComicRenderedPage): Promise<void> {
     ComicRenderedPageRepositoryContract.validateLookupKey(lookupKey)
     ComicVisualTranslationContract.validateRenderedPage(page.identity, page)
@@ -270,6 +273,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private loadRecord(
     metadataPath: string,
     expectedLookupKey: string,
@@ -299,6 +305,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private diskRecords(verifyArtifact: boolean): ComicRenderedPageDiskRecord[] {
     const output: ComicRenderedPageDiskRecord[] = []
     const dir: string = this.cacheDir()
@@ -336,6 +345,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private writeRecord(
     metadataPath: string,
     lookupKey: string,
@@ -359,6 +371,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private prune(protectedMetadataPath: string): void {
     const records: ComicRenderedPageDiskRecord[] = this.diskRecords(false)
     records.sort(
@@ -385,6 +400,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private validateArtifact(page: ComicRenderedPage): void {
     this.validateArtifactStat(page)
     if (this.hashFile(page.localFilePath, page.byteLength) !== page.artifactHash) {
@@ -392,6 +410,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private validateArtifactStat(page: ComicRenderedPage): void {
     ComicVisualTranslationContract.validateRenderedPage(page.identity, page)
     if (!this.isSafeArtifactPath(page.localFilePath) || !fileIo.accessSync(page.localFilePath)) {
@@ -451,6 +472,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     return value
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private metadataPath(lookupKey: string): string {
     return `${this.cacheDir()}/${PersistentComicRenderedPageRepository.sha256Text(lookupKey)}.json`
   }
@@ -474,6 +498,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private readText(path: string): string {
     const stat: fileIo.Stat = fileIo.statSync(path)
     const length: number = Math.floor(stat.size)
@@ -496,6 +523,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private writeText(path: string, text: string): void {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
     let file: fileIo.File | null = null
@@ -515,7 +545,11 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private hashFile(path: string, expectedLength: number): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     let file: fileIo.File | null = null
     let total: number = 0
@@ -542,6 +576,9 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)
@@ -566,7 +603,11 @@ export class PersistentComicRenderedPageRepository implements ComicRenderedPageR
     return task
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256Text(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     return PersistentComicRenderedPageRepository.toHex(md.digestSync().data)

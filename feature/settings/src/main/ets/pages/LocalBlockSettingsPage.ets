@@ -159,6 +159,9 @@ export struct LocalBlockSettingsPage {
     return this.draftText.trim().length > 0 && this.draftRegexValid()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private saveDraft(): void {
     if (!this.canSaveDraft()) {
       this.getUIContext().getPromptAction().showToast({

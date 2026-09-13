@@ -102,6 +102,9 @@ export struct GalleryWebPage {
     return immersiveTitleBarOpts(content)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private loadIfReady(): void {
     if (
       !this.controllerReady ||

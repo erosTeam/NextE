@@ -243,12 +243,18 @@ export class GalleryReadProgressSettings {
     return changed
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {
     await GalleryReadProgressSettings.migrateLegacyPreferences(context)
     await GalleryReadProgressSettings.flushForSync(context)
     return ReadProgressRepository.load(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
     const state = connectGalleryReadProgress()
     const before: ReadProgressEntry[] = state.snapshot()
@@ -337,6 +343,9 @@ export class GalleryReadProgressSettings {
     return rebased
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const state = connectGalleryReadProgress()
     const revision: number = state.revision
@@ -375,6 +384,9 @@ export class GalleryReadProgressSettings {
     await GalleryReadProgressSettings.deleteLegacyPreference(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

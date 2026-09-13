@@ -110,12 +110,18 @@ export class LocalFavSettings {
     return connectLocalFav().items.some((item: EhGallery) => item.gid === gid)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<EhGallery[]> {
     await LocalFavSettings.migrateLegacyPreferences(context)
     await LocalFavSettings.flushForSync(context)
     return LocalFavoriteRepository.load(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     LocalFavSettings.mutationRevision = LocalFavSettings.mutationRevision + 1
     await LocalFavSettings.enqueueRdbWrite(
@@ -129,6 +135,9 @@ export class LocalFavSettings {
     SyncScheduler.requestAfterLocalWrite(context, 'local_favorites_restore_backup')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const revision: number = LocalFavSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
@@ -214,7 +223,10 @@ export class LocalFavSettings {
     return Math.max(Date.now(), Math.max(0, Math.floor(requestedTime)), latest + 1)
   }
 
-  /** Do not replace an add/remove that arrived while an RDB snapshot was loading. */
+  /**
+   * Do not replace an add/remove that arrived while an RDB snapshot was loading.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
     for (let attempt: number = 0; attempt < 2; attempt++) {
       await LocalFavSettings.rdbWriteTail
@@ -281,6 +293,9 @@ export class LocalFavSettings {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,

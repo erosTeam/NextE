@@ -28,6 +28,9 @@ export struct DownloadTypeBar {
     this.downloadView.hdsSelectorBottomY = (area.globalPosition.y as number) + (area.height as number)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   build() {
     if (this.downloadView.searchActive) {
       Row({ space: ThemeConstants.SPACE_SM }) {

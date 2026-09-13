@@ -57,6 +57,9 @@ export struct WebDavSyncSettingsPage {
     SyncSettings.saveWebDavConfig(this.ctx(), this.snapshot())
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -107,6 +110,9 @@ export struct WebDavSyncSettingsPage {
     return `${year}-${month}-${day} ${hour}:${minute}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private syncNow(): void {
     if (!this.canSync()) {
       if (this.webdavUrlDraft.trim().length <= 0) {

@@ -39,6 +39,7 @@ export class MotionHandStateService {
     MotionHandStateService.startAttempted = true
 
     try {
+      // @SuppressWarnings syscap
       motion.on('holdingHandChanged', MotionHandStateService.holdingChanged)
       MotionHandStateService.holdingSubscribed = true
       MotionHandStateService.setHoldingHandSupported(true)
@@ -52,6 +53,7 @@ export class MotionHandStateService {
   static stop(): void {
     if (MotionHandStateService.holdingSubscribed) {
       try {
+        // @SuppressWarnings syscap
         motion.off('holdingHandChanged', MotionHandStateService.holdingChanged)
       } catch (error) {
         MotionHandStateService.logError('unsubscribe holding hand', error as Error)
@@ -165,10 +167,12 @@ export class MotionHandStateService {
     ) {
       return
     }
+    // @SuppressWarnings syscap
     if (status === motion.HoldingHandStatus.LEFT_HAND_HELD) {
       MotionHandStateService.scheduleHoldingEdge('left')
       return
     }
+    // @SuppressWarnings syscap
     if (status === motion.HoldingHandStatus.RIGHT_HAND_HELD) {
       MotionHandStateService.scheduleHoldingEdge('right')
     }

@@ -226,6 +226,9 @@ export struct TabEditPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -301,6 +304,9 @@ export struct TabEditPage {
   }
 
   // ── actions ───────────────────────────────────────────────────────────────
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private save(): void {
     const trimmed: string = this.nameDraft.trim()
     if (trimmed.length === 0) {
@@ -429,6 +435,9 @@ export struct TabEditPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({

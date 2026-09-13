@@ -72,7 +72,7 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
-import { ComponentContent, KeyboardAvoidMode, promptAction } from '@kit.ArkUI'
+import { ComponentContent, KeyboardAvoidMode } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
@@ -125,6 +125,9 @@ export struct GallerySearchPage {
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
   private fieldContent: ComponentContent<SearchPageFieldState> | null = null;
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.vm.setContext(this.ctx())
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
@@ -231,17 +234,26 @@ export struct GallerySearchPage {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     this.vm.reapplyTagTranslation()
     this.refreshHistoryTranslations()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('history.items')
   onSearchHistoryItemsChange(): void {
     this.refreshHistoryTranslations()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('history.translateEnabled')
   onSearchHistoryTranslateChange(): void {
     this.refreshHistoryTranslations()
@@ -508,9 +520,15 @@ export struct GallerySearchPage {
 
   private deleteSearchHistory(query: string): void {
     SearchHistorySettings.remove(this.ctx(), query)
-    promptAction.showToast({ message: $r('app.string.search_history_deleted') })
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.search_history_deleted') })
+    } catch (_error) {
+    }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private clearAllSearchHistory(): void {
     SearchHistorySettings.clear(this.ctx())
   }
@@ -603,6 +621,9 @@ export struct GallerySearchPage {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async refreshHistoryTranslations(): Promise<void> {
     this.historyTranslationRun = this.historyTranslationRun + 1
     const run: number = this.historyTranslationRun

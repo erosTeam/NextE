@@ -79,7 +79,10 @@ export class ViewedHistoryPage {
 }
 
 export class ViewedHistoryRepository {
-  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  /**
+   * Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
@@ -90,6 +93,9 @@ export class ViewedHistoryRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadAll(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
     const out: ViewedGallery[] = []
     let cursor: ViewedHistoryCursor | null = null
@@ -103,7 +109,10 @@ export class ViewedHistoryRepository {
     return out
   }
 
-  /** Keyset paging keeps every query bounded and stable while newer visits are inserted at the front. */
+  /**
+   * Keyset paging keeps every query bounded and stable while newer visits are inserted at the front.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadPage(
     context: common.UIAbilityContext,
     limit: number,
@@ -146,7 +155,10 @@ export class ViewedHistoryRepository {
     return page
   }
 
-  /** Delete one record with a logical-time tombstone so stale sync data cannot resurrect it. */
+  /**
+   * Delete one record with a logical-time tombstone so stale sync data cannot resurrect it.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async tombstone(
     context: common.UIAbilityContext,
     gid: string,
@@ -168,6 +180,9 @@ export class ViewedHistoryRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -199,7 +214,10 @@ export class ViewedHistoryRepository {
     }
   }
 
-  /** Ordinary detail opens write one row without imposing a retention limit. */
+  /**
+   * Ordinary detail opens write one row without imposing a retention limit.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsert(
     context: common.UIAbilityContext,
     item: ViewedGallery,
@@ -220,7 +238,10 @@ export class ViewedHistoryRepository {
     }
   }
 
-  /** Advance above every active row and tombstone so a clock tie cannot lose a fresh visit. */
+  /**
+   * Advance above every active row and tombstone so a clock tie cannot lose a fresh visit.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextViewedAt(
     store: relationalStore.RdbStore,
     requestedTime: number,
@@ -242,6 +263,9 @@ export class ViewedHistoryRepository {
     return Math.max(Date.now(), Math.max(0, Math.floor(requestedTime)), latest + 1)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeItem(
     store: relationalStore.RdbStore,
     item: ViewedGallery,
@@ -268,6 +292,9 @@ export class ViewedHistoryRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readItem(resultSet: relationalStore.ResultSet): ViewedGallery {
     const item: ViewedGallery = new ViewedGallery()
     item.gid = ViewedHistoryRepository.stringColumn(resultSet, 'gid')
@@ -288,11 +315,17 @@ export class ViewedHistoryRepository {
     return item
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

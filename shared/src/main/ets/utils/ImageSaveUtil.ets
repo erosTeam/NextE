@@ -6,6 +6,9 @@ import { EhHttpClient } from '../network/EhHttpClient'
 const DEFAULT_IMAGE_EXTENSION: string = 'jpg'
 
 export class ImageSaveUtil {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveNetworkImageToGallery(
     context: common.UIAbilityContext,
     url: string,
@@ -25,6 +28,9 @@ export class ImageSaveUtil {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async copySandboxImageToPhotos(
     context: common.UIAbilityContext,
     filePath: string,

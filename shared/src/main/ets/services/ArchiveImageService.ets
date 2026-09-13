@@ -10,6 +10,9 @@ const ARCHIVE_IMAGE_CACHE_DIR: string = 'download-archiver-read'
 
 /** Extracts a completed local archive into Reader-ready file:// images. */
 export class ArchiveImageService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async imagesForTask(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -27,6 +30,9 @@ export class ArchiveImageService {
     return images
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async imagePathsForTask(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -67,6 +73,9 @@ export class ArchiveImageService {
     return `${context.cacheDir}/${ARCHIVE_IMAGE_CACHE_DIR}/${ArchiveImageService.safePathPart(task.tag)}-${stamp}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static listImageFiles(dir: string): string[] {
     const out: string[] = []
     if (!fileIo.accessSync(dir)) {
@@ -144,6 +153,9 @@ export class ArchiveImageService {
     return value.replace(/[/:*"<>|,?\\]/g, '_')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)

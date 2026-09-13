@@ -28,6 +28,9 @@ import {
 import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
 
 export class SyncService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportRaw(
     context: common.UIAbilityContext,
     deviceId: string = '',
@@ -54,6 +57,9 @@ export class SyncService {
 
   // Transport-neutral file sync core: merge a remote envelope with local RDB, apply the merged result
   // locally, and return the exact raw payload that the provider should write back.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async mergeRemoteRaw(
     context: common.UIAbilityContext,
     remoteRaw: string,
@@ -68,6 +74,9 @@ export class SyncService {
     return JSON.stringify(writeBack)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async mergeRemoteEnvelope(
     context: common.UIAbilityContext,
     remote: SyncEnvelopeV1,
@@ -103,6 +112,9 @@ export class SyncService {
     return selectedMerged
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async importRaw(context: common.UIAbilityContext, raw: string): Promise<void> {
     const envelope: SyncEnvelopeV1 = SyncService.parseRaw(raw)
     await ViewedHistorySettings.flushForSync(context)

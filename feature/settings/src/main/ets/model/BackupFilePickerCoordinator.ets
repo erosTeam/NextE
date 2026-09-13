@@ -18,6 +18,9 @@ export interface BackupImportSelection {
 
 /** Bridges the backup service to the system file picker (save/select) + fd-based file I/O. */
 export class BackupFilePickerCoordinator {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportBackup(
     context: common.UIAbilityContext,
     metadata: BackupAppMetadata,
@@ -36,6 +39,9 @@ export class BackupFilePickerCoordinator {
     return uris[0]
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async selectImport(context: common.UIAbilityContext): Promise<BackupImportSelection> {
     const documentPicker = new picker.DocumentViewPicker(context)
     const selectOptions = new picker.DocumentSelectOptions()
@@ -49,10 +55,16 @@ export class BackupFilePickerCoordinator {
     return { raw: raw, parseResult: await BackupService.parseAndPreview(raw) }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async decryptSelected(raw: string, password: string): Promise<BackupParseResult> {
     return BackupService.decryptAndPreview(raw, password)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreSelected(
     context: common.UIAbilityContext,
     envelope: BackupEnvelopeV1,
@@ -63,6 +75,9 @@ export class BackupFilePickerCoordinator {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeText(uri: string, raw: string): void {
     let file: fileIo.File | null = null
     try {
@@ -79,6 +94,9 @@ export class BackupFilePickerCoordinator {
   }
 
   // The picker returns a file:// uri; open it to a fd and read bytes (readTextSync(path) fails on uris).
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readText(uri: string): string {
     let file: fileIo.File | null = null
     try {

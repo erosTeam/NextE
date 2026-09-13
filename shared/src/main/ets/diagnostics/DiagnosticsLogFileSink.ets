@@ -279,6 +279,9 @@ export class DiagnosticsLogFileSink {
     return bytes
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDirectory(directory: string): void {
     try {
       fileIo.mkdirSync(directory, true)

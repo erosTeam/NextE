@@ -240,6 +240,9 @@ export class ComicResponsesProviderCore {
     this.transport = transport
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async analyze(
     request: ComicPageAnalysisRequest,
     config: ComicResponsesCallConfig,
@@ -498,6 +501,9 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     return COMIC_RESPONSES_PROMPT_VERSION
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicPageAnalysisRequest): string {
     return ComicResponsesProtocol.contextFingerprint(request)
   }
@@ -506,6 +512,9 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     return ComicResponsesProviderCore.capabilities()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {
     return this.core.analyze(request, this.config)
   }
@@ -546,6 +555,9 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
     return COMIC_RESPONSES_PROMPT_VERSION
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   contextFingerprint(request: ComicPageAnalysisRequest): string {
     return ComicResponsesProtocol.contextFingerprint(request)
   }
@@ -554,6 +566,9 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
     return ComicResponsesProviderCore.capabilities()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async analyze(request: ComicPageAnalysisRequest): Promise<ComicPageAnalysisResult> {
     let tokens: CodexOAuthTokenSet = this.sourceProfileId.length === 0
       ? await ExperimentalCodexOAuthService.usableTokens(this.context)
@@ -592,6 +607,9 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
 }
 
 export class ComicPageAnalyzerFactory {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async create(
     context: common.UIAbilityContext,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),

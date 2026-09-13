@@ -35,6 +35,7 @@ export class ClipboardLinkService {
         await ClipboardLinkSettings.markChangeCount(context, changeCount)
         return ''
       }
+      // @SuppressWarnings permission
       const data: pasteboard.PasteData = await systemPasteboard.getData()
       const url: string = await ClipboardLinkService.extractUrl(data)
       await ClipboardLinkSettings.markChangeCount(context, changeCount)
@@ -59,6 +60,9 @@ export class ClipboardLinkService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async extractUrl(data: pasteboard.PasteData): Promise<string> {
     const recordCount: number = data.getRecordCount()
     for (let i: number = 0; i < recordCount; i++) {

@@ -37,6 +37,9 @@ export class LlmSourceRuntimeConfig {
 
 /** Resolves one consumer binding to a capability-checked, request-scoped runtime configuration. */
 export class LlmSourceRuntimeResolver {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async resolveComment(
     context: common.UIAbilityContext,
   ): Promise<LlmSourceRuntimeConfig> {
@@ -51,6 +54,9 @@ export class LlmSourceRuntimeResolver {
     return config
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async resolveManga(
     context: common.UIAbilityContext,
     requireImageInput: boolean = true,
@@ -66,6 +72,9 @@ export class LlmSourceRuntimeResolver {
     return config
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async resolveCatalogSource(
     context: common.UIAbilityContext,
     sourceProfileId: string,
@@ -87,6 +96,9 @@ export class LlmSourceRuntimeResolver {
     throw new Error('Selected LLM source is missing')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async resolveConsumer(
     context: common.UIAbilityContext,
     consumerId: string,
@@ -107,6 +119,9 @@ export class LlmSourceRuntimeResolver {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async runtimeConfig(
     context: common.UIAbilityContext,
     profile: LlmSourceProfile,

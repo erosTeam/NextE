@@ -558,6 +558,9 @@ export struct GalleryTagsCard {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openAddUserTag(fullTag: string, tagset: string): void {
     const infoName: string = this.currentInfoNameForFullTag(fullTag)
     this.addSubmitting = false
@@ -575,6 +578,9 @@ export struct GalleryTagsCard {
     this.loadAddTagTranslation(fullTag).then(() => {})
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadAddTagTranslation(fullTag: string): Promise<void> {
     if (!this.tagTranslation.enabled) {
       return
@@ -586,6 +592,9 @@ export struct GalleryTagsCard {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private openEditUserTag(t: EhUsertag, mytags: EhMytags): void {
     this.editSourceTag = t
     this.editResolvedTags = mytags.tags
@@ -618,6 +627,9 @@ export struct GalleryTagsCard {
     return this.localizedFullTagDisplay(t.tag, '')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async loadEditTagTranslation(fullTag: string): Promise<void> {
     if (!this.tagTranslation.enabled) {
       return
@@ -866,6 +878,9 @@ export struct GalleryTagsCard {
     return c.startsWith('#') ? c : `#${c}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private chooseTagsetForAdd(tagsetId: string): void {
     const tagKey: string = MyTagsTargetService.normalizeFullTag(this.selectedTagKey())
     if (tagKey.length === 0 || tagsetId.length === 0) {

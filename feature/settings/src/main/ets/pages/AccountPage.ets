@@ -243,6 +243,9 @@ export struct AccountPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -444,6 +447,9 @@ export struct AccountPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private confirmResetImageLimits(): void {
     if (this.homeResetting || this.homeLoading) {
       return

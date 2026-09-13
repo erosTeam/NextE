@@ -67,6 +67,9 @@ export struct ImageBlockSettingsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -438,6 +441,9 @@ export struct ImageBlockSettingsPage {
     return this.localRuleSubtitle(rule)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private setSelectedRuleEnabled(enabled: boolean): void {
     const rule: ImageBlockRule = this.selectedRule.copy()
     if (rule.id.length === 0) {
@@ -471,6 +477,9 @@ export struct ImageBlockSettingsPage {
     this.selectedRule = rule
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private commitSelectedRuleThreshold(value: number): void {
     const rule: ImageBlockRule = this.selectedRule.copy()
     if (rule.id.length === 0) {
@@ -497,6 +506,9 @@ export struct ImageBlockSettingsPage {
     publishImageBlockRulesChanged('settings-rule-change')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private updateDefault(): void {
     if (this.updating) {
       return
@@ -554,6 +566,9 @@ export struct ImageBlockSettingsPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private copyContributionDraft(): void {
     try {
       const batch: ImageBlockContributionBatch =

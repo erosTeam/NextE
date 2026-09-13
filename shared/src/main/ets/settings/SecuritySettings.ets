@@ -325,7 +325,9 @@ export class SecuritySettings {
   private static startAuthentication(authCandidate: AuthCandidate): Promise<number> {
     return new Promise<number>((resolve: (value: number) => void): void => {
       try {
+        // @SuppressWarnings syscap
         const random = cryptoFramework.createRandom()
+        // @SuppressWarnings syscap
         const authParam: userAuth.AuthParam = {
           challenge: random.generateRandomSync(16).data,
           authType: authCandidate.authTypes,

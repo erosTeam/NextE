@@ -184,7 +184,10 @@ export class GalleryListViewModel {
     return this.isCurrentFirstPageRun(run)
   }
 
-  /** Resolve personal slots and translate a paging page only while its original request context owns it. */
+  /**
+   * Resolve personal slots and translate a paging page only while its original request context owns it.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateCurrentPagingRows(
     list: GalleryList,
     run: GalleryFirstPageRun,
@@ -357,6 +360,9 @@ export class GalleryListViewModel {
     FavcatSlotResolver.applyInPlace(gallerys, connectFavSelection().favList)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return rows
@@ -364,6 +370,9 @@ export class GalleryListViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async applyCachedFirstPageIfEmpty(run: GalleryFirstPageRun): Promise<void> {
     if (this.context === null || this.itemCount > 0 || !this.isCurrentFirstPageRun(run)) {
       return
@@ -400,6 +409,9 @@ export class GalleryListViewModel {
     this.translateCachedRowsLater(rows, renderVersion, run, safeCached)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateCachedRowsLater(
     rows: EhGallery[],
     renderVersion: number,
@@ -426,6 +438,9 @@ export class GalleryListViewModel {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async renderFirstPageRows(
     list: GalleryList,
     deferTranslation: boolean,
@@ -478,6 +493,9 @@ export class GalleryListViewModel {
     await EhPageCacheService.saveGalleryList(this.context, run.cacheKey, list)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async reapplyTagTranslation(): Promise<void> {
     if (this.itemCount === 0) {
       return
@@ -712,7 +730,10 @@ export class GalleryListViewModel {
     }
   }
 
-  /** First load (skips if already populated). */
+  /**
+   * First load (skips if already populated).
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async loadData(): Promise<boolean> {
     DiagnosticLogger.info('home-list-anchor', 'load_data_enter', this.debugState())
     if (this.isLoading || this.itemCount > 0) {

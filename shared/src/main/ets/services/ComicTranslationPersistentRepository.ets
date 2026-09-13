@@ -397,6 +397,9 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     this.maxRecords = Math.max(1, Math.min(MAX_PERSISTED_DOCUMENTS, maxRecords))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async load(identity: ComicTranslationRequestIdentity): Promise<ComicPageDocument | null> {
     identity.assertValid()
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
@@ -435,6 +438,9 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     return document
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async save(
     identity: ComicTranslationRequestIdentity,
     document: ComicPageDocument,
@@ -466,6 +472,9 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async loadPrevious(
     identity: ComicTranslationRequestIdentity,
     limit: number,
@@ -533,11 +542,17 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     return selected
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async clear(): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
     await store.executeSql(SQL_DELETE_ALL)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async stat(): Promise<CacheStat> {
     const result: CacheStat = new CacheStat()
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
@@ -553,6 +568,9 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async removeProject(projectId: string): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
     await store.executeSql(SQL_DELETE_PROJECT, [projectId])
@@ -707,6 +725,9 @@ export class PersistentComicTranslationRepository implements ComicTranslationRep
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async removeProject(projectId: string): Promise<void> {
     await this.durable.removeProject(projectId)
   }

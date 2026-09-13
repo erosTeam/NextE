@@ -48,7 +48,10 @@ export class ShareUtil {
     ShareUtil.shareUrl(context, url, title)
   }
 
-  /** Open the system share sheet for an app-local file path. */
+  /**
+   * Open the system share sheet for an app-local file path.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async shareFile(
     context: common.UIAbilityContext,
     fileName: string,

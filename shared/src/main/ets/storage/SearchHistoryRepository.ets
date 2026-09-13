@@ -43,7 +43,10 @@ const SQL_TOMBSTONE_OVERFLOW: string =
   'AND COALESCE(updated_at, 0) <= ?'
 
 export class SearchHistoryRepository {
-  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  /**
+   * Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
@@ -54,6 +57,9 @@ export class SearchHistoryRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -75,6 +81,9 @@ export class SearchHistoryRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(context: common.UIAbilityContext, items: string[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const snapshot: string[] = SearchHistoryRepository.snapshotItems(items)
@@ -100,7 +109,10 @@ export class SearchHistoryRepository {
     }
   }
 
-  /** Ordinary searches write only the queried row and tombstone rows beyond the retained window. */
+  /**
+   * Ordinary searches write only the queried row and tombstone rows beyond the retained window.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertAndTrim(
     context: common.UIAbilityContext,
     query: string,
@@ -132,7 +144,10 @@ export class SearchHistoryRepository {
     }
   }
 
-  /** Persist a tombstone even when no durable row exists yet, fencing older sync records. */
+  /**
+   * Persist a tombstone even when no durable row exists yet, fencing older sync records.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async tombstone(
     context: common.UIAbilityContext,
     query: string,
@@ -155,6 +170,9 @@ export class SearchHistoryRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextMutationTime(
     store: relationalStore.RdbStore,
     requestedTime: number,
@@ -177,7 +195,10 @@ export class SearchHistoryRepository {
     return Math.max(Date.now(), requested, latest + 1)
   }
 
-  /** A lower position is newer, so one row moves to the front without reindexing every other row. */
+  /**
+   * A lower position is newer, so one row moves to the front without reindexing every other row.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextPositionIndex(store: relationalStore.RdbStore): Promise<number> {
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MIN_POSITION, [
       SCOPE_GLOBAL,
@@ -195,6 +216,9 @@ export class SearchHistoryRepository {
     return 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async writeQuery(
     store: relationalStore.RdbStore,
     query: string,

@@ -129,6 +129,9 @@ export struct CacheSettingsPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   aboutToAppear(): void {
     this.readerCacheLimitMb = ReaderImageCacheSettings.limitMb()
     this.refreshAll()
@@ -145,6 +148,9 @@ export struct CacheSettingsPage {
   }
 
   // ── Cache ───────────────────────────────────────────────────────────────
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private refreshAll(): void {
     EhPageCacheService.stat(this.ctx()).then((s: CacheStat) => {
       this.pageStat = s
@@ -176,6 +182,9 @@ export struct CacheSettingsPage {
     return this.pageStat
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private clearFor(key: string): Promise<void> {
     if (key === 'page') {
       return EhPageCacheService.clearAll(this.ctx())
@@ -289,6 +298,9 @@ export struct CacheSettingsPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async clearEverything(): Promise<void> {
     await EhPageCacheService.clearAll(this.ctx())
     await this.clearImageCaches()
@@ -301,6 +313,9 @@ export struct CacheSettingsPage {
   }
 
   // ── Backup ──────────────────────────────────────────────────────────────
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -371,6 +386,9 @@ export struct CacheSettingsPage {
     this.exportDialogController.open()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private confirmExport(): void {
     if (this.busy) {
       return
@@ -440,6 +458,9 @@ export struct CacheSettingsPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private confirmDecryptImport(): void {
     if (this.busy || this.importPwd.length === 0) {
       return

@@ -47,6 +47,9 @@ export class HarmonyComicLocalOcrEngine implements ComicLocalOcrEngine {
     return 1
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async supportedLanguages(): Promise<string[]> {
     if (this.languageCache !== null) {
       return this.languageCache.slice()
@@ -84,6 +87,9 @@ export class HarmonyComicLocalOcrEngine implements ComicLocalOcrEngine {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async recognizeSerial(pixelMap: image.PixelMap): Promise<ComicLocalOcrResult> {
     if (!this.initialized) {
       const initialized: boolean = await textRecognition.init()

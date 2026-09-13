@@ -501,11 +501,11 @@ export struct GalleryDetailPage {
 
   // The rail is centred on the pane, and the pane spans the whole window: the title-bar region sits at
   // the top and the navigation inset at the bottom, neither of which the eye counts as "the page". So
-  // the exact middle reads high and the button is pushed back down by two and a half title-bar heights
-  // (2.5 x 56vp = 140vp). This is the only knob for the vertical position — change this value to move
-  // the button up or down.
+  // the exact middle reads high and the button is pushed back down by three and a half title-bar
+  // heights (3.5 x 56vp = 196vp). This is the only knob for the vertical position — change this value
+  // to move the button up or down.
   private readFabCenterBiasY(): number {
-    return ThemeConstants.TITLE_BAR_HEIGHT * 2.5
+    return ThemeConstants.TITLE_BAR_HEIGHT * 3.5
   }
 
   private readFabOuterHeight(): number {
@@ -648,6 +648,9 @@ export struct GalleryDetailPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     this.vm.reapplyTagTranslation()
@@ -681,6 +684,9 @@ export struct GalleryDetailPage {
     this.vm.reloadForContext()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private retryDetailLoad(): void {
     // A context replacement keeps the previous detail VM marked loaded. Retrying it through load()
     // would therefore be a silent no-op; restart the replacement run and its fresh preview session.

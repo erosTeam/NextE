@@ -31,7 +31,10 @@ const SQL_HAS_PERSISTED_STATE: string =
   'SELECT 1 AS has_state FROM ' + TABLE_GALLERY_READ_PROGRESS + ' WHERE scope_key = ? LIMIT 1'
 
 export class ReadProgressRepository {
-  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  /**
+   * Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
@@ -42,6 +45,9 @@ export class ReadProgressRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async load(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {
     const out: ReadProgressEntry[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -66,6 +72,9 @@ export class ReadProgressRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async saveAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
     await ReadProgressRepository.saveEntries(context, entries)
   }
@@ -74,6 +83,7 @@ export class ReadProgressRepository {
    * Upsert a bounded dirty batch and return the logical timestamps actually committed. Every local
    * write advances above active rows and tombstones already present in this scope, so revisiting a
    * gallery after a future cross-device tombstone cannot be silently rejected by newest-wins SQL.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
    */
   static async saveEntries(
     context: common.UIAbilityContext,
@@ -111,7 +121,10 @@ export class ReadProgressRepository {
     }
   }
 
-  /** Replace active history and return the tombstone time used by this transaction. */
+  /**
+   * Replace active history and return the tombstone time used by this transaction.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -145,7 +158,10 @@ export class ReadProgressRepository {
     }
   }
 
-  /** Advance above every active row and tombstone before issuing a local logical timestamp. */
+  /**
+   * Advance above every active row and tombstone before issuing a local logical timestamp.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextMutationTime(
     store: relationalStore.RdbStore,
     requestedTime: number,

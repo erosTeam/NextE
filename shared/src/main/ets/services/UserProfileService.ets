@@ -324,6 +324,9 @@ export class UserProfileService {
     return fileUri.getUriFromPath(path)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDirectory(dir: string): void {
     try {
       fileIo.mkdirSync(dir, true)
@@ -334,6 +337,9 @@ export class UserProfileService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeBytes(filePath: string, bytes: Uint8Array): void {
     let file: fileIo.File | null = null
     try {

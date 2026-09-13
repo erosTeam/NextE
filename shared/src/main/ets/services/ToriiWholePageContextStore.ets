@@ -72,6 +72,9 @@ export class ToriiWholePageContextStore {
     this.context = context
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async loadPrevious(scope: ToriiWholePageContextScope): Promise<string> {
     scope.assertValid()
     const chainKey: string = scope.chainKey()
@@ -87,6 +90,9 @@ export class ToriiWholePageContextStore {
     return previous?.context ?? ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async save(scope: ToriiWholePageContextScope, providerContext: string): Promise<void> {
     scope.assertValid()
     const normalized: string = providerContext.trim()
@@ -117,6 +123,9 @@ export class ToriiWholePageContextStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async stat(): Promise<CacheStat> {
     const stat: CacheStat = new CacheStat()
     const dir: string = this.cacheDir()
@@ -140,6 +149,9 @@ export class ToriiWholePageContextStore {
     return stat
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async clear(): Promise<void> {
     const dir: string = this.cacheDir()
     if (!fileIo.accessSync(dir)) {
@@ -153,6 +165,9 @@ export class ToriiWholePageContextStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private records(): ToriiWholePageContextRecord[] {
     const output: ToriiWholePageContextRecord[] = []
     const dir: string = this.cacheDir()
@@ -209,6 +224,9 @@ export class ToriiWholePageContextStore {
     return record
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private prune(protectedPath: string): void {
     const records: ToriiWholePageContextRecord[] = this.records()
     if (records.length <= MAX_TORII_CONTEXT_RECORDS) {
@@ -236,6 +254,9 @@ export class ToriiWholePageContextStore {
     return `${this.context.cacheDir}/${TORII_CONTEXT_CACHE_DIR}`
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static recordHash(scope: ToriiWholePageContextScope): string {
     return ToriiWholePageContextStore.sha256Text(
       JSON.stringify([scope.chainKey(), `${scope.pageIndex}`]),
@@ -249,6 +270,9 @@ export class ToriiWholePageContextStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readText(path: string): string {
     const stat: fileIo.Stat = fileIo.statSync(path)
     const length: number = Math.floor(stat.size)
@@ -271,6 +295,9 @@ export class ToriiWholePageContextStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeText(path: string, text: string): void {
     const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
     let file: fileIo.File | null = null
@@ -290,6 +317,9 @@ export class ToriiWholePageContextStore {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)
@@ -322,7 +352,11 @@ export class ToriiWholePageContextStore {
     return value > 0 && ToriiWholePageContextStore.nonNegativeInteger(value)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256Text(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     const bytes: Uint8Array = md.digestSync().data

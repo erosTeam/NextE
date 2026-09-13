@@ -71,6 +71,9 @@ export class TagTranslationSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async refreshStatus(context: common.UIAbilityContext): Promise<void> {
     const epoch: number = TagTranslationSettings.statusRefreshEpoch + 1
     TagTranslationSettings.statusRefreshEpoch = epoch
@@ -92,6 +95,9 @@ export class TagTranslationSettings {
     }, 0)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async updateNow(context: common.UIAbilityContext, force: boolean = true): Promise<number> {
     const state: TagTranslationSettingsState = connectTagTranslationSettings()
     const count: number = await TagTranslationService.updateFromLatestRelease(context, state.useCdn, force)

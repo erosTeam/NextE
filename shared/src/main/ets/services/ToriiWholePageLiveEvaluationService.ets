@@ -222,6 +222,9 @@ export class ToriiWholePageLiveEvaluationService {
     return report
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadManifest(
     context: common.UIAbilityContext,
   ): Promise<RawToriiLiveEvaluationManifest> {
@@ -257,6 +260,9 @@ export class ToriiWholePageLiveEvaluationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeTempPage(
     context: common.UIAbilityContext,
     rawPage: RawToriiLiveEvaluationPage,
@@ -301,7 +307,11 @@ export class ToriiWholePageLiveEvaluationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(bytes: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: bytes })
     const digest: Uint8Array = md.digestSync().data

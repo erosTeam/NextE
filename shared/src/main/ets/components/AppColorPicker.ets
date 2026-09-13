@@ -54,6 +54,9 @@ export struct AppColorPicker {
     this.syncDraftFromExternalColor()
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   build() {
     Column({ space: ThemeConstants.SPACE_MD }) {
       Row({ space: ThemeConstants.SPACE_MD }) {

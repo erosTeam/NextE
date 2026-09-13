@@ -95,6 +95,9 @@ export class GalleryDetailViewModel {
     this.gallery = gallery
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async load(gid: string, token: string): Promise<void> {
     if (this.loading || this.loaded) {
       return
@@ -236,6 +239,9 @@ export class GalleryDetailViewModel {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async applyCachedDetailIfAvailable(run: GalleryDetailRun): Promise<void> {
     if (this.context === null || !this.isCurrentDetailRun(run)) {
       return
@@ -250,6 +256,9 @@ export class GalleryDetailViewModel {
     this.applyCachedDetail(run, cached)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private applyRecentDetailIfAvailable(run: GalleryDetailRun): boolean {
     if (this.context === null || !this.isCurrentDetailRun(run)) {
       return false
@@ -261,6 +270,9 @@ export class GalleryDetailViewModel {
     return this.applyCachedDetail(run, cached)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private applyCachedDetail(run: GalleryDetailRun, cached: GalleryDetailResult): boolean {
     if (!this.isCurrentDetailRun(run)) {
       return false
@@ -283,6 +295,9 @@ export class GalleryDetailViewModel {
     return true
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateCachedGalleryLater(
     gallery: EhGallery,
     renderVersion: number,
@@ -416,6 +431,9 @@ export class GalleryDetailViewModel {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async fetchAndApply(run: GalleryDetailRun, refresh: boolean): Promise<void> {
     if (!this.isCurrentDetailRun(run)) {
       return
@@ -448,6 +466,9 @@ export class GalleryDetailViewModel {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async applyDetailResult(
     run: GalleryDetailRun,
     res: GalleryDetailResult,
@@ -520,6 +541,9 @@ export class GalleryDetailViewModel {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateGallery(gallery: EhGallery): Promise<EhGallery> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return TagTranslationService.clearGalleryTranslations(gallery)
@@ -527,6 +551,9 @@ export class GalleryDetailViewModel {
     return TagTranslationService.translateGalleryTags(this.context, gallery)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async reapplyTagTranslation(): Promise<void> {
     const run: GalleryDetailRun | null = this.activeDetailRun
     if (run === null || !this.isCurrentDetailRun(run)) {

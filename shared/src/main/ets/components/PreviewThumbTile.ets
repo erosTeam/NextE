@@ -88,6 +88,9 @@ export struct PreviewThumbTile {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -137,6 +140,9 @@ export struct PreviewThumbTile {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private unblockMatchedRule(): void {
     if (this.busy) {
       return

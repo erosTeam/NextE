@@ -190,6 +190,9 @@ export class ImageBlockRepository {
   // every thumbnail write on the hot path.
   private static fileHashCacheWritesSincePrune: number = FILE_HASH_CACHE_PRUNE_WRITE_INTERVAL - 1
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
     const out: ImageBlockFeed[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -219,6 +222,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadEnabledRules(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -241,6 +247,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadWhitelist(context: common.UIAbilityContext): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -261,6 +270,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadWhitelistItems(context: common.UIAbilityContext): Promise<ImageBlockWhitelistItem[]> {
     const out: ImageBlockWhitelistItem[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -284,6 +296,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadLocalRuleCount(context: common.UIAbilityContext): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_RULE_COUNT, [
@@ -300,6 +315,9 @@ export class ImageBlockRepository {
     return 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadLocalRules(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -320,6 +338,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadUserRulesForBackup(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -338,6 +359,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreUserRulesFromBackup(
     context: common.UIAbilityContext,
     rules: ImageBlockRule[],
@@ -383,6 +407,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadSubscriptionRules(
     context: common.UIAbilityContext,
     feedId: string,
@@ -410,6 +437,9 @@ export class ImageBlockRepository {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadCachedFileHash(
     context: common.UIAbilityContext,
     filePath: string,
@@ -435,6 +465,9 @@ export class ImageBlockRepository {
     return ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async loadCachedFileHashByPath(
     context: common.UIAbilityContext,
     filePath: string,
@@ -458,6 +491,9 @@ export class ImageBlockRepository {
     return ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceSubscription(context: common.UIAbilityContext, feed: ImageBlockFeed): Promise<void> {
     if (feed.id.length === 0) {
       throw new Error('Image block feed id is required')
@@ -499,6 +535,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async setSubscriptionEnabled(
     context: common.UIAbilityContext,
     feedId: string,
@@ -512,6 +551,9 @@ export class ImageBlockRepository {
     ImageBlockRepository.requestSync(context, 'image_block_subscription')
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertLocalRule(context: common.UIAbilityContext, rule: ImageBlockRule): Promise<void> {
     const normalizedHash: string = PHashService.normalizeHex64(rule.hash)
     if (normalizedHash.length === 0) {
@@ -545,6 +587,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeLocalRule(context: common.UIAbilityContext, ruleId: string): Promise<void> {
     if (ruleId.length === 0) {
       return
@@ -568,6 +613,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async setLocalRuleThreshold(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -595,6 +643,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async setLocalRuleEnabled(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -622,6 +673,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async rememberRulePreview(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -643,6 +697,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async replaceWhitelist(context: common.UIAbilityContext, hashes: string[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
@@ -671,6 +728,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertWhitelistHash(
     context: common.UIAbilityContext,
     hash: string,
@@ -694,6 +754,9 @@ export class ImageBlockRepository {
     return normalizedHash
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async ignoreRule(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -726,6 +789,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async setRuleEnabledOverride(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -766,6 +832,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async setRuleThresholdOverride(
     context: common.UIAbilityContext,
     ruleId: string,
@@ -806,6 +875,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async removeWhitelistHash(context: common.UIAbilityContext, hash: string): Promise<void> {
     const normalizedHash: string = PHashService.normalizeHex64(hash)
     if (normalizedHash.length === 0) {
@@ -830,6 +902,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async upsertFileHash(
     context: common.UIAbilityContext,
     filePath: string,
@@ -870,6 +945,9 @@ export class ImageBlockRepository {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertSubscriptionItem(
     store: relationalStore.RdbStore,
     feed: ImageBlockFeed,
@@ -897,6 +975,9 @@ export class ImageBlockRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertSubscriptionOverride(
     store: relationalStore.RdbStore,
     ruleId: string,
@@ -924,7 +1005,10 @@ export class ImageBlockRepository {
     SyncScheduler.requestAfterLocalWrite(context, reason)
   }
 
-  /** Advance every user-rule mutation past active rows and tombstones so local edits remain LWW-safe. */
+  /**
+   * Advance every user-rule mutation past active rows and tombstones so local edits remain LWW-safe.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async nextUserRuleMutationTime(
     store: relationalStore.RdbStore,
     requestedTime: number,
@@ -944,6 +1028,9 @@ export class ImageBlockRepository {
     return Math.max(Date.now(), requested, latest + 1)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async upsertAllowRule(
     store: relationalStore.RdbStore,
     hash: string,
@@ -967,6 +1054,9 @@ export class ImageBlockRepository {
     ])
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readRule(resultSet: relationalStore.ResultSet): ImageBlockRule {
     const rule: ImageBlockRule = new ImageBlockRule()
     rule.id = ImageBlockRepository.stringColumn(resultSet, 'rule_id')
@@ -991,11 +1081,17 @@ export class ImageBlockRepository {
     return rule
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
     const index: number = resultSet.getColumnIndex(name)
     return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)

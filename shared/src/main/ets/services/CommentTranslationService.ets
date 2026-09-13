@@ -612,6 +612,9 @@ export class CommentTranslationService {
     return 'unknown'
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async getCached(
     context: common.UIAbilityContext,
     text: string,
@@ -645,6 +648,9 @@ export class CommentTranslationService {
     return ''
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translate(
     context: common.UIAbilityContext,
     text: string,
@@ -714,6 +720,9 @@ export class CommentTranslationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async translateStructured(
     context: common.UIAbilityContext,
     sourceText: string,
@@ -784,6 +793,9 @@ export class CommentTranslationService {
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async translateChunk(
     context: common.UIAbilityContext,
     raw: string,
@@ -838,6 +850,9 @@ export class CommentTranslationService {
     return count
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     CommentTranslationService.cacheEpoch.advance()
     CommentTranslationService.memory.clear()
@@ -846,6 +861,9 @@ export class CommentTranslationService {
     await store.executeSql(SQL_DELETE_COMMENT_TRANSLATIONS)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async count(context: common.UIAbilityContext): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(
@@ -885,6 +903,9 @@ export class CommentTranslationService {
     return out
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async validateConfiguredLlm(context: common.UIAbilityContext): Promise<void> {
     const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
     await CommentTranslationService.callLlm(
@@ -895,6 +916,9 @@ export class CommentTranslationService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async fetchConfiguredLlmModels(context: common.UIAbilityContext): Promise<string[]> {
     const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
     return ComicTranslationModelCatalogService.fetchSource(
@@ -903,6 +927,9 @@ export class CommentTranslationService {
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async translateAndCache(
     context: common.UIAbilityContext,
     text: string,
@@ -931,6 +958,9 @@ export class CommentTranslationService {
     return result
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async save(
     context: common.UIAbilityContext,
     text: string,
@@ -1062,6 +1092,9 @@ export class CommentTranslationService {
     return bingResult
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async callLlm(
     context: common.UIAbilityContext,
     text: string,

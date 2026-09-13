@@ -229,6 +229,9 @@ export class ComicTranslationLiveEvaluationService {
     return report
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async loadManifest(
     context: common.UIAbilityContext,
   ): Promise<RawLiveEvaluationManifest> {
@@ -383,6 +386,9 @@ export class ComicTranslationLiveEvaluationService {
     return previous
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeTempPage(
     context: common.UIAbilityContext,
     rawPage: RawLiveEvaluationPage,
@@ -422,7 +428,11 @@ export class ComicTranslationLiveEvaluationService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(bytes: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: bytes })
     const digest: Uint8Array = md.digestSync().data

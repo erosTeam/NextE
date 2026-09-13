@@ -166,6 +166,9 @@ export struct EhCookieImportPage {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async submit(): Promise<void> {
     if (this.submitting) {
       return

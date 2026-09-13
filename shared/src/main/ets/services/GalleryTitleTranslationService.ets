@@ -12,6 +12,9 @@ import {
  * feature from depending on comment UI semantics and leaves room for a title-specific prompt later.
  */
 export class GalleryTitleTranslationService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static translate(context: common.UIAbilityContext, sourceText: string): Promise<string> {
     return CommentTranslationService.translate(
       context,

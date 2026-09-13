@@ -37,6 +37,9 @@ type SettingsMap = Record<string, BackupSettingsValue>
  * one; a wrong password fails GCM auth and surfaces as 'bad_password'.
  */
 export class BackupService {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async serializeBackup(
     context: common.UIAbilityContext,
     metadata: BackupAppMetadata,
@@ -62,6 +65,9 @@ export class BackupService {
     return JSON.stringify(envelope, null, 2)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async buildEnvelope(
     context: common.UIAbilityContext,
     metadata: BackupAppMetadata,
@@ -105,10 +111,16 @@ export class BackupService {
 
   // Parse a raw file. A recognized encrypted container returns ok=false + encrypted=true +
   // 'password_required' so the caller prompts for a password.
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async parseAndPreview(raw: string): Promise<BackupParseResult> {
     return BackupService.parseEnvelope(raw, false)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async decryptAndPreview(raw: string, password: string): Promise<BackupParseResult> {
     if (BackupService.isTooLarge(raw)) {
       return { ok: false, code: 'too_large', message: 'backup file is too large' }
@@ -148,6 +160,9 @@ export class BackupService {
     return BackupService.parseEnvelope(plaintext, true)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async parseEnvelope(
     raw: string,
     fromEncrypted: boolean,
@@ -242,6 +257,9 @@ export class BackupService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(
     context: common.UIAbilityContext,
     envelope: BackupEnvelopeV1,

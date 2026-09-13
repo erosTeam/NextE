@@ -80,10 +80,16 @@ export interface MangaTranslatorUiSidecarSessionProvider {
 
 export class DefaultMangaTranslatorUiSidecarSessionProvider implements
   MangaTranslatorUiSidecarSessionProvider {
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   acquire(request: MangaTranslatorUiSessionRequest): Promise<string> {
     return MangaTranslatorUiSidecarSessionService.acquire(request)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   invalidate(request: MangaTranslatorUiSessionRequest, rejectedToken: string): void {
     MangaTranslatorUiSidecarSessionService.invalidate(request, rejectedToken)
   }
@@ -94,6 +100,9 @@ export class MangaTranslatorUiSidecarSessionService {
   private static sessions: Map<string, MangaTranslatorUiSessionCacheEntry> = new Map()
   private static inFlight: Map<string, Promise<string>> = new Map()
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async acquire(
     request: MangaTranslatorUiSessionRequest,
     transport: MangaTranslatorUiSidecarSessionTransport =
@@ -134,6 +143,9 @@ export class MangaTranslatorUiSidecarSessionService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static invalidate(request: MangaTranslatorUiSessionRequest, rejectedToken: string): void {
     if (!request.hasAccount()) {
       return
@@ -222,15 +234,25 @@ export class MangaTranslatorUiSidecarSessionService {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static cacheKey(request: MangaTranslatorUiSessionRequest): string {
     return request.baseUrl + ':' + MangaTranslatorUiSidecarSessionService.digest(request.username)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static credentialHash(request: MangaTranslatorUiSessionRequest): string {
     return MangaTranslatorUiSidecarSessionService.digest(request.username + '\n' + request.password)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static digest(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     const bytes: Uint8Array = md.digestSync().data

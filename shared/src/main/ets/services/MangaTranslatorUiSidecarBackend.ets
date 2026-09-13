@@ -326,6 +326,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     return document.hasText && document.blocks.length > 0
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async analyze(request: ComicRegionAnalysisRequest): Promise<ComicRegionAnalysisResult> {
     ComicVisualTranslationContract.validateRegionAnalysisRequest(request)
     const source: SidecarSourceImage = MangaTranslatorUiSidecarBackend.readSourceImage(request.source)
@@ -347,6 +350,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     )
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async render(request: ComicRegionRenderRequest): Promise<ComicRenderedPage> {
     ComicVisualTranslationContract.validateStagedRenderRequest(request)
     if (request.identity.renderBackendId !== this.backendId() ||
@@ -554,6 +560,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     return output
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readSourceImage(source: ComicVisualPageSource): SidecarSourceImage {
     ComicVisualTranslationContract.validateSource(source)
     if (!fileIo.accessSync(source.imageFilePath)) {
@@ -710,6 +719,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static readExact(path: string, length: number): Uint8Array {
     const output: Uint8Array = new Uint8Array(length)
     let file: fileIo.File | null = null
@@ -733,6 +745,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static persistRenderedPage(
     context: common.UIAbilityContext,
     identityKey: string,
@@ -763,6 +778,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static writeExact(path: string, bytes: Uint8Array): void {
     let file: fileIo.File | null = null
     let offset: number = 0
@@ -789,6 +807,9 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static ensureDir(path: string): void {
     try {
       fileIo.mkdirSync(path, true)
@@ -807,7 +828,11 @@ export class MangaTranslatorUiSidecarBackend implements ComicRegionRenderBackend
     } catch (_error) {}
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static sha256(value: Uint8Array): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: value })
     const digest: Uint8Array = md.digestSync().data

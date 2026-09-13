@@ -219,6 +219,9 @@ export struct CommentTranslationSettingsPage {
     })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private clearCache(): void {
     this.clearingCache = true
     CommentTranslationService.clear(this.ctx())
@@ -231,6 +234,9 @@ export struct CommentTranslationSettingsPage {
       })
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }

@@ -303,15 +303,24 @@ export class CustomProfilesSettings {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackup(context: common.UIAbilityContext): Promise<CustomProfile[]> {
     return (await CustomProfilesSettings.exportForBackupSnapshot(context)).profiles
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportSelectedForBackup(context: common.UIAbilityContext): Promise<string> {
     return (await CustomProfilesSettings.exportForBackupSnapshot(context)).selectedUuid
   }
 
-  /** Read profiles and selection between queued writers so one backup cannot mix two tab states. */
+  /**
+   * Read profiles and selection between queued writers so one backup cannot mix two tab states.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async exportForBackupSnapshot(
     context: common.UIAbilityContext,
   ): Promise<CustomProfilesBackupSnapshot> {
@@ -324,6 +333,9 @@ export class CustomProfilesSettings {
     return snapshot
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async restoreBackup(
     context: common.UIAbilityContext,
     profiles: CustomProfile[],
@@ -623,7 +635,10 @@ export class CustomProfilesSettings {
     return Math.floor(p.lastEditTime)
   }
 
-  /** Map the legacy HOME_SOURCE preference to a built-in uuid (''→default / popular / watched). */
+  /**
+   * Map the legacy HOME_SOURCE preference to a built-in uuid (''→default / popular / watched).
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async migrateSelected(context: common.UIAbilityContext): Promise<string> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
@@ -639,6 +654,9 @@ export class CustomProfilesSettings {
     return BUILTIN_DEFAULT_UUID
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const revision: number = CustomProfilesSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
@@ -679,6 +697,9 @@ export class CustomProfilesSettings {
     await CustomProfilesSettings.deleteLegacyPreferences(context)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async deleteLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
@@ -815,7 +836,10 @@ export class CustomProfilesSettings {
     return CustomProfilesSettings.rdbWriteScheduler.enqueue(work)
   }
 
-  /** Avoid replacing a newer in-memory tab mutation with an older RDB snapshot after backup restore. */
+  /**
+   * Avoid replacing a newer in-memory tab mutation with an older RDB snapshot after backup restore.
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
     for (let attempt: number = 0; attempt < 2; attempt++) {
       await CustomProfilesSettings.rdbWriteScheduler.flush()

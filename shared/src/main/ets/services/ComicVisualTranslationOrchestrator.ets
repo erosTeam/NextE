@@ -73,6 +73,9 @@ export class ComicVisualTranslationOrchestrator {
     this.renderedRepository = renderedRepository
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async run(
     sourceRequest: ComicVisualTranslationRequest,
     forceRefresh: boolean = false,
@@ -138,6 +141,9 @@ export class ComicVisualTranslationOrchestrator {
     this.cacheWritesEnabled = false
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async produce(
     request: ComicVisualTranslationRequest,
     previous: ComicPageDocument[],
@@ -342,6 +348,9 @@ export class ComicVisualTranslationOrchestrator {
     return identity
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private documentIdentity(
     request: ComicVisualTranslationRequest,
     contextFingerprint: string,
@@ -378,6 +387,9 @@ export class ComicVisualTranslationOrchestrator {
     return identity
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private lookupKey(request: ComicVisualTranslationRequest): string {
     const contextLines: string[] = ComicResponsesProtocol.contextLines(
       request.context,
@@ -500,7 +512,11 @@ export class ComicVisualTranslationOrchestrator {
       value <= Number.MAX_SAFE_INTEGER
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private static digest(value: string): string {
+    // @SuppressWarnings syscap
     const md = cryptoFramework.createMd('SHA256')
     md.updateSync({ data: new util.TextEncoder().encodeInto(value) })
     const bytes: Uint8Array = md.digestSync().data

@@ -250,6 +250,9 @@ export class FavoritesViewModel {
     FavcatSlotResolver.applyInPlace(gallerys, favcats)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return rows
@@ -257,6 +260,9 @@ export class FavoritesViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async applyCachedFirstPageIfEmpty(run: FavoritesFirstPageRun): Promise<void> {
     if (
       this.context === null ||
@@ -293,6 +299,9 @@ export class FavoritesViewModel {
     this.translateCachedRowsLater(rows, renderVersion, run, cached)
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async translateCachedRowsLater(
     rows: EhGallery[],
     renderVersion: number,
@@ -319,6 +328,9 @@ export class FavoritesViewModel {
     }
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async renderFirstPageRows(
     list: GalleryList,
     deferTranslation: boolean,
@@ -421,6 +433,9 @@ export class FavoritesViewModel {
     return rows[rows.length - 1].gid
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   async reapplyTagTranslation(): Promise<void> {
     this.tagTranslationRun = this.tagTranslationRun + 1
     const run: number = this.tagTranslationRun

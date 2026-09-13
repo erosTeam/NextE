@@ -86,6 +86,9 @@ export struct EhPasswordLoginPage {
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
+  /**
+   * @throws { Error } Propagated from the underlying SDK call when it fails.
+   */
   private async submit(): Promise<void> {
     if (this.submitting) {
       return
