@@ -1,4 +1,19 @@
 import galleryDetailParserTest from './GalleryDetailParser.test'
+import readerLabReflowTest from './ReaderLabReflow.test'
+import readerChromeTest from './ReaderChrome.test'
+import readerPagingAxisTest from './ReaderPagingAxis.test'
+import readerSpreadLayoutTest from './ReaderSpreadLayout.test'
+import readerInitialPolicyTest from './ReaderInitialPolicy.test'
+import readerThumbnailInitialPolicyTest from './ReaderThumbnailInitialPolicy.test'
+import readerTapZonesTest from './ReaderTapZones.test'
+import readerPageNumberTest from './ReaderPageNumber.test'
+import readerThumbnailRailTest from './ReaderThumbnailRail.test'
+import readerSliderLifecycleTest from './ReaderSliderLifecycle.test'
+import readerThumbnailRetryTest from './ReaderThumbnailRetry.test'
+import readerVolumeKeysTest from './ReaderVolumeKeys.test'
+import readerImageShareTest from './ReaderImageShare.test'
+import readerImageInformationTest from './ReaderImageInformation.test'
+import readerThumbnailEntryTest from './ReaderThumbnailEntry.test'
 import readProgressStateTest from './ReadProgressState.test'
 import readerImagePrioritySchedulerTest from './ReaderImagePriorityScheduler.test'
 import commentTranslationQueueSchedulerTest from './CommentTranslationQueueScheduler.test'
@@ -75,6 +90,21 @@ import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
 
 export default function testsuite(): void {
+  readerLabReflowTest()
+  readerChromeTest()
+  readerPagingAxisTest()
+  readerSpreadLayoutTest()
+  readerInitialPolicyTest()
+  readerThumbnailInitialPolicyTest()
+  readerTapZonesTest()
+  readerPageNumberTest()
+  readerThumbnailRailTest()
+  readerSliderLifecycleTest()
+  readerThumbnailRetryTest()
+  readerVolumeKeysTest()
+  readerImageShareTest()
+  readerImageInformationTest()
+  readerThumbnailEntryTest()
   galleryDetailParserTest()
   readProgressStateTest()
   readerImagePrioritySchedulerTest()
