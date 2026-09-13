@@ -1,9 +1,12 @@
-import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction } from '@reader-kit/ui'
+import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
+  ReaderRuntimePolicyIntent } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
-  connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient } from 'shared'
-import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost, ReaderLayout } from '@reader-kit/core'
+  connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
+  GalleryReadProgressSettings, ReadMode } from 'shared'
+import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
+  ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryPreviewSource } from '@reader-kit/ui'
 import { ReaderLabRequest, ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility, ReaderLabAssetProbe, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
@@ -11,6 +14,7 @@ import { ReaderLabShareProbe } from '@reader-kit/ui'
 import { connectGalleryReadProgress, ReaderTapZoneResolver } from 'shared'
 import { NextEReaderInitialPolicy } from './NextEReaderInitialPolicy'
 import { connectNextEReaderLabContextProbe } from './NextEReaderLabContextProbe'
+import { NextEReaderRuntimePreferences } from './NextEReaderRuntimePreferences'
 
 @ComponentV2
 export struct NextEReaderLabPage {
@@ -76,6 +80,9 @@ export struct NextEReaderLabPage {
     const column = progress.getColumnMode(this.request.work)
     const policy = NextEReaderInitialPolicy.resolve(this.readMode, column, this.request)
     session.setPolicy(policy)
+    if (this.request.progressReadWrite && !this.request.pageIndexProvided) {
+      this.request.pageIndex = progress.getIndex(this.request.work)
+    }
     console.info(`[NextEReaderLab] initial_policy column=${column} cover=${policy.firstPageAlone} layout=${policy.layout} axis=${policy.pagingAxis} direction=${policy.direction} spread=${policy.spreadLayout}`)
     this.session = session
   }
@@ -99,6 +106,48 @@ export struct NextEReaderLabPage {
     return this.readerCanvasDark() ? ThemeConstants.READER_FOREGROUND_LIGHT : ThemeConstants.READER_FOREGROUND_DARK
   }
 
+  private persistObserved(position: ReaderObservedPosition): void {
+    if (!this.request.progressReadWrite || !this.routeActive || !this.labVisibility.foreground ||
+      this.closeRequested || this.hostClosing || position.anchor.unit.scope !== this.unitKey.scope ||
+      position.anchor.unit.work !== this.unitKey.work || position.anchor.unit.unit !== this.unitKey.unit) return
+    GalleryReadProgressSettings.setIndex(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      this.request.work,
+      position.anchor.sourceIndexHint,
+    )
+  }
+
+  private persistRuntimePolicy(policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void {
+    if (!this.request.preferencesReadWrite || !this.routeActive || !this.labVisibility.foreground ||
+      this.closeRequested || this.hostClosing) return
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    if (intent === 'layout') void NextEReaderRuntimePreferences.applyLayout(context, policy)
+    else if (intent === 'direction') void NextEReaderRuntimePreferences.applyDirection(context, policy)
+    else if (intent === 'spread_layout') void NextEReaderRuntimePreferences.applySpreadLayout(context, policy)
+    else if (intent === 'first_page_alone') {
+      NextEReaderRuntimePreferences.applyFirstPageAlone(context, this.request.work, policy)
+    }
+  }
+
+  private persistCrop(enabled: boolean, policy: ReaderDisplayPolicy): void {
+    if (!this.request.preferencesReadWrite || !this.routeActive || !this.labVisibility.foreground ||
+      this.closeRequested || this.hostClosing) return
+    void NextEReaderRuntimePreferences.applyCrop(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      policy,
+      enabled,
+    )
+  }
+
+  private initialCropBorders(): boolean {
+    if (this.request.thumbnailEntry) return false
+    if (this.request.cropBorders) return true
+    if (!this.request.preferencesReadWrite) return false
+    return this.readMode.mode === ReadMode.VERTICAL
+      ? this.readMode.cropBordersContinuous
+      : this.readMode.cropBordersPaged
+  }
+
   private resolveTapZone(x: number, y: number, layout: ReaderLayout): ReaderTapAction {
     if (this.readMode.restoreResult !== 'applied' || this.volumeDisposed || this.closeRequested || this.hostClosing ||
       !this.routeActive || !this.labVisibility.foreground || this.session === null) return 'none'
@@ -116,6 +165,9 @@ export struct NextEReaderLabPage {
     this.keepScreenOn?.close()
     this.entryTransition?.cancel(); this.entryPreview?.release()
     this.volumeKeys.close()
+    if (this.request.progressReadWrite) {
+      GalleryReadProgressSettings.flush(this.getUIContext().getHostContext() as common.UIAbilityContext)
+    }
     if (this.managesTrialWindow) this.trialWindow.close()
   }
 
@@ -185,9 +237,17 @@ export struct NextEReaderLabPage {
               input: this.input, imageShare: this.imageShare, imageSave: this.imageSave,
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
+              pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               showPageNumber: this.readMode.showPageNumber,
-              cropBorders: this.request.cropBorders && !this.request.thumbnailEntry,
+              cropBorders: this.initialCropBorders(),
               cropAvailable: !this.request.thumbnailEntry,
+              onObservedPosition: (position: ReaderObservedPosition): void => { this.persistObserved(position) },
+              onPolicyChanged: (policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void => {
+                this.persistRuntimePolicy(policy, intent)
+              },
+              onCropChanged: (enabled: boolean, policy: ReaderDisplayPolicy): void => {
+                this.persistCrop(enabled, policy)
+              },
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
               active: this.routeActive && this.labVisibility.foreground,
               closing: this.closeRequested || this.hostClosing,
