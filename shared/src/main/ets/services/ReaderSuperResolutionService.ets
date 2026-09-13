@@ -54,6 +54,24 @@ const INTERACTION_SAFE_VULKAN_API_VERSION: number = 0x00403000
 const NATIVE_PIPELINE_VERSION: string =
   'nnrt-model-contracts-v4|vulkan-gpu-prepost-tile128-fp16a-yield1-v7'
 
+let readerSuperResolutionInteractionPauseRequested: boolean = false
+let readerSuperResolutionInteractionPaused: boolean = false
+let readerSuperResolutionInteractionProtectionRequired: boolean = true
+
+function applyReaderSuperResolutionInteractionPause(): void {
+  const effectivePaused: boolean = connectReadMode().superResolutionEnabled &&
+    readerSuperResolutionInteractionPauseRequested &&
+    readerSuperResolutionInteractionProtectionRequired
+  if (readerSuperResolutionInteractionPaused === effectivePaused) return
+  readerSuperResolutionInteractionPaused = effectivePaused
+  ReaderNativeSuperResolution.setInteractionPaused(effectivePaused)
+}
+
+function setReaderSuperResolutionInteractionProtectionRequired(required: boolean): void {
+  readerSuperResolutionInteractionProtectionRequired = required
+  applyReaderSuperResolutionInteractionPause()
+}
+
 class ReaderSuperResolutionCacheEntry {
   path: string = ''
   bytes: number = 0
@@ -184,10 +202,6 @@ export class ReaderSuperResolutionService {
   private static activeTask: ReaderSuperResolutionInFlightTask | null = null
   private static pruneChain: Promise<void> = Promise.resolve()
   private static preparationInFlight: Map<string, Promise<void>> = new Map<string, Promise<void>>()
-  private static interactionPauseRequested: boolean = false
-  private static interactionPaused: boolean = false
-  private static interactionProtectionRequired: boolean = true
-
   static capabilities(): ReaderSuperResolutionCapabilities {
     const native: ReaderNativeSuperResolutionCapabilities =
       ReaderNativeSuperResolution.capabilities()
@@ -245,7 +259,7 @@ export class ReaderSuperResolutionService {
     try {
       if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
         if (ReaderSuperResolutionModelService.systemSuperResolutionSupported()) {
-          ReaderSuperResolutionService.setInteractionProtectionRequired(true)
+          setReaderSuperResolutionInteractionProtectionRequired(true)
         }
         return
       }
@@ -264,7 +278,7 @@ export class ReaderSuperResolutionService {
         'prepare_start',
         `model=${model} backendPreference=${backendPreference}`,
       )
-      ReaderSuperResolutionService.setInteractionProtectionRequired(true)
+      setReaderSuperResolutionInteractionProtectionRequired(true)
       if (nnrtModelPath !== null) {
         try {
           const nnrtResult: ReaderMindSporeSuperResolutionPrepareResult =
@@ -535,8 +549,7 @@ export class ReaderSuperResolutionService {
   }
 
   static setInteractionPaused(paused: boolean): void {
-    ReaderSuperResolutionService.interactionPauseRequested = paused
-    ReaderSuperResolutionService.applyInteractionPause()
+    readerSuperResolutionSetInteractionPaused(paused)
   }
 
   private static configureInteractionProtection(backend: string): void {
@@ -553,7 +566,7 @@ export class ReaderSuperResolutionService {
     }
     const supportsConcurrentVulkanInteraction: boolean = backend === 'vulkan' &&
       vulkanApiVersion >= INTERACTION_SAFE_VULKAN_API_VERSION
-    ReaderSuperResolutionService.setInteractionProtectionRequired(!supportsConcurrentVulkanInteraction)
+    setReaderSuperResolutionInteractionProtectionRequired(!supportsConcurrentVulkanInteraction)
     DiagnosticLogger.info(
       'reader-super-resolution',
       'interaction_policy',
@@ -561,21 +574,6 @@ export class ReaderSuperResolutionService {
         `vulkanApiVersion=${vulkanApiVersion} ` +
         `pauseDuringInteraction=${!supportsConcurrentVulkanInteraction}`,
     )
-  }
-
-  private static setInteractionProtectionRequired(required: boolean): void {
-    ReaderSuperResolutionService.interactionProtectionRequired = required
-    ReaderSuperResolutionService.applyInteractionPause()
-  }
-
-  private static applyInteractionPause(): void {
-    const effectivePaused: boolean = ReaderSuperResolutionService.interactionPauseRequested &&
-      ReaderSuperResolutionService.interactionProtectionRequired
-    if (ReaderSuperResolutionService.interactionPaused === effectivePaused) {
-      return
-    }
-    ReaderSuperResolutionService.interactionPaused = effectivePaused
-    ReaderNativeSuperResolution.setInteractionPaused(effectivePaused)
   }
 
   private static claimOwner(
@@ -1291,7 +1289,7 @@ export class ReaderSuperResolutionService {
   private static async waitForNnrtAllowed(
     task: ReaderSuperResolutionInFlightTask,
   ): Promise<void> {
-    while (ReaderSuperResolutionService.interactionPaused) {
+    while (readerSuperResolutionInteractionPaused) {
       ReaderSuperResolutionService.ensureTaskActive(task)
       await new Promise<void>((resolve: () => void): void => {
         setTimeout(resolve, 16)
@@ -1531,4 +1529,25 @@ export class ReaderSuperResolutionService {
     }
     return parts.join('')
   }
+}
+
+/** Feature-HAR safe calls for the optional shared reader adapter. */
+export function readerSuperResolutionSetInteractionPaused(paused: boolean): void {
+  readerSuperResolutionInteractionPauseRequested = paused
+  applyReaderSuperResolutionInteractionPause()
+}
+
+export function readerSuperResolutionReleaseOwner(ownerKey: string): void {
+  ReaderSuperResolutionService.releaseOwner(ownerKey)
+}
+
+export function readerSuperResolutionProcess(
+  context: common.UIAbilityContext,
+  sourcePath: string,
+  sourceKey: string,
+  onTaskState: (state: ReaderSuperResolutionTaskState) => void = (_state: ReaderSuperResolutionTaskState): void => {},
+  ownerKey: string = '',
+  priority: number = ReaderSuperResolutionTaskPriority.CURRENT,
+): Promise<ReaderSuperResolutionResult> {
+  return ReaderSuperResolutionService.process(context, sourcePath, sourceKey, onTaskState, ownerKey, priority)
 }

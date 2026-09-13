@@ -30,6 +30,7 @@ async function chromePage(driver: Driver): Promise<number> {
 /** This UI sequence runs only under an explicit named device protocol. */
 export default function readerChromeTest(): void {
   readerHostSettingsTest()
+  readerHostTranslationActionsTest()
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
@@ -128,6 +129,43 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+    })
+  })
+}
+
+/** The shared surface exposes NextE translation actions without invoking either action. */
+function readerHostTranslationActionsTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderHostTranslationActionsTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostTranslationActionsTrial', (): void => {
+    it('sharedChromeExposesHostTranslationActions', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+          readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+        },
+      })
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      const more = await driver.findComponent(ON.id('rkit-more'))
+      expect(more !== null).assertTrue()
+      if (more !== null) await more.click()
+      for (let attempt = 0; attempt < 20; attempt++) {
+        if (await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null &&
+          await driver.findComponent(ON.id('rkit-host-action-translate-auto')) !== null) break
+        await driver.delayMs(250)
+      }
+      expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
+      expect(await driver.findComponent(ON.id('rkit-host-action-translate-auto')) !== null).assertTrue()
+      await captureChrome(driver, 'host-translation-actions')
+      await driver.pressBack(); await driver.delayMs(400)
+      expect(await driver.findComponent(ON.id('rkit-close')) !== null).assertTrue()
+      await (await driver.findComponent(ON.id('rkit-close'))).click()
+      await driver.delayMs(500)
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
   })
 }

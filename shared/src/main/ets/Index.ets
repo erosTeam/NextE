@@ -536,6 +536,9 @@ export {
   ReaderSuperResolutionService,
   ReaderSuperResolutionTaskPriority,
   ReaderSuperResolutionTaskState,
+  readerSuperResolutionProcess,
+  readerSuperResolutionReleaseOwner,
+  readerSuperResolutionSetInteractionPaused,
 } from './services/ReaderSuperResolutionService'
 export {
   ReaderSuperResolutionModelPaths,

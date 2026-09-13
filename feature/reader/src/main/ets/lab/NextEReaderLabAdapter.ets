@@ -67,6 +67,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private token: string
   private isEx: boolean
   private pages: Map<string, EhGalleryImage> = new Map()
+  private gallerySourceLanguage: string = 'auto'
 
   constructor(context: common.UIAbilityContext, token: string, isEx: boolean) {
     this.context = context
@@ -79,6 +80,8 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     if (key.unit !== key.work || this.token.length === 0) throw new Error('invalid_eh_unit')
     const result = await EhApiService.getInstance().getGalleryDetail(key.work, this.token, this.isEx)
     cancellation.check()
+    const sourceLanguage = result.gallery.contentLanguage().trim()
+    this.gallerySourceLanguage = sourceLanguage.length > 0 ? sourceLanguage : 'auto'
     // Each prepare owns its VM. A superseded open cannot reset the current catalog.
     const vm = new ReaderViewModel()
     await vm.init(key.work, this.token, this.isEx, result.gallery.fileCountNumber(), 0, result.images, 1)
@@ -107,6 +110,8 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   }
 
   adjacent(_unit: ReaderUnit, _direction: 'next' | 'previous'): ReaderUnitKey | null { return null }
+
+  sourceLanguage(): string { return this.gallerySourceLanguage }
 
   async prepareOriginal(page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderOriginalAssetPlan> {
     cancellation.check()

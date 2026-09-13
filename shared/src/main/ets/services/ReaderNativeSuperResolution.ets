@@ -247,6 +247,10 @@ export class ReaderNativeSuperResolution {
   }
 
   static setInteractionPaused(paused: boolean): void {
-    nativeRuntime.setInteractionPaused(paused)
+    try {
+      nativeRuntime.setInteractionPaused(paused)
+    } catch (_error) {
+      // The enhancement NAPI is optional at runtime; interaction must remain usable without it.
+    }
   }
 }

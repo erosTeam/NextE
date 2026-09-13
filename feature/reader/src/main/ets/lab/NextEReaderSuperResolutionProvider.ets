@@ -5,7 +5,8 @@ import {
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
-import { ReaderPageCropService, ReaderSuperResolutionResult, ReaderSuperResolutionService } from 'shared'
+import { ReaderPageCropService, ReaderSuperResolutionResult, readerSuperResolutionProcess,
+  readerSuperResolutionReleaseOwner } from 'shared'
 
 class NextEReaderVariantCropSource implements ReaderImageCropSource {
   private static sequence: number = 0
@@ -63,7 +64,7 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
     facts.variant = 'enhanced'
     facts.originalAvailable = this.originalAvailable
     const asset = new ReaderAsset(`file://${this.path}`,
-      (): void => { ReaderSuperResolutionService.releaseOwner(this.ownerKey) },
+      (): void => { readerSuperResolutionReleaseOwner(this.ownerKey) },
       new ReaderFileInformation(this.path, facts))
     asset.crop = new NextEReaderVariantCropSource(this.path)
     asset.originalAvailable = this.originalAvailable
@@ -126,11 +127,11 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     const sourceKey = `${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${page.sourceIndex}`
     const ownerKey = `${this.ownerPrefix}:${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${identity}`
     const detach = cancellation.onCancel((): void => {
-      ReaderSuperResolutionService.releaseOwner(ownerKey)
+      readerSuperResolutionReleaseOwner(ownerKey)
     })
     let retained: boolean = false
     try {
-      const result: ReaderSuperResolutionResult = await ReaderSuperResolutionService.process(
+      const result: ReaderSuperResolutionResult = await readerSuperResolutionProcess(
         this.context, sourcePath, sourceKey, (_state): void => {}, ownerKey)
       cancellation.check()
       const current = this.configuration()
@@ -146,7 +147,7 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
         this.provider.prepareOriginal !== undefined)
     } finally {
       detach()
-      if (!retained) ReaderSuperResolutionService.releaseOwner(ownerKey)
+      if (!retained) readerSuperResolutionReleaseOwner(ownerKey)
     }
   }
 

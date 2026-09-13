@@ -19,10 +19,10 @@ let processResult = { filePath: '/cache/enhanced.jpg', displayUri: 'file:///cach
 let processPromise = null
 const shared = {
   ReaderPageCropService: { async detect() { return new core.ReaderImageCropBounds() } },
-  ReaderSuperResolutionService: {
-    async process(...args) { calls.push(args); return processPromise === null ? processResult : processPromise },
-    releaseOwner(owner) { released.push(owner) },
+  async readerSuperResolutionProcess(...args) {
+    calls.push(args); return processPromise === null ? processResult : processPromise
   },
+  readerSuperResolutionReleaseOwner(owner) { released.push(owner) },
 }
 const exports = {}
 const source = fs.readFileSync(path.join(root,
@@ -85,5 +85,23 @@ processResult = { filePath: '', displayUri: 'file:///cache/source.jpg', applied:
   reason: 'model_not_installed' }
 await assert.rejects(provider.prepareVariant(page, 'enhanced', configuration.identity(), new core.ReaderCancellation()),
   /reader_variant_not_applied:model_not_installed/)
+
+const nativeExports = {}
+const nativeSource = fs.readFileSync(path.join(root,
+  'shared/src/main/ets/services/ReaderNativeSuperResolution.ets'), 'utf8')
+vm.runInNewContext(ts.transpileModule(nativeSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, {
+  exports: nativeExports,
+  require: name => {
+    if (name === 'libreader_enhancement.so') return { default: undefined }
+    throw new Error(`unexpected import ${name}`)
+  },
+})
+assert.doesNotThrow(() => nativeExports.ReaderNativeSuperResolution.setInteractionPaused(true))
+const serviceSource = fs.readFileSync(path.join(root,
+  'shared/src/main/ets/services/ReaderSuperResolutionService.ets'), 'utf8')
+assert.match(serviceSource,
+  /effectivePaused: boolean = connectReadMode\(\)\.superResolutionEnabled &&/)
 
 console.log('reader super-resolution provider runtime: ok')
