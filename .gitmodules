@@ -1,3 +1,6 @@
 [submodule "third_party/reader-enhancement"]
 	path = third_party/reader-enhancement
 	url = https://github.com/erosTeam/reader-enhancement.git
+[submodule "reader-kit"]
+	path = third_party/reader-kit
+	url = https://github.com/erosTeam/reader-kit.git

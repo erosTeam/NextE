@@ -4,6 +4,8 @@
   "description": "NextE reader module - image viewer",
   "main": "src/main/ets/Index.ets",
   "dependencies": {
+    "@reader-kit/core": "file:../../third_party/reader-kit/reader-core",
+    "@reader-kit/ui": "file:../../third_party/reader-kit/reader-ui",
     "shared": "file:../../shared"
   }
 }

@@ -3,6 +3,8 @@
   "version": "1.3.4",
   "description": "NextE entry module - navigation shell & cross-feature pages",
   "dependencies": {
+    "@reader-kit/core": "file:../third_party/reader-kit/reader-core",
+    "@reader-kit/ui": "file:../third_party/reader-kit/reader-ui",
     "shared":   "file:../shared",
     "home":     "file:../feature/home",
     "gallery":  "file:../feature/gallery",

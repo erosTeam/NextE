@@ -6,8 +6,11 @@ NextE 是原生 HarmonyOS NEXT（ArkTS/ArkUI）的 E-Hentai / ExHentai 客户端
 
 ## 工程拓扑
 
-当前 `build-profile.json5` 注册 10 个模块：`entry`、`shared`、`reader_enhancement`，以及
+当前 `build-profile.json5` 在原有 10 个模块之外，增加 `reader_core`、`reader_ui` 两个实验 HAR，
+源码来自公开的 `third_party/reader-kit` 子模块，并固定到仓库可获取的提交。原有模块为
+`entry`、`shared`、`reader_enhancement`，以及
 `home`、`gallery`、`search`、`reader`、`download`、`user`、`settings` 7 个 feature HAR。
+实验 HAR 仅供显式 debug Want 打开的 `ReaderLab` 使用；现有 ReaderPage、默认入口、偏好和进度存储不替换。
 
 ```text
 entry
@@ -20,8 +23,8 @@ entry
 - 7 个 feature 只依赖 `shared`，彼此不互相 import。
 - `shared` 依赖 `reader_enhancement`，因此不是零依赖叶子。
 - `reader_enhancement` 提供 native image decode、超分辨率和漫画视觉能力；它不是业务 feature。
-- 默认产品的 `targetSdkVersion` 为 `26.0.0`、`compatibleSdkVersion` 为 `6.1.0(23)`；release 产品将
-  target 提升到 `6.1.1(24)`，以 `build-profile.json5` 为准。
+- 默认产品的 `targetSdkVersion` 为 `26.0.0`、`compatibleSdkVersion` 为 `6.1.0(23)`，以
+  `build-profile.json5` 为准。签名材料仅由本机 `build-profile.local.json5` 提供，不进入仓库配置。
 
 ## 模块职责
 
