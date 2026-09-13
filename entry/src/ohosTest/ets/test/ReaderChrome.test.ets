@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium'
-import { abilityDelegatorRegistry, Driver, ON, PointerMatrix } from '@kit.TestKit'
+import { abilityDelegatorRegistry, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
 
 async function captureChrome(driver: Driver, name: string): Promise<void> {
@@ -31,6 +31,7 @@ async function chromePage(driver: Driver): Promise<number> {
 export default function readerChromeTest(): void {
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
+  readerManualReloadTest()
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
@@ -129,6 +130,78 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+    })
+  })
+}
+
+/** A displayed shared-reader source can be force-reloaded without leaving its reading target. */
+function readerManualReloadTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderManualReloadTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderManualReloadTrial', (): void => {
+    it('reloadsTheExactVisibleSource', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+          readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true', readerLabVolumeKeys: 'false',
+        },
+      })
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      expect(await chromePage(driver)).assertEqual(1)
+      const more = await driver.findComponent(ON.id('rkit-more'))
+      expect(more !== null).assertTrue()
+      if (more !== null) await more.click()
+      const reload = await driver.findComponent(ON.id('rkit-reload-source'))
+      expect(reload !== null).assertTrue()
+      await captureChrome(driver, 'reload-source-menu')
+      if (reload !== null) await reload.click()
+      // The reload callback is asynchronous and may begin after the menu close animation.
+      // Do not let the existing Image node satisfy the readiness check before that refresh starts.
+      await driver.delayMs(1200)
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      expect(await chromePage(driver)).assertEqual(1)
+      await captureChrome(driver, 'reload-source-finished')
+      await (await driver.findComponent(ON.id('rkit-close'))).click()
+      await driver.delayMs(500)
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+    })
+
+    it('reloadsOneExactSpreadSource', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+          readerLabWork: work, readerLabUnit: unit, readerLabPage: '1', readerLabChrome: 'true',
+          readerLabVolumeKeys: 'false',
+        },
+      })
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      await (await driver.findComponent(ON.id('rkit-toggle-spread'))).click()
+      await driver.delayMs(800)
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      const page = await chromePage(driver)
+      const more = await driver.findComponent(ON.id('rkit-more'))
+      expect(more !== null).assertTrue()
+      if (more !== null) await more.click()
+      const reload = await driver.findComponent(ON.id('rkit-reload-source-spread'))
+      expect(reload !== null).assertTrue()
+      if (reload !== null) await reload.click()
+      await driver.delayMs(300)
+      const choices = await driver.findComponents(ON.id('^rkit-reload-source-[0-9]+$', MatchPattern.REG_EXP))
+      expect(choices.length).assertEqual(2)
+      await captureChrome(driver, 'reload-spread-choice')
+      await choices[0].click()
+      // Wait past the submenu close animation before checking the refreshed pane. Otherwise
+      // the pre-refresh Image node can make the readiness helper return during the black swap frame.
+      await driver.delayMs(1200)
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      expect(await chromePage(driver)).assertEqual(page)
+      await captureChrome(driver, 'reload-spread-finished')
+      await (await driver.findComponent(ON.id('rkit-close'))).click()
+      await driver.delayMs(500)
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
   })
 }

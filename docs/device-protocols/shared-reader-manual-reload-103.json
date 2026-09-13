@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "name": "shared-reader-manual-reload-103",
+  "target": "192.168.50.103:12345",
+  "authorizedTarget": "192.168.50.103:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE/.hvigor/outputs/shared-reader-manual-reload/device103__MLR-AL00/not-applicable/portrait-1600x2560/03-stable-content",
+  "display": { "widthPx": 1600, "heightPx": 2560 },
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "849041fa plus reader-kit e4010f9 and manual reload native trial working tree; current signed main and native test HAPs",
+    "page": "optional shared reader manual source reload",
+    "deviceAlias": "device103",
+    "deviceModel": "MLR-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1600x2560",
+    "notes": "Covers single-page reload plus a spread submenu with exactly two source choices; each action must return to the same reading page."
+  },
+  "preflight": [
+    { "name": "wake", "hdcArgs": ["shell", "power-shell", "wakeup"] },
+    { "name": "keep-awake", "hdcArgs": ["shell", "power-shell", "timeout", "-o", "86400000"] },
+    { "name": "install-main", "hdcArgs": ["install", "-r", "/Users/honjow/git/NextE/entry/build/default/outputs/default/entry-default-signed.hap"], "timeoutSeconds": 180 },
+    { "name": "install-native", "hdcArgs": ["install", "-r", "/Users/honjow/git/NextE/entry/build/default/outputs/ohosTest/entry-ohosTest-signed.hap"], "timeoutSeconds": 180 },
+    { "name": "clear-log", "hdcArgs": ["shell", "hilog", "-r"] },
+    { "name": "force-stop-before", "hdcArgs": ["shell", "aa", "force-stop", "com.erosteam.nexte"] },
+    { "name": "manual-reload-trial", "hdcArgs": ["shell", "aa", "test", "-b", "com.erosteam.nexte", "-m", "entry_test", "-s", "unittest", "OpenHarmonyTestRunner", "-s", "class", "ReaderManualReloadTrial", "-s", "readerLabWork", "4175844", "-s", "readerLabUnit", "37d7c39ec2", "-s", "timeout", "120000"], "timeoutSeconds": 150 }
+  ],
+  "measurement": { "actions": [] },
+  "postflight": [
+    { "name": "manual-reload-log", "hdcArgs": ["shell", "hilog -x | grep -E 'ReaderManualReloadTrial|Tests run|Failure|Error|Pass|FATAL|Fatal|TypeError|Exception' | tail -360"], "timeoutSeconds": 20 },
+    { "name": "receive-menu", "hdcArgs": ["file", "recv", "/data/app/el2/100/base/com.erosteam.nexte/cache/rkit-chrome-reload-source-menu.png", "/Users/honjow/git/NextE/.hvigor/outputs/shared-reader-manual-reload/device103__MLR-AL00/not-applicable/portrait-1600x2560/03-stable-content/menu.png"] },
+    { "name": "receive-finished", "hdcArgs": ["file", "recv", "/data/app/el2/100/base/com.erosteam.nexte/cache/rkit-chrome-reload-source-finished.png", "/Users/honjow/git/NextE/.hvigor/outputs/shared-reader-manual-reload/device103__MLR-AL00/not-applicable/portrait-1600x2560/03-stable-content/finished.png"] },
+    { "name": "receive-spread-choice", "hdcArgs": ["file", "recv", "/data/app/el2/100/base/com.erosteam.nexte/cache/rkit-chrome-reload-spread-choice.png", "/Users/honjow/git/NextE/.hvigor/outputs/shared-reader-manual-reload/device103__MLR-AL00/not-applicable/portrait-1600x2560/03-stable-content/spread-choice.png"] },
+    { "name": "receive-spread-finished", "hdcArgs": ["file", "recv", "/data/app/el2/100/base/com.erosteam.nexte/cache/rkit-chrome-reload-spread-finished.png", "/Users/honjow/git/NextE/.hvigor/outputs/shared-reader-manual-reload/device103__MLR-AL00/not-applicable/portrait-1600x2560/03-stable-content/spread-finished.png"] },
+    { "name": "restore-timeout", "hdcArgs": ["shell", "power-shell", "timeout", "-o", "10000"] }
+  ]
+}
