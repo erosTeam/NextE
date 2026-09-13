@@ -168,11 +168,12 @@ async function waitSnapshotContinuous(driver: Driver, baselineEpoch: number, sit
   throw new Error(`No same-epoch snapshot handoff to completed continuous P1: ${JSON.stringify(ReaderTrialEntryProbe.read())}`)
 }
 
-async function assertContinuousViewport(driver: Driver, label: string): Promise<void> {
+async function assertContinuousViewport(driver: Driver, label: string, pageIndex: number = 0): Promise<void> {
   const size = await driver.getDisplaySize()
   const list = await (await driver.findComponent(ON.id('rkit-continuous-list'))).getBounds()
-  const page = await (await driver.findComponent(ON.id('rkit-continuous-page-0'))).getBounds()
-  const image = await (await driver.findComponent(ON.type('Image').within(ON.id('rkit-continuous-page-0')))).getBounds()
+  const pageId = `rkit-continuous-page-${pageIndex}`
+  const page = await (await driver.findComponent(ON.id(pageId))).getBounds()
+  const image = await (await driver.findComponent(ON.type('Image').within(ON.id(pageId)))).getBounds()
   expect(list.right - list.left >= size.x - 2).assertTrue()
   expect(list.bottom > list.top && page.bottom > page.top && image.bottom > image.top).assertTrue()
   console.info(`[ReaderContinuousReflow] ${label} display=${size.x}x${size.y} list=${JSON.stringify(list)} ` +
@@ -351,6 +352,96 @@ function readerThumbnailContinuousReflowTrial(work: string, unit: string): void 
         try { await captureEntry(driver, 'continuous-exception') } catch (_) {}
         throw error as Error
       } finally {
+        if (mainWindow !== null && originalOrientation !== null) {
+          try { await mainWindow.setPreferredOrientation(originalOrientation) } catch (_) {}
+        }
+      }
+    })
+  })
+}
+
+function readerThumbnailContinuousBoundaryRotationTrial(work: string, unit: string): void {
+  describe('ReaderThumbnailContinuousBoundaryRotationTrial', (): void => {
+    it('realContinuousBoundarySurvivesTabletRotation', 0, async (): Promise<void> => {
+      const names = ['continuous-boundary-portrait', 'continuous-boundary-landscape',
+        'continuous-boundary-returned', 'continuous-boundary-exception']
+      clearEntryCaptures(names)
+      const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
+      let mainWindow: window.Window | null = null
+      let originalOrientation: window.Orientation | null = null
+      let epoch: number = 0
+      let sourceId: string = ''
+      try {
+        await delegator.startAbility({
+          bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { readerLabWork: work, readerLabUnit: unit, readerLabPage: '0', readerLabChrome: 'true',
+            readerLabThumbnailEntry: 'true', readerLabEntryLayout: 'continuous', readerLabEntryDirection: 'ltr' },
+        })
+        const source = await findFirstDetailThumbnail(driver)
+        sourceId = await source.getId()
+        const site = ReaderTrialEntryRelay.currentSite()
+        await waitSnapshotReady(driver, site, sourceId)
+        const ability = await delegator.getCurrentTopAbility()
+        mainWindow = await window.getLastWindow(ability.context)
+        originalOrientation = mainWindow.getPreferredOrientation()
+        const sourceOrientation = await driver.getDisplaySize()
+        expect(sourceOrientation.y > sourceOrientation.x).assertTrue()
+        const baselineEpoch = ReaderTrialEntryProbe.read().epoch
+        await source.click()
+        epoch = await waitSnapshotContinuous(driver, baselineEpoch, site, work, sourceId)
+
+        const list = await (await driver.findComponent(ON.id('rkit-continuous-list'))).getBounds()
+        const x = Math.round((list.left + list.right) / 2)
+        const fromY = Math.round(list.top + (list.bottom - list.top) * 0.72)
+        const toY = Math.round(list.top + (list.bottom - list.top) * 0.42)
+        let currentPage = 1
+        for (let attempt = 0; attempt < 18 && currentPage === 1; attempt++) {
+          await driver.swipe(x, fromY, x, toY, 900)
+          await driver.delayMs(180)
+          const counter = await driver.findComponent(ON.id('rkit-chrome-page'))
+          if (counter !== null) currentPage = Number((await counter.getText()).split('/')[0].trim())
+        }
+        expect(currentPage).assertEqual(2)
+        expect(await driver.findComponent(
+          ON.type('Image').within(ON.id('rkit-continuous-page-1'))) !== null).assertTrue()
+        await captureEntry(driver, 'continuous-boundary-portrait')
+
+        await mainWindow.setPreferredOrientation(window.Orientation.LANDSCAPE)
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const size = await driver.getDisplaySize()
+          const counter = await driver.findComponent(ON.id('rkit-chrome-page'))
+          const page = counter === null ? 0 : Number((await counter.getText()).split('/')[0].trim())
+          if (size.x > size.y && page === 2 && await driver.findComponent(
+            ON.type('Image').within(ON.id('rkit-continuous-page-1'))) !== null) break
+          if (attempt === 49) throw new Error('Continuous P2 boundary did not survive landscape reflow')
+          await driver.delayMs(200)
+        }
+        await assertContinuousViewport(driver, 'boundary-landscape', 1)
+        await captureEntry(driver, 'continuous-boundary-landscape')
+
+        await mainWindow.setPreferredOrientation(window.Orientation.PORTRAIT)
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const size = await driver.getDisplaySize()
+          const counter = await driver.findComponent(ON.id('rkit-chrome-page'))
+          const page = counter === null ? 0 : Number((await counter.getText()).split('/')[0].trim())
+          if (size.y > size.x && page === 2 && await driver.findComponent(
+            ON.type('Image').within(ON.id('rkit-continuous-page-1'))) !== null) break
+          if (attempt === 49) throw new Error('Continuous P2 boundary did not survive portrait restoration')
+          await driver.delayMs(200)
+        }
+        await captureEntry(driver, 'continuous-boundary-returned')
+        expect(ReaderTrialEntryProbe.read().epoch).assertEqual(epoch)
+        expect(ReaderTrialEntryProbe.read().phase).assertEqual('finished')
+        await (await driver.findComponent(ON.id('rkit-close'))).click()
+        await waitClosed(driver, epoch, sourceId)
+      } catch (error) {
+        try { await captureEntry(driver, 'continuous-boundary-exception') } catch (_) {}
+        throw error as Error
+      } finally {
+        try {
+          const close = await driver.findComponent(ON.id('rkit-close'))
+          if (close !== null) await close.click()
+        } catch (_) {}
         if (mainWindow !== null && originalOrientation !== null) {
           try { await mainWindow.setPreferredOrientation(originalOrientation) } catch (_) {}
         }
@@ -1387,6 +1478,11 @@ export default function readerThumbnailEntryTest(): void {
   if (args['-s class'] === 'ReaderThumbnailContinuousReflowTrial' && typeof work === 'string' && work.length > 0 &&
     typeof unit === 'string' && unit.length > 0) {
     readerThumbnailContinuousReflowTrial(work, unit)
+    return
+  }
+  if (args['-s class'] === 'ReaderThumbnailContinuousBoundaryRotationTrial' &&
+    typeof work === 'string' && work.length > 0 && typeof unit === 'string' && unit.length > 0) {
+    readerThumbnailContinuousBoundaryRotationTrial(work, unit)
     return
   }
   if (args['-s class'] === 'ReaderThumbnailContinuousInterpolationTrial' && typeof work === 'string' && work.length > 0 &&
