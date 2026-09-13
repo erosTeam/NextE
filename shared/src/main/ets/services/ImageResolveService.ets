@@ -178,7 +178,7 @@ export class ImageResolveService {
   // sUrl → in-flight resolve promise. Dedups concurrent resolves of the SAME page so the reader's
   // N-ahead precache and the on-demand page component don't fire two requests for one image; both
   // share the single request. Cleared when it settles so a later retry / 换源 isn't blocked.
-  private inFlight: Map<string, Promise<string>> = new Map()
+  private inFlight: Map<string, Promise<ImagePageResult>> = new Map()
 
   // EH serves a "509 bandwidth exceeded" placeholder gif as a normal-looking <img>/i3 when the IP is
   // rate-limited (eros_fe REG_509_URL). It must be treated as a failure, not shown as the image.
@@ -219,12 +219,16 @@ export class ImageResolveService {
     // Coalesce concurrent resolves of the same page (precache + on-demand). 换源 always forces a fresh
     // fetch (different host), so it skips the shared-promise cache.
     if (!changeSource) {
-      const existing: Promise<string> | undefined = this.inFlight.get(image.sUrl)
+      const existing: Promise<ImagePageResult> | undefined = this.inFlight.get(image.sUrl)
       if (existing !== undefined) {
-        return existing
+        const result: ImagePageResult = await existing
+        this.applyResult(image, result)
+        return result.imageUrl
       }
     }
-    const p: Promise<string> = this.doResolve(image, changeSource, sourceEpoch)
+    // Share this flight's complete parsed result, never re-read mutable caller
+    // fields or a cache entry that another source request may already replace.
+    const p: Promise<ImagePageResult> = this.doResolve(image, changeSource, sourceEpoch)
     if (!changeSource) {
       this.inFlight.set(image.sUrl, p)
       const key: string = image.sUrl
@@ -238,7 +242,7 @@ export class ImageResolveService {
         },
       )
     }
-    return p
+    return (await p).imageUrl
   }
 
   async resolveOriginal(image: EhGalleryImage, changeSource: boolean = false): Promise<string> {
@@ -268,7 +272,7 @@ export class ImageResolveService {
     image: EhGalleryImage,
     changeSource: boolean,
     sourceEpoch: number,
-  ): Promise<string> {
+  ): Promise<ImagePageResult> {
     const ref: ImagePageRef | null = EhUrlRouter.parseImagePage(image.sUrl)
     const sIdx: number = image.sUrl.indexOf('/s/')
     const base: string = sIdx > 0 ? image.sUrl.substring(0, sIdx) : ''
@@ -295,7 +299,8 @@ export class ImageResolveService {
             image.reloadKey = sp.reloadKey
             this.cacheResult(image.sUrl, image, sourceEpoch)
             DiagnosticLogger.info('reader', 'resolve_showpage', `gid ${ref.gid} p ${ref.page}`)
-            return sp.imageUrl
+            sp.showKey = image.showKey
+            return sp
           }
         } catch (err) {
           // key mismatch / quota / transport — fall back to the /s/ HTML path below.
@@ -332,7 +337,7 @@ export class ImageResolveService {
       this.cache.putShowKey(ref.gid, r.showKey)
     }
     DiagnosticLogger.info('reader', 'resolve_spage', `gid ${ref !== null ? ref.gid : '?'} p ${ref !== null ? ref.page : 0}`)
-    return r.imageUrl
+    return r
   }
 
   private applyResult(image: EhGalleryImage, result: ImagePageResult): void {
