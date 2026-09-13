@@ -107,6 +107,7 @@ export class ReadModeSettings {
   }
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
+    connectReadMode().restoreResult = 'pending'
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
@@ -204,6 +205,7 @@ export class ReadModeSettings {
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
       connectReadMode().preloadPages = ReadModeSettings.normalizePreloadPages(preloadPages)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
+      connectReadMode().volumeKeyTurnReady = true
       connectReadMode().tapZoneLayoutPaged = tapZoneLayoutPaged
       connectReadMode().tapZoneLayoutContinuous = tapZoneLayoutContinuous
       connectReadMode().tapZoneInvertPaged = tapZoneInvertPaged
@@ -222,7 +224,10 @@ export class ReadModeSettings {
       connectReadMode().fullscreen = fullscreen
       connectReadMode().keepScreenOn = keepScreenOn
       connectReadMode().pageTurnAnimation = pageTurnAnimation
+      connectReadMode().hadSuccessfulRestore = true
+      connectReadMode().restoreResult = 'applied'
     } catch (error) {
+      connectReadMode().restoreResult = 'failed'
       DiagnosticLogger.warn('settings', 'readmode_restore_failed', (error as Error).message)
     }
   }
@@ -301,6 +306,7 @@ export class ReadModeSettings {
 
   static async setVolumeKeyTurn(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
     connectReadMode().volumeKeyTurn = enabled
+    connectReadMode().volumeKeyTurnReady = true
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,

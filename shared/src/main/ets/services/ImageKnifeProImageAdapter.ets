@@ -15,6 +15,7 @@ import {
 } from '@ohos/imageknifepro'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
+import { EhImageContentSource } from '../components/EhThumbnailSnapshotSource'
 import {
   EH_IMAGE_DOWNSAMPLING_AT_LEAST,
   EH_IMAGE_DOWNSAMPLING_AT_MOST,
@@ -56,6 +57,7 @@ export struct ImageKnifeProImageAdapter {
   @Event onImageInfo: (width: number, height: number) => void = (_width: number, _height: number) => {};
   @Event onError: () => void = () => {};
   @Event onProgress: (progress: number) => void = (_progress: number) => {};
+  @Event onContentReady: (source: EhImageContentSource) => void = (_source: EhImageContentSource) => {};
   @Local option: ImageKnifeOptionV2 = new ImageKnifeOptionV2();
   @Local completionNotified: boolean = false;
   private requestEpoch: number = 0;
@@ -63,6 +65,11 @@ export struct ImageKnifeProImageAdapter {
   private retriesUsed: number = 0;
   private settleTimerId: number = 0;
   private retryTimerId: number = 0;
+  private contentWidth: number = 0;
+  private contentHeight: number = 0;
+  private nativeContentReady: boolean = false;
+  private contentFailed: boolean = false;
+  private contentSource: EhImageContentSource | null = null;
   // The vendor V2 component clears its native root when an ancestor is recycled, but its
   // monitor-based rebind is suppressed by V2 resetStateVarsOnReuse. Keeping the native root
   // here makes option construction and native update one lifecycle transaction.
@@ -143,6 +150,11 @@ export struct ImageKnifeProImageAdapter {
     this.clearTimers()
     this.requestEpoch += 1
     const epoch: number = this.requestEpoch
+    const inputKey: string = this.contentInputKey()
+    const requestUrl: string = this.src
+    const requestReloadToken: number = this.reloadToken
+    this.clearContentReady()
+    this.contentFailed = false
     this.requestId = ''
     this.retriesUsed = 0
     this.completionNotified = false
@@ -185,6 +197,8 @@ export struct ImageKnifeProImageAdapter {
           return
         }
         this.requestId = imageInfo.requestId
+        this.clearContentReady()
+        this.contentFailed = false
         this.armSettleTimeout(epoch)
       },
       onLoadSuccess: (imageInfo: ImageInfo) => {
@@ -195,13 +209,28 @@ export struct ImageKnifeProImageAdapter {
           this.onImageInfo(imageInfo.imageWidth, imageInfo.imageHeight)
         }
         this.markComplete(epoch)
+        if (this.contentInputCurrent(epoch, inputKey) && this.requestId.length > 0 && imageInfo.requestId === this.requestId &&
+          this.positiveSize(imageInfo.imageWidth, imageInfo.imageHeight)) {
+          this.contentWidth = imageInfo.imageWidth
+          this.contentHeight = imageInfo.imageHeight
+          this.publishContentReady(epoch, inputKey, requestUrl, requestReloadToken)
+        }
       },
       onLoadFailed: (_err: string, imageInfo: ImageInfo) => {
+        if (this.contentInputCurrent(epoch, inputKey) && imageInfo.requestId === this.requestId) {
+          this.contentFailed = true
+          this.clearContentReady()
+        }
         this.retryOrFail('load_failed', imageInfo.requestId, epoch)
       },
     }
-    option.onComplete = (_event: EventImage | undefined) => {
+    option.onComplete = (event: EventImage | undefined) => {
       this.markComplete(epoch)
+      if (this.contentInputCurrent(epoch, inputKey) && event !== undefined && event.loadingStatus === 1 &&
+        this.positiveSize(event.width, event.height) && this.positiveSize(event.contentWidth, event.contentHeight)) {
+        this.nativeContentReady = true
+        this.publishContentReady(epoch, inputKey, requestUrl, requestReloadToken)
+      }
     }
     if (this.radius > 0) {
       option.border = { radius: this.radius }
@@ -213,6 +242,7 @@ export struct ImageKnifeProImageAdapter {
   private invalidateRequest(): void {
     this.clearTimers()
     this.requestEpoch += 1
+    this.clearContentReady()
     this.requestId = ''
     this.retriesUsed = 0
     this.completionNotified = true
@@ -267,6 +297,8 @@ export struct ImageKnifeProImageAdapter {
       return
     }
     this.completionNotified = true
+    this.clearContentReady()
+    this.contentFailed = true
     this.clearTimers()
     DiagnosticLogger.warn(
       'image',
@@ -304,6 +336,39 @@ export struct ImageKnifeProImageAdapter {
 
   private isCurrent(epoch: number): boolean {
     return epoch === this.requestEpoch
+  }
+
+  // Compare live inputs as well as the epoch: a Param can change before its Monitor runs.
+  private contentInputKey(): string {
+    return JSON.stringify([this.src, `${this.objectFit}`, `${this.radius}`, `${this.enableCache}`,
+      `${this.memoryOnly}`, this.fileCacheName, this.signature, `${this.priority}`, `${this.downSampling}`,
+      `${this.desiredWidth}`, `${this.desiredHeight}`, `${this.maxRetries}`, `${this.retryDelayMs}`,
+      `${this.settleTimeoutMs}`, `${this.connectTimeoutMs}`, `${this.readTimeoutMs}`, `${this.reloadToken}`])
+  }
+
+  private contentInputCurrent(epoch: number, inputKey: string): boolean {
+    return this.isCurrent(epoch) && inputKey === this.contentInputKey()
+  }
+
+  private positiveSize(width: number, height: number): boolean {
+    return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
+  }
+
+  private clearContentReady(): void {
+    this.contentWidth = 0
+    this.contentHeight = 0
+    this.nativeContentReady = false
+    this.contentSource = null
+  }
+
+  private publishContentReady(epoch: number, inputKey: string, url: string, reloadToken: number): void {
+    if (!this.contentInputCurrent(epoch, inputKey) || this.contentFailed || this.contentSource !== null || !this.nativeContentReady ||
+      !this.positiveSize(this.contentWidth, this.contentHeight)) return
+    const source: EhImageContentSource = new EhImageContentSource(url, reloadToken,
+      this.contentWidth, this.contentHeight,
+      (): boolean => this.contentInputCurrent(epoch, inputKey) && this.contentSource === source)
+    this.contentSource = source
+    this.onContentReady(source)
   }
 
   private updateNativeRoot(): void {

@@ -2,6 +2,8 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import { CustomContentDialog } from '@kit.ArkUI'
 import {
   ThemeConstants,
+  ReaderTrialEntryRelay,
+  connectSiteMode,
   EhGalleryImage,
   PreviewThumbTile,
   ReaderParams,
@@ -363,6 +365,7 @@ export struct GalleryAllThumbnailsPage {
       .height('100%')
     }
     .titleBar(this.previewTitleBar())
+    .onBackPressed((): boolean => ReaderTrialEntryRelay.cancelPending(connectSiteMode().isEx ? 'ex' : 'eh', this.params.gid))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as AllThumbnailsParams

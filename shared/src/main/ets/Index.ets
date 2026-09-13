@@ -921,6 +921,9 @@ export {
   publishClipboardLinkCandidate,
 } from './state/ClipboardLinkCandidateState'
 export { SiteModeState, connectSiteMode } from './state/SiteModeState'
+export { ReaderTrialEntryRelay, ReaderTrialEntrySource, ReaderTrialEntrySourceHandle, ReaderTrialThumbnailIdentity, ReaderTrialEntrySite } from './navigation/ReaderTrialEntryRelay'
+export { EhThumbnailSnapshotSource } from './components/EhThumbnailSnapshotSource'
+export { ReaderTrialEntryProbe, ReaderTrialEntryFacts } from './navigation/ReaderTrialEntryProbe'
 export { UserTagStore } from './state/UserTagStore'
 export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
 export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
@@ -972,6 +975,7 @@ export {
   setDownloadQueuePageActive,
 } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
+export { BackGuardState, connectBackGuard } from './state/BackGuardState'
 export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
 export { ActionAlignmentState, connectActionAlignment } from './state/ActionAlignmentState'
 export {
@@ -1153,6 +1157,7 @@ export {
   connectReadButtonStyle,
 } from './state/ReadButtonStyleState'
 export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
+export { BackGuardSettings } from './settings/BackGuardSettings'
 export { CoverBackgroundSettings } from './settings/CoverBackgroundSettings'
 export {
   ActionAlignmentSettings,
@@ -1203,5 +1208,3 @@ export { ImageSaveUtil } from './utils/ImageSaveUtil'
 export { ResponsiveGrid } from './utils/ResponsiveGrid'
 export { RootRefreshRegistry } from './utils/RootRefreshRegistry'
 export { galleryWaterfallColumnCount, clampColumnWidth } from './utils/GalleryColumns'
-export { BackGuardState, connectBackGuard } from './state/BackGuardState'
-export { BackGuardSettings } from './settings/BackGuardSettings'

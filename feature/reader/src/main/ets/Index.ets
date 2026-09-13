@@ -1,4 +1,5 @@
 export { ReaderPage } from './pages/ReaderPage'
+export { NextEReaderLabPage } from './lab/NextEReaderLabPage'
 export { ReaderViewModel } from './viewmodel/ReaderViewModel'
 export { ReaderImageLoadPresentation } from './model/ReaderImageLoadPresentation'
 export { ReaderImageLoadPriority } from './model/ReaderImageLoadPriority'
@@ -12,3 +13,4 @@ export {
 } from './model/ReaderSessionRequestGate'
 export { ReaderComicTranslationAutoPolicy } from './model/ReaderComicTranslationAutoPolicy'
 export { ReaderThumbnailGeometry, ReaderThumbnailSize } from './model/ReaderThumbnailGeometry'
+export { connectNextEReaderLabContextProbe } from './lab/NextEReaderLabContextProbe'

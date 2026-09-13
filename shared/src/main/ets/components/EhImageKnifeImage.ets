@@ -1,5 +1,6 @@
 import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ImageKnifeProImageAdapter } from '../services/ImageKnifeProImageAdapter'
+import { EhImageContentSource } from './EhThumbnailSnapshotSource'
 import {
   EH_IMAGE_DOWNSAMPLING_DEFAULT,
   EH_IMAGE_PRIORITY_MEDIUM,
@@ -33,6 +34,7 @@ export struct EhImageKnifeImage {
   @Event onImageInfo: (width: number, height: number) => void = (_width: number, _height: number) => {};
   @Event onError: () => void = () => {};
   @Event onProgress: (progress: number) => void = (_progress: number) => {};
+  @Event onContentReady: (source: EhImageContentSource) => void = (_source: EhImageContentSource) => {};
 
   build() {
     ImageKnifeProImageAdapter({
@@ -60,6 +62,7 @@ export struct EhImageKnifeImage {
       onImageInfo: this.onImageInfo,
       onError: this.onError,
       onProgress: this.onProgress,
+      onContentReady: this.onContentReady,
     })
   }
 }

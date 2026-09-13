@@ -21,12 +21,99 @@ import {
   GalleryDetailTransitionPhase,
   GalleryDetailTransitionState,
   connectGalleryDetailTransition,
+  ReaderTrialEntryRelay,
+  ReaderTrialEntrySourceHandle,
+  ReaderTrialThumbnailIdentity,
+  EhThumbnailSnapshotSource,
+  SiteModeState,
+  connectSiteMode,
 } from 'shared'
 
 // Horizontal-mode row thumb height (eros_fe ThumbHorizontalList ~200 incl. labels): each thumb keeps
 // its true aspect at this height so its width varies with no white-border padding.
 const PREVIEW_H: number = 150
 const PREVIEW_RENDER_BATCH_SIZE: number = 3
+
+/** Ownership-only extraction: the existing source/content Stacks retain their native tree and geometry. */
+@ComponentV2
+struct GalleryPreviewHorizontalSource {
+  @Require @Param image: EhGalleryImage;
+  @Param sourceId: string = '';
+  @Param displayWidth: number = 0;
+  @Param reloadToken: number = 0;
+  @Local private readerTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
+  @Local private siteMode: SiteModeState = connectSiteMode();
+  private mounted: boolean = false;
+  private handle: ReaderTrialEntrySourceHandle | null = null;
+  private snapshot: EhThumbnailSnapshotSource | null = null;
+
+  @Monitor('image', 'sourceId', 'siteMode.isEx')
+  private syncSource(): void {
+    if (this.handle !== null) ReaderTrialEntryRelay.unbindSource(this.handle)
+    this.handle = null
+    if (!this.mounted || this.sourceId.length === 0) return
+    const sourceId = this.sourceId
+    const identity = new ReaderTrialThumbnailIdentity(this.image)
+    const handle = ReaderTrialEntryRelay.bindSource(sourceId, this.image,
+      (): boolean => this.mounted && this.sourceId === sourceId && identity.matches(this.image) &&
+        !this.readerTransition.sourceHidden(sourceId))
+    this.handle = handle
+    ReaderTrialEntryRelay.updateSnapshot(handle, this.snapshot)
+  }
+
+  private onSnapshot(source: EhThumbnailSnapshotSource | null): void {
+    if (source === null) {
+      if (this.snapshot === null || !this.snapshot.isCurrent()) this.snapshot = null
+    } else if (source.isCurrent() && new ReaderTrialThumbnailIdentity(this.image).matchesSnapshot(source)) {
+      this.snapshot = source
+    }
+    if (this.handle !== null) ReaderTrialEntryRelay.updateSnapshot(this.handle, this.snapshot)
+  }
+
+  private unmountSource(): void {
+    this.mounted = false
+    if (this.handle !== null) ReaderTrialEntryRelay.unbindSource(this.handle)
+    this.handle = null
+    this.snapshot = null
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Center }) {
+      Stack({ alignContent: Alignment.Center }) {
+        EhSpriteThumbnail({
+          url: this.image.thumbUrl,
+          thumbWidth: this.image.thumbWidth,
+          thumbHeight: this.image.thumbHeight,
+          offsetX: this.image.thumbOffsetX,
+          imageKey: this.image.imgkey,
+          spriteWidth: this.image.spriteWidth,
+          spriteHeight: this.image.spriteHeight,
+          fitHeight: true,
+          displayHeight: PREVIEW_H,
+          loadDuringDetailPush: true,
+          enableImageBlock: true,
+          reloadToken: this.reloadToken,
+          radius: 0,
+          onSnapshotSourceChange: (source: EhThumbnailSnapshotSource | null): void => { this.onSnapshot(source) },
+        })
+      }
+      .id(ReaderThumbnailTransitionCoordinator.sourceSnapshotId(this.sourceId))
+      .width('100%')
+      .height('100%')
+    }
+    .id(this.sourceId)
+    .onAppear((): void => { this.mounted = true; this.syncSource() })
+    .onDisAppear((): void => { this.unmountSource() })
+    .width(this.displayWidth)
+    .height(PREVIEW_H)
+    .borderRadius(ThemeConstants.THUMB_RADIUS)
+    .clip(true)
+    .visibility(this.readerTransition.sourceHidden(this.sourceId) ? Visibility.Hidden : Visibility.Visible)
+    .onVisibleAreaChange([0.0, 1.0], (isExpanding: boolean, currentRatio: number): void => {
+      this.readerTransition.reportSourceVisibility(this.sourceId, isExpanding && currentRatio >= 0.999)
+    })
+  }
+}
 
 class GalleryPreviewRenderFrameCallback extends FrameCallback {
   private action: () => void
@@ -252,43 +339,11 @@ export struct GalleryPreviewGrid {
           ListItem() {
             Column({ space: 2 }) {
               Stack({ alignContent: Alignment.Center }) {
-                Stack({ alignContent: Alignment.Center }) {
-                  Stack({ alignContent: Alignment.Center }) {
-                    EhSpriteThumbnail({
-                      url: img.thumbUrl,
-                      thumbWidth: img.thumbWidth,
-                      thumbHeight: img.thumbHeight,
-                      offsetX: img.thumbOffsetX,
-                      imageKey: img.imgkey,
-                      spriteWidth: img.spriteWidth,
-                      spriteHeight: img.spriteHeight,
-                      fitHeight: true,
-                      displayHeight: PREVIEW_H,
-                      loadDuringDetailPush: true,
-                      enableImageBlock: true,
-                      reloadToken: this.thumbnailReloadToken,
-                      radius: 0,
-                    })
-                  }
-                  .id(ReaderThumbnailTransitionCoordinator.sourceSnapshotId(this.transitionSourceId(img)))
-                  .width('100%')
-                  .height('100%')
-                }
-                .id(this.transitionSourceId(img))
-                .width(this.horizontalThumbWidth(img))
-                .height(PREVIEW_H)
-                .borderRadius(ThemeConstants.THUMB_RADIUS)
-                .clip(true)
-                .visibility(
-                  this.readerTransition.sourceHidden(this.transitionSourceId(img))
-                    ? Visibility.Hidden
-                    : Visibility.Visible,
-                )
-                .onVisibleAreaChange([0.0, 1.0], (isExpanding: boolean, currentRatio: number): void => {
-                  this.readerTransition.reportSourceVisibility(
-                    this.transitionSourceId(img),
-                    isExpanding && currentRatio >= 0.999,
-                  )
+                GalleryPreviewHorizontalSource({
+                  image: img,
+                  sourceId: this.transitionSourceId(img),
+                  displayWidth: this.horizontalThumbWidth(img),
+                  reloadToken: this.thumbnailReloadToken,
                 })
               }
               .width(this.horizontalThumbWidth(img))

@@ -37,15 +37,21 @@ export class GalleryReadProgressSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     const state = connectGalleryReadProgress()
     const revision: number = state.revision
+    state.restoreResult = 'pending'
     try {
-      await GalleryReadProgressSettings.migrateLegacyPreferences(context)
+      const migrated: boolean = await GalleryReadProgressSettings.migrateLegacyPreferences(context)
       const entries: ReadProgressEntry[] = await ReadProgressRepository.load(context)
       // A reader mutation while hydration was awaiting RDB is newer than this load. Do not replace
       // it with the stale snapshot; the pending persistence path will carry it to disk.
       if (state.revision === revision) {
         state.replaceAll(entries)
+        if (migrated) state.hadSuccessfulRestore = true
+        state.restoreResult = migrated ? 'applied' : 'failed'
+      } else {
+        state.restoreResult = 'superseded'
       }
     } catch (error) {
+      state.restoreResult = 'failed'
       DiagnosticLogger.warn('settings', 'readprogress_restore_failed', (error as Error).message)
     }
   }
@@ -337,7 +343,7 @@ export class GalleryReadProgressSettings {
     return rebased
   }
 
-  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<boolean> {
     const state = connectGalleryReadProgress()
     const revision: number = state.revision
     const store: preferences.Preferences = await preferences.getPreferences(
@@ -346,7 +352,7 @@ export class GalleryReadProgressSettings {
     )
     const raw: string = store.getSync(StorageKeys.READING_PROGRESS, '') as string
     if (raw.length === 0) {
-      return
+      return true
     }
     const entries: ReadProgressEntry[] = GalleryReadProgressSettings.parse(raw)
     try {
@@ -367,12 +373,13 @@ export class GalleryReadProgressSettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_migrate_failed', (error as Error).message)
       // Preserve the only legacy copy so a later startup can retry after a transient RDB failure.
-      return
+      return false
     }
     if (state.revision !== revision) {
-      return
+      return false
     }
     await GalleryReadProgressSettings.deleteLegacyPreference(context)
+    return true
   }
 
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {

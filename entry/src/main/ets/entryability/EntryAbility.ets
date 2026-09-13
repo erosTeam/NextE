@@ -1,4 +1,5 @@
 import { AbilityConstant, UIAbility, Want, Configuration, common } from '@kit.AbilityKit'
+import { captureReaderLabWant, updateReaderLabForeground } from '@reader-kit/ui'
 import { webview } from '@kit.ArkWeb'
 import { window } from '@kit.ArkUI'
 import {
@@ -50,6 +51,7 @@ export default class EntryAbility extends UIAbility {
   private clipboardProbeInFlight: boolean = false
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    captureReaderLabWant(want, this.context.applicationInfo.debug)
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
       return HuaweiCloudSyncService.runScheduledSync(context, reason)
     })
@@ -74,6 +76,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    captureReaderLabWant(want, this.context.applicationInfo.debug)
     this.captureIncomingUrl(want)
   }
 
@@ -142,6 +145,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    updateReaderLabForeground(true, this.context.applicationInfo.debug)
     this.abilityForeground = true
     this.resumePendingDownloadsIfReady()
     SyncScheduler.rememberContext(this.context)
@@ -153,6 +157,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onBackground(): void {
+    updateReaderLabForeground(false, this.context.applicationInfo.debug)
     this.abilityForeground = false
     ImagePipelineService.clearOnBackground()
     SecuritySettings.recordBackground(this.context)

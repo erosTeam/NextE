@@ -61,8 +61,10 @@ export function selectGalleryDetailFromPeerList(stack: NavPathStack, params: Gal
 export function installGalleryDetailDuplicateInterception(
   stack: NavPathStack,
   onSecondaryStackSettled?: (pathStack: NavPathStack | null) => void,
+  onWillShow?: () => void,
 ): void {
   stack.setInterception({
+    willShow: () => { onWillShow?.() },
     // Navigation owns the real stack and visual transition. Refresh the secondary-branch entry only
     // after its destination settles, never from a list click or the pre-create duplicate guard below.
     didShow: (_from, to, _operation, _animated) => {

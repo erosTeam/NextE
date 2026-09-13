@@ -8,6 +8,7 @@ import {
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { ReaderTrialEntryRelay } from './ReaderTrialEntryRelay'
 
 const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
 const READER_CLOSE_TARGET_HANDOFF_START: number = 0.55
@@ -235,6 +236,8 @@ export class ReaderThumbnailTransitionCoordinator {
     openReader: (animated: boolean) => void,
   ): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (ReaderTrialEntryRelay.tryOpen(galleryId, index, image,
+      ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index))) return
     transition.reset()
     const sourceComponentId: string = ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index)
     if (

@@ -32,6 +32,9 @@ export class ReadProgressEntry {
  */
 @ObservedV2
 export class GalleryReadProgressState {
+  // A skipped revision merge is not a successful hydration of untouched galleries.
+  @Trace restoreResult: string = 'notStarted'
+  @Trace hadSuccessfulRestore: boolean = false
   // Bumped on every write so build()-time readers of getIndex() re-render. (Plain Map below is
   // not itself observable — this counter is the reactive surface.)
   @Trace revision: number = 0

@@ -3,6 +3,7 @@ import { ContentTransitionType } from '@ohos/imageknifepro'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
+import { EhImageContentSource, EhThumbnailSnapshotSource } from './EhThumbnailSnapshotSource'
 import {
   EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
   EH_THUMBNAIL_READ_TIMEOUT_MS,
@@ -56,6 +57,7 @@ export struct EhSpriteThumbnail {
   @Param reloadToken: number = 0;
   @Event onImageBlockStateChange: (blocked: boolean) => void = () => {};
   @Event onImageBlockDecisionChange: (decision: ImageBlockDecision) => void = () => {};
+  @Event onSnapshotSourceChange: (source: EhThumbnailSnapshotSource | null) => void = () => {};
   // When true the thumb is sized by displayHeight (row-height layout) and its width follows the true
   // aspect; otherwise it is sized by displayWidth and its height follows the true aspect. Either way the
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
@@ -81,6 +83,59 @@ export struct EhSpriteThumbnail {
   private blockSeq: number = 0;
   private lastBlockKey: string = '';
   private computeTimerId: number = 0;
+  private snapshotMounted: boolean = false;
+  private snapshotEpoch: number = 0;
+  private snapshotContent: EhImageContentSource | null = null;
+
+  @Monitor('url', 'imageKey', 'thumbWidth', 'thumbHeight', 'offsetX', 'spriteWidth', 'spriteHeight',
+    'activeReloadToken', 'fitHeight', 'displayWidth', 'displayHeight', 'radius',
+    'loaded', 'failed', 'imageBlocked', 'forceImageBlocked')
+  onSnapshotInputChanged(): void {
+    this.snapshotEpoch++
+    this.publishSnapshotSource()
+  }
+
+  private snapshotIdentity(): string {
+    return JSON.stringify([this.url, this.imageKey, `${this.thumbWidth}`, `${this.thumbHeight}`,
+      `${this.offsetX}`, `${this.spriteWidth}`, `${this.spriteHeight}`, `${this.activeReloadToken}`,
+      `${this.fitHeight}`, `${this.displayWidth}`, `${this.displayHeight}`, `${this.radius}`])
+  }
+
+  private snapshotEligible(content: EhImageContentSource): boolean {
+    if (!this.snapshotMounted || !content.isCurrent() || content.url !== EhConstants.cdnThumb(this.url) ||
+      content.reloadToken !== this.activeReloadToken || !this.loaded || this.failed ||
+      this.forceImageBlocked || this.imageBlocked || this.url.length === 0) return false
+    const dimensions: number[] = [this.thumbWidth, this.thumbHeight, this.offsetX, this.spriteWidth, this.spriteHeight]
+    if (dimensions.some((value: number): boolean => !Number.isFinite(value) || value < 0)) return false
+    if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
+      return this.sheetRealW === content.width && this.sheetRealH === content.height &&
+        this.offsetX + this.thumbWidth <= content.width && this.thumbHeight <= content.height
+    }
+    // The legacy whole-image Cover branch still describes only its displayed pixels, not original coverage.
+    return true
+  }
+
+  private onThumbContentReady(content: EhImageContentSource): void {
+    if (!this.snapshotMounted || !content.isCurrent() || content.url !== EhConstants.cdnThumb(this.url) ||
+      content.reloadToken !== this.activeReloadToken) return
+    this.snapshotContent = content
+    this.snapshotEpoch++
+    this.publishSnapshotSource()
+  }
+
+  private publishSnapshotSource(): void {
+    const content: EhImageContentSource | null = this.snapshotContent
+    if (content === null || !this.snapshotEligible(content)) {
+      this.onSnapshotSourceChange(null)
+      return
+    }
+    const epoch: number = this.snapshotEpoch
+    const identity: string = this.snapshotIdentity()
+    this.onSnapshotSourceChange(new EhThumbnailSnapshotSource(this.url, this.imageKey,
+      this.thumbWidth, this.thumbHeight, this.offsetX, this.spriteWidth, this.spriteHeight,
+      (): boolean => epoch === this.snapshotEpoch && identity === this.snapshotIdentity() &&
+        content === this.snapshotContent && this.snapshotEligible(content)))
+  }
 
   @Monitor('url')
   onUrlChange() {
@@ -123,6 +178,9 @@ export struct EhSpriteThumbnail {
   }
 
   aboutToAppear(): void {
+    this.snapshotMounted = true
+    this.snapshotEpoch++
+    this.publishSnapshotSource()
     this.checkImageBlock()
     // A bounded automatic hash queue can discard stale waiting work during a rapid scroll. Cached sprite
     // images may not emit onComplete again when this recycled tile becomes visible, so re-queue one
@@ -133,6 +191,10 @@ export struct EhSpriteThumbnail {
   }
 
   aboutToDisappear(): void {
+    this.snapshotMounted = false
+    this.snapshotEpoch++
+    this.snapshotContent = null
+    this.onSnapshotSourceChange(null)
     this.clearComputeTimer()
     this.blockSeq++
   }
@@ -400,6 +462,9 @@ export struct EhSpriteThumbnail {
           onComplete: () => {
             this.onThumbComplete()
           },
+          onContentReady: (content: EhImageContentSource) => {
+            this.onThumbContentReady(content)
+          },
           onImageInfo: (width: number, height: number) => {
             this.onThumbImageInfo(width, height)
           },
@@ -434,6 +499,9 @@ export struct EhSpriteThumbnail {
           onComplete: () => {
             this.onThumbComplete()
           },
+          onContentReady: (content: EhImageContentSource) => {
+            this.onThumbContentReady(content)
+          },
           onImageInfo: (width: number, height: number) => {
             this.onThumbImageInfo(width, height)
           },
@@ -465,6 +533,9 @@ export struct EhSpriteThumbnail {
           reloadToken: this.activeReloadToken,
           onComplete: () => {
             this.onThumbComplete()
+          },
+          onContentReady: (content: EhImageContentSource) => {
+            this.onThumbContentReady(content)
           },
           onImageInfo: (width: number, height: number) => {
             this.onThumbImageInfo(width, height)

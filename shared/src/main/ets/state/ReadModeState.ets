@@ -64,6 +64,9 @@ export const READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT: number = 2000
  */
 @ObservedV2
 export class ReadModeState {
+  // Runtime-only observation of canonical restore; never persisted or a default-value guarantee.
+  @Trace restoreResult: string = 'notStarted'
+  @Trace hadSuccessfulRestore: boolean = false
   @Trace mode: string = ReadMode.LTR
   @Trace doublePageEnabled: boolean = false
   @Trace columnMode: string = ReadColumnMode.SINGLE
@@ -71,6 +74,7 @@ export class ReadModeState {
   @Trace autoPageSeconds: number = 3
   @Trace preloadPages: number = 2
   @Trace volumeKeyTurn: boolean = false
+  @Trace volumeKeyTurnReady: boolean = false
   @Trace tapZoneLayoutPaged: string = ReaderTapZoneLayout.RIGHT_LEFT
   @Trace tapZoneLayoutContinuous: string = ReaderTapZoneLayout.RIGHT_LEFT
   @Trace tapZoneInvertPaged: string = ReaderTapZoneInvert.NONE

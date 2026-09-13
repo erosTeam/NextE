@@ -17,6 +17,9 @@ import {
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
 import { ReaderThumbnailTransitionCoordinator } from '../navigation/ReaderThumbnailTransitionCoordinator'
+import { ReaderTrialEntryRelay, ReaderTrialEntrySourceHandle, ReaderTrialThumbnailIdentity } from '../navigation/ReaderTrialEntryRelay'
+import { EhThumbnailSnapshotSource } from './EhThumbnailSnapshotSource'
+import { connectSiteMode, SiteModeState } from '../state/SiteModeState'
 
 // Tile image-frame aspect (height = width * aspect). A FIXED portrait frame so every tile — and thus
 // every page number below it — sits at the same height regardless of each thumb's true aspect or a
@@ -46,6 +49,40 @@ export struct PreviewThumbTile {
   @Local imageBlocked: boolean = false;
   @Local blockDecision: ImageBlockDecision = new ImageBlockDecision();
   @Local readerTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition();
+  @Local private trialSiteMode: SiteModeState = connectSiteMode();
+  private trialSourceMounted: boolean = false;
+  private trialSourceHandle: ReaderTrialEntrySourceHandle | null = null;
+  private trialSnapshot: EhThumbnailSnapshotSource | null = null;
+
+  @Monitor('image', 'transitionSourceId', 'trialSiteMode.isEx')
+  private syncTrialSource(): void {
+    if (this.trialSourceHandle !== null) ReaderTrialEntryRelay.unbindSource(this.trialSourceHandle)
+    this.trialSourceHandle = null
+    if (!this.trialSourceMounted || this.transitionSourceId.length === 0) return
+    const sourceId = this.transitionSourceId
+    const identity = new ReaderTrialThumbnailIdentity(this.image)
+    const handle = ReaderTrialEntryRelay.bindSource(sourceId, this.image,
+      (): boolean => this.trialSourceMounted && this.transitionSourceId === sourceId &&
+        identity.matches(this.image) && !this.readerTransition.sourceHidden(sourceId))
+    this.trialSourceHandle = handle
+    ReaderTrialEntryRelay.updateSnapshot(handle, this.trialSnapshot)
+  }
+
+  private onTrialSnapshot(source: EhThumbnailSnapshotSource | null): void {
+    if (source === null) {
+      if (this.trialSnapshot === null || !this.trialSnapshot.isCurrent()) this.trialSnapshot = null
+    } else if (source.isCurrent() && new ReaderTrialThumbnailIdentity(this.image).matchesSnapshot(source)) {
+      this.trialSnapshot = source
+    }
+    if (this.trialSourceHandle !== null) ReaderTrialEntryRelay.updateSnapshot(this.trialSourceHandle, this.trialSnapshot)
+  }
+
+  private unmountTrialSource(): void {
+    this.trialSourceMounted = false
+    if (this.trialSourceHandle !== null) ReaderTrialEntryRelay.unbindSource(this.trialSourceHandle)
+    this.trialSourceHandle = null
+    this.trialSnapshot = null
+  }
 
   private tileWidth(): number {
     return this.measuredWidth > 0 ? this.measuredWidth : ThemeConstants.PREVIEW_THUMB_MIN_W
@@ -190,6 +227,7 @@ export struct PreviewThumbTile {
           this.blockDecision = decision
         },
         radius: 0,
+        onSnapshotSourceChange: (source: EhThumbnailSnapshotSource | null): void => { this.onTrialSnapshot(source) },
       })
     } else {
       EhSpriteThumbnail({
@@ -213,6 +251,7 @@ export struct PreviewThumbTile {
           this.blockDecision = decision
         },
         radius: 0,
+        onSnapshotSourceChange: (source: EhThumbnailSnapshotSource | null): void => { this.onTrialSnapshot(source) },
       })
     }
   }
@@ -253,6 +292,8 @@ export struct PreviewThumbTile {
           .height('100%')
         }
         .id(this.transitionSourceId)
+        .onAppear((): void => { this.trialSourceMounted = true; this.syncTrialSource() })
+        .onDisAppear((): void => { this.unmountTrialSource() })
         // The transition identity belongs to the pixels that are actually visible, not the fixed
         // alignment slot around them. This makes snapshot, hide, opening origin and closing target
         // one exact node even for tall or wide letterboxed pages.

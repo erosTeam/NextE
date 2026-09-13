@@ -1,4 +1,4 @@
-import { appMenuOptions } from 'shared'
+import { appMenuOptions, ReaderTrialEntryRelay } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
 import {
   ComponentContent,
@@ -3122,6 +3122,7 @@ export struct GalleryDetailPage {
   }
 
   private handleBackPressed(): boolean {
+    if (ReaderTrialEntryRelay.cancelPending(connectSiteMode().isEx ? 'ex' : 'eh', this.params.gid)) return true
     const ownsRoute: boolean = this.galleryDetailTransition.ownsRoute(
       this.params.gid,
       this.navigationDestinationId,

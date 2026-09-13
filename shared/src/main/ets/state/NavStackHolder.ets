@@ -28,6 +28,7 @@ const SETTINGS_ROOT_ROUTE_NAMES: string[] = [
 export class NavStackHolder {
   @Trace stack: NavPathStack = new NavPathStack()
   @Trace isSplitMode: boolean = false
+  @Trace navigationRevision: number = 0
   // These identify the entry at index 0 of the secondary route branch, not its visible leaf. For
   // example, Gallery A -> Search -> Gallery B continues to select A in every list that can show it.
   // `NavPathStack` remains a command target; consumers render from this small V2 state below instead
@@ -39,6 +40,8 @@ export class NavStackHolder {
   constructor() {
     installGalleryDetailDuplicateInterception(this.stack, (pathStack: NavPathStack | null) => {
       this.syncSecondaryEntry(pathStack)
+    }, () => {
+      this.navigationRevision += 1
     })
   }
 
