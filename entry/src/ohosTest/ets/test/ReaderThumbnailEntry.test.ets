@@ -514,11 +514,14 @@ async function rotateDuringEntry(mainWindow: window.Window, baselineEpoch: numbe
   throw new Error(`Did not observe ${triggerPhase} before requesting rotation`)
 }
 
-function readerThumbnailMovingRotationTrial(work: string, unit: string, settled: boolean = false): void {
-  const className = settled ? 'ReaderThumbnailSettledRotationTrial' : 'ReaderThumbnailMovingRotationTrial'
+function readerThumbnailMovingRotationTrial(work: string, unit: string, settled: boolean = false,
+  navigateAfterRotation: boolean = false): void {
+  const className = navigateAfterRotation ? 'ReaderThumbnailSettledRotationNavigationTrial' :
+    settled ? 'ReaderThumbnailSettledRotationTrial' : 'ReaderThumbnailMovingRotationTrial'
   describe(className, (): void => {
-    it('realViewportRotationPreservesReadingAndRetiresPendingPreview', 0, async (): Promise<void> => {
-      clearEntryCaptures()
+    it(navigateAfterRotation ? 'realViewportRotationRetainsPhysicalSpreadNavigation' :
+      'realViewportRotationPreservesReadingAndRetiresPendingPreview', 0, async (): Promise<void> => {
+      clearEntryCaptures(navigateAfterRotation ? captureNames.concat(['navigated', 'returned']) : captureNames)
       const driver = Driver.create()
       const observation = new EntryRotationObservation()
       let mainWindow: window.Window | null = null
@@ -575,6 +578,31 @@ function readerThumbnailMovingRotationTrial(work: string, unit: string, settled:
           await driver.delayMs(200)
         }
         await captureEntry(driver, 'rotated')
+        if (navigateAfterRotation) {
+          const viewport = await (await driver.findComponent(ON.id('rkit-image-viewport'))).getBounds()
+          const inset = Math.round((viewport.right - viewport.left) * 0.12)
+          const y = Math.round((viewport.top + viewport.bottom) / 2)
+          // The entry is explicitly RTL. A physical left-to-right gesture advances
+          // the logical spread; the reverse gesture must return to the same anchor.
+          await driver.swipe(viewport.left + inset, y, viewport.right - inset, y, 700)
+          for (let attempt = 0; attempt < 40; attempt++) {
+            const page = Number((await (await driver.findComponent(ON.id('rkit-chrome-page')))
+              .getText()).split('/')[0].trim())
+            if (page === 3 && await completedPart(driver, 2) && await completedPart(driver, 3)) break
+            if (attempt === 39) throw new Error('Physical RTL turn after landscape reflow did not reach P3/P4')
+            await driver.delayMs(200)
+          }
+          await captureEntry(driver, 'navigated')
+          await driver.swipe(viewport.right - inset, y, viewport.left + inset, y, 700)
+          for (let attempt = 0; attempt < 40; attempt++) {
+            const page = Number((await (await driver.findComponent(ON.id('rkit-chrome-page')))
+              .getText()).split('/')[0].trim())
+            if (page === 1 && await completedPart(driver, 0) && await completedPart(driver, 1)) break
+            if (attempt === 39) throw new Error('Physical reverse turn after landscape reflow did not return to P1/P2')
+            await driver.delayMs(200)
+          }
+          await captureEntry(driver, 'returned')
+        }
         // Covers the original 280ms movement and 140ms reveal completion callbacks.
         await driver.delayMs(1000)
         expect(ReaderTrialEntryProbe.read().epoch).assertEqual(observation.requestedEpoch)
@@ -1390,6 +1418,11 @@ export default function readerThumbnailEntryTest(): void {
     typeof work === 'string' && work.length > 0 &&
     typeof unit === 'string' && unit.length > 0) {
     readerThumbnailMovingRotationTrial(work, unit, args['-s class'] === 'ReaderThumbnailSettledRotationTrial')
+    return
+  }
+  if (args['-s class'] === 'ReaderThumbnailSettledRotationNavigationTrial' &&
+    typeof work === 'string' && work.length > 0 && typeof unit === 'string' && unit.length > 0) {
+    readerThumbnailMovingRotationTrial(work, unit, true, true)
     return
   }
   if (args['-s class'] === 'ReaderThumbnailGridEntryTrial' && typeof work === 'string' && work.length > 0 &&
