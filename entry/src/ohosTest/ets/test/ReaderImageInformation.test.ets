@@ -21,8 +21,14 @@ function clearInformationCaptures(): void {
   }
 }
 async function captureInformation(driver: Driver, name: string): Promise<void> {
-  const cache = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir
-  expect(await driver.dumpLayout(`${cache}/rkit-info-${name}.json`)).assertTrue()
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  const cache = delegator.getAppContext().cacheDir
+  if (typeof driver.dumpLayout === 'function') {
+    expect(await driver.dumpLayout(`${cache}/rkit-info-${name}.json`)).assertTrue()
+  } else {
+    expect((await delegator.executeShellCommand(
+      `uitest dumpLayout -p /data/local/tmp/rkit-info-${name}.json`, 15)).exitCode).assertEqual(0)
+  }
   expect(await driver.screenCap(`${cache}/rkit-info-${name}.png`)).assertTrue()
 }
 async function informationReady(driver: Driver): Promise<void> {
@@ -127,7 +133,12 @@ async function informationRecoveryTrial(work: string, unit: string, mode: string
         expect(delegator.getAbilityState(ability)).assertEqual(abilityDelegatorRegistry.AbilityLifecycleState.BACKGROUND)
         await captureInformation(driver, 'changed')
       } finally {
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+        for (let attempt = 0; attempt < 40 &&
+          await driver.findComponent(ON.id('rkit-trial-navigation')) !== null; attempt++) await driver.delayMs(100)
+        expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+        // Background closes the old trial. Re-enter with a fresh explicit request instead of reviving stale state.
+        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { readerLabWork: work, readerLabUnit: unit, readerLabPage: '1', readerLabChrome: 'true' } })
       }
       await driver.delayMs(700); await informationReady(driver)
     }
