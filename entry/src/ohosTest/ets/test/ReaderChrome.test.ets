@@ -13,13 +13,34 @@ async function captureChrome(driver: Driver, name: string): Promise<void> {
 }
 
 
-async function waitChromeImage(driver: Driver, owner: string): Promise<void> {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    if (await driver.findComponent(ON.type('Image').within(ON.id(owner))) !== null &&
-      await driver.findComponent(ON.type('LoadingProgress').within(ON.id(owner))) === null) return
-    await driver.delayMs(500)
+async function waitChromeImage(driver: Driver, owner: string): Promise<string> {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const images = await driver.findComponents(ON.type('Image').within(ON.id(owner)))
+    if (images.length === 1 &&
+      await driver.findComponent(ON.type('LoadingProgress').within(ON.id(owner))) === null &&
+      await driver.findComponent(ON.id('^rkit-failure-page-[0-9]+$', MatchPattern.REG_EXP)
+        .within(ON.id(owner))) === null) {
+      const id = await images[0].getId()
+      if (id.length > 0) return id
+    }
+    await driver.delayMs(250)
   }
-  expect(false).assertTrue()
+  throw new Error(`Reader image did not settle: ${owner}`)
+}
+
+async function waitChromeImageGeneration(driver: Driver, owner: string, previousId: string): Promise<string> {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const images = await driver.findComponents(ON.type('Image').within(ON.id(owner)))
+    if (images.length === 1 &&
+      await driver.findComponent(ON.type('LoadingProgress').within(ON.id(owner))) === null &&
+      await driver.findComponent(ON.id('^rkit-failure-page-[0-9]+$', MatchPattern.REG_EXP)
+        .within(ON.id(owner))) === null) {
+      const id = await images[0].getId()
+      if (id.length > 0 && id !== previousId) return id
+    }
+    await driver.delayMs(250)
+  }
+  throw new Error(`Reader image request generation did not change: ${owner}`)
 }
 
 async function chromePage(driver: Driver): Promise<number> {
@@ -149,7 +170,7 @@ function readerManualReloadTest(): void {
           readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true', readerLabVolumeKeys: 'false',
         },
       })
-      await waitChromeImage(driver, 'rkit-image-viewport')
+      const beforeId = await waitChromeImage(driver, 'rkit-image-viewport')
       expect(await chromePage(driver)).assertEqual(1)
       const more = await driver.findComponent(ON.id('rkit-more'))
       expect(more !== null).assertTrue()
@@ -158,10 +179,8 @@ function readerManualReloadTest(): void {
       expect(reload !== null).assertTrue()
       await captureChrome(driver, 'reload-source-menu')
       if (reload !== null) await reload.click()
-      // The reload callback is asynchronous and may begin after the menu close animation.
-      // Do not let the existing Image node satisfy the readiness check before that refresh starts.
-      await driver.delayMs(1200)
-      await waitChromeImage(driver, 'rkit-image-viewport')
+      const afterId = await waitChromeImageGeneration(driver, 'rkit-image-viewport', beforeId)
+      expect(afterId === beforeId).assertFalse()
       expect(await chromePage(driver)).assertEqual(1)
       await captureChrome(driver, 'reload-source-finished')
       await (await driver.findComponent(ON.id('rkit-close'))).click()
@@ -191,12 +210,36 @@ function readerManualReloadTest(): void {
       await driver.delayMs(300)
       const choices = await driver.findComponents(ON.id('^rkit-reload-source-[0-9]+$', MatchPattern.REG_EXP))
       expect(choices.length).assertEqual(2)
+      const choiceId = await choices[0].getId()
+      const choiceMatch = /^rkit-reload-source-([0-9]+)$/.exec(choiceId)
+      expect(choiceMatch !== null).assertTrue()
+      if (choiceMatch === null) throw new Error(`Unexpected reload choice id: ${choiceId}`)
+      const targetSource = Number(choiceMatch[1])
+      const parts = await driver.findComponents(
+        ON.id('^rkit-part-[0-9]+-whole$', MatchPattern.REG_EXP).within(ON.id('rkit-image-viewport')),
+      )
+      expect(parts.length).assertEqual(2)
+      const sourceIndices: number[] = []
+      for (const part of parts) {
+        const id = await part.getId()
+        const match = /^rkit-part-([0-9]+)-whole$/.exec(id)
+        if (match === null) throw new Error(`Unexpected spread part id: ${id}`)
+        sourceIndices.push(Number(match[1]))
+      }
+      expect(sourceIndices.includes(targetSource)).assertTrue()
+      const otherSource = sourceIndices.find((source: number): boolean => source !== targetSource)
+      if (otherSource === undefined) throw new Error('Spread reload requires one non-target source')
+      const targetOwner = `rkit-part-${targetSource}-whole`
+      const otherOwner = `rkit-part-${otherSource}-whole`
+      const targetBeforeId = await waitChromeImage(driver, targetOwner)
+      const otherBeforeId = await waitChromeImage(driver, otherOwner)
       await captureChrome(driver, 'reload-spread-choice')
       await choices[0].click()
-      // Wait past the submenu close animation before checking the refreshed pane. Otherwise
-      // the pre-refresh Image node can make the readiness helper return during the black swap frame.
-      await driver.delayMs(1200)
-      await waitChromeImage(driver, 'rkit-image-viewport')
+      const targetAfterId = await waitChromeImageGeneration(driver, targetOwner, targetBeforeId)
+      expect(targetAfterId === targetBeforeId).assertFalse()
+      expect(await waitChromeImage(driver, otherOwner)).assertEqual(otherBeforeId)
+      const settledImages = await driver.findComponents(ON.type('Image').within(ON.id('rkit-image-viewport')))
+      expect(settledImages.length).assertEqual(2)
       expect(await chromePage(driver)).assertEqual(page)
       await captureChrome(driver, 'reload-spread-finished')
       await (await driver.findComponent(ON.id('rkit-close'))).click()

@@ -143,8 +143,14 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
     if (kind === 'thumbnail') return new ReaderAsset(source.thumbUrl)
-    const url = await ImageResolveService.getInstance().resolve(source)
+    // Match the production Reader's “reload image source” contract: a manual
+    // force reload must re-resolve /s/?nl= instead of only downloading the
+    // already selected CDN URL again. Persist the refreshed reload key only
+    // after this request is still current so a cancelled older resolve cannot
+    // overwrite the next manual reload's source state.
+    const url = await ImageResolveService.getInstance().resolve(source, forceReload)
     cancellation.check()
+    this.pages.set(page.key, source.copy())
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
     const result = await ImagePipelineService.loadReaderFile(this.context, url, key, 100, undefined, forceReload)
     const facts = new ReaderImageInformation()

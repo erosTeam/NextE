@@ -64,6 +64,63 @@ test('original resolver failure never downloads or falls back to the default var
   assert.equal(f.downloads.length, 0)
 })
 
+test('default asset manual reload re-sources before replacing cached bytes', async () => {
+  const resolutions = [], downloads = []
+  const ReaderAsset = class {
+    constructor(uri, release, information) { Object.assign(this, { uri, release, information }) }
+  }
+  const context = { exports: {}, require: name => {
+    if (name === 'shared') return {
+      ImageResolveService: { getInstance: () => ({ resolve: async (source, changeSource) => {
+        resolutions.push({ changeSource, reloadKey: source.reloadKey })
+        source.imageUrl = changeSource ? 'https://fixture.invalid/fresh.webp' : 'https://fixture.invalid/old.webp'
+        source.reloadKey = changeSource ? 'fresh-key' : source.reloadKey
+        return source.imageUrl
+      } }) },
+      ImagePipelineService: {
+        readerFileCacheKey: () => 'resampled-cache',
+        loadReaderFile: async (_context, url, key, _priority, _unused, force) => {
+          downloads.push({ url, key, force })
+          return { displayUri: url, filePath: 'local-file', bytes: 42 }
+        },
+      },
+      ReaderPageCropService: {},
+    }
+    if (name === '@reader-kit/core') return {
+      ReaderAsset,
+      ReaderImageInformation: class {},
+    }
+    if (name === '@reader-kit/ui') return {
+      ReaderFileInformation: class { constructor(path, facts) { Object.assign(this, { path, facts }) } },
+    }
+    if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
+    if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
+    if (name === '@kit.ShareKit') return { systemShare: {} }
+    return {}
+  } }
+  vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText, context)
+  const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false)
+  adapter.pages.set('page', copyable({ page: 1, reloadKey: 'old-key', originImageUrl: '' }))
+  const page = { key: 'page', unit: { work: 'gallery' }, sourceIndex: 0 }
+
+  await adapter.load(page, 'original', token(), false)
+  await adapter.load(page, 'original', token(), true)
+  await adapter.load(page, 'original', token(), true)
+
+  assert.deepEqual(resolutions, [
+    { changeSource: false, reloadKey: 'old-key' },
+    { changeSource: true, reloadKey: 'old-key' },
+    { changeSource: true, reloadKey: 'fresh-key' },
+  ])
+  assert.deepEqual(downloads, [
+    { url: 'https://fixture.invalid/old.webp', key: 'resampled-cache', force: false },
+    { url: 'https://fixture.invalid/fresh.webp', key: 'resampled-cache', force: true },
+    { url: 'https://fixture.invalid/fresh.webp', key: 'resampled-cache', force: true },
+  ])
+})
+
 test('actual share adapter builds its hyperlink from the selected variant and rejects cancelled resolution', async () => {
   const calls = [], records = [], c = token()
   const context = { exports: {}, require: name => {
