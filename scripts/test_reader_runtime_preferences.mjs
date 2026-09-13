@@ -117,5 +117,12 @@ assert.match(page, /request\.preferencesReadWrite/)
 assert.match(page, /onPolicyChanged: \(policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent\)/)
 assert.match(page, /onCropChanged: \(enabled: boolean, policy: ReaderDisplayPolicy\)/)
 assert.match(page, /pageTurnAnimation: this\.request\.pageTurnAnimationOverride \?\? this\.readMode\.pageTurnAnimation/)
+assert.match(page, /hostSettingsAvailable: this\.request\.preferencesReadWrite/)
+assert.match(page, /onHostSettings: \(\): void => \{ this\.openHostSettings\(\) \}/)
+assert.match(page, /active: this\.routeActive && this\.labVisibility\.foreground && !this\.readerSettingsSheetShown/)
+assert.match(page, /\.bindSheet\([\s\S]*\$\$this\.readerSettingsSheetShown[\s\S]*this\.settingsSheetContent/)
 
-console.log('PASS NextE shared reader progress, preference, and animation host bridges')
+const index = fs.readFileSync(path.join(root, 'entry/src/main/ets/pages/Index.ets'), 'utf8')
+assert.equal((index.match(/settingsSheetContent: \(dismiss: \(\) => void\) =>/g) ?? []).length >= 3, true)
+
+console.log('PASS NextE shared reader progress, preference, animation, and settings host bridges')

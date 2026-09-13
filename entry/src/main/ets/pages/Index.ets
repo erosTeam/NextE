@@ -882,6 +882,7 @@ struct Index {
     if (this.readerTrialRequest !== null) {
       // The destination owns its launch request through teardown; the host clears its active pointer first.
       NextEReaderLabPage({ request: _param as ReaderLabRequest,
+        settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         managesTrialWindow: false, entrySite: this.readerTrialSite,
         onShown: (): void => {
           if (this.readerTrialRequest !== _param) return
@@ -1931,6 +1932,7 @@ struct Index {
       Column() {}
     } else if (name === 'ReaderLab') {
       NextEReaderLabPage({ request: param as ReaderLabRequest,
+        settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         onClose: (): void => { this.navStackHolder.stack.pop() } })
     } else {
       this.destinationContent(IndexRouteCoordinator.family(name))

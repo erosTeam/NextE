@@ -5,6 +5,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode } from 'shared'
+import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryPreviewSource } from '@reader-kit/ui'
@@ -19,6 +20,7 @@ import { NextEReaderRuntimePreferences } from './NextEReaderRuntimePreferences'
 @ComponentV2
 export struct NextEReaderLabPage {
   @Require @Param request: ReaderLabRequest
+  @BuilderParam settingsSheetContent: (dismiss: () => void) => void
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
   @Param entryPreview: ReaderEntryPreviewSource | null = null
@@ -41,6 +43,7 @@ export struct NextEReaderLabPage {
   private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, true)
   private keepScreenOn: ReaderKeepScreenOn | null = null
   @Local private closeRequested: boolean = false
+  @Local private readerSettingsSheetShown: boolean = false
   private volumeDisposed: boolean = false
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
@@ -209,20 +212,31 @@ export struct NextEReaderLabPage {
   syncKeepScreenOn(): void {
     console.info(`[ReaderKeepScreenOn] host route=${this.routeActive} foreground=${this.labVisibility.foreground} phase=${this.entryPhase} closing=${this.closeRequested || this.hostClosing} setting=${this.readMode.keepScreenOn}`)
     this.keepScreenOn?.setActive(this.request.readingChrome && this.routeActive && this.labVisibility.foreground &&
+      !this.readerSettingsSheetShown &&
       this.entryPhase !== 'layout' && !this.closeRequested && !this.hostClosing && this.readMode.keepScreenOn)
   }
 
-  @Monitor('readMode.keepScreenOn', 'closeRequested', 'hostClosing')
+  @Monitor('readMode.keepScreenOn', 'closeRequested', 'hostClosing', 'readerSettingsSheetShown')
   syncKeepScreenOnPolicy(): void { this.syncKeepScreenOn() }
 
   @Monitor('routeActive', 'labVisibility.foreground', 'entryPhase', 'readMode.volumeKeyTurn',
-    'readMode.volumeKeyTurnReady', 'closeRequested', 'hostClosing', 'session')
+    'readMode.volumeKeyTurnReady', 'closeRequested', 'hostClosing', 'readerSettingsSheetShown', 'session')
   syncReaderActivity(): void {
     this.syncKeepScreenOn()
     const enabled = this.request.volumeKeysOverride ?? (this.readMode.volumeKeyTurnReady && this.readMode.volumeKeyTurn)
     this.volumeKeys.setActive(!this.volumeDisposed && !this.closeRequested && !this.hostClosing &&
       this.session !== null && this.request.readingChrome && enabled &&
-      this.routeActive && this.labVisibility.foreground && this.entryPhase !== 'layout')
+      this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown &&
+      this.entryPhase !== 'layout')
+  }
+
+  private openHostSettings(): void {
+    if (!this.request.preferencesReadWrite || this.closeRequested || this.hostClosing) return
+    this.readerSettingsSheetShown = true
+  }
+
+  private closeHostSettings(): void {
+    this.readerSettingsSheetShown = false
   }
 
   build() {
@@ -241,6 +255,8 @@ export struct NextEReaderLabPage {
               showPageNumber: this.readMode.showPageNumber,
               cropBorders: this.initialCropBorders(),
               cropAvailable: !this.request.thumbnailEntry,
+              hostSettingsAvailable: this.request.preferencesReadWrite,
+              onHostSettings: (): void => { this.openHostSettings() },
               onObservedPosition: (position: ReaderObservedPosition): void => { this.persistObserved(position) },
               onPolicyChanged: (policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void => {
                 this.persistRuntimePolicy(policy, intent)
@@ -249,7 +265,7 @@ export struct NextEReaderLabPage {
                 this.persistCrop(enabled, policy)
               },
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
-              active: this.routeActive && this.labVisibility.foreground,
+              active: this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown,
               closing: this.closeRequested || this.hostClosing,
               beforeShowChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareChromeShow(isCurrent),
               topInset: this.safeArea.topAvoidHeight, bottomInset: this.safeArea.bottomAvoidHeight,
@@ -267,6 +283,15 @@ export struct NextEReaderLabPage {
       .width('100%').height('100%')
       .padding({ top: this.request.readingChrome ? 0 : this.safeArea.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT,
         bottom: this.request.readingChrome ? 0 : this.safeArea.bottomAvoidHeight })
+      .bindSheet(
+        $$this.readerSettingsSheetShown,
+        this.settingsSheetContent((): void => { this.closeHostSettings() }),
+        appSheetOptions({
+          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          showClose: false,
+          onDisappear: (): void => { this.closeHostSettings() },
+        }),
+      )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
     .hideTitleBar(this.request.readingChrome)
     .onBackPressed((): boolean => {

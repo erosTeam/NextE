@@ -29,6 +29,7 @@ async function chromePage(driver: Driver): Promise<number> {
 
 /** This UI sequence runs only under an explicit named device protocol. */
 export default function readerChromeTest(): void {
+  readerHostSettingsTest()
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
@@ -127,6 +128,43 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+    })
+  })
+}
+
+/** The shared surface delegates to NextE's existing settings sheet without changing a setting. */
+function readerHostSettingsTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderHostSettingsTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostSettingsTrial', (): void => {
+    it('sharedChromeOpensAndReturnsFromHostSettings', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+          readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+        },
+      })
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      const hostSettings = await driver.findComponent(ON.id('rkit-host-settings'))
+      expect(hostSettings !== null).assertTrue()
+      expect(await driver.findComponent(ON.id('rkit-runtime-settings'))).assertNull()
+      if (hostSettings !== null) await hostSettings.click()
+      for (let attempt = 0; attempt < 40; attempt++) {
+        if (await driver.findComponent(ON.text('双页模式')) !== null) break
+        await driver.delayMs(250)
+      }
+      expect(await driver.findComponent(ON.text('双页模式')) !== null).assertTrue()
+      await captureChrome(driver, 'host-settings-open')
+      await driver.pressBack(); await driver.delayMs(600)
+      expect(await driver.findComponent(ON.id('rkit-host-settings')) !== null).assertTrue()
+      await captureChrome(driver, 'host-settings-returned')
+      await (await driver.findComponent(ON.id('rkit-close'))).click()
+      await driver.delayMs(500)
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
   })
 }
