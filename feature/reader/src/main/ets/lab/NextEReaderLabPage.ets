@@ -4,7 +4,7 @@ import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
-  GalleryReadProgressSettings, ReadMode } from 'shared'
+  GalleryReadProgressSettings, ReadMode, ReaderSuperResolutionService } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy } from '@reader-kit/core'
@@ -16,6 +16,10 @@ import { connectGalleryReadProgress, ReaderTapZoneResolver } from 'shared'
 import { NextEReaderInitialPolicy } from './NextEReaderInitialPolicy'
 import { connectNextEReaderLabContextProbe } from './NextEReaderLabContextProbe'
 import { NextEReaderRuntimePreferences } from './NextEReaderRuntimePreferences'
+import {
+  NextEReaderSuperResolutionConfiguration,
+  NextEReaderSuperResolutionProvider,
+} from './NextEReaderSuperResolutionProvider'
 
 @ComponentV2
 export struct NextEReaderLabPage {
@@ -47,6 +51,7 @@ export struct NextEReaderLabPage {
   private volumeDisposed: boolean = false
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
+  private enhancementInteractionTimer: number = -1
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -62,7 +67,9 @@ export struct NextEReaderLabPage {
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
       await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
     })
-    const session = new ReaderPagedSession(adapter, new ReaderLabAssetProbe(adapter, this.request.thumbnailFailurePage,
+    const variantProvider = new NextEReaderSuperResolutionProvider(context, adapter,
+      (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())
+    const session = new ReaderPagedSession(adapter, new ReaderLabAssetProbe(variantProvider, this.request.thumbnailFailurePage,
       this.request.informationProbe, this.request.thumbnailEntry ? this.request.failurePage : -1, this.request.originalVariantProbe))
     if (this.request.readingChrome) {
       this.initializeSession(session)
@@ -107,6 +114,34 @@ export struct NextEReaderLabPage {
 
   private readerCanvasForeground(): ResourceColor {
     return this.readerCanvasDark() ? ThemeConstants.READER_FOREGROUND_LIGHT : ThemeConstants.READER_FOREGROUND_DARK
+  }
+
+  private superResolutionConfiguration(): NextEReaderSuperResolutionConfiguration {
+    return new NextEReaderSuperResolutionConfiguration(
+      this.readMode.superResolutionEnabled,
+      this.readMode.superResolutionModel,
+      this.readMode.superResolutionBackend,
+      this.readMode.superResolutionMaxHeight,
+    )
+  }
+
+  private superResolutionIdentity(): string {
+    return this.superResolutionConfiguration().identity()
+  }
+
+  private setEnhancementInteractionBusy(busy: boolean): void {
+    if (this.enhancementInteractionTimer >= 0) {
+      clearTimeout(this.enhancementInteractionTimer)
+      this.enhancementInteractionTimer = -1
+    }
+    if (busy) {
+      ReaderSuperResolutionService.setInteractionPaused(true)
+      return
+    }
+    this.enhancementInteractionTimer = setTimeout((): void => {
+      this.enhancementInteractionTimer = -1
+      ReaderSuperResolutionService.setInteractionPaused(false)
+    }, 420)
   }
 
   private persistObserved(position: ReaderObservedPosition): void {
@@ -165,6 +200,9 @@ export struct NextEReaderLabPage {
 
   aboutToDisappear(): void {
     this.volumeDisposed = true
+    if (this.enhancementInteractionTimer >= 0) clearTimeout(this.enhancementInteractionTimer)
+    this.enhancementInteractionTimer = -1
+    ReaderSuperResolutionService.setInteractionPaused(false)
     this.keepScreenOn?.close()
     this.entryTransition?.cancel(); this.entryPreview?.release()
     this.volumeKeys.close()
@@ -252,6 +290,8 @@ export struct NextEReaderLabPage {
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
+              preferredVariant: this.readMode.superResolutionEnabled ? 'enhanced' : 'default',
+              preferredVariantIdentity: this.superResolutionIdentity(),
               showPageNumber: this.readMode.showPageNumber,
               cropBorders: this.initialCropBorders(),
               cropAvailable: !this.request.thumbnailEntry,
@@ -270,6 +310,7 @@ export struct NextEReaderLabPage {
               beforeShowChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareChromeShow(isCurrent),
               topInset: this.safeArea.topAvoidHeight, bottomInset: this.safeArea.bottomAvoidHeight,
               accent: ThemeConstants.BRAND_PRIMARY, onClose: (): void => this.closeTrial(),
+              onInteractionBusy: (busy: boolean): void => { this.setEnhancementInteractionBusy(busy) },
               onChromeVisible: (visible: boolean): void => this.syncChromeVisible(visible) })
           } else {
           ReaderLabSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
