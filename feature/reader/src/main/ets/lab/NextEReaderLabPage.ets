@@ -512,7 +512,6 @@ export struct NextEReaderLabPage {
   }
 
   private initialCropBorders(): boolean {
-    if (this.request.thumbnailEntry) return false
     if (this.request.cropBorders) return true
     if (!this.request.preferencesReadWrite) return false
     return this.readMode.mode === ReadMode.VERTICAL
@@ -642,7 +641,9 @@ export struct NextEReaderLabPage {
               },
               showPageNumber: this.readMode.showPageNumber,
               cropBorders: this.initialCropBorders(),
-              cropAvailable: !this.request.thumbnailEntry,
+              // The entry transition already cancels when cropped geometry cannot be mapped.
+              // Keep the reader feature available and sacrifice only the optional flight.
+              cropAvailable: this.request.preferencesReadWrite || this.request.cropBorders,
               hostSettingsAvailable: this.request.preferencesReadWrite,
               onHostSettings: (): void => { this.openHostSettings() },
               hostActions: this.hostActions(),
