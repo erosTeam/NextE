@@ -1,4 +1,5 @@
 import { GalleryDetailParams } from '../model/RouteParams'
+import { connectGalleryDetailTransition } from '../state/GalleryDetailTransitionState'
 
 const GALLERY_DETAIL_ROUTE_NAME: string = 'GalleryDetail'
 
@@ -64,7 +65,17 @@ export function installGalleryDetailDuplicateInterception(
   onWillShow?: () => void,
 ): void {
   stack.setInterception({
-    willShow: () => { onWillShow?.() },
+    willShow: (from, _to, operation, _animated) => {
+      if (operation === NavigationOperation.REPLACE && typeof from !== 'string') {
+        const params: GalleryDetailParams | null = paramsForGalleryDetailPath(from.pathInfo)
+        if (params !== null && from.navDestinationId !== undefined) {
+          // Replacement has no custom POP completion. Release the exact old route before the new
+          // destination renders, including a suspended slot, without resetting retained parents.
+          connectGalleryDetailTransition().discardRouteContext(params.gid, from.navDestinationId)
+        }
+      }
+      onWillShow?.()
+    },
     // Navigation owns the real stack and visual transition. Refresh the secondary-branch entry only
     // after its destination settles, never from a list click or the pre-create duplicate guard below.
     didShow: (_from, to, _operation, _animated) => {

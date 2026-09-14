@@ -215,6 +215,30 @@ export class GalleryDetailTransitionState {
       (navDestinationId.length > 0 && navDestinationId === this.routeDestinationId)
   }
 
+  /** Split exposes the source pane while retaining the route's portrait return context. */
+  hidesSource(componentId: string, isSplitMode: boolean): boolean {
+    return componentId.length > 0 && this.sourceComponentId === componentId &&
+      !(isSplitMode && this.phase === GalleryDetailTransitionPhase.OPEN)
+  }
+
+  /** Discard only the removed destination; a same-gallery parent is a different route. */
+  discardRouteContext(galleryId: string, navDestinationId: string): void {
+    if (galleryId.length === 0 || navDestinationId.length === 0) {
+      return
+    }
+    // Remove matching suspended slots first so finishRouteContext cannot restore a removed route.
+    for (let i: number = this.suspendedContexts.length - 1; i >= 0; i--) {
+      const context: SuspendedGalleryDetailTransitionContext = this.suspendedContexts[i]
+      if (context.galleryId === galleryId && context.routeDestinationId === navDestinationId) {
+        this.suspendedContexts.splice(i, 1)
+        this.releaseSuspendedContext(context)
+      }
+    }
+    if (this.galleryId === galleryId && this.routeDestinationId === navDestinationId) {
+      this.finishRouteContext()
+    }
+  }
+
   suspendedDepth(): number {
     return this.suspendedContexts.length
   }

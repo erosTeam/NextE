@@ -11,6 +11,34 @@
   完成之后，用户当场确认这是第三次复活已修回归；该候选作废，必须先恢复最后已提交时序，不能
   继续叠加替代实现。当前没有已接受的新候选，不得宣称返程问题完成。
 
+## 2026-09-14 平板 Split 源卡片修复（DEVICE PASS，限定所报路径）
+
+- 依据：用户在 NextN 报告瀑布流竖屏打开 A、横屏 Split 后 A 隐藏，选择 B 替换详情后 A 持续隐藏。
+  源码对照确认 NextE 两种转场具有相同清理缺口，用户授权两项目修复并在103验证。
+- 树与实现：真实 Home → WaterFlow → FlowItem → SourceSlot → 原卡片／EhThumbnail。SourceSlot
+  订阅现有 NavStackHolder.isSplitMode；hidesSource 在物理 Split 的 OPEN 恢复源显示并保留竖屏返程上下文。
+  现有 willShow(REPLACE) 按旧 gid + destinationId 清理活动及挂起槽，保留最近父级，不做全局 reset。
+  卡片几何、背景、标题、滚动所有者、动画时序和 Reader 均保持原实现。
+- 原生回归：显式选择 GallerySplitTransitionTrial；真实 Home 的两张卡片分别完成 coverExpand／seamless
+  的竖屏打开、横屏 Split、旋回竖屏 Back、Split 直接 Back、B 替换、替换后竖屏 Back、再次打开 A 返回。
+  实际 B 路由 gid、secondaryEntryGalleryGid、栈深和旧上下文清理断言通过。103 MLR-AL00 结果1/1，83.331s。
+- 视觉验收：每模式六个完整页面截图及原生树均已复核，共12组；应用根竖屏[0,107][1600,2560]、
+  横屏[0,107][2560,1600]。左侧 A 封面与文字在 Split 和 B 替换后均可见，返回和重新打开正常。
+  连续录屏按顺序审查接触表006–032（原帧240–1535，PTS24.130067–149.875433s），另查23张原图。
+  主代理独立复核原帧318/679/680/972/1032/1282/1352/1368，覆盖旋转、替换交接及返回；
+  未发现本问题对应的持续源卡空洞。Split Back 后右侧空态不属于左侧源卡丢失。
+- 构建：main 签名构建18.861s，ohosTest11.302s，V1 inventory 为0 file(s)，git diff --check通过。
+  main SHA-256：09e402d606f65fc143382ab914dfda144ab88bb1193a6ea841771d870f233b11；
+  ohosTest SHA-256：5bc02161165d2895a337909ad1417eb34142a00a2d2e0b88c6d4e776aab39022。
+- 证据由协调任务保存在 NextN 的 .hvigor/outputs/gallery-split-fix-20260914/：
+  matepadpro-lab103__MLR-AL00/not-applicable/mixed/nexte-native-01/、nexte-motion-01/ 与 nexte-frames/。
+  目录保留完整 run-metadata、原始 manifest、截图、layout、录像、编码帧及PTS映射。
+- 收尾：两项目均恢复测试前列表／转场／分栏设置和 preferred orientation；导出后移除临时录屏媒体。
+  power-shell timeout -r 后回读 Timeout600000ms且无覆盖；103租约已释放并通知协作任务。
+  所报 Home 瀑布流路径无待执行的实机动作。
+  嵌套同 gid 不同 destination 的父级保留仅有身份匹配源码依据，本次未做该实机矩阵；
+  本段不关闭上方历史 Reader 验收缺口。
+
 ## Reader 全屏返程负面约束
 
 - GalleryDetail 和全部缩略图页的目标缩略图不会因为 Reader 显示或隐藏状态栏而被定义为“必须移动”。

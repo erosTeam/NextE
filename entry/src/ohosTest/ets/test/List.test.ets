@@ -1,4 +1,5 @@
 import galleryDetailParserTest from './GalleryDetailParser.test'
+import gallerySplitTransitionTest from './GallerySplitTransition.test'
 import readerLabReflowTest from './ReaderLabReflow.test'
 import readerChromeTest from './ReaderChrome.test'
 import readerPagingAxisTest from './ReaderPagingAxis.test'
@@ -90,6 +91,7 @@ import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
 
 export default function testsuite(): void {
+  gallerySplitTransitionTest()
   readerLabReflowTest()
   readerChromeTest()
   readerPagingAxisTest()
