@@ -42,7 +42,7 @@ assert.equal(calls[1].identity, calls[0].identity)
 const page = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
 assert.match(page, /private cropStrength\(\): string[\s\S]*?ReadMode\.VERTICAL[\s\S]*?cropStrengthContinuous[\s\S]*?cropStrengthPaged/)
-assert.match(page, /cropSourceRevision: this\.cropSourceRevision\(\)/)
+assert.match(page, /new ReaderCropPolicy\([\s\S]*?this\.cropSourceRevision\(\)\)/)
 assert.match(page, /new NextEReaderLabAdapter\([\s\S]*?\(\): string => this\.cropStrength\(\)\)/)
 assert.match(page, /new NextEReaderSuperResolutionProvider\([\s\S]*?\(\): string => this\.cropStrength\(\)\)/)
 assert.match(page, /new NextEReaderTranslationProvider\([\s\S]*?\(\): string => this\.cropStrength\(\)\)/)

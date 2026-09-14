@@ -38,7 +38,7 @@ for (const [request, labRequest, readMode, expected] of [
 }
 
 assert.match(pageSource,
-  /cropAvailable:\s*this\.request\.preferencesReadWrite \|\| this\.labRequest\?\.cropBorders === true/,
+  /new ReaderCropPolicy\([\s\S]*?this\.request\.preferencesReadWrite \|\| this\.labRequest\?\.cropBorders === true/,
   'thumbnail entry must not disable the host crop control')
 
 console.log('NextE shared-reader thumbnail crop parity passed')
