@@ -1,5 +1,5 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
-  ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext } from '@reader-kit/ui'
+  ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -8,7 +8,7 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
   connectImageBlockSettings, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
 import { appSheetOptions } from 'shared'
-import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
+import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
   ReaderAssetProvider, ReaderImageInformation,
   ReaderPage } from '@reader-kit/core'
@@ -59,8 +59,7 @@ export struct NextEReaderLabPage {
   private adapter: NextEReaderLabAdapter | null = null
   private superResolutionProvider: NextEReaderSuperResolutionProvider | null = null
   private imageBlockProvider: NextEReaderImageBlockProvider | null = null
-  private imageShare: ReaderImageShareHost | null = null
-  private imageSave: ReaderImageSaveHost | null = null
+  private mediaActions: ReaderMediaActions = new ReaderMediaActions()
   @Local private labVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
   @Local private readMode: ReadModeState = connectReadMode()
   @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay()
@@ -108,10 +107,13 @@ export struct NextEReaderLabPage {
             exactImagePage)
         }, (): string => this.cropStrength())
     this.adapter = adapter
-    this.imageShare = lab === null ? adapter : new ReaderLabShareProbe(adapter, lab.shareProbe)
-    this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
+    const imageShare = lab === null ? adapter : new ReaderLabShareProbe(adapter, lab.shareProbe)
+    const imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
       await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
     })
+    this.mediaActions = new ReaderMediaActions(imageShare, imageSave,
+      (frame: ReaderPagedFrame, value: ReaderImageInformation): string[] =>
+        this.imageInformationSupplement(frame, value))
     const imageBlockProvider = new NextEReaderImageBlockProvider(context, adapter, (message: string): void => {
       this.getUIContext().getPromptAction().showToast({ message })
     }, forcedImageBlockSourceIndex)
@@ -747,9 +749,7 @@ export struct NextEReaderLabPage {
               imageInterpolation: this.readMode.imageScalingQuality === 'low' ? ImageInterpolation.Low :
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
-              input: this.input, imageShare: this.imageShare, imageSave: this.imageSave,
-              informationSupplement: (frame: ReaderPagedFrame, value: ReaderImageInformation): string[] =>
-                this.imageInformationSupplement(frame, value),
+              input: this.input, mediaActions: this.mediaActions,
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,

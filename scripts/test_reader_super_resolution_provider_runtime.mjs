@@ -118,7 +118,7 @@ assert.match(hostSource,
   /preferredVariant: this\.superResolutionAvailable\(\) \? 'enhanced' : 'default'/)
 assert.match(hostSource,
   /private superResolutionIdentity\(\): string \{[\s\S]*?return this\.superResolutionAvailable\(\) \? this\.superResolutionConfiguration\(\)\.identity\(\) : ''/)
-assert.match(hostSource, /informationSupplement:[\s\S]*?this\.imageInformationSupplement\(frame, value\)/)
+assert.match(hostSource, /new ReaderMediaActions\([\s\S]*?this\.imageInformationSupplement\(frame, value\)/)
 assert.match(hostSource, /reader_image_info_enhancement_applied/)
 assert.match(hostSource, /reader_image_info_enhancement_processing/)
 assert.match(hostSource, /reader_image_info_enhancement_queued/)
