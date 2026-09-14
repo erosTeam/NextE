@@ -1,7 +1,7 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
-  ReaderHostActions } from '@reader-kit/ui'
+  ReaderHostActions, ReaderVariantPolicy } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -756,15 +756,14 @@ export struct NextEReaderLabPage {
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
-              preferredVariant: this.superResolutionAvailable() ? 'enhanced' : 'default',
-              preferredVariantIdentity: this.superResolutionIdentity(),
-              variantPreferenceResolver: (sourceIndex: number): ReaderVariantPreference =>
-                this.variantPreference(sourceIndex),
-              variantPreferenceRevision: this.translationPreferenceRevision,
-              onVariantSelection: (sourceIndex: number, preference: ReaderVariantPreference,
-                result: 'changed' | 'unchanged' | 'unavailable' | 'stale'): void => {
-                this.handleVariantSelection(sourceIndex, preference, result)
-              },
+              variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
+                this.superResolutionAvailable() ? 'enhanced' : 'default', this.superResolutionIdentity()),
+                this.translationPreferenceRevision,
+                (sourceIndex: number): ReaderVariantPreference => this.variantPreference(sourceIndex),
+                (sourceIndex: number, preference: ReaderVariantPreference,
+                  result: 'changed' | 'unchanged' | 'unavailable' | 'stale'): void => {
+                  this.handleVariantSelection(sourceIndex, preference, result)
+                }),
               showPageNumber: this.readMode.showPageNumber,
               cropBorders: this.initialCropBorders(),
               cropSourceRevision: this.cropSourceRevision(),

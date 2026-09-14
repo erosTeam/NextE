@@ -115,7 +115,7 @@ const hostSource = fs.readFileSync(path.join(root,
 assert.match(hostSource,
   /private superResolutionAvailable\(\): boolean \{[\s\S]*?superResolutionEnabled[\s\S]*?superResolutionModel !== ReaderSuperResolutionModel\.NONE/)
 assert.match(hostSource,
-  /preferredVariant: this\.superResolutionAvailable\(\) \? 'enhanced' : 'default'/)
+  /variantPolicy: new ReaderVariantPolicy\(new ReaderVariantPreference\([\s\S]*?this\.superResolutionAvailable\(\) \? 'enhanced' : 'default'/)
 assert.match(hostSource,
   /private superResolutionIdentity\(\): string \{[\s\S]*?return this\.superResolutionAvailable\(\) \? this\.superResolutionConfiguration\(\)\.identity\(\) : ''/)
 assert.match(hostSource, /new ReaderMediaActions\([\s\S]*?this\.imageInformationSupplement\(frame, value\)/)
