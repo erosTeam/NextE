@@ -37,14 +37,16 @@ export class NextEReaderImageBlockProvider implements ReaderAssetProvider {
   private paths: Map<string, string> = new Map<string, string>()
   private blocked: Set<string> = new Set<string>()
   private feedback: (message: string) => void
+  private forcedBlockedSourceIndex: number
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
-    feedback: (message: string) => void = (_message: string): void => {}) {
+    feedback: (message: string) => void = (_message: string): void => {}, forcedBlockedSourceIndex: number = -1) {
     this.context = context
     this.provider = provider
     this.feedback = feedback
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
+    this.forcedBlockedSourceIndex = forcedBlockedSourceIndex
     if (provider.prepareOriginal !== undefined) {
       this.prepareOriginal = async (page: ReaderPage,
         cancellation: ReaderCancellation): Promise<ReaderOriginalAssetPlan> => {
@@ -82,11 +84,18 @@ export class NextEReaderImageBlockProvider implements ReaderAssetProvider {
     }
     this.paths.set(identity, path)
     let decision = new ImageBlockDecision()
-    try {
-      decision = await ImageBlockRuntimeService.decisionForFile(this.context, path)
-    } catch (error) {
-      DiagnosticLogger.warn('image-block', 'reader_shared_decision_failed',
-        `page=${page.sourceIndex + 1} ${(error as Error).message}`)
+    if (page.sourceIndex === this.forcedBlockedSourceIndex) {
+      // One-shot Debug-lab evidence path supplied by NextEReaderLabContextProbe; never persisted or routed in release.
+      decision.blocked = true
+      decision.sourceType = 'debug-probe'
+      decision.feedId = 'debug-probe'
+    } else {
+      try {
+        decision = await ImageBlockRuntimeService.decisionForFile(this.context, path)
+      } catch (error) {
+        DiagnosticLogger.warn('image-block', 'reader_shared_decision_failed',
+          `page=${page.sourceIndex + 1} ${(error as Error).message}`)
+      }
     }
     cancellation.check()
     if (this.paths.get(identity) !== path) return asset

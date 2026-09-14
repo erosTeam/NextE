@@ -77,4 +77,11 @@ const original = await plan.load(new core.ReaderCancellation(), false)
 assert.equal(original.notice.previewUri, 'file:///cache/original.jpg')
 assert.equal(calls.decisions.at(-1), '/cache/original.jpg')
 
+decisionBlocked = false
+const forcedProvider = new NextEReaderImageBlockProvider({}, backend, () => {}, 0)
+const forced = await forcedProvider.load(page, 'original', new core.ReaderCancellation(), false)
+assert.equal(forced.notice.id.includes('nexte-image-block:'), true)
+assert.equal(forced.notice.previewUri, 'file:///cache/page.jpg')
+assert.equal(calls.decisions.at(-1), '/cache/original.jpg')
+
 console.log('reader image block provider runtime: ok')

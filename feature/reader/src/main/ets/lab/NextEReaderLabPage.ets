@@ -81,7 +81,7 @@ export struct NextEReaderLabPage {
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     if (!context.applicationInfo.debug) return
-    connectNextEReaderLabContextProbe().deliver(this.request.work, context)
+    const forcedImageBlockSourceIndex = connectNextEReaderLabContextProbe().deliver(this.request.work, context)
     this.volumeDisposed = false
     this.keepScreenOn = new ReaderKeepScreenOn(context)
     if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
@@ -95,7 +95,7 @@ export struct NextEReaderLabPage {
     })
     const imageBlockProvider = new NextEReaderImageBlockProvider(context, adapter, (message: string): void => {
       this.getUIContext().getPromptAction().showToast({ message })
-    })
+    }, forcedImageBlockSourceIndex)
     this.imageBlockProvider = imageBlockProvider
     const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())

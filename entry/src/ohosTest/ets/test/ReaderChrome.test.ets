@@ -2,6 +2,7 @@ import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { connectNextEReaderLabContextProbe } from 'reader'
+import { connectImageBlockSettings } from 'shared'
 
 const CHROME_CAPTURE_PREFIX: string = 'rkit-chrome-'
 
@@ -94,10 +95,15 @@ async function bestEffortCloseChromeTrial(driver: Driver): Promise<void> {
 }
 
 async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
-  failurePage: number = -1, pageIndex: number = 0, entryLayout: string = 'single'): Promise<void> {
+  failurePage: number = -1, pageIndex: number = 0, entryLayout: string = 'single',
+  preferencesReadWrite: boolean = false, beforeMounted: (() => void) | null = null,
+  forcedImageBlockSourceIndex: number = -1): Promise<void> {
   let mounted = false
   const probe = connectNextEReaderLabContextProbe()
-  const epoch = probe.arm(work, (): void => { mounted = true })
+  const epoch = probe.arm(work, (): void => {
+    beforeMounted?.()
+    mounted = true
+  }, forcedImageBlockSourceIndex)
   try {
     const delegator = abilityDelegatorRegistry.getAbilityDelegator()
     await delegator.startAbility({
@@ -105,6 +111,7 @@ async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
         readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true', readerLabVolumeKeys: 'false',
         readerLabFailPage: String(failurePage), readerLabPage: String(pageIndex),
         readerLabEntryLayout: entryLayout,
+        readerLabPreferencesReadWrite: String(preferencesReadWrite),
       },
     })
     for (let attempt = 0; attempt < 80; attempt++) {
@@ -237,6 +244,7 @@ async function reloadOneExactSpreadSource(driver: Driver, capturePrefix: string)
 
 /** This UI sequence runs only under an explicit named device protocol. */
 export default function readerChromeTest(): void {
+  readerImageBlockSharedTest()
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
   readerManualReloadTest()
@@ -339,6 +347,51 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+    })
+  })
+}
+
+/** No-write device check for the NextE-owned block action and deterministic Debug-lab notice presentation. */
+function readerImageBlockSharedTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderImageBlockSharedTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderImageBlockSharedTrial', (): void => {
+    it('sharedReaderPreservesNextEImageBlockActionAndNotice', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const settings = connectImageBlockSettings()
+      const originalEnabled = settings.enabled
+      try {
+        await startFreshChromeTrial(driver, work, unit, -1, 0, 'single', true, (): void => {
+          settings.enabled = true
+        })
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        await (await waitChromeEnabled(driver, 'rkit-more')).click()
+        expect(await waitChromeId(driver, 'rkit-host-action-mark-image-blocked') !== null).assertTrue()
+        await captureChrome(driver, 'image-block-mark-action')
+        await driver.pressBack(); await driver.delayMs(300)
+        await closeChromeTrial(driver)
+
+        await startFreshChromeTrial(driver, work, unit, -1, 0, 'single', true, (): void => {
+          settings.enabled = true
+        }, 0)
+        const notice = await waitChromeId(driver, 'rkit-notice-page-1')
+        expect(notice !== null).assertTrue()
+        expect(await driver.findComponent(ON.id('rkit-notice-action-page-1')) !== null).assertTrue()
+        expect(await driver.findComponent(ON.type('Image').within(ON.id('rkit-notice-page-1'))) !== null).assertTrue()
+        // The notice node is synchronous; allow its retained file preview one render interval before evidence capture.
+        await driver.delayMs(1000)
+        await captureChrome(driver, 'image-block-notice')
+        await closeChromeTrial(driver)
+      } catch (error) {
+        await bestEffortCaptureChrome(driver, 'image-block-exception')
+        throw error as Error
+      } finally {
+        settings.enabled = originalEnabled
+        await bestEffortCloseChromeTrial(driver)
+      }
     })
   })
 }
