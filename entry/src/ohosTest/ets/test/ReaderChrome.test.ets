@@ -2,7 +2,7 @@ import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { connectNextEReaderLabContextProbe } from 'reader'
-import { connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel } from 'shared'
+import { AppStrings, connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel } from 'shared'
 
 const CHROME_CAPTURE_PREFIX: string = 'rkit-chrome-'
 
@@ -97,7 +97,7 @@ async function bestEffortCloseChromeTrial(driver: Driver): Promise<void> {
 async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
   failurePage: number = -1, pageIndex: number = 0, entryLayout: string = 'single',
   preferencesReadWrite: boolean = false, beforeMounted: (() => void) | null = null,
-  forcedImageBlockSourceIndex: number = -1): Promise<void> {
+  forcedImageBlockSourceIndex: number = -1, assetFailureMessage: string = ''): Promise<void> {
   let mounted = false
   const probe = connectNextEReaderLabContextProbe()
   const epoch = probe.arm(work, (): void => {
@@ -112,6 +112,7 @@ async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
         readerLabFailPage: String(failurePage), readerLabPage: String(pageIndex),
         readerLabEntryLayout: entryLayout,
         readerLabPreferencesReadWrite: String(preferencesReadWrite),
+        readerLabAssetFailureMessage: assetFailureMessage,
       },
     })
     for (let attempt = 0; attempt < 80; attempt++) {
@@ -250,6 +251,7 @@ export default function readerChromeTest(): void {
   readerEnhancementStatusTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
+  readerFailurePresentationTest()
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
@@ -567,6 +569,42 @@ function readerLifecycleRecoveryTest(): void {
         bodyPassed = true
       } catch (error) {
         await bestEffortCaptureChrome(driver, 'lifecycle-exception')
+        throw error as Error
+      } finally {
+        if (bodyPassed) await closeChromeTrial(driver)
+        else await bestEffortCloseChromeTrial(driver)
+      }
+    })
+  })
+}
+
+/** A host-classified quota failure stays readable and recovers on the same page. */
+function readerFailurePresentationTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderFailurePresentationTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderFailurePresentationTrial', (): void => {
+    it('showsQuotaGuidanceAndRetriesTheSamePage', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      clearChromeCaptures(['quota-failed', 'quota-recovered', 'quota-exception'])
+      await bestEffortCloseChromeTrial(driver)
+      let bodyPassed = false
+      try {
+        await startFreshChromeTrial(driver, work, unit, 3, 3, 'single', false, null, -1, 'image509')
+        await waitChromeId(driver, 'rkit-failure-page-4')
+        expect(await chromePage(driver)).assertEqual(4)
+        expect(await driver.findComponent(ON.text(AppStrings.get('reader_error_quota'))) !== null).assertTrue()
+        expect(await driver.findComponent(ON.text(AppStrings.get('reader_error_quota_hint'))) !== null).assertTrue()
+        await captureChrome(driver, 'quota-failed')
+        await (await waitChromeEnabled(driver, 'rkit-retry-page-4')).click()
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        expect(await chromePage(driver)).assertEqual(4)
+        await captureChrome(driver, 'quota-recovered')
+        bodyPassed = true
+      } catch (error) {
+        await bestEffortCaptureChrome(driver, 'quota-exception')
         throw error as Error
       } finally {
         if (bodyPassed) await closeChromeTrial(driver)

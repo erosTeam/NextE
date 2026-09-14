@@ -10,6 +10,7 @@ export interface NextEReaderHostRequest {
   pageIndex: number
   pageIndexProvided: boolean
   failurePage: number
+  assetFailureMessage: string
   delayedMetricsPage: number
   failureLayout: string
   readingChrome: boolean
@@ -41,6 +42,7 @@ export class NextEProductionReaderRequest implements NextEReaderHostRequest {
   pageIndex: number
   pageIndexProvided: boolean = true
   failurePage: number = -1
+  assetFailureMessage: string = ''
   delayedMetricsPage: number = -1
   failureLayout: string = 'continuous'
   readingChrome: boolean = true

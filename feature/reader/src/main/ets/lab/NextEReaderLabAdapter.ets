@@ -8,12 +8,13 @@ import {
 } from 'shared'
 import {
   ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
-  ReaderCancellation, ReaderAsset, ReaderAssetKind, ReaderImageShareHost,
+  ReaderCancellation, ReaderAsset, ReaderAssetFailure, ReaderAssetKind, ReaderImageShareHost,
   ReaderImageShareTarget, ReaderImageSharePresentation,
   ReaderImageInformation, ReaderOriginalAssetPlan,
 } from '@reader-kit/core'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { NextEReaderCropSource } from './NextEReaderCropSource'
+import { NextEReaderFailure } from './NextEReaderFailure'
 
 class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
   page: ReaderPage
@@ -69,6 +70,10 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
     exactImagePage: boolean) => void) | null
   private cropStrength: () => string
+
+  failure(error: Error): ReaderAssetFailure {
+    return NextEReaderFailure.from(error)
+  }
 
   constructor(context: common.UIAbilityContext, token: string, isEx: boolean, entryParams: ReaderParams | null = null,
     sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
