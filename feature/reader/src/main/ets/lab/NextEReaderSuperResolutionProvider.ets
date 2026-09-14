@@ -1,12 +1,12 @@
 import { common } from '@kit.AbilityKit'
 import {
   ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
-  ReaderImageCropBounds, ReaderImageCropSource, ReaderOriginalAssetPlan, ReaderPage,
+  ReaderOriginalAssetPlan, ReaderPage,
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
-import { ReaderPageCropService, ReaderSuperResolutionResult,
-  readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
+import { ReaderSuperResolutionResult, readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
+import { NextEReaderCropSource } from './NextEReaderCropSource'
 
 export class NextEReaderSuperResolutionInformation {
   identity: string
@@ -23,22 +23,6 @@ export class NextEReaderSuperResolutionInformation {
 
   copy(): NextEReaderSuperResolutionInformation {
     return new NextEReaderSuperResolutionInformation(this.identity, this.model, this.applied, this.reason)
-  }
-}
-
-class NextEReaderVariantCropSource implements ReaderImageCropSource {
-  private static sequence: number = 0
-  private path: string
-  private identity: string
-
-  constructor(path: string) {
-    this.path = path
-    this.identity = `reader-shared-variant:${++NextEReaderVariantCropSource.sequence}`
-  }
-
-  async read(): Promise<ReaderImageCropBounds> {
-    const bounds = await ReaderPageCropService.detect(this.path, this.identity)
-    return new ReaderImageCropBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
   }
 }
 
@@ -67,13 +51,16 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
   private path: string
   private ownerKey: string
   private originalAvailable: boolean
+  private cropStrength: () => string
 
-  constructor(page: ReaderPage, identity: string, path: string, ownerKey: string, originalAvailable: boolean) {
+  constructor(page: ReaderPage, identity: string, path: string, ownerKey: string, originalAvailable: boolean,
+    cropStrength: () => string = (): string => '') {
     this.page = page.copy()
     this.identity = identity
     this.path = path
     this.ownerKey = ownerKey
     this.originalAvailable = originalAvailable
+    this.cropStrength = cropStrength
   }
 
   async load(cancellation: ReaderCancellation, _forceReload: boolean): Promise<ReaderAsset> {
@@ -84,7 +71,7 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
     const asset = new ReaderAsset(`file://${this.path}`,
       (): void => { readerSuperResolutionReleaseOwner(this.ownerKey) },
       new ReaderFileInformation(this.path, facts))
-    asset.crop = new NextEReaderVariantCropSource(this.path)
+    asset.crop = new NextEReaderCropSource(this.path, 'reader-shared-variant', this.cropStrength)
     asset.originalAvailable = this.originalAvailable
     return asset
   }
@@ -106,12 +93,15 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
+  private cropStrength: () => string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
-    configuration: () => NextEReaderSuperResolutionConfiguration) {
+    configuration: () => NextEReaderSuperResolutionConfiguration,
+    cropStrength: () => string = (): string => '') {
     this.context = context
     this.provider = provider
     this.configuration = configuration
+    this.cropStrength = cropStrength
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     this.ownerPrefix = `reader-shared:${++NextEReaderSuperResolutionProvider.sequence}`
@@ -167,7 +157,7 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
       if (path.length === 0) throw new Error('reader_variant_output_unavailable')
       retained = true
       return new NextEReaderSuperResolutionPlan(page, identity, path, ownerKey,
-        this.provider.prepareOriginal !== undefined)
+        this.provider.prepareOriginal !== undefined, this.cropStrength)
     } catch (error) {
       const current = this.informationByPage.get(this.pageIdentity(page))
       if (current !== undefined && current.identity === identity && !current.applied &&

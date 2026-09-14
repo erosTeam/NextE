@@ -103,7 +103,7 @@ export struct NextEReaderLabPage {
         (kind: string, index: number, fileCount: number, seedCount: number, exactImagePage: boolean): void => {
           connectNextEReaderLabContextProbe().reportSource(this.request.work, kind, index, fileCount, seedCount,
             exactImagePage)
-        })
+        }, (): string => this.cropStrength())
     this.adapter = adapter
     this.imageShare = production ? adapter : new ReaderLabShareProbe(adapter, this.request.shareProbe)
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
@@ -114,10 +114,12 @@ export struct NextEReaderLabPage {
     }, forcedImageBlockSourceIndex)
     this.imageBlockProvider = imageBlockProvider
     const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
-      (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())
+      (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration(),
+      (): string => this.cropStrength())
     this.superResolutionProvider = variantProvider
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
-      (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
+      (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page),
+      (): string => this.cropStrength())
     const assetProvider: ReaderAssetProvider = production
       ? translationProvider
       : new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
@@ -617,6 +619,16 @@ export struct NextEReaderLabPage {
       : this.readMode.cropBordersPaged
   }
 
+  private cropStrength(): string {
+    return this.readMode.mode === ReadMode.VERTICAL
+      ? this.readMode.cropStrengthContinuous
+      : this.readMode.cropStrengthPaged
+  }
+
+  private cropSourceRevision(): string {
+    return this.cropStrength()
+  }
+
   private resolveTapZone(x: number, y: number, layout: ReaderLayout): ReaderTapAction {
     if (this.readMode.restoreResult !== 'applied' || this.volumeDisposed || this.closeRequested || this.hostClosing ||
       !this.routeActive || !this.labVisibility.foreground || this.session === null) return 'none'
@@ -748,6 +760,7 @@ export struct NextEReaderLabPage {
               },
               showPageNumber: this.readMode.showPageNumber,
               cropBorders: this.initialCropBorders(),
+              cropSourceRevision: this.cropSourceRevision(),
               // The entry transition already cancels when cropped geometry cannot be mapped.
               // Keep the reader feature available and sacrifice only the optional flight.
               cropAvailable: this.request.preferencesReadWrite || this.request.cropBorders,

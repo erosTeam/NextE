@@ -1,30 +1,14 @@
 import { common } from '@kit.AbilityKit'
 import {
   ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
-  ReaderImageCropBounds, ReaderImageCropSource, ReaderOriginalAssetPlan, ReaderPage,
+  ReaderOriginalAssetPlan, ReaderPage,
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
 import {
   ComicTranslationReaderPageInput, ComicTranslationRuntimeService, ComicVisualTranslationRunResult,
-  ReaderPageCropService,
 } from 'shared'
-
-class NextEReaderTranslationCropSource implements ReaderImageCropSource {
-  private static sequence: number = 0
-  private path: string
-  private identity: string
-
-  constructor(path: string) {
-    this.path = path
-    this.identity = `reader-shared-translation:${++NextEReaderTranslationCropSource.sequence}`
-  }
-
-  async read(): Promise<ReaderImageCropBounds> {
-    const bounds = await ReaderPageCropService.detect(this.path, this.identity)
-    return new ReaderImageCropBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
-  }
-}
+import { NextEReaderCropSource } from './NextEReaderCropSource'
 
 export class NextEReaderTranslationConfiguration {
   enabled: boolean
@@ -61,12 +45,15 @@ class NextEReaderTranslationPlan implements ReaderVariantAssetPlan {
   identity: string
   private path: string
   private originalAvailable: boolean
+  private cropStrength: () => string
 
-  constructor(page: ReaderPage, identity: string, path: string, originalAvailable: boolean) {
+  constructor(page: ReaderPage, identity: string, path: string, originalAvailable: boolean,
+    cropStrength: () => string = (): string => '') {
     this.page = page.copy()
     this.identity = identity
     this.path = path
     this.originalAvailable = originalAvailable
+    this.cropStrength = cropStrength
   }
 
   async load(cancellation: ReaderCancellation, _forceReload: boolean): Promise<ReaderAsset> {
@@ -75,7 +62,7 @@ class NextEReaderTranslationPlan implements ReaderVariantAssetPlan {
     facts.variant = 'translated'
     facts.originalAvailable = this.originalAvailable
     const asset = new ReaderAsset(`file://${this.path}`, () => {}, new ReaderFileInformation(this.path, facts))
-    asset.crop = new NextEReaderTranslationCropSource(this.path)
+    asset.crop = new NextEReaderCropSource(this.path, 'reader-shared-translation', this.cropStrength)
     asset.originalAvailable = this.originalAvailable
     return asset
   }
@@ -90,12 +77,15 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
   private context: common.UIAbilityContext
   private configuration: (page: ReaderPage) => NextEReaderTranslationConfiguration
   private sourcePaths: Map<string, string> = new Map<string, string>()
+  private cropStrength: () => string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
-    configuration: (page: ReaderPage) => NextEReaderTranslationConfiguration) {
+    configuration: (page: ReaderPage) => NextEReaderTranslationConfiguration,
+    cropStrength: () => string = (): string => '') {
     this.context = context
     this.provider = provider
     this.configuration = configuration
+    this.cropStrength = cropStrength
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     if (provider.prepareOriginal !== undefined) {
@@ -144,7 +134,7 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
     if (this.configuration(page).identity() !== identity || !configuration.resultMatches(page, result) ||
       result.renderedPage.localFilePath.length === 0) throw new Error('reader_translation_result_stale')
     return new NextEReaderTranslationPlan(page, identity, result.renderedPage.localFilePath,
-      this.provider.prepareOriginal !== undefined)
+      this.provider.prepareOriginal !== undefined, this.cropStrength)
   }
 
   private pageIdentity(page: ReaderPage): string {

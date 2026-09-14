@@ -4,30 +4,16 @@ import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import {
   DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
-  ReaderPageCropService,
   ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
   ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
   ReaderCancellation, ReaderAsset, ReaderAssetKind, ReaderImageShareHost,
   ReaderImageShareTarget, ReaderImageSharePresentation,
-  ReaderImageInformation, ReaderOriginalAssetPlan, ReaderImageCropBounds, ReaderImageCropSource,
+  ReaderImageInformation, ReaderOriginalAssetPlan,
 } from '@reader-kit/core'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
-
-class NextEReaderCropSource implements ReaderImageCropSource {
-  private static sequence: number = 0
-  private path: string
-  private identity: string
-  constructor(path: string) {
-    this.path = path
-    this.identity = `reader-lab-asset:${++NextEReaderCropSource.sequence}`
-  }
-  async read(): Promise<ReaderImageCropBounds> {
-    const bounds = await ReaderPageCropService.detect(this.path, this.identity)
-    return new ReaderImageCropBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
-  }
-}
+import { NextEReaderCropSource } from './NextEReaderCropSource'
 
 class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
   page: ReaderPage
@@ -35,13 +21,16 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
   private source: EhGalleryImage
   private url: string
   private cacheKey: string
+  private cropStrength: () => string
 
-  constructor(page: ReaderPage, context: common.UIAbilityContext, source: EhGalleryImage, url: string, cacheKey: string) {
+  constructor(page: ReaderPage, context: common.UIAbilityContext, source: EhGalleryImage, url: string, cacheKey: string,
+    cropStrength: () => string = (): string => '') {
     this.page = page.copy()
     this.context = context
     this.source = source.copy()
     this.url = url
     this.cacheKey = cacheKey
+    this.cropStrength = cropStrength
   }
 
   async load(request: ReaderCancellation, forceReload: boolean): Promise<ReaderAsset> {
@@ -59,7 +48,9 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     facts.originalAvailable = true
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
     asset.originalAvailable = true
-    if (result.filePath.length > 0) asset.crop = new NextEReaderCropSource(result.filePath)
+    if (result.filePath.length > 0) {
+      asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-original', this.cropStrength)
+    }
     return asset
   }
 }
@@ -77,15 +68,18 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private entryParams: ReaderParams | null
   private sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
     exactImagePage: boolean) => void) | null
+  private cropStrength: () => string
 
   constructor(context: common.UIAbilityContext, token: string, isEx: boolean, entryParams: ReaderParams | null = null,
     sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
-      exactImagePage: boolean) => void) | null = null) {
+      exactImagePage: boolean) => void) | null = null,
+    cropStrength: () => string = (): string => '') {
     this.context = context
     this.token = token
     this.isEx = isEx
     this.entryParams = entryParams
     this.sourceSelected = sourceSelected
+    this.cropStrength = cropStrength
   }
 
   transitionImage(pageKey: string | null): EhGalleryImage | null {
@@ -227,7 +221,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const url = await ImageResolveService.getInstance().resolveOriginal(source)
     cancellation.check()
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, true)
-    return new NextEOriginalAssetPlan(page, this.context, source, url, key)
+    return new NextEOriginalAssetPlan(page, this.context, source, url, key, this.cropStrength)
   }
 
   async prepare(target: ReaderImageShareTarget, cancellation: ReaderCancellation): Promise<ReaderImageSharePresentation> {
@@ -280,7 +274,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
       const facts = new ReaderImageInformation()
       facts.variant = local.source.variant === 'original' ? 'original' : 'resampled'
       const asset = new ReaderAsset(source.imageUrl, () => {}, new ReaderFileInformation(path, facts))
-      if (path.length > 0) asset.crop = new NextEReaderCropSource(path)
+      if (path.length > 0) asset.crop = new NextEReaderCropSource(path, 'reader-lab-local', this.cropStrength)
       return asset
     }
     if (kind === 'thumbnail') return new ReaderAsset(source.thumbUrl)
@@ -300,7 +294,9 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     facts.originalAvailable = source.originImageUrl.length > 0
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
     asset.originalAvailable = facts.originalAvailable
-    if (result.filePath.length > 0) asset.crop = new NextEReaderCropSource(result.filePath)
+    if (result.filePath.length > 0) {
+      asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-asset', this.cropStrength)
+    }
     return asset
   }
 }

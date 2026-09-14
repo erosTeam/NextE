@@ -38,6 +38,9 @@ vm.runInNewContext(ts.transpileModule(source, {
       this.path = filePath; this.facts = facts
     } } }
     if (name === 'shared') return shared
+    if (name === './NextEReaderCropSource') return { NextEReaderCropSource: class {
+      constructor(path, _identity, _strength) { this.path = path }
+    } }
     throw new Error(`unexpected import ${name}`)
   },
 })

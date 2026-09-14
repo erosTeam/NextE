@@ -12,6 +12,9 @@ const source = text.slice(start, end).replace('class NextEOriginalAssetPlan', 'e
 const copyable = values => ({ ...values, copy() { return copyable(this) } })
 const token = () => ({ cancelled: false, check() { if (this.cancelled) throw new Error('cancelled') } })
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
+const cropModule = { NextEReaderCropSource: class {
+  constructor(path, identity, strength) { Object.assign(this, { path, identity, strength }) }
+} }
 function fixture(resolveOriginal) {
   const downloads = []
   const context = { exports: {},
@@ -96,6 +99,7 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
     if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
     if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
     if (name === '@kit.ShareKit') return { systemShare: {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
@@ -144,6 +148,7 @@ test('shared preload resolves and warms the default cache without creating a Rea
     if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
     if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
     if (name === '@kit.ShareKit') return { systemShare: {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
@@ -171,6 +176,7 @@ test('actual share adapter builds its hyperlink from the selected variant and re
       SelectionMode: { SINGLE: 1 }, SharePreviewMode: { DETAIL: 1 },
     } }
     if (name === '@reader-kit/ui') return { ReaderSystemSharePresentation: class {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
@@ -204,6 +210,7 @@ test('actual share adapter falls back to the gallery link when the current image
       SelectionMode: { SINGLE: 1 }, SharePreviewMode: { DETAIL: 1 },
     } }
     if (name === '@reader-kit/ui') return { ReaderSystemSharePresentation: class {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
@@ -269,6 +276,7 @@ test('optional adapter selects a complete local source before network and keeps 
       SelectionMode: { SINGLE: 1 }, SharePreviewMode: { DETAIL: 1 },
     } }
     if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
@@ -330,6 +338,7 @@ test('optional thumbnail entry reuses the exact host ReaderParams instead of ref
     if (name === '@reader-kit/ui') return {}
     if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
     if (name === '@kit.ShareKit') return { systemShare: {} }
+    if (name === './NextEReaderCropSource') return cropModule
     return {}
   } }
   vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {

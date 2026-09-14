@@ -1,16 +1,18 @@
 import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Driver, ON } from '@kit.TestKit'
+import { common } from '@kit.AbilityKit'
 import { KeyCode } from '@kit.InputKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { window } from '@kit.ArkUI'
-import { ReaderTrialEntryProbe, connectReadMode } from 'shared'
+import { ReaderPageCropStrength, ReaderTrialEntryProbe, ReadModeSettings, connectReadMode } from 'shared'
 
 const captureNames: string[] = ['baseline', 'single', 'single-return', 'spread', 'choice', 'left', 'right', 'returned', 'next', 'closed', 'exception',
   'recovery-baseline', 'failed', 'pending', 'changed', 'late', 'recovery-info', 'recovery-returned', 'recovery-closed',
   'original-baseline', 'original-info', 'original-on', 'original-off-info', 'original-off', 'original-closed',
   'original-spread-menu', 'original-spread-mixed', 'original-spread-left', 'original-spread-right',
   'original-both-left', 'original-both-right', 'original-default-left', 'original-default-right',
-  'original-prepare-retained', 'original-decode-failed', 'original-recovered', 'supplement-off']
+  'original-prepare-retained', 'original-decode-failed', 'original-recovered', 'supplement-off',
+  'strength-before', 'strength-after']
 function clearInformationCaptures(): void {
   const cache = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir
   for (const name of captureNames) {
@@ -168,6 +170,41 @@ export default function readerImageInformationTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork'], unit = args['-s readerLabUnit']
   const trial = args['-s class']
+  if (trial === 'ReaderCropStrengthTrial' && typeof work === 'string' && work.length > 0) {
+    describe(trial, (): void => {
+      it('refreshesRetainedSharedCropWhenHostStrengthChanges', 0, async (): Promise<void> => {
+        clearInformationCaptures()
+        const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const readMode = connectReadMode(), previous = readMode.cropStrengthPaged
+        let context: common.UIAbilityContext | null = null
+        try {
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+              readerLabPage: '3', readerLabChrome: 'true', readerLabCropBorders: 'true' } })
+          await informationReady(driver)
+          context = (await delegator.getCurrentTopAbility()).context
+          await ReadModeSettings.setCropStrengthPaged(context, ReaderPageCropStrength.CONSERVATIVE)
+          const page = await informationPage(driver)
+          await driver.delayMs(1200)
+          await captureInformation(driver, 'strength-before')
+          await ReadModeSettings.setCropStrengthPaged(context, ReaderPageCropStrength.STRONG)
+          await driver.delayMs(1600)
+          await informationReady(driver)
+          expect(await informationPage(driver)).assertEqual(page)
+          await captureInformation(driver, 'strength-after')
+          await delegator.print(`ReaderCropStrength retainedPage=${page} previous=${previous}`)
+        } catch (error) {
+          await captureInformation(driver, 'exception')
+          throw error as Error
+        } finally {
+          if (context !== null) await ReadModeSettings.setCropStrengthPaged(context, previous)
+          const close = await driver.findComponent(ON.id('rkit-close'))
+          if (close !== null) await close.click()
+        }
+      })
+    })
+    return
+  }
   if (trial === 'ReaderInformationSupplementTrial' && typeof work === 'string' && work.length > 0) {
     describe(trial, (): void => {
       it('showsNextEEnhancementAndSourceAfterSharedFileFacts', 0, async (): Promise<void> => {
