@@ -121,6 +121,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
     await ImagePipelineService.loadReaderFile(this.context, url, key, 100)
     cancellation.check()
+    console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=ready`)
   }
 
   sourceLanguage(): string { return this.gallerySourceLanguage }
