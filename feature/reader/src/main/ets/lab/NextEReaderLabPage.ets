@@ -90,7 +90,7 @@ export struct NextEReaderLabPage {
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
     const session = new ReaderPagedSession(adapter, new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
-      this.request.informationProbe, this.request.thumbnailEntry ? this.request.failurePage : -1, this.request.originalVariantProbe))
+      this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1, this.request.originalVariantProbe))
     if (this.request.readingChrome) {
       this.initializeSession(session)
       return
