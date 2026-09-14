@@ -652,6 +652,7 @@ struct Index {
   @Local private readerEntryTransition: ReaderEntryTransition | null = null
   @Local private readerEntryPreview: ReaderEntryPreviewSource | null = null
   @Local private readerEntryClaim: IndexReaderEntryClaim | null = null
+  private readerEntryParams: ReaderParams | null = null
   @Local private readerEntryVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
   @Local private readerEntrySite: SiteModeState = connectSiteMode()
   private readerTrialSite: string = ''
@@ -841,6 +842,7 @@ struct Index {
     this.readerTrialStack.clear(false)
     this.readerEntryTransition = null
     this.readerEntryPreview = null
+    this.readerEntryParams = null
     this.readerTrialSite = ''
     this.readerThumbnailTransition.reset()
   }
@@ -906,6 +908,7 @@ struct Index {
     this.retireReaderTrialWindow()
     request.pageIndex = source.pageIndex
     this.readerTrialSite = source.site
+    this.readerEntryParams = source.params
     this.readerEntryPreview = preview
     this.readerEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
       new ReaderDisplayPart(new ReaderUnitKey(source.site, request.work, request.work), null, source.pageIndex))
@@ -936,6 +939,7 @@ struct Index {
       NextEReaderLabPage({ request: _param as ReaderLabRequest,
         settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         managesTrialWindow: false, entrySite: this.readerTrialSite,
+        entryParams: this.readerEntryParams,
         onShown: (): void => {
           if (this.readerTrialRequest !== _param) return
           this.readerTrialDestinationShown = true

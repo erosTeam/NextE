@@ -260,6 +260,66 @@ test('optional adapter selects a complete local source before network and keeps 
   await assert.rejects(adapter.prepareOriginal(page, cancellation), /local_original_already_selected/)
 })
 
+test('optional thumbnail entry reuses the exact host ReaderParams instead of refetching gallery detail', async () => {
+  const network = [], inits = []
+  const selected = copyable({ page: 4, sUrl: 'https://e-hentai.org/s/exact/fixture-4', imgkey: 'exact-key',
+    thumbUrl: 'https://ehgt.org/exact-sprite.webp', thumbWidth: 120, thumbHeight: 180,
+    thumbOffsetX: 240, spriteWidth: 960, spriteHeight: 180 })
+  const entry = { gid: 'gallery', token: 'token', index: 3, fileCount: 46, title: 'Retained detail title',
+    seedImages: [selected], seedLoadedPages: 0, seedPerPage: 0, seedPreviewPages: [],
+    seedImagePageUrl: selected.sUrl, sourceLanguage: 'japanese',
+    source: { kind: 'online', sourceKey: '', isLocal: () => false } }
+  class ReaderViewModel {
+    async init(...args) { this.args = args; this.count = args[3]; inits.push(args) }
+    totalPages() { return this.count }
+    imageAt(index) {
+      assert.equal(index, 3)
+      assert.equal(this.args[5], entry.seedImages)
+      return selected
+    }
+  }
+  const context = { exports: {}, require: name => {
+    if (name === 'shared') return {
+      ReaderLocalSourceService: { preferLocal: async (_context, params) => params },
+      ReaderParams: class {},
+      EhApiService: { getInstance: () => ({ getGalleryDetail: async () => { network.push('detail') } }) },
+      ImageResolveService: {}, ImagePipelineService: {}, ReaderPageCropService: {},
+    }
+    if (name === '@reader-kit/core') return {
+      ReaderUnit: class { constructor(key, title, pageCount) { Object.assign(this, { key, title, pageCount }) } },
+      ReaderPage: class { constructor(unit, key, sourceIndex) {
+        Object.assign(this, { unit, key, sourceIndex, thumbnail: {} })
+      } },
+    }
+    if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel }
+    if (name === '@reader-kit/ui') return {}
+    if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
+    if (name === '@kit.ShareKit') return { systemShare: {} }
+    return {}
+  } }
+  vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText, context)
+  const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false, entry)
+  const cancellation = token()
+  const unit = await adapter.open({ scope: 'eh', work: 'gallery', unit: 'gallery' }, cancellation)
+  assert.equal(unit.title, entry.title)
+  assert.equal(unit.pageCount, entry.fileCount)
+  assert.equal(adapter.sourceLanguage(), 'japanese')
+  assert.deepEqual(network, [])
+  assert.equal(inits.length, 1)
+  assert.equal(inits[0][5], entry.seedImages)
+  assert.equal(inits[0][8], entry.seedPreviewPages)
+  assert.equal(inits[0][9], entry.seedImagePageUrl)
+  const page = await adapter.page(unit, 3, cancellation)
+  assert.equal(page.key, 'gallery:4')
+  assert.equal(page.thumbnail.kind, 'sprite')
+  assert.equal(adapter.transitionImage(page.key).sUrl, selected.sUrl)
+  assert.equal(inits.length, 2)
+  assert.equal(inits[1][5], entry.seedImages)
+  assert.equal(inits[1][9], entry.seedImagePageUrl)
+})
+
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')
 test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
   assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost/)

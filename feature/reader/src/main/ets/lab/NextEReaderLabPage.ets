@@ -6,7 +6,7 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
-  connectImageBlockSettings, EhGalleryImage } from 'shared'
+  connectImageBlockSettings, EhGalleryImage, ReaderParams } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
@@ -40,6 +40,7 @@ export struct NextEReaderLabPage {
   @Param entryPhase: string = 'finished'
   @Param entryPreview: ReaderEntryPreviewSource | null = null
   @Param entrySite: string = ''
+  @Param entryParams: ReaderParams | null = null
   @Param managesTrialWindow: boolean = true
   @Param hostClosing: boolean = false
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
@@ -87,7 +88,11 @@ export struct NextEReaderLabPage {
     if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
     const isEx = this.entrySite.length > 0 ? this.entrySite === 'ex' : connectSiteMode().isEx
     this.unitKey = new ReaderUnitKey(isEx ? 'ex' : 'eh', this.request.work, this.request.work)
-    const adapter = new NextEReaderLabAdapter(context, this.request.unit, isEx)
+    const adapter = new NextEReaderLabAdapter(context, this.request.unit, isEx, this.entryParams,
+      (kind: string, index: number, fileCount: number, seedCount: number, exactImagePage: boolean): void => {
+        connectNextEReaderLabContextProbe().reportSource(this.request.work, kind, index, fileCount, seedCount,
+          exactImagePage)
+      })
     this.adapter = adapter
     this.imageShare = new ReaderLabShareProbe(adapter, this.request.shareProbe)
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {

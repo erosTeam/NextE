@@ -195,6 +195,7 @@ export struct GalleryAllThumbnailsPage {
       this.params.gid,
       pageZeroBased,
       img,
+      params,
       (animated: boolean) => {
         connectReaderOverlayNavigation().open(params, animated)
       },

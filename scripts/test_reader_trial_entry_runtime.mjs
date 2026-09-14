@@ -14,8 +14,9 @@ function setup() {
     vm.runInNewContext(ts.transpileModule(source, { compilerOptions: {
       module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
     } }).outputText, { exports, require(name) {
-      assert.equal(name, '../state/SiteModeState')
-      return { connectSiteMode: () => site }
+      if (name === '../state/SiteModeState') return { connectSiteMode: () => site }
+      if (name === '../model/RouteParams' || name === '../model/EhGalleryImage') return {}
+      assert.fail(`unexpected dependency ${name}`)
     } })
     return exports
   }
@@ -24,11 +25,13 @@ function setup() {
   const { ReaderTrialEntryProbe: probe } = load('navigation/ReaderTrialEntryProbe')
   const image = { page: 1, sUrl: 'page', imgkey: 'key', thumbUrl: 'sheet', thumbWidth: 100,
     thumbHeight: 200, thumbOffsetX: 100, spriteWidth: 800, spriteHeight: 200 }
+  const params = { gid: 'work', token: 'token', index: 0 }
   let live = true; let ready = true
   const handle = relay.bindSource('source', image, () => live)
   const snapshot = new Snapshot('sheet', 'key', 100, 200, 100, 800, 200, () => ready)
-  const open = (gallery = 'work', index = 0, value = image) => relay.tryOpen(gallery, index, value, 'source')
-  return { relay, probe, site, image, handle, snapshot, open,
+  const open = (gallery = 'work', index = 0, value = image, entry = params) =>
+    relay.tryOpen(gallery, index, value, 'source', entry)
+  return { relay, probe, site, image, params, handle, snapshot, open,
     retire: () => { live = false }, invalidate: () => { ready = false } }
 }
 
@@ -38,6 +41,7 @@ test('default production is untouched and a live unready source reaches only the
   v.relay.install('eh', 'work', source => { captured = source; return true })
   assert.equal(v.relay.isSnapshotReady('eh', 'source'), false)
   assert.equal(v.open(), true); assert.equal(captured.snapshot, null)
+  assert.equal(captured.params, v.params)
   assert.equal(captured.snapshotComponentId, 'source-content'); assert.equal(v.open(), false)
 })
 
@@ -60,14 +64,17 @@ test('retired handle cleanup and stale crop callbacks cannot mutate replacement 
   assert.equal(replacement.snapshot, v.snapshot)
 })
 
-test('site, gallery, current leaf, page and image fences do not consume the registered handler', () => {
-  for (const mutation of ['site', 'gallery', 'live', 'page', 'image']) {
+test('site, gallery, current leaf, page, image and host params fences do not consume the registered handler', () => {
+  for (const mutation of ['site', 'gallery', 'live', 'page', 'image', 'params-gallery', 'params-page', 'params-token']) {
     const v = setup(); let calls = 0
     v.relay.install('eh', 'work', () => { calls++; return true })
     if (mutation === 'site') v.site.isEx = true
     if (mutation === 'live') v.retire()
+    const entry = mutation === 'params-gallery' ? { ...v.params, gid: 'other' } :
+      mutation === 'params-page' ? { ...v.params, index: 1 } :
+      mutation === 'params-token' ? { ...v.params, token: '' } : v.params
     assert.equal(v.open(mutation === 'gallery' ? 'other' : 'work', mutation === 'page' ? 1 : 0,
-      mutation === 'image' ? { ...v.image, imgkey: 'other' } : v.image), false, mutation)
+      mutation === 'image' ? { ...v.image, imgkey: 'other' } : v.image, entry), false, mutation)
     assert.equal(calls, 0)
   }
 })

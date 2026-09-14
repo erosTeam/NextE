@@ -1,4 +1,5 @@
 import { EhGalleryImage } from '../model/EhGalleryImage'
+import { ReaderParams } from '../model/RouteParams'
 import { EhThumbnailSnapshotSource } from '../components/EhThumbnailSnapshotSource'
 import { connectSiteMode } from '../state/SiteModeState'
 
@@ -69,15 +70,16 @@ export class ReaderTrialEntrySource {
   readonly sourceComponentId: string
   readonly snapshotComponentId: string
   readonly identity: ReaderTrialThumbnailIdentity
+  readonly params: ReaderParams
   readonly snapshot: EhThumbnailSnapshotSource | null
   readonly isCurrent: () => boolean
 
-  constructor(galleryId: string, pageIndex: number, handle: ReaderTrialEntrySourceHandle,
+  constructor(galleryId: string, pageIndex: number, handle: ReaderTrialEntrySourceHandle, params: ReaderParams,
     snapshot: EhThumbnailSnapshotSource | null, current: () => boolean) {
     this.site = handle.site; this.galleryId = galleryId; this.pageIndex = pageIndex
     this.sourceComponentId = handle.sourceComponentId
     this.snapshotComponentId = `${handle.sourceComponentId}-content`
-    this.identity = handle.identity; this.snapshot = snapshot; this.isCurrent = current
+    this.identity = handle.identity; this.params = params; this.snapshot = snapshot; this.isCurrent = current
   }
 
   sourceScope(): string {
@@ -172,19 +174,21 @@ export class ReaderTrialEntryRelay {
     return cancel()
   }
 
-  static tryOpen(galleryId: string, pageIndex: number, image: EhGalleryImage, sourceId: string): boolean {
+  static tryOpen(galleryId: string, pageIndex: number, image: EhGalleryImage, sourceId: string,
+    params: ReaderParams): boolean {
     const site = ReaderTrialEntryRelay.currentSite()
     if (ReaderTrialEntryRelay.pendingToken !== 0 && ReaderTrialEntryRelay.pendingSite === site &&
       ReaderTrialEntryRelay.pendingGalleryId === galleryId) return true
     const handler = ReaderTrialEntryRelay.handler
     if (handler === null || ReaderTrialEntryRelay.site !== site || ReaderTrialEntryRelay.galleryId !== galleryId ||
       galleryId.length === 0 || sourceId.length === 0 || !Number.isSafeInteger(pageIndex) || pageIndex < 0 ||
-      image.page !== pageIndex + 1) return false
+      image.page !== pageIndex + 1 || params.gid !== galleryId || params.index !== pageIndex ||
+      params.token.length === 0) return false
     const handle = ReaderTrialEntryRelay.sources.get(ReaderTrialEntryRelay.sourceKey(site, sourceId))
     if (handle === undefined || !ReaderTrialEntryRelay.sourceCurrent(handle) || !handle.identity.matches(image)) return false
     const ready = handle.snapshot
     const snapshot = ready !== null && ready.isCurrent() && handle.identity.matchesSnapshot(ready) ? ready : null
-    const source = new ReaderTrialEntrySource(galleryId, pageIndex, handle, snapshot,
+    const source = new ReaderTrialEntrySource(galleryId, pageIndex, handle, params, snapshot,
       (): boolean => ReaderTrialEntryRelay.sourceCurrent(handle))
     const token = ReaderTrialEntryRelay.token
     if (!handler(source)) return false

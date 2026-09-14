@@ -7,6 +7,7 @@ import { preferences } from '@kit.ArkData'
 import { AppStrings, connectNavStack, connectReadMode, connectReaderThumbnailTransition, GalleryDetailParams, connectReaderOverlayNavigation,
   ReadMode, ReadColumnMode, ReadSpreadLayout, ReadModeSettings, StorageKeys, ReaderParams,
   ReaderTrialEntryProbe, ReaderTrialEntryRelay, ReaderTrialEntrySite } from 'shared'
+import { connectNextEReaderLabContextProbe } from 'reader'
 
 const FIRST_THUMBNAIL: string = '^reader-thumb-gallery-detail-[0-9]+-page-0$'
 const FIRST_GRID_THUMBNAIL: string = '^reader-thumb-all-thumbnails-[0-9]+-page-0$'
@@ -1532,6 +1533,8 @@ export default function readerThumbnailEntryTest(): void {
     it('realDetailSnapshotHandsOffToSpreadAndClosesToSameSource', 0, async (): Promise<void> => {
       clearEntryCaptures()
       const driver = Driver.create()
+      const sourceProbe = connectNextEReaderLabContextProbe()
+      sourceProbe.resetSource(work)
       try {
         await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
           bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
@@ -1553,6 +1556,18 @@ export default function readerThumbnailEntryTest(): void {
         expect(ReaderTrialEntryRelay.isSnapshotReady(site, sourceId)).assertTrue()
         await liveSource.click()
         const epoch = await waitSnapshotSpread(driver, baselineEpoch, site, work, sourceId, direction)
+        let sourceFacts = sourceProbe.readSource(work)
+        for (let attempt: number = 0; attempt < 40 && sourceFacts.kind.length === 0; attempt++) {
+          await driver.delayMs(100)
+          sourceFacts = sourceProbe.readSource(work)
+        }
+        expect(sourceFacts.kind).assertEqual('hostEntry')
+        expect(sourceFacts.index).assertEqual(0)
+        expect(sourceFacts.fileCount > 0 && sourceFacts.seedCount > 0 && sourceFacts.exactImagePage).assertTrue()
+        await abilityDelegatorRegistry.getAbilityDelegator().print(
+          `ReaderThumbnailEntryTrial source=${sourceFacts.kind} index=${sourceFacts.index} ` +
+          `pages=${sourceFacts.fileCount} seeds=${sourceFacts.seedCount} exactImagePage=${sourceFacts.exactImagePage}`,
+        )
         await captureEntry(driver, 'reader')
         await (await driver.findComponent(ON.id('rkit-close'))).click()
         await waitClosed(driver, epoch, sourceId)

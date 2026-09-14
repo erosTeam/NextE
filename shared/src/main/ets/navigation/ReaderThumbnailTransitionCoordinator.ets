@@ -2,6 +2,7 @@ import { FrameCallback } from '@kit.ArkUI'
 import { image } from '@kit.ImageKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGalleryImage } from '../model/EhGalleryImage'
+import { ReaderParams } from '../model/RouteParams'
 import { connectGalleryDetailTransitionSettings } from '../state/GalleryDetailTransitionSettingsState'
 import {
   connectReaderThumbnailTransition,
@@ -233,11 +234,12 @@ export class ReaderThumbnailTransitionCoordinator {
     galleryId: string,
     index: number,
     image: EhGalleryImage,
+    params: ReaderParams,
     openReader: (animated: boolean) => void,
   ): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (ReaderTrialEntryRelay.tryOpen(galleryId, index, image,
-      ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index))) return
+      ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index), params)) return
     transition.reset()
     const sourceComponentId: string = ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index)
     if (

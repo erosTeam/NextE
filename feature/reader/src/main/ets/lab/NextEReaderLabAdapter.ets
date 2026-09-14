@@ -71,12 +71,20 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private isEx: boolean
   private pages: Map<string, EhGalleryImage> = new Map()
   private localUnits: Map<string, ReaderParams> = new Map()
+  private entryUnits: Map<string, ReaderParams> = new Map()
   private gallerySourceLanguage: string = 'auto'
+  private entryParams: ReaderParams | null
+  private sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
+    exactImagePage: boolean) => void) | null
 
-  constructor(context: common.UIAbilityContext, token: string, isEx: boolean) {
+  constructor(context: common.UIAbilityContext, token: string, isEx: boolean, entryParams: ReaderParams | null = null,
+    sourceSelected: ((kind: string, index: number, fileCount: number, seedCount: number,
+      exactImagePage: boolean) => void) | null = null) {
     this.context = context
     this.token = token
     this.isEx = isEx
+    this.entryParams = entryParams
+    this.sourceSelected = sourceSelected
   }
 
   transitionImage(pageKey: string | null): EhGalleryImage | null {
@@ -88,7 +96,9 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     if (key.unit !== key.work || this.token.length === 0) throw new Error('invalid_eh_unit')
     try {
-      const localProbe = new ReaderParams(key.work, this.token, 0)
+      const entry = this.entryParams !== null && this.entryParams.gid === key.work &&
+        this.entryParams.token === this.token ? this.entryParams : null
+      const localProbe = entry ?? new ReaderParams(key.work, this.token, 0)
       const local = await ReaderLocalSourceService.preferLocal(this.context, localProbe)
       cancellation.check()
       if (local.source.isLocal() && local.seedImages.length > 0 && local.fileCount === local.seedImages.length) {
@@ -96,13 +106,29 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
         const language = local.sourceLanguage.trim()
         this.gallerySourceLanguage = language.length > 0 ? language : 'auto'
         console.info(`[NextEReaderDataSource] source=${local.source.kind} pages=${local.fileCount}`)
+        this.sourceSelected?.(local.source.kind, local.index, local.fileCount, local.seedImages.length, false)
         return new ReaderUnit(key, local.title, local.fileCount)
+      }
+      if (entry !== null && local.fileCount > 0) {
+        const vm = new ReaderViewModel()
+        await vm.init(key.work, this.token, this.isEx, local.fileCount, local.index,
+          local.seedImages, local.seedLoadedPages, local.seedPerPage, local.seedPreviewPages,
+          local.seedImagePageUrl, local.source.kind, local.source.sourceKey)
+        cancellation.check()
+        this.entryUnits.set(key.unit, local)
+        const language = local.sourceLanguage.trim()
+        this.gallerySourceLanguage = language.length > 0 ? language : 'auto'
+        console.info(`[NextEReaderDataSource] source=hostEntry pages=${vm.totalPages()}`)
+        this.sourceSelected?.('hostEntry', local.index, local.fileCount, local.seedImages.length,
+          local.seedImagePageUrl.length > 0)
+        return new ReaderUnit(key, local.title, vm.totalPages())
       }
     } catch (error) {
       cancellation.check()
       console.warn(`[NextEReaderDataSource] local_source_unavailable error=${(error as Error).message}`)
     }
     this.localUnits.delete(key.unit)
+    this.entryUnits.delete(key.unit)
     const result = await EhApiService.getInstance().getGalleryDetail(key.work, this.token, this.isEx)
     cancellation.check()
     const sourceLanguage = result.gallery.contentLanguage().trim()
@@ -111,6 +137,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const vm = new ReaderViewModel()
     await vm.init(key.work, this.token, this.isEx, result.gallery.fileCountNumber(), 0, result.images, 1)
     cancellation.check()
+    this.sourceSelected?.('remoteDetail', 0, result.gallery.fileCountNumber(), result.images.length, false)
     return new ReaderUnit(key, result.gallery.title(), vm.totalPages())
   }
 
@@ -128,7 +155,10 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     // A VM's jumpTo ignores overlapping requests. Give each page request its own
     // preparation owner; the VM's bounded metadata cache still avoids repeat fetches.
     const vm = new ReaderViewModel()
-    await vm.init(unit.key.work, this.token, this.isEx, unit.pageCount, index)
+    const entry = this.entryUnits.get(unit.key.unit)
+    await vm.init(unit.key.work, this.token, this.isEx, unit.pageCount, index,
+      entry?.seedImages ?? [], entry?.seedLoadedPages ?? 0, entry?.seedPerPage ?? 0,
+      entry?.seedPreviewPages ?? [], entry !== undefined && entry.index === index ? entry.seedImagePageUrl : '')
     cancellation.check()
     const source = vm.imageAt(index).copy()
     if (source.sUrl.length === 0) throw new Error('missing_eh_preview')
