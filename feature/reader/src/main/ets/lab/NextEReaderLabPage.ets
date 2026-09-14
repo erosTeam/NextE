@@ -1,7 +1,7 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
-  ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy } from '@reader-kit/ui'
+  ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -753,7 +753,7 @@ export struct NextEReaderLabPage {
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
               input: this.input, mediaActions: this.mediaActions,
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
-              autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
+              autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds),
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
               variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
