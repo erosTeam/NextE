@@ -34,14 +34,18 @@ assert.deepEqual(classify('socket closed'), { code: 'generic', title: 'Generic t
 const adapter = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderLabAdapter.ets'), 'utf8')
 assert.match(adapter,
-  /export class NextEReaderLabAdapter[\s\S]*?failure\(error: Error\): ReaderAssetFailure[\s\S]*?NextEReaderFailure\.from\(error\)/)
+  /export class NextEReaderLabAdapter[\s\S]*?ReaderAssetFailureClassifier[\s\S]*?classify\(error: Error\): ReaderAssetFailure[\s\S]*?NextEReaderFailure\.from\(error\)/)
 for (const file of [
   'NextEReaderImageBlockProvider.ets',
   'NextEReaderSuperResolutionProvider.ets',
   'NextEReaderTranslationProvider.ets',
 ]) {
   const text = fs.readFileSync(path.join(root, 'feature/reader/src/main/ets/lab', file), 'utf8')
-  assert.match(text, /failure\(error: Error\): ReaderAssetFailure[\s\S]*?this\.provider\.failure\?\.\(error\)/)
+  assert.doesNotMatch(text, /failure\(error: Error\)/)
 }
+
+const host = fs.readFileSync(path.join(root,
+  'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
+assert.match(host, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter\)/)
 
 console.log('NextE shared-reader failure presentation passed')

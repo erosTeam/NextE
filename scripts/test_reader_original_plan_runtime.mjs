@@ -366,7 +366,7 @@ test('optional thumbnail entry reuses the exact host ReaderParams instead of ref
 
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')
 test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
-  assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost/)
-  assert.match(pageSource, /new ReaderPagedSession\(adapter,[\s\S]*?, adapter\)/)
+  assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderAssetFailureClassifier,[\s\S]*?ReaderPreloadHost/)
+  assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter\)/)
   assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
 })

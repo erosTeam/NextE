@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import {
-  ReaderAsset, ReaderAssetFailure, ReaderAssetKind, ReaderAssetNotice, ReaderAssetProvider, ReaderCancellation,
+  ReaderAsset, ReaderAssetKind, ReaderAssetNotice, ReaderAssetProvider, ReaderCancellation,
   ReaderOriginalAssetPlan, ReaderPage, ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { AppStrings, DiagnosticLogger, ImageBlockDecision, ImageBlockRuntimeService } from 'shared'
@@ -38,10 +38,6 @@ export class NextEReaderImageBlockProvider implements ReaderAssetProvider {
   private blocked: Set<string> = new Set<string>()
   private feedback: (message: string) => void
   private forcedBlockedSourceIndex: number
-
-  failure(error: Error): ReaderAssetFailure {
-    return this.provider.failure?.(error) ?? new ReaderAssetFailure('reader_asset_failed')
-  }
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     feedback: (message: string) => void = (_message: string): void => {}, forcedBlockedSourceIndex: number = -1) {

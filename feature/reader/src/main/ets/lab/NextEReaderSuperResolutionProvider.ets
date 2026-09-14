@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import {
-  ReaderAsset, ReaderAssetFailure, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
+  ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
   ReaderOriginalAssetPlan, ReaderPage,
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
@@ -94,10 +94,6 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
   private cropStrength: () => string
-
-  failure(error: Error): ReaderAssetFailure {
-    return this.provider.failure?.(error) ?? new ReaderAssetFailure('reader_asset_failed')
-  }
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: () => NextEReaderSuperResolutionConfiguration,

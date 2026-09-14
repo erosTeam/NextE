@@ -125,7 +125,7 @@ export struct NextEReaderLabPage {
       : new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
         this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1,
         this.request.originalVariantProbe, this.request.assetFailureMessage)
-    const session = new ReaderPagedSession(adapter, assetProvider, adapter)
+    const session = new ReaderPagedSession(adapter, assetProvider, adapter, adapter)
     if (this.request.readingChrome) {
       this.initializeSession(session)
       return

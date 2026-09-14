@@ -8,7 +8,7 @@ import {
 } from 'shared'
 import {
   ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
-  ReaderCancellation, ReaderAsset, ReaderAssetFailure, ReaderAssetKind, ReaderImageShareHost,
+  ReaderCancellation, ReaderAsset, ReaderAssetFailure, ReaderAssetFailureClassifier, ReaderAssetKind, ReaderImageShareHost,
   ReaderImageShareTarget, ReaderImageSharePresentation,
   ReaderImageInformation, ReaderOriginalAssetPlan,
 } from '@reader-kit/core'
@@ -56,7 +56,8 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
   }
 }
 
-export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderImageShareHost {
+export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider, ReaderAssetFailureClassifier,
+  ReaderPreloadHost, ReaderImageShareHost {
   cancellationMode: 'consumer-only' | 'transport' = 'consumer-only'
   informationSupported: boolean = true
   private context: common.UIAbilityContext
@@ -71,7 +72,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     exactImagePage: boolean) => void) | null
   private cropStrength: () => string
 
-  failure(error: Error): ReaderAssetFailure {
+  classify(error: Error): ReaderAssetFailure {
     return NextEReaderFailure.from(error)
   }
 
