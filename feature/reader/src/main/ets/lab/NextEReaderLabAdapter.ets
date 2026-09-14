@@ -3,7 +3,8 @@ import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import {
-  EhApiService, EhGalleryImage, ImageResolveService, ImagePipelineService, ReaderPageCropService,
+  DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
+  ReaderPageCropService,
   ReaderLocalSourceService, ReaderParams,
 } from 'shared'
 import {
@@ -206,23 +207,38 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   }
 
   async prepare(target: ReaderImageShareTarget, cancellation: ReaderCancellation): Promise<ReaderImageSharePresentation> {
-    const page = await this.page(target.unit, target.sourceIndex, cancellation)
-    cancellation.check()
-    const source = this.pages.get(page.key)?.copy()
-    if (source === undefined) throw new Error('missing_eh_share_page')
-    const local = this.localUnits.get(target.unit.key.unit)
-    let record: systemShare.SharedRecord
-    if (local !== undefined) {
-      if (!source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_share_page')
-      record = { utd: utd.UniformDataType.IMAGE, title: `${target.unit.title} ${target.sourceIndex + 1}`,
-        uri: source.imageUrl }
-    } else {
-      const url = target.variant === 'original' ? await ImageResolveService.getInstance().resolveOriginal(source) :
-        await ImageResolveService.getInstance().resolve(source)
-      record = { utd: utd.UniformDataType.HYPERLINK,
-        title: `${target.unit.title} ${target.sourceIndex + 1}`, content: url }
+    try {
+      const page = await this.page(target.unit, target.sourceIndex, cancellation)
+      cancellation.check()
+      const source = this.pages.get(page.key)?.copy()
+      if (source === undefined) throw new Error('missing_eh_share_page')
+      const local = this.localUnits.get(target.unit.key.unit)
+      let record: systemShare.SharedRecord
+      if (local !== undefined) {
+        if (!source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_share_page')
+        record = { utd: utd.UniformDataType.IMAGE, title: `${target.unit.title} ${target.sourceIndex + 1}`,
+          uri: source.imageUrl }
+      } else {
+        const url = target.variant === 'original' ? await ImageResolveService.getInstance().resolveOriginal(source) :
+          await ImageResolveService.getInstance().resolve(source)
+        cancellation.check()
+        record = { utd: utd.UniformDataType.HYPERLINK,
+          title: `${target.unit.title} ${target.sourceIndex + 1}`, content: url }
+      }
+      cancellation.check()
+      return this.sharePresentation(record)
+    } catch (error) {
+      cancellation.check()
+      DiagnosticLogger.warn('reader', 'shared_share_image_resolve_failed', (error as Error).message)
+      return this.sharePresentation({
+        utd: utd.UniformDataType.HYPERLINK,
+        title: target.unit.title,
+        content: `${EhConstants.baseUrl(this.isEx)}/g/${target.unit.key.work}/${this.token}/`,
+      })
     }
-    cancellation.check()
+  }
+
+  private sharePresentation(record: systemShare.SharedRecord): ReaderImageSharePresentation {
     const data = new systemShare.SharedData(record)
     return new ReaderSystemSharePresentation(this.context, data, {
       selectionMode: systemShare.SelectionMode.SINGLE, previewMode: systemShare.SharePreviewMode.DETAIL,

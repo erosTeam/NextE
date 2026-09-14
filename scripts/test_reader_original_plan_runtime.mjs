@@ -190,6 +190,41 @@ test('actual share adapter builds its hyperlink from the selected variant and re
   assert.equal(records.length, 2)
 })
 
+test('actual share adapter falls back to the gallery link when the current image cannot resolve', async () => {
+  const records = [], warnings = [], c = token()
+  const context = { exports: {}, require: name => {
+    if (name === 'shared') return {
+      DiagnosticLogger: { warn: (...args) => warnings.push(args) },
+      EhConstants: { baseUrl: isEx => isEx ? 'https://exhentai.org' : 'https://e-hentai.org' },
+      ImageResolveService: { getInstance: () => ({ resolve: async () => { throw new Error('quota') } }) },
+    }
+    if (name === '@kit.ArkData') return { uniformTypeDescriptor: { UniformDataType: { HYPERLINK: 'link' } } }
+    if (name === '@kit.ShareKit') return { systemShare: {
+      SharedData: class { constructor(record) { records.push(record) } },
+      SelectionMode: { SINGLE: 1 }, SharePreviewMode: { DETAIL: 1 },
+    } }
+    if (name === '@reader-kit/ui') return { ReaderSystemSharePresentation: class {} }
+    return {}
+  } }
+  vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText, context)
+  const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', true)
+  adapter.page = async () => ({ key: 'p3' })
+  adapter.pages.set('p3', copyable({ page: 3 }))
+  const target = { unit: { title: 'Fixture gallery', key: { work: '123', unit: '123' } },
+    sourceIndex: 2, variant: 'default' }
+
+  await adapter.prepare(target, c)
+
+  assert.equal(records.length, 1)
+  assert.equal(records[0].utd, 'link')
+  assert.equal(records[0].title, 'Fixture gallery')
+  assert.equal(records[0].content, 'https://exhentai.org/g/123/token/')
+  assert.equal(warnings.length, 1)
+  assert.equal(warnings[0][1], 'shared_share_image_resolve_failed')
+})
+
 test('optional adapter selects a complete local source before network and keeps local assets local', async () => {
   const records = [], network = [], downloads = []
   class ReaderParams {
@@ -323,6 +358,6 @@ test('optional thumbnail entry reuses the exact host ReaderParams instead of ref
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')
 test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
   assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost/)
-  assert.match(pageSource, /new ReaderPagedSession\(adapter,[\s\S]*?\), adapter\)/)
+  assert.match(pageSource, /new ReaderPagedSession\(adapter,[\s\S]*?, adapter\)/)
   assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
 })
