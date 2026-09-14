@@ -4,7 +4,7 @@ import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import { EhApiService, EhGalleryImage, ImageResolveService, ImagePipelineService, ReaderPageCropService } from 'shared'
 import {
-  ReaderCatalog, ReaderAssetProvider, ReaderUnitKey, ReaderUnit, ReaderPage,
+  ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
   ReaderCancellation, ReaderAsset, ReaderAssetKind, ReaderImageShareHost,
   ReaderImageShareTarget, ReaderImageSharePresentation,
   ReaderImageInformation, ReaderOriginalAssetPlan, ReaderImageCropBounds, ReaderImageCropSource,
@@ -60,7 +60,7 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
   }
 }
 
-export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider, ReaderImageShareHost {
+export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderImageShareHost {
   cancellationMode: 'consumer-only' | 'transport' = 'consumer-only'
   informationSupported: boolean = true
   private context: common.UIAbilityContext
@@ -110,6 +110,18 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   }
 
   adjacent(_unit: ReaderUnit, _direction: 'next' | 'previous'): ReaderUnitKey | null { return null }
+
+  async preload(page: ReaderPage, cancellation: ReaderCancellation): Promise<void> {
+    cancellation.check()
+    const source = this.pages.get(page.key)?.copy()
+    if (source === undefined) throw new Error('missing_eh_preload_asset')
+    const url = await ImageResolveService.getInstance().resolve(source)
+    cancellation.check()
+    this.pages.set(page.key, source.copy())
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
+    await ImagePipelineService.loadReaderFile(this.context, url, key, 100)
+    cancellation.check()
+  }
 
   sourceLanguage(): string { return this.gallerySourceLanguage }
 

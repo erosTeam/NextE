@@ -121,6 +121,43 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
   ])
 })
 
+test('shared preload resolves and warms the default cache without creating a Reader asset', async () => {
+  const resolutions = [], downloads = []
+  const context = { exports: {}, require: name => {
+    if (name === 'shared') return {
+      ImageResolveService: { getInstance: () => ({ resolve: async (source, force) => {
+        resolutions.push({ page: source.page, force })
+        source.imageUrl = 'https://fixture.invalid/preloaded.webp'
+        return source.imageUrl
+      } }) },
+      ImagePipelineService: {
+        readerFileCacheKey: (_work, _token, page, original) => `${page}:${original}`,
+        loadReaderFile: async (_context, url, key, priority) => {
+          downloads.push({ url, key, priority })
+          return { displayUri: url, filePath: 'preloaded-file', bytes: 42 }
+        },
+      },
+      ReaderPageCropService: {},
+    }
+    if (name === '@reader-kit/core') return {}
+    if (name === '@reader-kit/ui') return {}
+    if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
+    if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
+    if (name === '@kit.ShareKit') return { systemShare: {} }
+    return {}
+  } }
+  vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText, context)
+  const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false)
+  adapter.pages.set('page', copyable({ page: 7, imageUrl: '' }))
+  await adapter.preload({ key: 'page', unit: { work: 'gallery' }, sourceIndex: 6 }, token())
+  assert.deepEqual(resolutions, [{ page: 7, force: undefined }])
+  assert.deepEqual(downloads, [{
+    url: 'https://fixture.invalid/preloaded.webp', key: '7:false', priority: 100,
+  }])
+})
+
 test('actual share adapter builds its hyperlink from the selected variant and rejects cancelled resolution', async () => {
   const calls = [], records = [], c = token()
   const context = { exports: {}, require: name => {
@@ -151,4 +188,11 @@ test('actual share adapter builds its hyperlink from the selected variant and re
   c.cancelled = true
   await assert.rejects(adapter.prepare(target, c), /cancelled/)
   assert.equal(records.length, 2)
+})
+
+const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')
+test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
+  assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost/)
+  assert.match(pageSource, /new ReaderPagedSession\(adapter,[\s\S]*?\), adapter\)/)
+  assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
 })

@@ -90,7 +90,8 @@ export struct NextEReaderLabPage {
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
     const session = new ReaderPagedSession(adapter, new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
-      this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1, this.request.originalVariantProbe))
+      this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1,
+      this.request.originalVariantProbe), adapter)
     if (this.request.readingChrome) {
       this.initializeSession(session)
       return
@@ -535,6 +536,7 @@ export struct NextEReaderLabPage {
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
+              preloadDepth: this.readMode.preloadPages,
               preferredVariant: this.readMode.superResolutionEnabled ? 'enhanced' : 'default',
               preferredVariantIdentity: this.superResolutionIdentity(),
               variantPreferenceResolver: (sourceIndex: number): ReaderVariantPreference =>
@@ -576,6 +578,7 @@ export struct NextEReaderLabPage {
               onChromeVisible: (visible: boolean): void => this.syncChromeVisible(visible) })
           } else {
           ReaderLabSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
+            preloadDepth: this.readMode.preloadPages,
             failurePage: this.request.failurePage,
             failureLayout: this.request.failureLayout,
             delayedMetricsPage: this.request.delayedMetricsPage,
