@@ -2821,6 +2821,22 @@
       "value": "Reading"
     },
     {
+      "name": "settings_reader_group_rehearsal",
+      "value": "Replacement rehearsal"
+    },
+    {
+      "name": "settings_reader_backend",
+      "value": "Reader implementation"
+    },
+    {
+      "name": "settings_reader_backend_legacy",
+      "value": "Existing reader"
+    },
+    {
+      "name": "settings_reader_backend_shared",
+      "value": "Shared reader"
+    },
+    {
       "name": "settings_reader_group_layout",
       "value": "Reading mode"
     },

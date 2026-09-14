@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: run-device-protocol --device <full-target> --lease <lease-id> <manifest.json>" >&2
+}
+
+DEVICE=""
+LEASE=""
+MANIFEST=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --device)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      DEVICE="$2"
+      shift 2
+      ;;
+    --lease)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      LEASE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --*)
+      usage
+      exit 2
+      ;;
+    *)
+      [[ -z "$MANIFEST" ]] || { usage; exit 2; }
+      MANIFEST="$1"
+      shift
+      ;;
+  esac
+done
+
+[[ -n "$DEVICE" && -n "$LEASE" && -n "$MANIFEST" ]] || { usage; exit 2; }
+[[ -f "$MANIFEST" ]] || { echo "manifest not found: $MANIFEST" >&2; exit 2; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MANIFEST_DIR="$(cd "$(dirname "$MANIFEST")" && pwd)"
+MANIFEST_REAL="$MANIFEST_DIR/$(basename "$MANIFEST")"
+[[ "$MANIFEST_REAL" == "$PROJECT_ROOT/"* ]] || {
+  echo "manifest must be project-owned: $MANIFEST_REAL" >&2
+  exit 2
+}
+MANIFEST_TARGET="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["target"])' "$MANIFEST_REAL")"
+[[ "$MANIFEST_TARGET" == "$DEVICE" ]] || {
+  echo "manifest target mismatch: cli=$DEVICE manifest=$MANIFEST_TARGET" >&2
+  exit 2
+}
+MANIFEST_AUTHORIZED_TARGET="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("authorizedTarget", ""))' "$MANIFEST_REAL")"
+[[ -z "$MANIFEST_AUTHORIZED_TARGET" || "$MANIFEST_AUTHORIZED_TARGET" == "$DEVICE" ]] || {
+  echo "manifest authorization mismatch: cli=$DEVICE authorized=$MANIFEST_AUTHORIZED_TARGET" >&2
+  exit 2
+}
+RUNNER="${CODEX_HOME:-$HOME/.codex}/skills/harmony-run-device-diagnostics/scripts/run_device_protocol.py"
+[[ -f "$RUNNER" ]] || { echo "device protocol runner not found: $RUNNER" >&2; exit 2; }
+
+python3 "$RUNNER" "$MANIFEST_REAL" --dry-run
+"$SCRIPT_DIR/device-lease" --device "$DEVICE" run --lease "$LEASE" -- \
+  python3 "$RUNNER" "$MANIFEST_REAL"
+python3 "$SCRIPT_DIR/validate_device_protocol_result.py" "$MANIFEST_REAL"

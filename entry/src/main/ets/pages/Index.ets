@@ -1,6 +1,6 @@
 import { ReaderTrialLayoutCommit, ReaderCloseContext } from '@reader-kit/ui'
 import { AppStrings } from 'shared'
-import { NextEReaderLabPage } from 'reader'
+import { NextEProductionReaderRequest, NextEReaderLabPage } from 'reader'
 import { ReaderLabLaunchState, ReaderLabRequest, connectReaderLabLaunch } from '@reader-kit/ui'
 import { ReaderEntryTransition, ReaderEntryPreviewSource, ReaderEntryRect, ReaderTrialWindow,
   ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
@@ -85,6 +85,7 @@ import {
   connectSecuritySettings,
   ListMode,
   ReaderOverlayNavigationState,
+  ReaderOverlayRoute,
   connectReaderOverlayNavigation,
   TabletLayoutSettings,
   TabletLayoutState,
@@ -1998,7 +1999,7 @@ struct Index {
   }
 
   @Builder
-  readerOverlayRouterMap(name: string) {
+  readerOverlayRouterMap(name: string, param: Object) {
     if (!SafeModeGate.routeAllowed(name)) {
       Column() {}
     } else if (name === 'ReaderOverlayBackdrop') {
@@ -2008,6 +2009,16 @@ struct Index {
         settingsSheetContent: (dismiss: () => void) => {
           this.ReaderSettingsSheet(dismiss)
         },
+      })
+    } else if (name === 'ReaderShared') {
+      NextEReaderLabPage({
+        request: new NextEProductionReaderRequest((param as ReaderOverlayRoute).params),
+        entryParams: (param as ReaderOverlayRoute).params,
+        settingsSheetContent: (dismiss: () => void) => {
+          this.ReaderSettingsSheet(dismiss)
+        },
+        onClose: (): void => { this.readerOverlay.close() },
+        onDisappeared: (): void => { this.readerOverlay.finishClose() },
       })
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()

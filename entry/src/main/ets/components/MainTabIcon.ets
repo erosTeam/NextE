@@ -68,6 +68,7 @@ export struct MainTabIcon {
     .width('100%')
     .height('100%')
     .padding({ top: ThemeConstants.SPACE_SM - 2, bottom: ThemeConstants.SPACE_XS })
+    .id(`nexte-root-tab-${this.idx}`)
     .onClick(() => {
       // Tapping a DIFFERENT tab lets HdsTabs switch (currentIndex !== idx → no-op here); re-tapping the
       // ALREADY-ACTIVE tab doesn't change the index, so this is where the root-refresh fires.

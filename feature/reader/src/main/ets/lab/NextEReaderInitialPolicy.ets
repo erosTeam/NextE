@@ -1,10 +1,10 @@
 import { ReaderDisplayPolicy } from '@reader-kit/core'
-import { ReaderLabRequest } from '@reader-kit/ui'
 import { ReadModeState, ReadMode, ReadColumnMode, ReadSpreadLayout } from 'shared'
+import { NextEReaderHostRequest } from './NextEReaderHostRequest'
 
 /** Canonical host values only; the shared map owns pairing and source anchors. */
 export class NextEReaderInitialPolicy {
-  static resolve(state: ReadModeState, column: string, request: ReaderLabRequest): ReaderDisplayPolicy {
+  static resolve(state: ReadModeState, column: string, request: NextEReaderHostRequest): ReaderDisplayPolicy {
     const policy = new ReaderDisplayPolicy()
     const horizontal = state.mode === ReadMode.LTR || state.mode === ReadMode.RTL
     policy.layout = state.mode === ReadMode.VERTICAL ? 'continuous' :

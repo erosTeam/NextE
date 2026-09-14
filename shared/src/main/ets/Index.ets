@@ -901,9 +901,16 @@ export {
 } from './state/GalleryDetailTransitionSettingsState'
 export { GalleryDetailTransitionCoordinator } from './navigation/GalleryDetailTransitionCoordinator'
 export {
+  ReaderOverlayRoute,
   ReaderOverlayNavigationState,
   connectReaderOverlayNavigation,
 } from './state/ReaderOverlayNavigationState'
+export {
+  NextEReaderBackend,
+  NextEReaderBackendSelectionState,
+  captureNextEReaderBackendWant,
+  connectNextEReaderBackendSelection,
+} from './state/NextEReaderBackendSelectionState'
 export {
   ReaderThumbnailTransitionPhase,
   ReaderThumbnailTransitionState,

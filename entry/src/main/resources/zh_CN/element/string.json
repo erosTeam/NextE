@@ -2821,6 +2821,22 @@
       "value": "阅读"
     },
     {
+      "name": "settings_reader_group_rehearsal",
+      "value": "替换演练"
+    },
+    {
+      "name": "settings_reader_backend",
+      "value": "阅读器实现"
+    },
+    {
+      "name": "settings_reader_backend_legacy",
+      "value": "现有阅读器"
+    },
+    {
+      "name": "settings_reader_backend_shared",
+      "value": "共享阅读器"
+    },
+    {
       "name": "settings_reader_group_layout",
       "value": "阅读模式"
     },

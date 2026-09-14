@@ -1,5 +1,7 @@
 export { ReaderPage } from './pages/ReaderPage'
 export { NextEReaderLabPage } from './lab/NextEReaderLabPage'
+export { NextEProductionReaderRequest } from './lab/NextEReaderHostRequest'
+export type { NextEReaderHostRequest } from './lab/NextEReaderHostRequest'
 export { ReaderViewModel } from './viewmodel/ReaderViewModel'
 export { ReaderImageLoadPresentation } from './model/ReaderImageLoadPresentation'
 export { ReaderImageLoadPriority } from './model/ReaderImageLoadPriority'

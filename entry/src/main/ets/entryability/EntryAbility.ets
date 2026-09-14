@@ -25,6 +25,7 @@ import {
   connectSecuritySettings,
   connectSafeMode,
   SyncScheduler,
+  captureNextEReaderBackendWant,
 } from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
@@ -52,6 +53,7 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     captureReaderLabWant(want, this.context.applicationInfo.debug)
+    captureNextEReaderBackendWant(want, this.context.applicationInfo.debug)
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
       return HuaweiCloudSyncService.runScheduledSync(context, reason)
     })
@@ -77,6 +79,7 @@ export default class EntryAbility extends UIAbility {
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     captureReaderLabWant(want, this.context.applicationInfo.debug)
+    captureNextEReaderBackendWant(want, this.context.applicationInfo.debug)
     this.captureIncomingUrl(want)
   }
 

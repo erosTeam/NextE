@@ -10,9 +10,10 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
+  ReaderAssetProvider,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryPreviewSource } from '@reader-kit/ui'
-import { ReaderLabRequest, ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility, ReaderLabAssetProbe, ReaderVolumeKeys } from '@reader-kit/ui'
+import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility, ReaderLabAssetProbe, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
 import { connectGalleryReadProgress, ReaderTapZoneResolver } from 'shared'
@@ -31,10 +32,11 @@ import {
   NextEReaderImageBlockMarkResult,
   NextEReaderImageBlockProvider,
 } from './NextEReaderImageBlockProvider'
+import { NextEReaderHostRequest } from './NextEReaderHostRequest'
 
 @ComponentV2
 export struct NextEReaderLabPage {
-  @Require @Param request: ReaderLabRequest
+  @Require @Param request: NextEReaderHostRequest
   @BuilderParam settingsSheetContent: (dismiss: () => void) => void
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
@@ -46,6 +48,7 @@ export struct NextEReaderLabPage {
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
   @Event onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => void = () => {}
   @Event onShown: () => void = () => {}
+  @Event onDisappeared: () => void = () => {}
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
@@ -81,20 +84,24 @@ export struct NextEReaderLabPage {
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    if (!context.applicationInfo.debug) return
-    const forcedImageBlockSourceIndex = connectNextEReaderLabContextProbe().deliver(this.request.work, context)
+    const production = this.request.productionSources === true
+    if (!context.applicationInfo.debug && !production) return
+    const forcedImageBlockSourceIndex = production
+      ? -1
+      : connectNextEReaderLabContextProbe().deliver(this.request.work, context)
     this.volumeDisposed = false
     this.keepScreenOn = new ReaderKeepScreenOn(context)
     if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
     const isEx = this.entrySite.length > 0 ? this.entrySite === 'ex' : connectSiteMode().isEx
     this.unitKey = new ReaderUnitKey(isEx ? 'ex' : 'eh', this.request.work, this.request.work)
     const adapter = new NextEReaderLabAdapter(context, this.request.unit, isEx, this.entryParams,
-      (kind: string, index: number, fileCount: number, seedCount: number, exactImagePage: boolean): void => {
-        connectNextEReaderLabContextProbe().reportSource(this.request.work, kind, index, fileCount, seedCount,
-          exactImagePage)
-      })
+      production ? null :
+        (kind: string, index: number, fileCount: number, seedCount: number, exactImagePage: boolean): void => {
+          connectNextEReaderLabContextProbe().reportSource(this.request.work, kind, index, fileCount, seedCount,
+            exactImagePage)
+        })
     this.adapter = adapter
-    this.imageShare = new ReaderLabShareProbe(adapter, this.request.shareProbe)
+    this.imageShare = production ? adapter : new ReaderLabShareProbe(adapter, this.request.shareProbe)
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
       await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
     })
@@ -106,9 +113,12 @@ export struct NextEReaderLabPage {
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
-    const session = new ReaderPagedSession(adapter, new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
-      this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1,
-      this.request.originalVariantProbe), adapter)
+    const assetProvider: ReaderAssetProvider = production
+      ? translationProvider
+      : new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
+        this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1,
+        this.request.originalVariantProbe)
+    const session = new ReaderPagedSession(adapter, assetProvider, adapter)
     if (this.request.readingChrome) {
       this.initializeSession(session)
       return
@@ -708,5 +718,6 @@ export struct NextEReaderLabPage {
     })
     .onShown((): void => { this.routeActive = true; this.onShown() })
     .onHidden((): void => { this.routeActive = false })
+    .onDisAppear((): void => { this.routeActive = false; this.onDisappeared() })
   }
 }

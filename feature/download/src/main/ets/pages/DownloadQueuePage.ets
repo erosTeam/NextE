@@ -1452,6 +1452,7 @@ export struct DownloadQueuePage {
     .borderRadius(ThemeConstants.DOWNLOAD_TASK_CARD_RADIUS)
     .backgroundColor($r('app.color.card_background'))
     .alignItems(VerticalAlign.Top)
+    .id(`download-task-reader-${task.gid}`)
   }
 
   @Builder
@@ -2064,5 +2065,6 @@ export struct DownloadQueuePage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .id('nexte-download-queue-root')
   }
 }

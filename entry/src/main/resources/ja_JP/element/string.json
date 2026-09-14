@@ -2821,6 +2821,22 @@
       "value": "閲覧"
     },
     {
+      "name": "settings_reader_group_rehearsal",
+      "value": "置換リハーサル"
+    },
+    {
+      "name": "settings_reader_backend",
+      "value": "リーダー実装"
+    },
+    {
+      "name": "settings_reader_backend_legacy",
+      "value": "既存リーダー"
+    },
+    {
+      "name": "settings_reader_backend_shared",
+      "value": "共有リーダー"
+    },
+    {
       "name": "settings_reader_group_layout",
       "value": "閲覧モード"
     },

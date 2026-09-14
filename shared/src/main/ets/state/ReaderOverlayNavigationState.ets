@@ -1,6 +1,18 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { ReaderParams } from '../model/RouteParams'
+import { NextEReaderBackend, connectNextEReaderBackendSelection } from './NextEReaderBackendSelectionState'
 import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionState'
+
+/** Host-owned route envelope; reader-kit never chooses the app implementation. */
+export class ReaderOverlayRoute {
+  params: ReaderParams
+  backend: NextEReaderBackend
+
+  constructor(params: ReaderParams, backend: NextEReaderBackend) {
+    this.params = params
+    this.backend = backend
+  }
+}
 
 /**
  * Owns Reader's full-window navigation stack independently of the adaptive root HDS navigation.
@@ -15,25 +27,33 @@ export class ReaderOverlayNavigationState {
   // Overlay lifecycle only. Reader progress publication is gated by Reader presentation ownership;
   // GalleryDetail must not derive its update timing from this closing flag.
   @Trace closing: boolean = false
-  private pendingReader: ReaderParams | null = null
+  private pendingReader: ReaderOverlayRoute | null = null
   private pendingReaderAnimated: boolean = true
 
   open(params: ReaderParams, animated: boolean = true): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
-    this.pendingReader = params
+    // Snapshot the Debug-only rehearsal choice at admission. An open session
+    // cannot switch implementation when the settings row changes later.
+    this.pendingReader = new ReaderOverlayRoute(params, connectNextEReaderBackendSelection().current())
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
   }
 
   presentPendingReader(): void {
-    const params: ReaderParams | null = this.pendingReader
-    if (!this.visible || this.closing || params === null) {
+    const route: ReaderOverlayRoute | null = this.pendingReader
+    if (!this.visible || this.closing || route === null) {
       return
     }
     this.pendingReader = null
-    this.stack.pushPathByName('Reader', params, this.pendingReaderAnimated)
+    if (route.backend === NextEReaderBackend.SHARED) {
+      this.stack.pushPathByName('ReaderShared', route, this.pendingReaderAnimated)
+    } else {
+      // Keep the accepted legacy destination contract byte-for-byte: it reads
+      // ReaderParams from NavDestinationContext itself.
+      this.stack.pushPathByName('Reader', route.params, this.pendingReaderAnimated)
+    }
     this.pendingReaderAnimated = true
   }
 

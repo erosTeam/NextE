@@ -28,6 +28,9 @@ import {
   AppModalScaffold,
   SectionHeader,
   SettingsCheckedMenuItem,
+  NextEReaderBackend,
+  NextEReaderBackendSelectionState,
+  connectNextEReaderBackendSelection,
 } from 'shared'
 
 /**
@@ -47,10 +50,16 @@ export struct ReaderSettingsPage {
   @Local sheetPanelWidth: number = 0;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
+  @Local readerBackendSelection: NextEReaderBackendSelectionState = connectNextEReaderBackendSelection();
+  @Local readerBackendRehearsalAvailable: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    this.readerBackendRehearsalAvailable = this.context().applicationInfo.debug
+    if (!this.readerBackendRehearsalAvailable) {
+      this.readerBackendSelection.selectForRehearsal(NextEReaderBackend.LEGACY, false)
+    }
     this.refreshSuperResolutionModels()
   }
 
@@ -799,6 +808,58 @@ export struct ReaderSettingsPage {
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
   }
 
+  private readerBackendLabel(): Resource {
+    const revision = this.readerBackendSelection.version
+    return revision >= 0 && this.readerBackendSelection.current() === NextEReaderBackend.SHARED
+      ? $r('app.string.settings_reader_backend_shared')
+      : $r('app.string.settings_reader_backend_legacy')
+  }
+
+  private selectReaderBackend(backend: NextEReaderBackend): void {
+    this.readerBackendSelection.selectForRehearsal(backend, this.readerBackendRehearsalAvailable)
+  }
+
+  @Builder
+  private ReaderBackendMenu(select: (action: () => void) => void) {
+    Menu() {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_backend_legacy'),
+        selected: this.readerBackendSelection.current() === NextEReaderBackend.LEGACY,
+        selectAction: (): void => {
+          select((): void => this.selectReaderBackend(NextEReaderBackend.LEGACY))
+        },
+      })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_backend_shared'),
+        selected: this.readerBackendSelection.current() === NextEReaderBackend.SHARED,
+        selectAction: (): void => {
+          select((): void => this.selectReaderBackend(NextEReaderBackend.SHARED))
+        },
+      })
+    }
+  }
+
+  @Builder
+  private ReaderBackendRehearsalGroup() {
+    ListItem() {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        SectionHeader({ title: $r('app.string.settings_reader_group_rehearsal') })
+        GroupedListSection() {
+          ConciseListRow({
+            title: $r('app.string.settings_reader_backend'),
+            trailingText: this.readerBackendLabel(),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void): void => {
+              this.ReaderBackendMenu(select)
+            },
+          })
+          .id('nexte-reader-backend-rehearsal-row')
+        }
+      }
+    }
+  }
+
   @Builder
   private PagedModeSettingsGroup() {
     ListItem() {
@@ -951,6 +1012,9 @@ export struct ReaderSettingsPage {
 
   @Builder
   private SettingsListItems() {
+    if (this.readerBackendRehearsalAvailable && !this.sheetPresentation) {
+      this.ReaderBackendRehearsalGroup()
+    }
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_layout') })

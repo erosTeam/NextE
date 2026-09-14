@@ -10,7 +10,9 @@ NextE 是原生 HarmonyOS NEXT（ArkTS/ArkUI）的 E-Hentai / ExHentai 客户端
 源码来自公开的 `third_party/reader-kit` 子模块，并固定到仓库可获取的提交。原有模块为
 `entry`、`shared`、`reader_enhancement`，以及
 `home`、`gallery`、`search`、`reader`、`download`、`user`、`settings` 7 个 feature HAR。
-实验 HAR 仅供显式 debug Want 打开的 `ReaderLab` 使用；现有 ReaderPage、默认入口、偏好和进度存储不替换。
+共享 HAR 可由显式 debug Want 的 `ReaderLab` 使用，也可在 Debug 构建的阅读设置中临时选择，
+通过普通 Reader overlay 入口进行替换演练。选择仅在当前进程有效，普通启动和 Release 构建均回到
+旧 Reader，overlay 在接纳路由时固定本次实现；现有 ReaderPage 仍是默认与回退路径，不迁移持久化设置。
 
 ```text
 entry

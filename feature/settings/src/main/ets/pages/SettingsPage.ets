@@ -172,6 +172,7 @@ export struct SettingsPage {
           this.openRootDetail('ReaderSettings')
         },
       })
+      .id('nexte-settings-reader-row')
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_download'),

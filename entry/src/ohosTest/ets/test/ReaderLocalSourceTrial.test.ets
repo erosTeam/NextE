@@ -1,8 +1,19 @@
 import { describe, expect, it } from '@ohos/hypium'
-import { abilityDelegatorRegistry, Driver, ON } from '@kit.TestKit'
+import { abilityDelegatorRegistry, Component, Driver, ON } from '@kit.TestKit'
+import { common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
+import { relationalStore } from '@kit.ArkData'
 import {
-  connectDownloadQueue, DownloadGalleryTask, DownloadGalleryTaskStatus, DownloadImageSeed,
+  AppStrings,
+  connectDownloadQueue,
+  connectGalleryReadProgress,
+  connectNextEReaderBackendSelection,
+  DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadImageSeed,
+  GalleryReadProgressSettings,
+  NextEReaderBackend,
+  ReadProgressEntry,
 } from 'shared'
 
 const FIXTURE_GID: string = '9876543210123'
@@ -64,8 +75,184 @@ async function waitLocalReader(driver: Driver): Promise<void> {
   throw new Error('shared_local_reader_not_ready')
 }
 
+async function waitId(driver: Driver, id: string, attempts: number = 80): Promise<Component> {
+  for (let attempt: number = 0; attempt < attempts; attempt++) {
+    const component = await driver.findComponent(ON.id(id))
+    if (component !== null) return component
+    await driver.delayMs(250)
+  }
+  throw new Error(`reader_backend_rehearsal_component_unavailable:${id}`)
+}
+
+async function entryContext(driver: Driver): Promise<common.UIAbilityContext> {
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  for (let attempt: number = 0; attempt < 80; attempt++) {
+    try {
+      const ability = await delegator.getCurrentTopAbility()
+      if (ability.context.abilityInfo.name === 'EntryAbility') return ability.context
+    } catch (_) {}
+    await driver.delayMs(100)
+  }
+  throw new Error('reader_backend_rehearsal_entry_context_unavailable')
+}
+
+async function selectBackend(driver: Driver, backend: NextEReaderBackend): Promise<void> {
+  await (await waitId(driver, 'nexte-reader-backend-rehearsal-row')).click()
+  const label = AppStrings.get(backend === NextEReaderBackend.SHARED
+    ? 'settings_reader_backend_shared'
+    : 'settings_reader_backend_legacy')
+  const option = await driver.findComponent(ON.text(label))
+  if (option === null) throw new Error(`reader_backend_rehearsal_option_unavailable:${backend}`)
+  await option.click()
+  for (let attempt: number = 0; attempt < 40; attempt++) {
+    if (connectNextEReaderBackendSelection().current() === backend) {
+      // The menu commits state before its dismiss animation completes. Let the
+      // popup leave the tree so the following Back targets ReaderSettings.
+      await driver.delayMs(500)
+      return
+    }
+    await driver.delayMs(100)
+  }
+  throw new Error(`reader_backend_rehearsal_selection_failed:${backend}`)
+}
+
+async function leaveBackendSettings(driver: Driver): Promise<void> {
+  for (let attempt: number = 0; attempt < 3; attempt++) {
+    if (await driver.findComponent(ON.id('nexte-reader-backend-rehearsal-row')) === null) return
+    await driver.pressBack()
+    await driver.delayMs(500)
+  }
+  throw new Error('reader_backend_rehearsal_settings_did_not_close')
+}
+
+async function openBackendSettings(driver: Driver): Promise<void> {
+  await (await waitId(driver, 'nexte-root-tab-4')).click()
+  await (await waitId(driver, 'nexte-settings-reader-row')).click()
+  await waitId(driver, 'nexte-reader-backend-rehearsal-row')
+}
+
+async function openFixtureFromDownloads(driver: Driver): Promise<void> {
+  await leaveBackendSettings(driver)
+  await (await waitId(driver, 'nexte-root-tab-3')).click()
+  await (await waitId(driver, `download-task-reader-${FIXTURE_GID}`, 120)).click()
+}
+
+async function closeSharedReader(driver: Driver): Promise<void> {
+  let close = await driver.findComponent(ON.id('rkit-close'))
+  if (close === null) {
+    const surface = await waitId(driver, 'rkit-reading-surface')
+    const bounds = await surface.getBounds()
+    await driver.click(Math.round((bounds.left + bounds.right) / 2),
+      Math.round((bounds.top + bounds.bottom) / 2))
+    close = await waitId(driver, 'rkit-close')
+  }
+  await close.click()
+  for (let attempt: number = 0; attempt < 80; attempt++) {
+    if (await driver.findComponent(ON.id('reader-overlay-navigation')) === null) return
+    await driver.delayMs(250)
+  }
+  throw new Error('shared_reader_did_not_return_to_downloads')
+}
+
+async function waitLegacyReader(driver: Driver): Promise<Component> {
+  for (let attempt: number = 0; attempt < 120; attempt++) {
+    const surface = await driver.findComponent(ON.id('reader_key_surface'))
+    if (surface !== null && await driver.findComponent(ON.id('rkit-reading-surface')) === null) return surface
+    await driver.delayMs(250)
+  }
+  throw new Error('legacy_reader_did_not_open_from_normal_download_entry')
+}
+
+async function progressStore(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
+  return relationalStore.getRdbStore(context,
+    { name: 'NextE.db', securityLevel: relationalStore.SecurityLevel.S3, autoCleanDirtyData: true })
+}
+
+async function restoreFixtureProgress(context: common.UIAbilityContext, original: ReadProgressEntry[]): Promise<void> {
+  await GalleryReadProgressSettings.flushForSync(context)
+  const database = await progressStore(context)
+  await database.executeSql('DELETE FROM gallery_read_progress WHERE scope_key=? AND gid=?', ['global', FIXTURE_GID])
+  connectGalleryReadProgress().replaceAll(original)
+}
+
 export default function readerLocalSourceTrialTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
+  if (args['-s class'] === 'ReaderProductionInAppBackendRehearsalTrial') {
+    describe('ReaderProductionInAppBackendRehearsalTrial', (): void => {
+      it('switchesNormalDownloadEntryAndRestoresLegacy', 0, async (): Promise<void> => {
+        const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const driver = Driver.create()
+        const queue = connectDownloadQueue()
+        const originalTasks = queue.galleryTasks
+        const originalProgress = connectGalleryReadProgress().snapshot()
+        const paths: string[] = []
+        let context: common.UIAbilityContext | null = null
+        let queueWithFixture: string = ''
+        try {
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+          context = await entryContext(driver)
+          expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.LEGACY)
+          const task = await fixtureTask(paths)
+
+          await openBackendSettings(driver)
+          await capture(driver, 'backend-legacy-setting')
+          await selectBackend(driver, NextEReaderBackend.SHARED)
+          await capture(driver, 'backend-shared-setting')
+          // EntryAbility restores the persisted queue asynchronously during cold start.
+          // Inject only after that startup work and the settings round-trip have settled,
+          // otherwise the production restore can legitimately replace this test fixture.
+          queue.replaceGalleryTasks(originalTasks.concat([task]))
+          queueWithFixture = JSON.stringify(queue.galleryTasks)
+          await openFixtureFromDownloads(driver)
+          await waitLocalReader(driver)
+          const sharedSurface = await waitId(driver, 'rkit-reading-surface')
+          const sharedBounds = await sharedSurface.getBounds()
+          await driver.click(Math.round((sharedBounds.left + sharedBounds.right) / 2),
+            Math.round((sharedBounds.top + sharedBounds.bottom) / 2))
+          expect(await driver.findComponent(ON.id('rkit-reading-surface')) !== null).assertTrue()
+          await capture(driver, 'backend-shared-reader')
+          await closeSharedReader(driver)
+          await waitId(driver, 'nexte-download-queue-root')
+          await capture(driver, 'backend-shared-return')
+
+          await openBackendSettings(driver)
+          expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
+          await selectBackend(driver, NextEReaderBackend.LEGACY)
+          await capture(driver, 'backend-legacy-restored-setting')
+          await openFixtureFromDownloads(driver)
+          const legacySurface = await waitLegacyReader(driver)
+          const legacyBounds = await legacySurface.getBounds()
+          await driver.click(Math.round((legacyBounds.left + legacyBounds.right) / 2),
+            Math.round((legacyBounds.top + legacyBounds.bottom) / 2))
+          expect(await driver.findComponent(ON.id('reader_key_surface')) !== null).assertTrue()
+          await capture(driver, 'backend-legacy-reader')
+          await driver.pressBack()
+          for (let attempt: number = 0; attempt < 80; attempt++) {
+            if (await driver.findComponent(ON.id('reader-overlay-navigation')) === null) break
+            await driver.delayMs(250)
+          }
+          expect(await driver.findComponent(ON.id('reader-overlay-navigation'))).assertNull()
+          await waitId(driver, 'nexte-download-queue-root')
+          expect(JSON.stringify(queue.galleryTasks)).assertEqual(queueWithFixture)
+          await capture(driver, 'backend-legacy-return')
+          console.info('[ReaderProductionInAppBackendRehearsalTrial] initial=legacy sharedSelectedInApp=true ' +
+            'sharedTouch=true sharedReturned=true legacySelectedInApp=true legacyTouch=true legacyReturned=true ' +
+            'queueUnchanged=true')
+        } catch (error) {
+          try { await capture(driver, 'backend-exception') } catch (_) {}
+          throw error as Error
+        } finally {
+          connectNextEReaderBackendSelection().selectForRehearsal(NextEReaderBackend.LEGACY, true)
+          queue.replaceGalleryTasks(originalTasks)
+          if (context !== null) await restoreFixtureProgress(context, originalProgress)
+          for (const path of paths) {
+            if (fileIo.accessSync(path)) fileIo.unlinkSync(path)
+          }
+        }
+      })
+    })
+    return
+  }
   if (args['-s class'] !== 'ReaderLocalSourceTrial') return
   describe('ReaderLocalSourceTrial', (): void => {
     it('completeDownloadOpensSharedReaderWithoutNetworkAndRestoresQueue', 0, async (): Promise<void> => {
