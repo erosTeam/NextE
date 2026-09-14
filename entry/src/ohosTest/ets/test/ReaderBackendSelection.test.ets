@@ -53,7 +53,7 @@ export default function readerBackendSelectionTest(): void {
       done()
     })
 
-    it('keeps production requests free of Lab overrides', 0, (done: Function): void => {
+    it('keeps production requests on the session contract', 0, (done: Function): void => {
       const request = new NextEProductionReaderRequest(new ReaderParams('456', 'token-2', 7, 12))
       expect(request.work).assertEqual('456')
       expect(request.unit).assertEqual('token-2')
@@ -61,13 +61,6 @@ export default function readerBackendSelectionTest(): void {
       expect(request.progressReadWrite).assertTrue()
       expect(request.preferencesReadWrite).assertTrue()
       expect(request.productionSources).assertTrue()
-      expect(request.failurePage).assertEqual(-1)
-      expect(request.thumbnailFailurePage).assertEqual(-1)
-      expect(request.entryLayoutOverride === null).assertTrue()
-      expect(request.entryDirectionOverride === null).assertTrue()
-      expect(request.shareProbe).assertEqual('')
-      expect(request.informationProbe).assertEqual('')
-      expect(request.originalVariantProbe).assertEqual('')
       done()
     })
   })

@@ -47,5 +47,15 @@ for (const file of [
 const host = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
 assert.match(host, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter\)/)
+assert.match(host, /@Param labRequest: ReaderLabRequest \| null = null/)
+assert.match(host, /lab === null\s*\? translationProvider\s*:\s*new ReaderLabAssetProbe/)
+
+const hostRequest = fs.readFileSync(path.join(root,
+  'feature/reader/src/main/ets/lab/NextEReaderHostRequest.ets'), 'utf8')
+const productionRequest = hostRequest.slice(hostRequest.indexOf('export class NextEProductionReaderRequest'))
+for (const field of ['failurePage', 'thumbnailFailurePage', 'shareProbe', 'informationProbe',
+  'originalVariantProbe', 'assetFailureMessage', 'entryLayoutOverride', 'entryDirectionOverride']) {
+  assert.doesNotMatch(productionRequest, new RegExp(`\\b${field}\\b`))
+}
 
 console.log('NextE shared-reader failure presentation passed')

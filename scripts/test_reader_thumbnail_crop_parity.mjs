@@ -24,21 +24,21 @@ const output = ts.transpileModule(`export class Host { ${cropMethod.getText(tree
 const exports = {}
 vm.runInNewContext(output, { exports, require, ReadMode: { VERTICAL: 'vertical' } })
 
-for (const [request, readMode, expected] of [
-  [{ thumbnailEntry: true, cropBorders: true, preferencesReadWrite: true },
+for (const [request, labRequest, readMode, expected] of [
+  [{ preferencesReadWrite: true }, { cropBorders: true },
     { mode: 'vertical', cropBordersContinuous: true, cropBordersPaged: true }, true],
-  [{ thumbnailEntry: true, cropBorders: false, preferencesReadWrite: true },
+  [{ preferencesReadWrite: true }, { cropBorders: false },
     { mode: 'paged_rtl', cropBordersContinuous: false, cropBordersPaged: true }, true],
-  [{ thumbnailEntry: true, cropBorders: false, preferencesReadWrite: false },
+  [{ preferencesReadWrite: false }, { cropBorders: false },
     { mode: 'paged_rtl', cropBordersContinuous: false, cropBordersPaged: true }, false],
 ]) {
   const host = new exports.Host()
-  Object.assign(host, { request, readMode })
+  Object.assign(host, { request, labRequest, readMode })
   assert.equal(host.initialCropBorders(), expected)
 }
 
 assert.match(pageSource,
-  /cropAvailable:\s*this\.request\.preferencesReadWrite \|\| this\.request\.cropBorders/,
+  /cropAvailable:\s*this\.request\.preferencesReadWrite \|\| this\.labRequest\?\.cropBorders === true/,
   'thumbnail entry must not disable the host crop control')
 
 console.log('NextE shared-reader thumbnail crop parity passed')

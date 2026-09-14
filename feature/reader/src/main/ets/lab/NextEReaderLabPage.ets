@@ -13,7 +13,8 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHos
   ReaderAssetProvider, ReaderImageInformation,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryPreviewSource } from '@reader-kit/ui'
-import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility, ReaderLabAssetProbe, ReaderVolumeKeys } from '@reader-kit/ui'
+import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility,
+  ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
 import { connectGalleryReadProgress, ReaderTapZoneResolver } from 'shared'
@@ -38,6 +39,8 @@ import { NextEReaderHostRequest } from './NextEReaderHostRequest'
 @ComponentV2
 export struct NextEReaderLabPage {
   @Require @Param request: NextEReaderHostRequest
+  /** Present only for an explicit Debug Lab route; production requests never carry probe fields. */
+  @Param labRequest: ReaderLabRequest | null = null
   @BuilderParam settingsSheetContent: (dismiss: () => void) => void
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
@@ -89,23 +92,23 @@ export struct NextEReaderLabPage {
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     const production = this.request.productionSources === true
-    if (!context.applicationInfo.debug && !production) return
-    const forcedImageBlockSourceIndex = production
-      ? -1
-      : connectNextEReaderLabContextProbe().deliver(this.request.work, context)
+    const lab = this.labRequest
+    if ((!context.applicationInfo.debug && !production) || (!production && lab === null)) return
+    const forcedImageBlockSourceIndex = lab === null
+      ? -1 : connectNextEReaderLabContextProbe().deliver(this.request.work, context)
     this.volumeDisposed = false
     this.keepScreenOn = new ReaderKeepScreenOn(context)
     if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
     const isEx = this.entrySite.length > 0 ? this.entrySite === 'ex' : connectSiteMode().isEx
     this.unitKey = new ReaderUnitKey(isEx ? 'ex' : 'eh', this.request.work, this.request.work)
     const adapter = new NextEReaderLabAdapter(context, this.request.unit, isEx, this.entryParams,
-      production ? null :
+      lab === null ? null :
         (kind: string, index: number, fileCount: number, seedCount: number, exactImagePage: boolean): void => {
           connectNextEReaderLabContextProbe().reportSource(this.request.work, kind, index, fileCount, seedCount,
             exactImagePage)
         }, (): string => this.cropStrength())
     this.adapter = adapter
-    this.imageShare = production ? adapter : new ReaderLabShareProbe(adapter, this.request.shareProbe)
+    this.imageShare = lab === null ? adapter : new ReaderLabShareProbe(adapter, lab.shareProbe)
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
       await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
     })
@@ -120,11 +123,11 @@ export struct NextEReaderLabPage {
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page),
       (): string => this.cropStrength())
-    const assetProvider: ReaderAssetProvider = production
+    const assetProvider: ReaderAssetProvider = lab === null
       ? translationProvider
-      : new ReaderLabAssetProbe(translationProvider, this.request.thumbnailFailurePage,
-        this.request.informationProbe, this.request.readingChrome ? this.request.failurePage : -1,
-        this.request.originalVariantProbe, this.request.assetFailureMessage)
+      : new ReaderLabAssetProbe(translationProvider, lab.thumbnailFailurePage,
+        lab.informationProbe, this.request.readingChrome ? lab.failurePage : -1,
+        lab.originalVariantProbe, lab.assetFailureMessage)
     const session = new ReaderPagedSession(adapter, assetProvider, adapter, adapter)
     if (this.request.readingChrome) {
       this.initializeSession(session)
@@ -143,7 +146,8 @@ export struct NextEReaderLabPage {
       return
     }
     const column = progress.getColumnMode(this.request.work)
-    const policy = NextEReaderInitialPolicy.resolve(this.readMode, column, this.request)
+    const policy = NextEReaderInitialPolicy.resolve(this.readMode, column,
+      this.labRequest?.entryLayoutOverride ?? null, this.labRequest?.entryDirectionOverride ?? null)
     session.setPolicy(policy)
     if (this.request.progressReadWrite && !this.request.pageIndexProvided) {
       this.request.pageIndex = progress.getIndex(this.request.work)
@@ -612,7 +616,7 @@ export struct NextEReaderLabPage {
   }
 
   private initialCropBorders(): boolean {
-    if (this.request.cropBorders) return true
+    if (this.labRequest?.cropBorders === true) return true
     if (!this.request.preferencesReadWrite) return false
     return this.readMode.mode === ReadMode.VERTICAL
       ? this.readMode.cropBordersContinuous
@@ -717,7 +721,8 @@ export struct NextEReaderLabPage {
     'readMode.volumeKeyTurnReady', 'closeRequested', 'hostClosing', 'readerSettingsSheetShown', 'session')
   syncReaderActivity(): void {
     this.syncKeepScreenOn()
-    const enabled = this.request.volumeKeysOverride ?? (this.readMode.volumeKeyTurnReady && this.readMode.volumeKeyTurn)
+    const enabled = this.labRequest?.volumeKeysOverride ??
+      (this.readMode.volumeKeyTurnReady && this.readMode.volumeKeyTurn)
     this.volumeKeys.setActive(!this.volumeDisposed && !this.closeRequested && !this.hostClosing &&
       this.session !== null && this.request.readingChrome && enabled &&
       this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown &&
@@ -747,7 +752,7 @@ export struct NextEReaderLabPage {
                 this.imageInformationSupplement(frame, value),
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
-              pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
+              pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
               preferredVariant: this.superResolutionAvailable() ? 'enhanced' : 'default',
               preferredVariantIdentity: this.superResolutionIdentity(),
@@ -763,7 +768,7 @@ export struct NextEReaderLabPage {
               cropSourceRevision: this.cropSourceRevision(),
               // The entry transition already cancels when cropped geometry cannot be mapped.
               // Keep the reader feature available and sacrifice only the optional flight.
-              cropAvailable: this.request.preferencesReadWrite || this.request.cropBorders,
+              cropAvailable: this.request.preferencesReadWrite || this.labRequest?.cropBorders === true,
               hostSettingsAvailable: this.request.preferencesReadWrite,
               onHostSettings: (): void => { this.openHostSettings() },
               hostActions: this.hostActions(),
@@ -795,9 +800,9 @@ export struct NextEReaderLabPage {
           } else {
           ReaderLabSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
             preloadDepth: this.readMode.preloadPages,
-            failurePage: this.request.failurePage,
-            failureLayout: this.request.failureLayout,
-            delayedMetricsPage: this.request.delayedMetricsPage,
+            failurePage: this.labRequest?.failurePage ?? -1,
+            failureLayout: this.labRequest?.failureLayout ?? 'continuous',
+            delayedMetricsPage: this.labRequest?.delayedMetricsPage ?? -1,
             active: this.routeActive && this.labVisibility.foreground })
           }
         }

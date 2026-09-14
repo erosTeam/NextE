@@ -1061,7 +1061,7 @@ struct Index {
   private readerTrialRouter(_name: string, _param: Object) {
     if (this.readerTrialRequest !== null) {
       // The destination owns its launch request through teardown; the host clears its active pointer first.
-      NextEReaderLabPage({ request: _param as ReaderLabRequest,
+      NextEReaderLabPage({ request: _param as ReaderLabRequest, labRequest: _param as ReaderLabRequest,
         settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         managesTrialWindow: false, entrySite: this.readerTrialSite,
         entryParams: this.readerEntryParams,
@@ -2120,7 +2120,7 @@ struct Index {
     if (!SafeModeGate.routeAllowed(name)) {
       Column() {}
     } else if (name === 'ReaderLab') {
-      NextEReaderLabPage({ request: param as ReaderLabRequest,
+      NextEReaderLabPage({ request: param as ReaderLabRequest, labRequest: param as ReaderLabRequest,
         settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         onClose: (): void => { this.navStackHolder.stack.pop() } })
     } else {
