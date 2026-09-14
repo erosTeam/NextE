@@ -2893,6 +2893,22 @@
       "value": "ページの余白を自動トリミング"
     },
     {
+      "name": "settings_reader_crop_strength",
+      "value": "トリミング強度"
+    },
+    {
+      "name": "settings_reader_crop_strength_conservative",
+      "value": "控えめ"
+    },
+    {
+      "name": "settings_reader_crop_strength_standard",
+      "value": "標準"
+    },
+    {
+      "name": "settings_reader_crop_strength_strong",
+      "value": "強力"
+    },
+    {
       "name": "settings_reader_super_resolution",
       "value": "画像強調"
     },

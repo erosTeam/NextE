@@ -60,6 +60,8 @@ export class StorageKeys {
   static readonly READING_IMAGE_SCALING_QUALITY: string = 'reading.imageScalingQuality'
   static readonly READING_CROP_BORDERS_PAGED: string = 'reading.cropBordersPaged'
   static readonly READING_CROP_BORDERS_CONTINUOUS: string = 'reading.cropBordersContinuous'
+  static readonly READING_CROP_STRENGTH_PAGED: string = 'reading.cropStrengthPaged'
+  static readonly READING_CROP_STRENGTH_CONTINUOUS: string = 'reading.cropStrengthContinuous'
   static readonly READING_SUPER_RESOLUTION_ENABLED: string = 'reading.superResolutionEnabled'
   static readonly READING_SUPER_RESOLUTION_MODEL: string = 'reading.superResolutionModel'
   static readonly READING_SUPER_RESOLUTION_MAX_HEIGHT: string = 'reading.superResolutionMaxHeight'

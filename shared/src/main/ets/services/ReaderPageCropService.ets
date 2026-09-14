@@ -1,11 +1,15 @@
 import { taskpool } from '@kit.ArkTS'
 import { image } from '@kit.ImageKit'
-import { ReaderPageCropBounds, ReaderPageCropDetector } from '../model/ReaderPageCropBounds'
+import {
+  ReaderPageCropBounds,
+  ReaderPageCropDetector,
+  ReaderPageCropStrength,
+} from '../model/ReaderPageCropBounds'
 
 const READER_CROP_CACHE_LIMIT: number = 256
 
 @Concurrent
-async function detectReaderPageCropFile(filePath: string): Promise<string> {
+async function detectReaderPageCropFile(filePath: string, strength: string): Promise<string> {
   const sampleLongEdge: number = 256
   let source: image.ImageSource | undefined = undefined
   let pixelMap: image.PixelMap | undefined = undefined
@@ -45,6 +49,7 @@ async function detectReaderPageCropFile(filePath: string): Promise<string> {
       new Uint8Array(buffer),
       sourceWidth,
       sourceHeight,
+      strength,
     ).serialize()
   } catch (_error) {
     return ReaderPageCropBounds.none().serialize()
@@ -63,11 +68,16 @@ export class ReaderPageCropService {
   private static cache: Map<string, ReaderPageCropBounds> = new Map()
   private static inFlight: Map<string, Promise<ReaderPageCropBounds>> = new Map()
 
-  static detect(filePath: string, identity: string): Promise<ReaderPageCropBounds> {
+  static detect(
+    filePath: string,
+    identity: string,
+    strength: string = ReaderPageCropStrength.STANDARD,
+  ): Promise<ReaderPageCropBounds> {
     if (filePath.length === 0 || identity.length === 0) {
       return Promise.resolve(ReaderPageCropBounds.none())
     }
-    const key: string = `${filePath}|${identity}`
+    const normalizedStrength: string = ReaderPageCropDetector.normalizeStrength(strength)
+    const key: string = `${filePath}|${identity}|${normalizedStrength}`
     const cached: ReaderPageCropBounds | undefined = ReaderPageCropService.cache.get(key)
     if (cached !== undefined) {
       ReaderPageCropService.cache.delete(key)
@@ -78,7 +88,7 @@ export class ReaderPageCropService {
     if (pending !== undefined) {
       return pending
     }
-    const task: Promise<ReaderPageCropBounds> = ReaderPageCropService.execute(filePath)
+    const task: Promise<ReaderPageCropBounds> = ReaderPageCropService.execute(filePath, normalizedStrength)
     ReaderPageCropService.inFlight.set(key, task)
     task.then((bounds: ReaderPageCropBounds): void => {
       if (ReaderPageCropService.inFlight.get(key) === task) {
@@ -90,9 +100,13 @@ export class ReaderPageCropService {
     return task
   }
 
-  private static async execute(filePath: string): Promise<ReaderPageCropBounds> {
+  private static async execute(filePath: string, strength: string): Promise<ReaderPageCropBounds> {
     try {
-      const serialized: string = await taskpool.execute<[string], string>(detectReaderPageCropFile, filePath)
+      const serialized: string = await taskpool.execute<[string, string], string>(
+        detectReaderPageCropFile,
+        filePath,
+        strength,
+      )
       return ReaderPageCropBounds.parse(serialized)
     } catch (_error) {
       return ReaderPageCropBounds.none()
@@ -115,4 +129,8 @@ export class ReaderPageCropService {
   }
 }
 
-export { ReaderPageCropBounds, ReaderPageCropDetector } from '../model/ReaderPageCropBounds'
+export {
+  ReaderPageCropBounds,
+  ReaderPageCropDetector,
+  ReaderPageCropStrength,
+} from '../model/ReaderPageCropBounds'

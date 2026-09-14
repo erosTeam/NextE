@@ -10,6 +10,7 @@ import {
   ReadMode,
   ReaderBackgroundMode,
   ReaderImageScalingQuality,
+  ReaderPageCropStrength,
   READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
   ReaderSuperResolutionModel,
   ReaderSuperResolutionModelService,
@@ -127,6 +128,14 @@ export struct ReaderSettingsPage {
 
   private setCropBordersContinuous(enabled: boolean): void {
     ReadModeSettings.setCropBordersContinuous(this.context(), enabled)
+  }
+
+  private setCropStrength(continuous: boolean, strength: string): void {
+    if (continuous) {
+      ReadModeSettings.setCropStrengthContinuous(this.context(), strength)
+      return
+    }
+    ReadModeSettings.setCropStrengthPaged(this.context(), strength)
   }
 
   private setSuperResolutionEnabled(enabled: boolean): void {
@@ -300,6 +309,21 @@ export struct ReaderSettingsPage {
       return $r('app.string.settings_reader_tap_zone_invert_both')
     }
     return $r('app.string.settings_reader_tap_zone_invert_none')
+  }
+
+  private cropStrength(continuous: boolean): string {
+    return continuous ? this.readMode.cropStrengthContinuous : this.readMode.cropStrengthPaged
+  }
+
+  private cropStrengthLabel(continuous: boolean): Resource {
+    const strength: string = this.cropStrength(continuous)
+    if (strength === ReaderPageCropStrength.CONSERVATIVE) {
+      return $r('app.string.settings_reader_crop_strength_conservative')
+    }
+    if (strength === ReaderPageCropStrength.STRONG) {
+      return $r('app.string.settings_reader_crop_strength_strong')
+    }
+    return $r('app.string.settings_reader_crop_strength_standard')
   }
 
   private backgroundModeLabel(): Resource {
@@ -704,6 +728,39 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
+  CropStrengthMenu(continuous: boolean, select: (action: () => void) => void) {
+    Menu() {
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_crop_strength_conservative'),
+        selected: this.cropStrength(continuous) === ReaderPageCropStrength.CONSERVATIVE,
+        selectAction: () => {
+          select(() => {
+            this.setCropStrength(continuous, ReaderPageCropStrength.CONSERVATIVE)
+          })
+        },
+      })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_crop_strength_standard'),
+        selected: this.cropStrength(continuous) === ReaderPageCropStrength.STANDARD,
+        selectAction: () => {
+          select(() => {
+            this.setCropStrength(continuous, ReaderPageCropStrength.STANDARD)
+          })
+        },
+      })
+      SettingsCheckedMenuItem({
+        label: $r('app.string.settings_reader_crop_strength_strong'),
+        selected: this.cropStrength(continuous) === ReaderPageCropStrength.STRONG,
+        selectAction: () => {
+          select(() => {
+            this.setCropStrength(continuous, ReaderPageCropStrength.STRONG)
+          })
+        },
+      })
+    }
+  }
+
+  @Builder
   SuperResolutionModelMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(this.installedSuperResolutionModels, (model: string) => {
@@ -812,8 +869,6 @@ export struct ReaderSettingsPage {
           ListRowDivider()
           ConciseListRow({
             title: $r('app.string.reader_crop_borders'),
-            subtitle: $r('app.string.settings_reader_crop_borders_paged_hint'),
-            subtitleMaxLines: 3,
             hasSwitch: true,
             checked: this.readMode.cropBordersPaged,
             showChevron: false,
@@ -823,6 +878,17 @@ export struct ReaderSettingsPage {
             switchAction: (value: boolean) => {
               this.setCropBordersPaged(value)
             },
+          })
+          ListRowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_crop_strength'),
+            trailingText: this.cropStrengthLabel(false),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.CropStrengthMenu(false, select)
+            },
+            isEnabled: this.readMode.cropBordersPaged,
           })
         }
       }
@@ -857,8 +923,6 @@ export struct ReaderSettingsPage {
           ListRowDivider()
           ConciseListRow({
             title: $r('app.string.reader_crop_borders'),
-            subtitle: $r('app.string.settings_reader_crop_borders_continuous_hint'),
-            subtitleMaxLines: 3,
             hasSwitch: true,
             checked: this.readMode.cropBordersContinuous,
             showChevron: false,
@@ -868,6 +932,17 @@ export struct ReaderSettingsPage {
             switchAction: (value: boolean) => {
               this.setCropBordersContinuous(value)
             },
+          })
+          ListRowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_crop_strength'),
+            trailingText: this.cropStrengthLabel(true),
+            trailingDropdown: true,
+            dropdownMenuEnabled: true,
+            dropdownMenuBuilder: (select: (action: () => void) => void) => {
+              this.CropStrengthMenu(true, select)
+            },
+            isEnabled: this.readMode.cropBordersContinuous,
           })
         }
       }

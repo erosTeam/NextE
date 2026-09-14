@@ -6348,7 +6348,7 @@ struct ReaderSpreadImageLayer {
     }
   }
 
-  @Monitor('readMode.cropBordersPaged')
+  @Monitor('readMode.cropBordersPaged', 'readMode.cropStrengthPaged')
   onCropBordersSettingChanged(): void {
     if (!this.readMode.cropBordersPaged) {
       this.resetCropBounds()
@@ -6606,10 +6606,16 @@ struct ReaderSpreadImageLayer {
       this.resetCropBounds()
       return
     }
-    const requestKey: string = `${filePath}|${this.cropIdentity()}`
+    const strength: string = this.readMode.cropStrengthPaged
+    const requestKey: string = `${filePath}|${this.cropIdentity()}|${strength}`
     this.cropRequestKey = requestKey
-    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, this.cropIdentity())
-    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged) {
+    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(
+      filePath,
+      this.cropIdentity(),
+      strength,
+    )
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged ||
+      this.readMode.cropStrengthPaged !== strength) {
       return
     }
     this.cropBounds = bounds
@@ -6617,7 +6623,7 @@ struct ReaderSpreadImageLayer {
     DiagnosticLogger.info(
       'reader-crop',
       bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
-      `page=${this.image.page} mode=paged left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+      `page=${this.image.page} mode=paged strength=${strength} left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
     )
   }
 
@@ -6990,7 +6996,7 @@ struct ReaderImagePage {
     }
   }
 
-  @Monitor('readMode.cropBordersPaged')
+  @Monitor('readMode.cropBordersPaged', 'readMode.cropStrengthPaged')
   onCropBordersSettingChanged(): void {
     if (!this.readMode.cropBordersPaged) {
       this.resetCropBounds()
@@ -7235,10 +7241,12 @@ struct ReaderImagePage {
       return
     }
     const identity: string = this.cropIdentity()
-    const requestKey: string = `${filePath}|${identity}`
+    const strength: string = this.readMode.cropStrengthPaged
+    const requestKey: string = `${filePath}|${identity}|${strength}`
     this.cropRequestKey = requestKey
-    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity)
-    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged) {
+    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity, strength)
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersPaged ||
+      this.readMode.cropStrengthPaged !== strength) {
       return
     }
     this.cropBounds = bounds
@@ -7246,7 +7254,7 @@ struct ReaderImagePage {
     DiagnosticLogger.info(
       'reader-crop',
       bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
-      `page=${this.image.page} mode=paged left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+      `page=${this.image.page} mode=paged strength=${strength} left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
     )
   }
 
@@ -7851,7 +7859,7 @@ struct ReaderVerticalImage {
     }
   }
 
-  @Monitor('readMode.cropBordersContinuous')
+  @Monitor('readMode.cropBordersContinuous', 'readMode.cropStrengthContinuous')
   onCropBordersSettingChanged(): void {
     if (!this.readMode.cropBordersContinuous) {
       this.resetCropBounds()
@@ -8091,10 +8099,12 @@ struct ReaderVerticalImage {
       return
     }
     const identity: string = this.cropIdentity()
-    const requestKey: string = `${filePath}|${identity}`
+    const strength: string = this.readMode.cropStrengthContinuous
+    const requestKey: string = `${filePath}|${identity}|${strength}`
     this.cropRequestKey = requestKey
-    const detected: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity)
-    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersContinuous) {
+    const detected: ReaderPageCropBounds = await ReaderPageCropService.detect(filePath, identity, strength)
+    if (this.cropRequestKey !== requestKey || !this.readMode.cropBordersContinuous ||
+      this.readMode.cropStrengthContinuous !== strength) {
       return
     }
     const bounds: ReaderPageCropBounds = detected.forContinuousPage(this.image.page, this.totalPages)
@@ -8103,7 +8113,7 @@ struct ReaderVerticalImage {
     DiagnosticLogger.info(
       'reader-crop',
       bounds.applied() ? 'page_crop_applied' : 'page_crop_fallback',
-      `page=${this.image.page} mode=continuous left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
+      `page=${this.image.page} mode=continuous strength=${strength} left=${bounds.left} top=${bounds.top} right=${bounds.right} bottom=${bounds.bottom}`,
     )
   }
 

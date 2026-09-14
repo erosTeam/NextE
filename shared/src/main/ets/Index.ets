@@ -240,6 +240,7 @@ export { ImagePipelineService } from './services/ImagePipelineService'
 export {
   ReaderPageCropBounds,
   ReaderPageCropDetector,
+  ReaderPageCropStrength,
   ReaderPageCropService,
 } from './services/ReaderPageCropService'
 export { AppReleaseService } from './services/AppReleaseService'

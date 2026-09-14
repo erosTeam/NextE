@@ -2893,6 +2893,22 @@
       "value": "自动裁剪页面留边"
     },
     {
+      "name": "settings_reader_crop_strength",
+      "value": "裁边强度"
+    },
+    {
+      "name": "settings_reader_crop_strength_conservative",
+      "value": "保守"
+    },
+    {
+      "name": "settings_reader_crop_strength_standard",
+      "value": "标准"
+    },
+    {
+      "name": "settings_reader_crop_strength_strong",
+      "value": "强力"
+    },
+    {
       "name": "settings_reader_super_resolution",
       "value": "图像增强"
     },

@@ -1,5 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { ReaderTapZoneInvert, ReaderTapZoneLayout } from '../utils/ReaderTapZoneResolver'
+import { ReaderPageCropStrength } from '../model/ReaderPageCropBounds'
 
 /** Reader page-turn direction / layout (eros_fe ViewMode). */
 export enum ReadMode {
@@ -83,6 +84,8 @@ export class ReadModeState {
   @Trace imageScalingQuality: string = ReaderImageScalingQuality.MEDIUM
   @Trace cropBordersPaged: boolean = false
   @Trace cropBordersContinuous: boolean = false
+  @Trace cropStrengthPaged: string = ReaderPageCropStrength.STANDARD
+  @Trace cropStrengthContinuous: string = ReaderPageCropStrength.STANDARD
   @Trace superResolutionEnabled: boolean = false
   @Trace superResolutionModel: string = ReaderSuperResolutionModel.NONE
   @Trace superResolutionBackend: string = ReaderSuperResolutionBackend.AUTO

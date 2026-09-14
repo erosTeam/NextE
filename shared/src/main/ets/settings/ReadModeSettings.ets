@@ -13,6 +13,7 @@ import {
 } from '../state/ReadModeState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { ReaderPageCropDetector, ReaderPageCropStrength } from '../model/ReaderPageCropBounds'
 import {
   ReaderTapZoneInvert,
   ReaderTapZoneLayout,
@@ -170,6 +171,18 @@ export class ReadModeSettings {
         StorageKeys.READING_CROP_BORDERS_CONTINUOUS,
         false,
       ) as boolean
+      const cropStrengthPaged: string = ReaderPageCropDetector.normalizeStrength(
+        store.getSync(
+          StorageKeys.READING_CROP_STRENGTH_PAGED,
+          ReaderPageCropStrength.STANDARD,
+        ) as string
+      )
+      const cropStrengthContinuous: string = ReaderPageCropDetector.normalizeStrength(
+        store.getSync(
+          StorageKeys.READING_CROP_STRENGTH_CONTINUOUS,
+          ReaderPageCropStrength.STANDARD,
+        ) as string
+      )
       const superResolutionModel: string = ReadModeSettings.normalizeSuperResolutionModel(
         store.getSync(
           StorageKeys.READING_SUPER_RESOLUTION_MODEL,
@@ -214,6 +227,8 @@ export class ReadModeSettings {
       connectReadMode().imageScalingQuality = imageScalingQuality
       connectReadMode().cropBordersPaged = cropBordersPaged
       connectReadMode().cropBordersContinuous = cropBordersContinuous
+      connectReadMode().cropStrengthPaged = cropStrengthPaged
+      connectReadMode().cropStrengthContinuous = cropStrengthContinuous
       connectReadMode().superResolutionEnabled = superResolutionEnabled
       connectReadMode().superResolutionModel = superResolutionModel
       // Backend selection is runtime-owned. Ignoring the retired preference also migrates users who
@@ -452,6 +467,36 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_crop_borders_continuous_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setCropStrengthPaged(context: common.UIAbilityContext, strength: string): Promise<void> {
+    const normalized: string = ReaderPageCropDetector.normalizeStrength(strength)
+    connectReadMode().cropStrengthPaged = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_CROP_STRENGTH_PAGED, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_crop_strength_paged_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setCropStrengthContinuous(context: common.UIAbilityContext, strength: string): Promise<void> {
+    const normalized: string = ReaderPageCropDetector.normalizeStrength(strength)
+    connectReadMode().cropStrengthContinuous = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_CROP_STRENGTH_CONTINUOUS, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_crop_strength_continuous_save_failed', (error as Error).message)
     }
   }
 
