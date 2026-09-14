@@ -1,6 +1,7 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
-  ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings } from '@reader-kit/ui'
+  ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
+  ReaderHostActions } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -772,10 +773,10 @@ export struct NextEReaderLabPage {
               cropAvailable: this.request.preferencesReadWrite || this.labRequest?.cropBorders === true,
               hostSettings: this.request.preferencesReadWrite
                 ? new ReaderHostSettings((): void => { this.openHostSettings() }) : null,
-              hostActions: this.hostActions(),
-              onHostAction: (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
-                this.handleHostAction(id, source, navigation, sourceIndex)
-              },
+              hostActions: new ReaderHostActions(this.hostActions(),
+                (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
+                  this.handleHostAction(id, source, navigation, sourceIndex)
+                }),
               hostStatus: this.currentSourceIndex >= 0 &&
                 (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex)
                 ? new ReaderHostStatus(this.translationBusyPage === this.currentSourceIndex
