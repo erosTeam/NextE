@@ -1,9 +1,11 @@
 import { describe, expect, it } from '@ohos/hypium'
 import {
   NextEReaderBackend,
+  ReaderThumbnailTransitionPhase,
   ReaderParams,
   connectNextEReaderBackendSelection,
   connectReaderOverlayNavigation,
+  connectReaderThumbnailTransition,
 } from 'shared'
 import { NextEProductionReaderRequest } from 'reader'
 
@@ -30,6 +32,24 @@ export default function readerBackendSelectionTest(): void {
       expect(overlay.stack.getAllPathName().join(','))
         .assertEqual('ReaderOverlayBackdrop,Reader')
       overlay.reset()
+      done()
+    })
+
+    it('keeps an active legacy thumbnail flight off the shared route', 0, (done: Function): void => {
+      const selection = connectNextEReaderBackendSelection()
+      const overlay = connectReaderOverlayNavigation()
+      const transition = connectReaderThumbnailTransition()
+      overlay.reset()
+      selection.selectForRehearsal(NextEReaderBackend.SHARED, true)
+      transition.phase = ReaderThumbnailTransitionPhase.WAITING_READER
+
+      overlay.open(new ReaderParams('123', 'token', 2, 10), false)
+      overlay.presentPendingReader()
+      expect(overlay.stack.getAllPathName().join(','))
+        .assertEqual('ReaderOverlayBackdrop,Reader')
+
+      overlay.reset()
+      selection.selectForRehearsal(NextEReaderBackend.LEGACY, true)
       done()
     })
 

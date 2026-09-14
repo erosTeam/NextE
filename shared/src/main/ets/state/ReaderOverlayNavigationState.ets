@@ -34,8 +34,15 @@ export class ReaderOverlayNavigationState {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
     // Snapshot the Debug-only rehearsal choice at admission. An open session
-    // cannot switch implementation when the settings row changes later.
-    this.pendingReader = new ReaderOverlayRoute(params, connectNextEReaderBackendSelection().current())
+    // cannot switch implementation when the settings row changes later. The
+    // existing thumbnail-flight coordinator still speaks the legacy Reader's
+    // readiness/close protocol, so that active path remains on legacy until a
+    // neutral transition host is connected to the shared production route.
+    const requested = connectNextEReaderBackendSelection().current()
+    const backend = requested === NextEReaderBackend.SHARED && connectReaderThumbnailTransition().active()
+      ? NextEReaderBackend.LEGACY
+      : requested
+    this.pendingReader = new ReaderOverlayRoute(params, backend)
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
