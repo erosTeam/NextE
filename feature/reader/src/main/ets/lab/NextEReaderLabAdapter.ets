@@ -75,6 +75,11 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     this.isEx = isEx
   }
 
+  transitionImage(pageKey: string | null): EhGalleryImage | null {
+    if (pageKey === null) return null
+    return this.pages.get(pageKey)?.copy() ?? null
+  }
+
   async open(key: ReaderUnitKey, cancellation: ReaderCancellation): Promise<ReaderUnit> {
     cancellation.check()
     if (key.unit !== key.work || this.token.length === 0) throw new Error('invalid_eh_unit')

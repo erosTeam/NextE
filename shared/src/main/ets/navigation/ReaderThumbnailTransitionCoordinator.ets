@@ -8,7 +8,7 @@ import {
   ReaderThumbnailTransitionState,
 } from '../state/ReaderThumbnailTransitionState'
 import { ThemeConstants } from '../theme/ThemeConstants'
-import { ReaderTrialEntryRelay } from './ReaderTrialEntryRelay'
+import { ReaderTrialEntryRelay, ReaderTrialEntrySource } from './ReaderTrialEntryRelay'
 
 const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
 const READER_CLOSE_TARGET_HANDOFF_START: number = 0.55
@@ -309,6 +309,30 @@ export class ReaderThumbnailTransitionCoordinator {
     }
   }
 
+  /** Arms only a future return flight; ReaderEntryTransition remains the forward-flight owner. */
+  static armSharedReturn(uiContext: UIContext, source: ReaderTrialEntrySource): boolean {
+    const transition = connectReaderThumbnailTransition()
+    transition.reset()
+    const sourceScope = source.sourceScope()
+    if (!connectGalleryDetailTransitionSettings().readerThumbnailEnabled || sourceScope.length === 0 ||
+      !source.isCurrent() || !ReaderThumbnailTransitionCoordinator.componentAvailable(uiContext, source.sourceComponentId)) {
+      return false
+    }
+    try {
+      const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
+      const rootWidth = uiContext.px2vp(rootRect.size.width)
+      const rootHeight = uiContext.px2vp(rootRect.size.height)
+      if (rootWidth <= 0 || rootHeight <= 0) return false
+      transition.armReturn(sourceScope, source.sourceComponentId, source.galleryId,
+        source.pageIndex, source.identity.image(), rootWidth, rootHeight)
+      transition.markPresentationSettled(source.galleryId)
+      return true
+    } catch (_error) {
+      transition.reset()
+      return false
+    }
+  }
+
   static startOpening(uiContext: UIContext, galleryId: string): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (transition.waitingReader() && transition.galleryId !== galleryId) {
@@ -494,15 +518,15 @@ export class ReaderThumbnailTransitionCoordinator {
     let proxyHostHeight: number = 0
     try {
       const targetRect = uiContext.getComponentUtils().getRectangleById(targetId)
-      const proxyHostRect = uiContext.getComponentUtils().getRectangleById(
-        ReaderThumbnailTransitionCoordinator.closeProxyHostId(),
-      )
+      const proxyHostRect = uiContext.getComponentUtils().getRectangleById(transition.closeProxyOwnedByRoot()
+        ? 'nexte-root-navigation' : ReaderThumbnailTransitionCoordinator.closeProxyHostId())
       targetX = uiContext.px2vp(targetRect.windowOffset.x - proxyHostRect.windowOffset.x)
       targetY = uiContext.px2vp(targetRect.windowOffset.y - proxyHostRect.windowOffset.y)
       targetWidth = uiContext.px2vp(targetRect.size.width)
       targetHeight = uiContext.px2vp(targetRect.size.height)
       proxyHostWidth = uiContext.px2vp(proxyHostRect.size.width)
       proxyHostHeight = uiContext.px2vp(proxyHostRect.size.height)
+      if (transition.closeProxyOwnedByRoot()) transition.updateRootSize(proxyHostWidth, proxyHostHeight)
       if (
         targetWidth <= 0 || targetHeight <= 0 ||
         proxyHostWidth <= 0 || proxyHostHeight <= 0

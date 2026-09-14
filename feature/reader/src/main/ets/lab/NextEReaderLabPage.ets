@@ -1,12 +1,12 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
-  ReaderRuntimePolicyIntent, ReaderHostAction } from '@reader-kit/ui'
+  ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
-  connectImageBlockSettings } from 'shared'
+  connectImageBlockSettings, EhGalleryImage } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
@@ -43,7 +43,7 @@ export struct NextEReaderLabPage {
   @Param managesTrialWindow: boolean = true
   @Param hostClosing: boolean = false
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
-  @Event onClose: () => void = () => {}
+  @Event onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => void = () => {}
   @Event onShown: () => void = () => {}
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
@@ -566,9 +566,12 @@ export struct NextEReaderLabPage {
       this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '', current)
   }
 
-  private closeTrial(initializationFailed: boolean = false): void {
+  private closeTrial(initializationFailed: boolean = false, suppliedContext: ReaderCloseContext | null = null): void {
     if (this.closeRequested) return
     this.closeRequested = true
+    const context: ReaderCloseContext | null = suppliedContext ?? (initializationFailed || this.session === null
+      ? null : ReaderCloseContext.from(this.session.snapshot()))
+    const image: EhGalleryImage | null = context === null ? null : this.adapter?.transitionImage(context.part.pageKey) ?? null
     if (this.managesTrialWindow) this.trialWindow.close(async (): Promise<boolean> => {
       if (this.trialWindow.getCloseSystemAvoidAreaResult() === 'ready') {
         const ready = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
@@ -579,9 +582,9 @@ export struct NextEReaderLabPage {
       }
       return true
     }).then((): void => {
-      if (this.routeActive || (initializationFailed && !this.volumeDisposed)) this.onClose()
+      if (this.routeActive || (initializationFailed && !this.volumeDisposed)) this.onClose(context, image)
     })
-    else this.onClose()
+    else this.onClose(context, image)
   }
 
   syncKeepScreenOn(): void {
@@ -664,7 +667,8 @@ export struct NextEReaderLabPage {
               closing: this.closeRequested || this.hostClosing,
               beforeShowChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareChromeShow(isCurrent),
               topInset: this.safeArea.topAvoidHeight, bottomInset: this.safeArea.bottomAvoidHeight,
-              accent: ThemeConstants.BRAND_PRIMARY, onClose: (): void => this.closeTrial(),
+              accent: ThemeConstants.BRAND_PRIMARY,
+              onClose: (context: ReaderCloseContext | null): void => this.closeTrial(false, context),
               onInteractionBusy: (busy: boolean): void => { this.setEnhancementInteractionBusy(busy) },
               onChromeVisible: (visible: boolean): void => this.syncChromeVisible(visible) })
           } else {

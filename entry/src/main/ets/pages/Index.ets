@@ -1,4 +1,4 @@
-import { ReaderTrialLayoutCommit } from '@reader-kit/ui'
+import { ReaderTrialLayoutCommit, ReaderCloseContext } from '@reader-kit/ui'
 import { AppStrings } from 'shared'
 import { NextEReaderLabPage } from 'reader'
 import { ReaderLabLaunchState, ReaderLabRequest, connectReaderLabLaunch } from '@reader-kit/ui'
@@ -99,6 +99,8 @@ import {
   connectThemeDisplay,
   EhSpriteThumbnail,
   EhImageKnifeImage,
+  EhGalleryImage,
+  ReaderThumbnailTransitionCoordinator,
   ReaderThumbnailTransitionState,
   connectReaderThumbnailTransition,
 } from 'shared'
@@ -277,9 +279,31 @@ struct IndexReaderThumbnailTransitionProxy {
   @Require @Param state: ReaderThumbnailTransitionState;
 
   build() {
-    if (this.state.targetVisible()) {
+    if (this.state.rootProxyVisible()) {
       Stack({ alignContent: Alignment.Center }) {
-        if (this.state.openingReverse() && this.state.openingReverseSnapshot !== undefined) {
+        if (this.state.closingProxyVisible()) {
+          if (this.state.readerSnapshot !== undefined) {
+            Image(this.state.readerSnapshot)
+              .width(this.state.proxyContentWidth())
+              .height(this.state.proxyContentHeight())
+              .objectFit(ImageFit.Fill)
+              .syncLoad(true)
+          } else if (this.state.closeTargetSnapshot !== undefined) {
+            Image(this.state.closeTargetSnapshot)
+              .width(this.state.proxyContentWidth())
+              .height(this.state.proxyContentHeight())
+              .objectFit(ImageFit.Fill)
+              .syncLoad(true)
+          }
+          if (this.state.readerSnapshot !== undefined && this.state.closeTargetSnapshot !== undefined) {
+            Image(this.state.closeTargetSnapshot)
+              .width('100%')
+              .height('100%')
+              .objectFit(ImageFit.Fill)
+              .syncLoad(true)
+              .opacity(this.state.closeTargetSnapshotOpacity)
+          }
+        } else if (this.state.openingReverse() && this.state.openingReverseSnapshot !== undefined) {
           // Once the decoded Reader image has begun taking ownership, reverse from those exact
           // pixels instead of visibly dropping back to the click-time thumbnail at full size.
           Image(this.state.openingReverseSnapshot)
@@ -318,7 +342,7 @@ struct IndexReaderThumbnailTransitionProxy {
       })
       .borderRadius(this.state.proxyRadius)
       .clip(true)
-      .opacity(this.state.openingProxyOpacity)
+      .opacity(this.state.closingProxyVisible() ? 1 : this.state.openingProxyOpacity)
       .hitTestBehavior(HitTestMode.None)
     }
   }
@@ -730,15 +754,24 @@ struct Index {
     ReaderTrialEntryRelay.releasePending(guard)
   }
 
-  private closeReaderTrial(): Promise<void> | null {
+  private closeReaderTrial(context: ReaderCloseContext | null = null,
+    image: EhGalleryImage | null = null): Promise<void> | null {
     if (this.readerTrialClosing !== null) return this.readerTrialClosing
     this.readerTrialCloseRequested = true
     const opened = this.readerTrialWindowOpened
     const request = this.readerTrialRequest
     const trialEpoch = this.readerTrialEpoch
     const windowLease = this.readerTrialWindow
-    const sourceId = this.readerEntryClaim?.source.snapshotComponentId ?? 'nexte-reader-entry-host'
+    const readerGalleryId = request?.work ?? ''
+    if (context !== null && image !== null && context.unit.work === readerGalleryId) {
+      this.readerThumbnailTransition.updateCurrent(readerGalleryId, context.part.sourceIndex, image)
+    }
+    const sourceId = context !== null && image !== null
+      ? ReaderThumbnailTransitionCoordinator.sourceId(this.readerThumbnailTransition.sourceScope,
+        context.part.sourceIndex)
+      : this.readerEntryClaim?.source.snapshotComponentId ?? 'nexte-reader-entry-host'
     ReaderTrialEntryProbe.close(this.readerEntryEpoch)
+    let targetReady = true
     const restoration = this.retireReaderTrialWindow(async (): Promise<boolean> => {
       if (windowLease?.getCloseSystemAvoidAreaResult() !== 'ready') return true
       const layoutReady = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string => {
@@ -748,6 +781,7 @@ struct Index {
       }, (): boolean => this.readerTrialHostAlive && this.readerTrialRequest === request &&
         this.readerTrialEpoch === trialEpoch)
       console.info('[ReaderTrialHost] close_layout_ready=' + layoutReady)
+      targetReady = layoutReady
       return layoutReady
     })
     this.readerEntryClaim = null
@@ -759,9 +793,25 @@ struct Index {
       return null
     }
     // Keep the actual reader visible until its previous system-bar properties have settled.
-    const closing = restoration.then((): void => {
-      if (this.readerTrialHostAlive && this.readerTrialClosing === closing &&
-        this.readerTrialRequest === request && this.readerTrialEpoch === trialEpoch) this.clearReaderTrial()
+    const closing = restoration.then((): Promise<void> => {
+      return new Promise<void>((resolve: () => void): void => {
+        if (!this.readerTrialHostAlive || this.readerTrialClosing !== closing ||
+          this.readerTrialRequest !== request || this.readerTrialEpoch !== trialEpoch) {
+          resolve()
+          return
+        }
+        const finish = (): void => {
+          if (this.readerTrialHostAlive && this.readerTrialClosing === closing &&
+            this.readerTrialRequest === request && this.readerTrialEpoch === trialEpoch) this.clearReaderTrial()
+          resolve()
+        }
+        if (targetReady && context !== null && image !== null && context.unit.work === readerGalleryId &&
+          context.unit.scope === this.readerTrialSite && context.contentAspectRatio > 0 &&
+          ReaderThumbnailTransitionCoordinator.close(this.getUIContext(), readerGalleryId,
+            context.part.sourceIndex, image, true, context.captureComponentId,
+            context.contentAspectRatio, 1, (_animated: boolean): void => finish())) return
+        finish()
+      })
     }).finally((): void => {
       if (this.readerTrialClosing === closing) this.readerTrialClosing = null
     })
@@ -792,6 +842,7 @@ struct Index {
     this.readerEntryTransition = null
     this.readerEntryPreview = null
     this.readerTrialSite = ''
+    this.readerThumbnailTransition.reset()
   }
 
   private async openThumbnailTrial(request: ReaderLabRequest, source: ReaderTrialEntrySource): Promise<void> {
@@ -859,6 +910,7 @@ struct Index {
     this.readerEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
       new ReaderDisplayPart(new ReaderUnitKey(source.site, request.work, request.work), null, source.pageIndex))
     if (preview === null) this.readerEntryClaim = null
+    ReaderThumbnailTransitionCoordinator.armSharedReturn(this.getUIContext(), source)
     this.readerTrialStack.clear(false)
     this.readerTrialRequest = request
     this.readerTrialEpoch += 1
@@ -894,7 +946,9 @@ struct Index {
         onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible) },
         entryTransition: this.readerEntryTransition, entryPreview: this.readerEntryPreview,
         entryPhase: this.readerEntryTransition?.phase ?? 'finished',
-        onClose: (): void => { this.closeReaderTrial() } })
+        onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {
+          this.closeReaderTrial(context, image)
+        } })
     }
   }
 
@@ -2731,7 +2785,9 @@ struct Index {
           HdsNavigation(this.readerTrialStack) { Column() {} }
             .navDestination(this.readerTrialRouter).hideNavBar(true)
             .width('100%').height('100%').backgroundColor(Color.Black)
-            .opacity(this.readerEntryTransition !== null && this.readerEntryTransition.phase === 'layout' ? 0 : 1)
+            .opacity(this.readerThumbnailTransition.closingProxyVisible()
+              ? this.readerThumbnailTransition.overlayOpacity
+              : this.readerEntryTransition !== null && this.readerEntryTransition.phase === 'layout' ? 0 : 1)
             .hitTestBehavior(this.readerEntryTransition !== null && this.readerEntryTransition.phase === 'layout'
               ? HitTestMode.None : HitTestMode.Default)
             .animation({ duration: 140, curve: Curve.EaseOut })

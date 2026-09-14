@@ -158,7 +158,7 @@ const compiled = ts.transpileModule(realHost.replace(/@Local\s+/g, '')
 assert.equal(compiled.diagnostics.filter(d => d.category === ts.DiagnosticCategory.Error).length, 0)
 
 function setup({ readiness = 'not-required' } = {}) {
-  const layouts = [], logs = [], preparations = []
+  const layouts = [], logs = [], preparations = [], sharedReturnArms = [], sharedCloses = []
   const visibility = { foreground: true }
   const site = { isEx: false }
   let restricted = false
@@ -166,6 +166,12 @@ function setup({ readiness = 'not-required' } = {}) {
   const windows = []
   const installs = []
   const releases = []
+  const transition = {
+    sourceScope: 'detail-scope', overlayOpacity: 1,
+    reset() { this.resetCount = (this.resetCount ?? 0) + 1 },
+    updateCurrent(galleryId, sourceIndex, image) { this.current = { galleryId, sourceIndex, image } },
+    closingProxyVisible() { return false },
+  }
   class NavPathStack {
     clears = 0
     routes = []
@@ -209,6 +215,15 @@ function setup({ readiness = 'not-required' } = {}) {
     } },
     ReaderTrialEntryRelay: relay,
     ReaderTrialEntryProbe: { close() {}, phase() {}, hostRemoved() {}, windowEvent() {} },
+    ReaderThumbnailTransitionCoordinator: class {
+      static sourceId(scope, index) { return `${scope}-page-${index}` }
+      static armSharedReturn(_uiContext, source) { sharedReturnArms.push(source); return true }
+      static close(_uiContext, galleryId, sourceIndex, image, ready, captureComponentId,
+        ratio, height, callback) {
+        sharedCloses.push({ galleryId, sourceIndex, image, ready, captureComponentId, ratio, height, callback })
+        return true
+      }
+    },
     connectReaderLabLaunch: () => ({ consume() { const value = next; next = null; return value } }),
     connectReaderLabVisibility: () => visibility,
     connectSiteMode: () => site,
@@ -222,6 +237,7 @@ function setup({ readiness = 'not-required' } = {}) {
   host.readerOverlay = { visible: false }
   host.securitySettings = { locked: false }
   host.navStackHolder = { navigationRevision: 0 }
+  host.readerThumbnailTransition = transition
   host.stack = new NavPathStack()
   host.ctx = () => ({ applicationInfo: { debug: true } })
   host.getUIContext = () => ({})
@@ -239,8 +255,28 @@ function setup({ readiness = 'not-required' } = {}) {
     return request
   }
   return { host, visibility, site, windows, installs, releases, launch, layouts, logs,
+    transition, sharedReturnArms, sharedCloses,
     restrict: () => { restricted = true } }
 }
+
+test('shared close restores chrome, targets the observed page and waits for the root flight handoff', async () => {
+  const v = setup({ readiness: 'not-required' })
+  const request = v.launch({ work: '42' })
+  const image = { page: 3 }
+  const context = {
+    unit: { scope: 'eh', work: '42' }, part: { sourceIndex: 2 },
+    captureComponentId: 'rkit-part-2-whole', contentAspectRatio: 0.7,
+  }
+  v.host.readerTrialSite = 'eh'
+  const close = v.host.closeReaderTrial(context, image)
+  v.windows[0].restore(); await drainClose()
+  assert.deepEqual(v.transition.current, { galleryId: '42', sourceIndex: 2, image })
+  assert.equal(v.sharedCloses.length, 1)
+  assert.equal(v.host.readerTrialRequest, request)
+  v.sharedCloses[0].callback(false)
+  await close
+  assert.equal(v.host.readerTrialRequest, null)
+})
 
 test('visible close retains the exact reader until restore, duplicates reuse and cannot reopen', async () => {
   const v = setup(); const request = v.launch()

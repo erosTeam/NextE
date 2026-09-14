@@ -61,6 +61,7 @@ export class ReaderThumbnailTransitionState {
   private openTargetHeight: number = 0
   private openTargetRadius: number = 0
   private fullyVisibleSourceIds: Set<string> = new Set<string>()
+  private rootCloseProxy: boolean = false
 
   active(): boolean {
     return this.phase !== ReaderThumbnailTransitionPhase.IDLE
@@ -135,6 +136,14 @@ export class ReaderThumbnailTransitionState {
     return this.phase === ReaderThumbnailTransitionPhase.OPENING ||
       this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
       this.phase === ReaderThumbnailTransitionPhase.REVERSING_OPEN
+  }
+
+  rootProxyVisible(): boolean {
+    return this.targetVisible() || (this.rootCloseProxy && this.closingProxyVisible())
+  }
+
+  closeProxyOwnedByRoot(): boolean {
+    return this.rootCloseProxy
   }
 
   closingProxyVisible(): boolean {
@@ -232,6 +241,7 @@ export class ReaderThumbnailTransitionState {
     sourceRadius: number,
     sourceSnapshot: image.PixelMap,
   ): void {
+    this.rootCloseProxy = false
     this.sourceScope = sourceScope
     this.sourceComponentId = sourceComponentId
     this.galleryId = galleryId
@@ -263,6 +273,40 @@ export class ReaderThumbnailTransitionState {
     this.closeTargetSnapshotOpacity = 0
     this.readerImageReady = false
     this.phase = ReaderThumbnailTransitionPhase.WAITING_READER
+  }
+
+  /** Shared Reader owns its forward flight; retain only the live return-target family. */
+  armReturn(
+    sourceScope: string,
+    sourceComponentId: string,
+    galleryId: string,
+    index: number,
+    image: EhGalleryImage,
+    rootWidth: number,
+    rootHeight: number,
+  ): void {
+    this.rootCloseProxy = true
+    this.sourceScope = sourceScope
+    this.sourceComponentId = sourceComponentId
+    this.galleryId = galleryId
+    this.currentIndex = index
+    this.image = image.copy()
+    this.rootWidth = rootWidth
+    this.rootHeight = rootHeight
+    this.overlayOpacity = 1
+    this.backdropOpacity = 1
+    this.openingProxyOpacity = 1
+    this.openingReaderImageOpacity = 1
+    this.closeTargetSnapshotOpacity = 0
+    this.readerImageReady = false
+    this.phase = ReaderThumbnailTransitionPhase.OPEN
+  }
+
+  updateRootSize(width: number, height: number): void {
+    if (width > 0 && height > 0) {
+      this.rootWidth = width
+      this.rootHeight = height
+    }
   }
 
   prepareOpening(): void {
@@ -444,6 +488,7 @@ export class ReaderThumbnailTransitionState {
 
   startClosing(): void {
     this.phase = ReaderThumbnailTransitionPhase.CLOSING
+    if (this.rootCloseProxy) this.overlayOpacity = 0
     this.backdropOpacity = 0
     this.proxyX = this.closeTargetX
     this.proxyY = this.closeTargetY
@@ -491,6 +536,7 @@ export class ReaderThumbnailTransitionState {
     this.openingReverseSnapshot = undefined
     this.closeTargetSnapshot = undefined
     this.readerSnapshot = undefined
+    this.rootCloseProxy = false
     this.phase = ReaderThumbnailTransitionPhase.IDLE
     this.sourceScope = ''
     this.sourceComponentId = ''

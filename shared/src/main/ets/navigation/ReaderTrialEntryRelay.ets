@@ -33,6 +33,15 @@ export class ReaderTrialThumbnailIdentity {
       this.thumbHeight === source.thumbHeight && this.offsetX === source.offsetX &&
       this.spriteWidth === source.spriteWidth && this.spriteHeight === source.spriteHeight
   }
+
+  image(): EhGalleryImage {
+    const value = new EhGalleryImage(this.page)
+    value.sUrl = this.sUrl; value.imgkey = this.imgkey; value.thumbUrl = this.url
+    value.thumbWidth = this.thumbWidth; value.thumbHeight = this.thumbHeight
+    value.thumbOffsetX = this.offsetX; value.spriteWidth = this.spriteWidth
+    value.spriteHeight = this.spriteHeight
+    return value
+  }
 }
 
 /** One actual mounted leaf. Readiness is deliberately independent of its live identity. */
@@ -69,6 +78,13 @@ export class ReaderTrialEntrySource {
     this.sourceComponentId = handle.sourceComponentId
     this.snapshotComponentId = `${handle.sourceComponentId}-content`
     this.identity = handle.identity; this.snapshot = snapshot; this.isCurrent = current
+  }
+
+  sourceScope(): string {
+    const suffix = `-page-${this.pageIndex}`
+    return this.sourceComponentId.endsWith(suffix)
+      ? this.sourceComponentId.substring(0, this.sourceComponentId.length - suffix.length)
+      : ''
   }
 }
 
