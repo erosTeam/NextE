@@ -5,7 +5,8 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
-  CommentTranslationService, ComicVisualProviderSettings } from 'shared'
+  CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
+  connectImageBlockSettings } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
@@ -26,6 +27,10 @@ import {
   NextEReaderTranslationConfiguration,
   NextEReaderTranslationProvider,
 } from './NextEReaderTranslationProvider'
+import {
+  NextEReaderImageBlockMarkResult,
+  NextEReaderImageBlockProvider,
+} from './NextEReaderImageBlockProvider'
 
 @ComponentV2
 export struct NextEReaderLabPage {
@@ -43,6 +48,7 @@ export struct NextEReaderLabPage {
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
+  private imageBlockProvider: NextEReaderImageBlockProvider | null = null
   private imageShare: ReaderImageShareHost | null = null
   private imageSave: ReaderImageSaveHost | null = null
   @Local private labVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
@@ -68,6 +74,8 @@ export struct NextEReaderLabPage {
   @Local private translationBusyPage: number = -1
   @Local private translationErrorPage: number = -1
   @Local private translationPreferenceRevision: number = 0
+  @Local private imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings()
+  @Local private imageBlockRuleSaving: boolean = false
   private translationAutoScheduleEpoch: number = 0
 
   aboutToAppear(): void {
@@ -85,7 +93,11 @@ export struct NextEReaderLabPage {
     this.imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
       await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
     })
-    const variantProvider = new NextEReaderSuperResolutionProvider(context, adapter,
+    const imageBlockProvider = new NextEReaderImageBlockProvider(context, adapter, (message: string): void => {
+      this.getUIContext().getPromptAction().showToast({ message })
+    })
+    this.imageBlockProvider = imageBlockProvider
+    const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
@@ -238,6 +250,16 @@ export struct NextEReaderLabPage {
     ]
   }
 
+  private hostActions(): ReaderHostAction[] {
+    const actions = this.translationActions()
+    const page = this.translationFrame(this.currentSourceIndex)?.asset.page ?? null
+    if (this.imageBlockProvider?.canMark(page, this.imageBlockSettings.enabled) === true) {
+      actions.push(new ReaderHostAction('mark-image-blocked', AppStrings.get('reader_image_block_mark'),
+        !this.imageBlockRuleSaving, false, this.imageBlockRuleSaving))
+    }
+    return actions
+  }
+
   private currentTranslationTarget(source: ReaderUnitKey, navigation: number, sourceIndex: number): boolean {
     const state = this.session?.snapshot()
     return state?.phase === 'ready' && state.unit?.key.equals(source) === true &&
@@ -267,6 +289,75 @@ export struct NextEReaderLabPage {
     }
     if (hidden) this.translationRequestedPages = this.includePage(this.translationRequestedPages, sourceIndex)
     this.translationPreferenceRevision += 1
+  }
+
+  private handleHostAction(id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void {
+    if (id === 'mark-image-blocked') {
+      this.confirmMarkCurrentImageAsBlocked(source, navigation, sourceIndex)
+      return
+    }
+    this.handleTranslationAction(id, source, navigation, sourceIndex)
+  }
+
+  private confirmMarkCurrentImageAsBlocked(source: ReaderUnitKey, navigation: number, sourceIndex: number): void {
+    const page = this.translationFrame(sourceIndex)?.asset.page ?? null
+    if (!this.currentTranslationTarget(source, navigation, sourceIndex) || this.imageBlockRuleSaving ||
+      this.imageBlockProvider?.canMark(page, this.imageBlockSettings.enabled) !== true) return
+    this.getUIContext().showAlertDialog({
+      title: AppStrings.get('reader_image_block_mark'),
+      message: AppStrings.get('reader_image_block_mark_confirm'),
+      primaryButton: { value: AppStrings.get('common_cancel'), action: (): void => {} },
+      secondaryButton: {
+        value: AppStrings.get('reader_image_block_mark'),
+        action: (): void => { void this.markCurrentImageAsBlocked(source, navigation, sourceIndex) },
+      },
+    })
+  }
+
+  private async markCurrentImageAsBlocked(source: ReaderUnitKey, navigation: number, sourceIndex: number): Promise<void> {
+    if (!this.currentTranslationTarget(source, navigation, sourceIndex) || this.imageBlockRuleSaving) return
+    const page = this.translationFrame(sourceIndex)?.asset.page ?? null
+    if (this.imageBlockProvider?.canMark(page, this.imageBlockSettings.enabled) !== true) {
+      this.getUIContext().getPromptAction().showToast({ message: AppStrings.get('reader_image_block_mark_waiting') })
+      return
+    }
+    this.imageBlockRuleSaving = true
+    try {
+      const result: NextEReaderImageBlockMarkResult = await this.imageBlockProvider.mark(
+        page, this.imageBlockSettings.enabled, this.gallerySourceUrl())
+      if (result === 'failed') {
+        this.getUIContext().getPromptAction().showToast({ message: AppStrings.get('reader_image_block_mark_failed') })
+        return
+      }
+      if (result === 'waiting') {
+        this.getUIContext().getPromptAction().showToast({ message: AppStrings.get('reader_image_block_mark_waiting') })
+        return
+      }
+      if (result === 'added') {
+        this.getUIContext().getPromptAction().showToast({ message: AppStrings.get('reader_image_block_mark_added') })
+        await this.reloadCurrentSource(source, navigation, sourceIndex)
+      }
+    } finally {
+      this.imageBlockRuleSaving = false
+    }
+  }
+
+  private gallerySourceUrl(): string {
+    return this.request.work.length > 0 && this.request.unit.length > 0
+      ? `https://e-hentai.org/g/${this.request.work}/${this.request.unit}/`
+      : ''
+  }
+
+  private async reloadCurrentSource(source: ReaderUnitKey, navigation: number, sourceIndex: number): Promise<void> {
+    const state = this.session?.snapshot()
+    if (state === null || state === undefined || state.phase !== 'ready' ||
+      state.unit?.key.equals(source) !== true || state.navigationRevision !== navigation) return
+    const item = state.window.find((candidate): boolean => candidate.frames.some(
+      (frame: ReaderPagedFrame): boolean => frame.part.sourceIndex === sourceIndex))
+    const frame = item?.frames.find((candidate: ReaderPagedFrame): boolean => candidate.part.sourceIndex === sourceIndex)
+    if (item === undefined || frame === undefined) return
+    await this.session?.reloadItem(state.topologyRevision, navigation, item.key,
+      frame.slotId, frame.asset.requestId)
   }
 
   private toggleTranslationAuto(sourceIndex: number): void {
@@ -551,9 +642,9 @@ export struct NextEReaderLabPage {
               cropAvailable: !this.request.thumbnailEntry,
               hostSettingsAvailable: this.request.preferencesReadWrite,
               onHostSettings: (): void => { this.openHostSettings() },
-              hostActions: this.translationActions(),
+              hostActions: this.hostActions(),
               onHostAction: (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
-                this.handleTranslationAction(id, source, navigation, sourceIndex)
+                this.handleHostAction(id, source, navigation, sourceIndex)
               },
               hostStatusVisible: this.currentSourceIndex >= 0 &&
                 (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex),
