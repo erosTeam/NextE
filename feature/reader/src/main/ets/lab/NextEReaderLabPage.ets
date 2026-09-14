@@ -1,6 +1,6 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
-  ReaderObservationSink } from '@reader-kit/ui'
+  ReaderObservationSink, ReaderPreferenceSink } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -784,12 +784,11 @@ export struct NextEReaderLabPage {
                 this.translationBusyPage === this.currentSourceIndex) : null,
               observation: new ReaderObservationSink(null,
                 (position: ReaderObservedPosition): void => { this.observeReaderPosition(position) }),
-              onPolicyChanged: (policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void => {
-                this.persistRuntimePolicy(policy, intent)
-              },
-              onCropChanged: (enabled: boolean, policy: ReaderDisplayPolicy): void => {
-                this.persistCrop(enabled, policy)
-              },
+              preferenceSink: new ReaderPreferenceSink(
+                (policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void => {
+                  this.persistRuntimePolicy(policy, intent)
+                },
+                (enabled: boolean, policy: ReaderDisplayPolicy): void => { this.persistCrop(enabled, policy) }),
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
               active: this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown,
               closing: this.closeRequested || this.hostClosing,
