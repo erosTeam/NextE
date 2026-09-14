@@ -179,7 +179,7 @@ test('actual share adapter builds its hyperlink from the selected variant and re
   const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false)
   adapter.page = async () => ({ key: 'p2' })
   adapter.pages.set('p2', copyable({ page: 1 }))
-  const target = { unit: { title: 'Fixture' }, sourceIndex: 1, variant: 'original' }
+  const target = { unit: { title: 'Fixture', key: { unit: 'gallery' } }, sourceIndex: 1, variant: 'original' }
   await adapter.prepare(target, c)
   target.variant = 'default'; await adapter.prepare(target, c)
   assert.deepEqual(calls, ['original', 'default'])
@@ -188,6 +188,76 @@ test('actual share adapter builds its hyperlink from the selected variant and re
   c.cancelled = true
   await assert.rejects(adapter.prepare(target, c), /cancelled/)
   assert.equal(records.length, 2)
+})
+
+test('optional adapter selects a complete local source before network and keeps local assets local', async () => {
+  const records = [], network = [], downloads = []
+  class ReaderParams {
+    constructor(gid, token, index) {
+      Object.assign(this, { gid, token, index, fileCount: 0, title: '', seedImages: [], sourceLanguage: 'auto',
+        source: { isLocal: () => false } })
+    }
+  }
+  const localImage = copyable({ page: 1, imageUrl: 'file:///fixture/page-1.jpg', thumbUrl: 'https://invalid/thumb.jpg',
+    thumbWidth: 0, thumbHeight: 0, spriteWidth: 0, spriteHeight: 0, thumbOffsetX: 0 })
+  const localParams = { gid: 'gallery', token: 'token', index: 0, fileCount: 1, title: 'Downloaded fixture',
+    seedImages: [localImage], sourceLanguage: 'english',
+    source: { kind: 'galleryDownload', variant: 'original', isLocal: () => true } }
+  const ReaderAsset = class {
+    constructor(uri, release, information) { Object.assign(this, { uri, release, information }) }
+  }
+  const context = { exports: {}, require: name => {
+    if (name === 'shared') return {
+      ReaderParams,
+      ReaderLocalSourceService: { preferLocal: async () => localParams },
+      EhApiService: { getInstance: () => ({ getGalleryDetail: async () => { network.push('detail'); throw new Error('network') } }) },
+      ImageResolveService: { getInstance: () => ({ resolve: async () => { network.push('resolve'); return '' },
+        resolveOriginal: async () => { network.push('original'); return '' } }) },
+      ImagePipelineService: { loadReaderFile: async () => { downloads.push('download'); return {} } },
+      ReaderPageCropService: {},
+    }
+    if (name === '@reader-kit/core') return {
+      ReaderUnit: class { constructor(key, title, pageCount) { Object.assign(this, { key, title, pageCount }) } },
+      ReaderPage: class { constructor(unit, key, sourceIndex) {
+        Object.assign(this, { unit, key, sourceIndex, thumbnail: {} })
+      } },
+      ReaderAsset,
+      ReaderImageInformation: class {},
+    }
+    if (name === '@reader-kit/ui') return {
+      ReaderFileInformation: class { constructor(path, facts) { Object.assign(this, { path, facts }) } },
+      ReaderSystemSharePresentation: class { constructor(_context, data) { this.data = data } },
+    }
+    if (name === '@kit.ArkData') return { uniformTypeDescriptor: { UniformDataType: { IMAGE: 'image', HYPERLINK: 'link' } } }
+    if (name === '@kit.ShareKit') return { systemShare: {
+      SharedData: class { constructor(record) { this.record = record; records.push(record) } },
+      SelectionMode: { SINGLE: 1 }, SharePreviewMode: { DETAIL: 1 },
+    } }
+    if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
+    return {}
+  } }
+  vm.runInNewContext(ts.transpileModule(text, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText, context)
+  const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false)
+  const cancellation = token()
+  const unit = await adapter.open({ scope: 'eh', work: 'gallery', unit: 'gallery' }, cancellation)
+  assert.equal(unit.title, 'Downloaded fixture')
+  assert.equal(unit.pageCount, 1)
+  assert.deepEqual(network, [])
+  const page = await adapter.page(unit, 0, cancellation)
+  assert.equal(page.thumbnail.kind, 'image')
+  const asset = await adapter.load(page, 'original', cancellation, false)
+  assert.equal(asset.uri, 'file:///fixture/page-1.jpg')
+  assert.equal(asset.information.path, '/fixture/page-1.jpg')
+  assert.equal(asset.information.facts.variant, 'original')
+  await adapter.preload(page, cancellation)
+  assert.deepEqual(downloads, [])
+  await adapter.prepare({ unit, sourceIndex: 0, variant: 'default' }, cancellation)
+  assert.equal(records.length, 1)
+  assert.equal(records[0].uri, 'file:///fixture/page-1.jpg')
+  assert.equal(records[0].utd, 'image')
+  await assert.rejects(adapter.prepareOriginal(page, cancellation), /local_original_already_selected/)
 })
 
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')

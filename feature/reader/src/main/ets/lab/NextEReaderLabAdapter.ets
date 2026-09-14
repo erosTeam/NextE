@@ -2,7 +2,10 @@ import { common } from '@kit.AbilityKit'
 import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
-import { EhApiService, EhGalleryImage, ImageResolveService, ImagePipelineService, ReaderPageCropService } from 'shared'
+import {
+  EhApiService, EhGalleryImage, ImageResolveService, ImagePipelineService, ReaderPageCropService,
+  ReaderLocalSourceService, ReaderParams,
+} from 'shared'
 import {
   ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
   ReaderCancellation, ReaderAsset, ReaderAssetKind, ReaderImageShareHost,
@@ -67,6 +70,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private token: string
   private isEx: boolean
   private pages: Map<string, EhGalleryImage> = new Map()
+  private localUnits: Map<string, ReaderParams> = new Map()
   private gallerySourceLanguage: string = 'auto'
 
   constructor(context: common.UIAbilityContext, token: string, isEx: boolean) {
@@ -83,6 +87,22 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   async open(key: ReaderUnitKey, cancellation: ReaderCancellation): Promise<ReaderUnit> {
     cancellation.check()
     if (key.unit !== key.work || this.token.length === 0) throw new Error('invalid_eh_unit')
+    try {
+      const localProbe = new ReaderParams(key.work, this.token, 0)
+      const local = await ReaderLocalSourceService.preferLocal(this.context, localProbe)
+      cancellation.check()
+      if (local.source.isLocal() && local.seedImages.length > 0 && local.fileCount === local.seedImages.length) {
+        this.localUnits.set(key.unit, local)
+        const language = local.sourceLanguage.trim()
+        this.gallerySourceLanguage = language.length > 0 ? language : 'auto'
+        console.info(`[NextEReaderDataSource] source=${local.source.kind} pages=${local.fileCount}`)
+        return new ReaderUnit(key, local.title, local.fileCount)
+      }
+    } catch (error) {
+      cancellation.check()
+      console.warn(`[NextEReaderDataSource] local_source_unavailable error=${(error as Error).message}`)
+    }
+    this.localUnits.delete(key.unit)
     const result = await EhApiService.getInstance().getGalleryDetail(key.work, this.token, this.isEx)
     cancellation.check()
     const sourceLanguage = result.gallery.contentLanguage().trim()
@@ -96,6 +116,15 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
 
   async page(unit: ReaderUnit, index: number, cancellation: ReaderCancellation): Promise<ReaderPage> {
     cancellation.check()
+    const local = this.localUnits.get(unit.key.unit)
+    if (local !== undefined) {
+      const source = local.seedImages[index]?.copy()
+      if (source === undefined || !source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_page')
+      const page = new ReaderPage(unit.key, `${unit.key.work}:${source.page}`, index)
+      page.thumbnail.kind = 'image'
+      this.pages.set(page.key, source)
+      return page
+    }
     // A VM's jumpTo ignores overlapping requests. Give each page request its own
     // preparation owner; the VM's bounded metadata cache still avoids repeat fetches.
     const vm = new ReaderViewModel()
@@ -118,6 +147,10 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
 
   async preload(page: ReaderPage, cancellation: ReaderCancellation): Promise<void> {
     cancellation.check()
+    if (this.localUnits.has(page.unit.unit)) {
+      console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=local-skip`)
+      return
+    }
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_preload_asset')
     const url = await ImageResolveService.getInstance().resolve(source)
@@ -133,6 +166,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
 
   async prepareOriginal(page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderOriginalAssetPlan> {
     cancellation.check()
+    if (this.localUnits.has(page.unit.unit)) throw new Error('eh_local_original_already_selected')
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
     const url = await ImageResolveService.getInstance().resolveOriginal(source)
@@ -146,11 +180,20 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_share_page')
-    const url = target.variant === 'original' ? await ImageResolveService.getInstance().resolveOriginal(source) :
-      await ImageResolveService.getInstance().resolve(source)
+    const local = this.localUnits.get(target.unit.key.unit)
+    let record: systemShare.SharedRecord
+    if (local !== undefined) {
+      if (!source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_share_page')
+      record = { utd: utd.UniformDataType.IMAGE, title: `${target.unit.title} ${target.sourceIndex + 1}`,
+        uri: source.imageUrl }
+    } else {
+      const url = target.variant === 'original' ? await ImageResolveService.getInstance().resolveOriginal(source) :
+        await ImageResolveService.getInstance().resolve(source)
+      record = { utd: utd.UniformDataType.HYPERLINK,
+        title: `${target.unit.title} ${target.sourceIndex + 1}`, content: url }
+    }
     cancellation.check()
-    const data = new systemShare.SharedData({ utd: utd.UniformDataType.HYPERLINK,
-      title: `${target.unit.title} ${target.sourceIndex + 1}`, content: url })
+    const data = new systemShare.SharedData(record)
     return new ReaderSystemSharePresentation(this.context, data, {
       selectionMode: systemShare.SelectionMode.SINGLE, previewMode: systemShare.SharePreviewMode.DETAIL,
     })
@@ -160,6 +203,16 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
+    const local = this.localUnits.get(page.unit.unit)
+    if (local !== undefined) {
+      if (!source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_asset')
+      const path = source.imageUrl.substring('file://'.length)
+      const facts = new ReaderImageInformation()
+      facts.variant = local.source.variant === 'original' ? 'original' : 'resampled'
+      const asset = new ReaderAsset(source.imageUrl, () => {}, new ReaderFileInformation(path, facts))
+      if (path.length > 0) asset.crop = new NextEReaderCropSource(path)
+      return asset
+    }
     if (kind === 'thumbnail') return new ReaderAsset(source.thumbUrl)
     // Match the production Reader's “reload image source” contract: a manual
     // force reload must re-resolve /s/?nl= instead of only downloading the
