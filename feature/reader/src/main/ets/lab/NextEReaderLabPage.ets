@@ -1,6 +1,6 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
-  ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink } from '@reader-kit/ui'
+  ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -770,8 +770,8 @@ export struct NextEReaderLabPage {
               // The entry transition already cancels when cropped geometry cannot be mapped.
               // Keep the reader feature available and sacrifice only the optional flight.
               cropAvailable: this.request.preferencesReadWrite || this.labRequest?.cropBorders === true,
-              hostSettingsAvailable: this.request.preferencesReadWrite,
-              onHostSettings: (): void => { this.openHostSettings() },
+              hostSettings: this.request.preferencesReadWrite
+                ? new ReaderHostSettings((): void => { this.openHostSettings() }) : null,
               hostActions: this.hostActions(),
               onHostAction: (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
                 this.handleHostAction(id, source, navigation, sourceIndex)
