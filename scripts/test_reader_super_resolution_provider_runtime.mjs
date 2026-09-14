@@ -103,5 +103,13 @@ const serviceSource = fs.readFileSync(path.join(root,
   'shared/src/main/ets/services/ReaderSuperResolutionService.ets'), 'utf8')
 assert.match(serviceSource,
   /effectivePaused: boolean = connectReadMode\(\)\.superResolutionEnabled &&/)
+const hostSource = fs.readFileSync(path.join(root,
+  'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
+assert.match(hostSource,
+  /private superResolutionAvailable\(\): boolean \{[\s\S]*?superResolutionEnabled[\s\S]*?superResolutionModel !== ReaderSuperResolutionModel\.NONE/)
+assert.match(hostSource,
+  /preferredVariant: this\.superResolutionAvailable\(\) \? 'enhanced' : 'default'/)
+assert.match(hostSource,
+  /private superResolutionIdentity\(\): string \{[\s\S]*?return this\.superResolutionAvailable\(\) \? this\.superResolutionConfiguration\(\)\.identity\(\) : ''/)
 
 console.log('reader super-resolution provider runtime: ok')

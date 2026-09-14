@@ -2,7 +2,7 @@ import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { connectNextEReaderLabContextProbe } from 'reader'
-import { connectImageBlockSettings } from 'shared'
+import { connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel } from 'shared'
 
 const CHROME_CAPTURE_PREFIX: string = 'rkit-chrome-'
 
@@ -247,6 +247,7 @@ export default function readerChromeTest(): void {
   readerImageBlockSharedTest()
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
+  readerEnhancementStatusTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
   const args = abilityDelegatorRegistry.getArguments().parameters
@@ -347,6 +348,53 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+    })
+  })
+}
+
+/** The shared surface retains NextE's passive enhancement status in both chrome states. */
+function readerEnhancementStatusTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderEnhancementStatusTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderEnhancementStatusTrial', (): void => {
+    it('showsCurrentEnhancementStatusWithChromeShownAndHidden', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const readMode = connectReadMode()
+      const previousEnabled = readMode.superResolutionEnabled
+      const previousModel = readMode.superResolutionModel
+      const previousMaxHeight = readMode.superResolutionMaxHeight
+      clearChromeCaptures(['enhancement-shown', 'enhancement-hidden', 'enhancement-exception'])
+      await bestEffortCloseChromeTrial(driver)
+      try {
+        await startFreshChromeTrial(driver, work, unit, -1, 0, 'single', false, (): void => {
+          readMode.superResolutionEnabled = true
+          readMode.superResolutionModel = ReaderSuperResolutionModel.SYSTEM_CORE_VISION
+          // Keep this layout/status protocol bounded; enhancement execution has its own device suite.
+          readMode.superResolutionMaxHeight = 1
+        })
+        const beforeId = await waitChromeImage(driver, 'rkit-image-viewport')
+        expect(await waitChromeId(driver, 'rkit-enhancement-status') !== null).assertTrue()
+        await captureChrome(driver, 'enhancement-shown')
+        const bounds = await (await driver.findComponent(ON.id('rkit-image-viewport'))).getBounds()
+        await driver.click(Math.round((bounds.left + bounds.right) / 2),
+          Math.round((bounds.top + bounds.bottom) / 2))
+        await driver.delayMs(500)
+        expect(await driver.findComponent(ON.id('rkit-close'))).assertNull()
+        expect(await waitChromeId(driver, 'rkit-enhancement-status') !== null).assertTrue()
+        expect(await waitChromeImage(driver, 'rkit-image-viewport')).assertEqual(beforeId)
+        await captureChrome(driver, 'enhancement-hidden')
+      } catch (error) {
+        await bestEffortCaptureChrome(driver, 'enhancement-exception')
+        throw error as Error
+      } finally {
+        readMode.superResolutionEnabled = previousEnabled
+        readMode.superResolutionModel = previousModel
+        readMode.superResolutionMaxHeight = previousMaxHeight
+        await bestEffortCloseChromeTrial(driver)
+      }
     })
   })
 }

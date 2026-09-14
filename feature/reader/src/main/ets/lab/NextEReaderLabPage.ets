@@ -6,7 +6,7 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
-  connectImageBlockSettings, EhGalleryImage, ReaderParams } from 'shared'
+  connectImageBlockSettings, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
@@ -176,7 +176,12 @@ export struct NextEReaderLabPage {
   }
 
   private superResolutionIdentity(): string {
-    return this.superResolutionConfiguration().identity()
+    return this.superResolutionAvailable() ? this.superResolutionConfiguration().identity() : ''
+  }
+
+  private superResolutionAvailable(): boolean {
+    return this.readMode.superResolutionEnabled &&
+      this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE
   }
 
   private translationConfiguration(_page: ReaderPage): NextEReaderTranslationConfiguration {
@@ -654,7 +659,7 @@ export struct NextEReaderLabPage {
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
-              preferredVariant: this.readMode.superResolutionEnabled ? 'enhanced' : 'default',
+              preferredVariant: this.superResolutionAvailable() ? 'enhanced' : 'default',
               preferredVariantIdentity: this.superResolutionIdentity(),
               variantPreferenceResolver: (sourceIndex: number): ReaderVariantPreference =>
                 this.variantPreference(sourceIndex),
