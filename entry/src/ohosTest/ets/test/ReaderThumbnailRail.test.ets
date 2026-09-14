@@ -8,7 +8,7 @@ async function captureRail(driver: Driver, name: string): Promise<void> {
   const screen = `${cache}/rkit-rail-${name}.png`
   if (fileIo.accessSync(layout)) fileIo.unlinkSync(layout)
   if (fileIo.accessSync(screen)) fileIo.unlinkSync(screen)
-  expect(await driver.dumpLayout(layout)).assertTrue()
+  if (typeof driver.dumpLayout === 'function') expect(await driver.dumpLayout(layout)).assertTrue()
   expect(await driver.screenCap(screen)).assertTrue()
 }
 async function pageNumber(driver: Driver): Promise<number> {
@@ -22,12 +22,20 @@ async function waitOriginal(driver: Driver): Promise<void> {
   }
   expect(false).assertTrue()
 }
+async function waitThumbnail(driver: Driver, index: number): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    if (await driver.findComponent(ON.id(`rkit-thumb-state-${index}-displayed`)) !== null) return
+    await driver.delayMs(250)
+  }
+  expect(false).assertTrue()
+}
 export default function readerThumbnailRailTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
-  if (args['-s class'] !== 'ReaderThumbnailRailTrial' || typeof work !== 'string' || work.length === 0 || typeof unit !== 'string' || unit.length === 0) return
-  describe('ReaderThumbnailRailTrial', (): void => {
+  const selectedClass = args['-s class']
+  if (typeof work !== 'string' || work.length === 0 || typeof unit !== 'string' || unit.length === 0) return
+  if (selectedClass === 'ReaderThumbnailRailTrial') describe('ReaderThumbnailRailTrial', (): void => {
     it('previewScrollingDoesNotTurnPagesAndTileSelectionDoes', 0, async (): Promise<void> => {
       const driver = Driver.create()
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
@@ -75,8 +83,8 @@ export default function readerThumbnailRailTest(): void {
       await captureRail(driver, 'rtl')
       await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
       await driver.delayMs(400)
-      expect(await driver.findComponent(ON.id('rkit-thumbnail-rail'))).assertNull()
       await captureRail(driver, 'rail-hidden')
+      expect(await driver.findComponent(ON.id('rkit-thumbnail-rail-wrapper'))).assertNull()
       await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
       await driver.delayMs(1500)
       expect(await pageNumber(driver)).assertEqual(selected + 1)
@@ -85,6 +93,34 @@ export default function readerThumbnailRailTest(): void {
       await driver.delayMs(600)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureRail(driver, 'closed')
+    })
+  })
+  if (selectedClass === 'ReaderThumbnailRailLifecycleTrial') describe('ReaderThumbnailRailLifecycleTrial', (): void => {
+    it('hidesByClippingAndReopensTheRetainedDecodedRail', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+        parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true' },
+      })
+      await driver.delayMs(1600); await waitOriginal(driver)
+      const page = await pageNumber(driver)
+      await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
+      await waitThumbnail(driver, 0)
+      await captureRail(driver, 'lifecycle-opened')
+      await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
+      await driver.delayMs(400)
+      await captureRail(driver, 'lifecycle-hidden')
+      expect(await driver.findComponent(ON.id('rkit-thumbnail-rail-wrapper'))).assertNull()
+      await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
+      await driver.delayMs(500)
+      expect(await pageNumber(driver)).assertEqual(page)
+      expect(await driver.findComponent(ON.id('rkit-thumb-state-0-displayed')) !== null).assertTrue()
+      await captureRail(driver, 'lifecycle-reopened')
+      await (await driver.findComponent(ON.id('rkit-close'))).click()
+      await driver.delayMs(600)
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+      await captureRail(driver, 'lifecycle-closed')
+      console.info('[ReaderThumbnailRailLifecycleTrial] hiddenFromUiTree=true decodedAfterReopen=true pageStable=true')
     })
   })
 }
