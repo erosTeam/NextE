@@ -1,6 +1,6 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
-  ReaderObservationSink, ReaderPreferenceSink } from '@reader-kit/ui'
+  ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -796,8 +796,9 @@ export struct NextEReaderLabPage {
               topInset: this.safeArea.topAvoidHeight, bottomInset: this.safeArea.bottomAvoidHeight,
               accent: ThemeConstants.BRAND_PRIMARY,
               onClose: (context: ReaderCloseContext | null): void => this.closeTrial(false, context),
-              onInteractionBusy: (busy: boolean): void => { this.setEnhancementInteractionBusy(busy) },
-              onChromeVisible: (visible: boolean): void => this.syncChromeVisible(visible) })
+              activitySink: new ReaderActivitySink(
+                (visible: boolean): void => this.syncChromeVisible(visible),
+                (busy: boolean): void => { this.setEnhancementInteractionBusy(busy) }) })
           } else {
           ReaderLabSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
             preloadDepth: this.readMode.preloadPages,
