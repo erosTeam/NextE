@@ -112,7 +112,7 @@ assert.deepEqual(events, ['crop-continuous:false'])
 const page = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
 assert.match(page, /request\.progressReadWrite && !this\.request\.pageIndexProvided/)
-assert.match(page, /onObservedPosition: \(position: ReaderObservedPosition\)/)
+assert.match(page, /observation: new ReaderObservationSink\(null,[\s\S]*position: ReaderObservedPosition/)
 assert.match(page, /request\.preferencesReadWrite/)
 assert.match(page, /onPolicyChanged: \(policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent\)/)
 assert.match(page, /onCropChanged: \(enabled: boolean, policy: ReaderDisplayPolicy\)/)
