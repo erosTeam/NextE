@@ -132,12 +132,17 @@ async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
 }
 
 async function captureChrome(driver: Driver, name: string): Promise<void> {
-  const cache = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  const cache = delegator.getAppContext().cacheDir
   const layout = `${cache}/${CHROME_CAPTURE_PREFIX}${name}.json`
   const screen = `${cache}/${CHROME_CAPTURE_PREFIX}${name}.png`
   if (fileIo.accessSync(layout)) fileIo.unlinkSync(layout)
   if (fileIo.accessSync(screen)) fileIo.unlinkSync(screen)
-  expect(await driver.dumpLayout(layout)).assertTrue()
+  if (typeof driver.dumpLayout === 'function') expect(await driver.dumpLayout(layout)).assertTrue()
+  else {
+    const result = await delegator.executeShellCommand(`uitest dumpLayout -p /data/local/tmp/${CHROME_CAPTURE_PREFIX}${name}.json`, 15)
+    expect(result.exitCode).assertEqual(0)
+  }
   expect(await driver.screenCap(screen)).assertTrue()
 }
 
