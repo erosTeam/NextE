@@ -10,7 +10,7 @@ const captureNames: string[] = ['baseline', 'single', 'single-return', 'spread',
   'original-baseline', 'original-info', 'original-on', 'original-off-info', 'original-off', 'original-closed',
   'original-spread-menu', 'original-spread-mixed', 'original-spread-left', 'original-spread-right',
   'original-both-left', 'original-both-right', 'original-default-left', 'original-default-right',
-  'original-prepare-retained', 'original-decode-failed', 'original-recovered']
+  'original-prepare-retained', 'original-decode-failed', 'original-recovered', 'supplement-off']
 function clearInformationCaptures(): void {
   const cache = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir
   for (const name of captureNames) {
@@ -168,6 +168,43 @@ export default function readerImageInformationTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork'], unit = args['-s readerLabUnit']
   const trial = args['-s class']
+  if (trial === 'ReaderInformationSupplementTrial' && typeof work === 'string' && work.length > 0) {
+    describe(trial, (): void => {
+      it('showsNextEEnhancementAndSourceAfterSharedFileFacts', 0, async (): Promise<void> => {
+        clearInformationCaptures()
+        const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const readMode = connectReadMode()
+        const previousEnabled = readMode.superResolutionEnabled
+        try {
+          readMode.superResolutionEnabled = false
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+              readerLabPage: '0', readerLabChrome: 'true' } })
+          await informationReady(driver)
+          await openInformationMenu(driver)
+          const dialog = await driver.findComponent(ON.type('AlertDialog'))
+          expect(dialog !== null).assertTrue()
+          if (dialog === null) throw new Error('Shared image information dialog did not appear')
+          const message = await dialog.getText()
+          expect(message.indexOf('图像增强：关闭') >= 0).assertTrue()
+          expect(message.indexOf('图源：') >= 0).assertTrue()
+          expect(message.indexOf('图源：\n') < 0).assertTrue()
+          await delegator.print(`ReaderInformationSupplement message=${message}`)
+          await captureInformation(driver, 'supplement-off')
+          await driver.triggerKey(KeyCode.KEYCODE_BACK)
+          await driver.delayMs(400)
+        } catch (error) {
+          await captureInformation(driver, 'exception')
+          throw error as Error
+        } finally {
+          readMode.superResolutionEnabled = previousEnabled
+          const close = await driver.findComponent(ON.id('rkit-close'))
+          if (close !== null) await close.click()
+        }
+      })
+    })
+    return
+  }
   if ((trial === 'ReaderCropToggleTrial' || trial === 'ReaderCropZoomToggleTrial') && typeof work === 'string' && work.length > 0) {
     describe(trial, (): void => {
       it('runtimeMenuCropOnOffRetainsPageAndRestoresGeometry', 0, async (): Promise<void> => {

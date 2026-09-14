@@ -5,7 +5,7 @@ import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-ki
 import {
   DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
   ReaderPageCropService,
-  ReaderLocalSourceService, ReaderParams,
+  ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
   ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
@@ -194,6 +194,30 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   }
 
   sourceLanguage(): string { return this.gallerySourceLanguage }
+
+  imageInformationSource(page: ReaderPage): string {
+    const local = this.localUnits.get(page.unit.unit)
+    let source = ''
+    if (local?.source.kind === ReaderSourceKind.GALLERY_DOWNLOAD) {
+      source = AppStrings.get('reader_image_info_local_download')
+    } else if (local?.source.kind === ReaderSourceKind.ARCHIVE) {
+      const archive = AppStrings.get('reader_image_info_local_archive')
+      source = local.source.resolution.length > 0 ? `${archive} · ${local.source.resolution}` : archive
+    } else {
+      source = this.imageHost(this.pages.get(page.key)?.imageUrl ?? '')
+    }
+    return source.length > 0 ? AppStrings.get('reader_image_info_source').replace('%s', source) : ''
+  }
+
+  private imageHost(url: string): string {
+    const scheme = url.indexOf('://')
+    if (scheme < 0) return ''
+    const start = scheme + 3
+    const slash = url.indexOf('/', start)
+    const host = slash >= 0 ? url.substring(start, slash) : url.substring(start)
+    const port = host.indexOf(':')
+    return port >= 0 ? host.substring(0, port) : host
+  }
 
   async prepareOriginal(page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderOriginalAssetPlan> {
     cancellation.check()

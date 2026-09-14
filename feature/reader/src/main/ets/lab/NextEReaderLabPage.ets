@@ -10,7 +10,7 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort, ReaderImageShareHost, ReaderImageSaveHost,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
-  ReaderAssetProvider,
+  ReaderAssetProvider, ReaderImageInformation,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryPreviewSource } from '@reader-kit/ui'
 import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility, ReaderLabAssetProbe, ReaderVolumeKeys } from '@reader-kit/ui'
@@ -22,6 +22,7 @@ import { connectNextEReaderLabContextProbe } from './NextEReaderLabContextProbe'
 import { NextEReaderRuntimePreferences } from './NextEReaderRuntimePreferences'
 import {
   NextEReaderSuperResolutionConfiguration,
+  NextEReaderSuperResolutionInformation,
   NextEReaderSuperResolutionProvider,
 } from './NextEReaderSuperResolutionProvider'
 import {
@@ -53,6 +54,7 @@ export struct NextEReaderLabPage {
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
+  private superResolutionProvider: NextEReaderSuperResolutionProvider | null = null
   private imageBlockProvider: NextEReaderImageBlockProvider | null = null
   private imageShare: ReaderImageShareHost | null = null
   private imageSave: ReaderImageSaveHost | null = null
@@ -113,6 +115,7 @@ export struct NextEReaderLabPage {
     this.imageBlockProvider = imageBlockProvider
     const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration())
+    this.superResolutionProvider = variantProvider
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page))
     const assetProvider: ReaderAssetProvider = production
@@ -182,6 +185,79 @@ export struct NextEReaderLabPage {
   private superResolutionAvailable(): boolean {
     return this.readMode.superResolutionEnabled &&
       this.readMode.superResolutionModel !== ReaderSuperResolutionModel.NONE
+  }
+
+  private superResolutionModelLabel(model: string): string {
+    if (model === ReaderSuperResolutionModel.SYSTEM_CORE_VISION) {
+      return AppStrings.get('settings_reader_super_resolution_system')
+    }
+    if (model === ReaderSuperResolutionModel.ESPCN_X2) {
+      return AppStrings.get('settings_reader_super_resolution_espcn_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_X2PLUS) {
+      return AppStrings.get('settings_reader_super_resolution_realesrgan_x2plus')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_PHOTO_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_photo_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_ESRGAN_ANIMEVIDEO_V3_X2) {
+      return AppStrings.get('settings_reader_super_resolution_realesrgan_animevideov3_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_ART_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_art_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.WAIFU2X_CUNET_NOISE0_2X) {
+      return AppStrings.get('settings_reader_super_resolution_waifu2x_cunet_noise0_2x')
+    }
+    if (model === ReaderSuperResolutionModel.REAL_CUGAN_SE_2X_CONSERVATIVE) {
+      return AppStrings.get('settings_reader_super_resolution_realcugan_se_2x_conservative')
+    }
+    return AppStrings.get('settings_reader_super_resolution_model_not_selected')
+  }
+
+  private superResolutionBackendLabel(reason: string): string {
+    if (reason.endsWith(':system')) return AppStrings.get('settings_reader_super_resolution_backend_system')
+    if (reason.endsWith(':nnrt')) return AppStrings.get('settings_reader_super_resolution_backend_npu')
+    if (reason.endsWith(':vulkan')) return AppStrings.get('settings_reader_super_resolution_backend_vulkan')
+    if (reason.endsWith(':cpu')) return AppStrings.get('settings_reader_super_resolution_backend_cpu')
+    return ''
+  }
+
+  private imageEnhancementInformation(frame: ReaderPagedFrame, value: ReaderImageInformation): string {
+    const configuration = this.superResolutionConfiguration()
+    if (!configuration.enabled) {
+      return AppStrings.get('reader_image_info_enhancement').replace(
+        '%s', AppStrings.get('settings_reader_super_resolution_off'))
+    }
+    const modelLabel = this.superResolutionModelLabel(configuration.model)
+    if (configuration.model === ReaderSuperResolutionModel.NONE || frame.asset.page === null) {
+      return AppStrings.get('reader_image_info_enhancement').replace('%s', modelLabel)
+    }
+    const information: NextEReaderSuperResolutionInformation | null =
+      this.superResolutionProvider?.information(frame.asset.page, configuration.identity()) ?? null
+    const applied = value.variant === 'enhanced' || information?.applied === true
+    const reason = information?.reason ?? 'queued'
+    let detail = ''
+    if (applied) {
+      const backend = this.superResolutionBackendLabel(reason)
+      const label = backend.length > 0 ? `${modelLabel} · ${backend}` : modelLabel
+      detail = AppStrings.get('reader_image_info_enhancement_applied').replace('%s', label)
+    } else if (reason === 'processing') {
+      detail = AppStrings.get('reader_image_info_enhancement_processing').replace('%s', modelLabel)
+    } else if (reason === 'queued') {
+      detail = AppStrings.get('reader_image_info_enhancement_queued').replace('%s', modelLabel)
+    } else {
+      detail = AppStrings.get('reader_image_info_enhancement_not_applied').replace('%s', modelLabel)
+    }
+    return AppStrings.get('reader_image_info_enhancement').replace('%s', detail)
+  }
+
+  private imageInformationSupplement(frame: ReaderPagedFrame, value: ReaderImageInformation): string[] {
+    if (frame.asset.page === null) return []
+    return [
+      this.imageEnhancementInformation(frame, value),
+      this.adapter?.imageInformationSource(frame.asset.page) ?? '',
+    ]
   }
 
   private translationConfiguration(_page: ReaderPage): NextEReaderTranslationConfiguration {
@@ -655,6 +731,8 @@ export struct NextEReaderLabPage {
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
               input: this.input, imageShare: this.imageShare, imageSave: this.imageSave,
+              informationSupplement: (frame: ReaderPagedFrame, value: ReaderImageInformation): string[] =>
+                this.imageInformationSupplement(frame, value),
               tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
               autoReadAvailable: true, autoReadSeconds: this.readMode.autoPageSeconds,
               pageTurnAnimation: this.request.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,

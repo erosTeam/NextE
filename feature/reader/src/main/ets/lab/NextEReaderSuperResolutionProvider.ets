@@ -5,8 +5,26 @@ import {
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
-import { ReaderPageCropService, ReaderSuperResolutionResult, readerSuperResolutionProcess,
-  readerSuperResolutionReleaseOwner } from 'shared'
+import { ReaderPageCropService, ReaderSuperResolutionResult,
+  readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
+
+export class NextEReaderSuperResolutionInformation {
+  identity: string
+  model: string
+  applied: boolean
+  reason: string
+
+  constructor(identity: string, model: string, applied: boolean, reason: string) {
+    this.identity = identity
+    this.model = model
+    this.applied = applied
+    this.reason = reason
+  }
+
+  copy(): NextEReaderSuperResolutionInformation {
+    return new NextEReaderSuperResolutionInformation(this.identity, this.model, this.applied, this.reason)
+  }
+}
 
 class NextEReaderVariantCropSource implements ReaderImageCropSource {
   private static sequence: number = 0
@@ -85,6 +103,8 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private context: common.UIAbilityContext
   private configuration: () => NextEReaderSuperResolutionConfiguration
   private sourcePaths: Map<string, string> = new Map<string, string>()
+  private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
+    new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
@@ -132,8 +152,11 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     let retained: boolean = false
     try {
       const result: ReaderSuperResolutionResult = await readerSuperResolutionProcess(
-        this.context, sourcePath, sourceKey, (_state): void => {}, ownerKey)
+        this.context, sourcePath, sourceKey, (state: string): void => {
+          this.rememberInformation(page, identity, configuration.model, false, state)
+        }, ownerKey)
       cancellation.check()
+      this.rememberInformation(page, identity, configuration.model, result.applied, result.reason)
       const current = this.configuration()
       if (!current.enabled || current.identity() !== identity || !result.applied) {
         throw new Error(`reader_variant_not_applied:${result.reason}`)
@@ -145,10 +168,28 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
       retained = true
       return new NextEReaderSuperResolutionPlan(page, identity, path, ownerKey,
         this.provider.prepareOriginal !== undefined)
+    } catch (error) {
+      const current = this.informationByPage.get(this.pageIdentity(page))
+      if (current !== undefined && current.identity === identity && !current.applied &&
+        (current.reason === 'queued' || current.reason === 'processing')) {
+        this.rememberInformation(page, identity, configuration.model, false, (error as Error).message)
+      }
+      throw error as Error
     } finally {
       detach()
       if (!retained) readerSuperResolutionReleaseOwner(ownerKey)
     }
+  }
+
+  information(page: ReaderPage, identity: string): NextEReaderSuperResolutionInformation | null {
+    const value = this.informationByPage.get(this.pageIdentity(page))
+    return value !== undefined && value.identity === identity ? value.copy() : null
+  }
+
+  private rememberInformation(page: ReaderPage, identity: string, model: string,
+    applied: boolean, reason: string): void {
+    this.informationByPage.set(this.pageIdentity(page),
+      new NextEReaderSuperResolutionInformation(identity, model, applied, reason))
   }
 
   private pageIdentity(page: ReaderPage): string {

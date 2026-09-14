@@ -20,7 +20,7 @@ let processPromise = null
 const shared = {
   ReaderPageCropService: { async detect() { return new core.ReaderImageCropBounds() } },
   async readerSuperResolutionProcess(...args) {
-    calls.push(args); return processPromise === null ? processResult : processPromise
+    calls.push(args); args[3]('processing'); return processPromise === null ? processResult : processPromise
   },
   readerSuperResolutionReleaseOwner(owner) { released.push(owner) },
 }
@@ -61,6 +61,8 @@ assert.equal(calls[0][1], '/cache/source.jpg')
 assert.equal(calls[0][2], 'eh:12:12:12:1:0')
 assert.match(calls[0][4], /^reader-shared:/)
 assert.equal(plan.identity, identity)
+assert.equal(provider.information(page, identity).applied, true)
+assert.equal(provider.information(page, identity).reason, '')
 const enhanced = await plan.load(new core.ReaderCancellation(), false)
 assert.equal(enhanced.uri, 'file:///cache/enhanced.jpg')
 assert.equal(enhanced.originalAvailable, true)
@@ -85,6 +87,8 @@ processResult = { filePath: '', displayUri: 'file:///cache/source.jpg', applied:
   reason: 'model_not_installed' }
 await assert.rejects(provider.prepareVariant(page, 'enhanced', configuration.identity(), new core.ReaderCancellation()),
   /reader_variant_not_applied:model_not_installed/)
+assert.equal(provider.information(page, configuration.identity()).applied, false)
+assert.equal(provider.information(page, configuration.identity()).reason, 'model_not_installed')
 
 const nativeExports = {}
 const nativeSource = fs.readFileSync(path.join(root,
@@ -111,5 +115,17 @@ assert.match(hostSource,
   /preferredVariant: this\.superResolutionAvailable\(\) \? 'enhanced' : 'default'/)
 assert.match(hostSource,
   /private superResolutionIdentity\(\): string \{[\s\S]*?return this\.superResolutionAvailable\(\) \? this\.superResolutionConfiguration\(\)\.identity\(\) : ''/)
+assert.match(hostSource, /informationSupplement:[\s\S]*?this\.imageInformationSupplement\(frame, value\)/)
+assert.match(hostSource, /reader_image_info_enhancement_applied/)
+assert.match(hostSource, /reader_image_info_enhancement_processing/)
+assert.match(hostSource, /reader_image_info_enhancement_queued/)
+assert.match(hostSource, /reader_image_info_enhancement_not_applied/)
+
+const adapterSource = fs.readFileSync(path.join(root,
+  'feature/reader/src/main/ets/lab/NextEReaderLabAdapter.ets'), 'utf8')
+assert.match(adapterSource, /imageInformationSource\(page: ReaderPage\): string/)
+assert.match(adapterSource, /ReaderSourceKind\.GALLERY_DOWNLOAD/)
+assert.match(adapterSource, /ReaderSourceKind\.ARCHIVE/)
+assert.match(adapterSource, /reader_image_info_source/)
 
 console.log('reader super-resolution provider runtime: ok')
