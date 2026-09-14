@@ -6,7 +6,7 @@ import { ReaderEntryTransition, ReaderEntryPreviewSource, ReaderEntryRect, Reade
   ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
 import { ReaderDisplayPart, ReaderUnitKey } from '@reader-kit/core'
 import { ReaderTrialEntryRelay, ReaderTrialEntrySource, ReaderTrialEntryProbe, SiteModeState } from 'shared'
-import { image } from '@kit.ImageKit'
+import { NextEReaderEntryPreviewCapture } from './NextEReaderEntryPreviewCapture'
 import {
   HdsNavigation,
   HdsTabs,
@@ -86,6 +86,8 @@ import {
   ListMode,
   ReaderOverlayNavigationState,
   ReaderOverlayRoute,
+  NextEReaderBackend,
+  connectNextEReaderBackendSelection,
   connectReaderOverlayNavigation,
   TabletLayoutSettings,
   TabletLayoutState,
@@ -659,6 +661,8 @@ struct Index {
   private readerTrialSite: string = ''
   private readerEntryEpoch: number = 0
   private readerEntryToken: number = 0
+  private productionReaderEntryToken: number = 0
+  private productionReaderEntryGuardToken: number = 0
   private readerTrialEntryGuardToken: number = 0
   private readerTrialWindow: ReaderTrialWindow | null = null
   private readerTrialWindowEpoch: number = -1
@@ -668,6 +672,13 @@ struct Index {
   @Local private readerTrialCloseRequested: boolean = false
   private readerTrialLaunchEpoch: number = 0
   private readerTrialHostAlive: boolean = true
+  @Local private productionReaderEntryTransition: ReaderEntryTransition | null = null
+  @Local private productionReaderEntryPreview: ReaderEntryPreviewSource | null = null
+  @Local private productionReaderEntryClaim: IndexReaderEntryClaim | null = null
+  private productionReaderEntryEpoch: number = 0
+  private productionReaderEntryPendingGalleryId: string = ''
+  private productionReaderEntryGalleryId: string = ''
+  private productionReaderEntryPageIndex: number = -1
 
   @Monitor('readerEntryVisibility.foreground', 'readerEntrySite.isEx', 'navStackHolder.navigationRevision',
     'securitySettings.locked', 'safeMode.unlocked')
@@ -686,16 +697,142 @@ struct Index {
     return this.readerEntrySite.isEx ? 'ex' : 'eh'
   }
 
+  private productionReaderEntryActive(): boolean {
+    return this.productionReaderEntryPendingGalleryId.length > 0 || this.productionReaderEntryClaim !== null ||
+      this.productionReaderEntryTransition !== null || this.productionReaderEntryPreview !== null
+  }
+
+  private retireProductionReaderEntryGuard(): void {
+    const guard = this.productionReaderEntryGuardToken
+    this.productionReaderEntryGuardToken = 0
+    ReaderTrialEntryRelay.releasePending(guard)
+  }
+
+  private retireProductionReaderEntry(): void {
+    this.retireProductionReaderEntryGuard()
+    this.productionReaderEntryEpoch += 1
+    this.productionReaderEntryPendingGalleryId = ''
+    this.productionReaderEntryGalleryId = ''
+    this.productionReaderEntryPageIndex = -1
+    this.productionReaderEntryClaim = null
+    this.productionReaderEntryTransition?.cancel()
+    this.productionReaderEntryPreview?.release()
+    this.productionReaderEntryTransition = null
+    this.productionReaderEntryPreview = null
+  }
+
+  private finishProductionReaderEntry(): void {
+    const transition = this.productionReaderEntryTransition
+    if (transition !== null && transition.phase !== 'finished' && transition.phase !== 'cancelled') return
+    this.productionReaderEntryPendingGalleryId = ''
+    this.productionReaderEntryClaim = null
+    this.productionReaderEntryPreview?.release()
+    this.productionReaderEntryPreview = null
+    this.productionReaderEntryTransition = null
+    this.productionReaderEntryGalleryId = ''
+    this.productionReaderEntryPageIndex = -1
+    this.retireProductionReaderEntryGuard()
+  }
+
+  private authorizeProductionReaderEntryDeparture(claim: IndexReaderEntryClaim, entryId: number): boolean {
+    if (this.productionReaderEntryClaim !== claim || claim.epoch !== entryId ||
+      claim.epoch !== this.productionReaderEntryEpoch) return false
+    let valid = false
+    try {
+      valid = claim.navigation === this.navStackHolder.navigationRevision && this.readerEntryVisibility.foreground &&
+        this.readerOverlay.visible && !this.securitySettings.locked && !this.safeMode.restricted() &&
+        this.currentReaderEntrySite() === claim.source.site && claim.source.isCurrent() &&
+        this.productionReaderEntryGalleryId === claim.source.galleryId &&
+        this.productionReaderEntryPageIndex === claim.source.pageIndex &&
+        this.sameReaderEntryRect(claim.sourceRect, this.readerEntryRect(claim.source.snapshotComponentId)) &&
+        this.sameReaderEntryRect(claim.viewport, this.readerEntryRect('nexte-reader-entry-host'))
+    } catch (_) {}
+    if (!valid) this.retireProductionReaderEntry()
+    return valid
+  }
+
+  private productionReaderEntryMatches(route: ReaderOverlayRoute): boolean {
+    return route.backend === NextEReaderBackend.SHARED && this.productionReaderEntryTransition !== null &&
+      this.productionReaderEntryGalleryId === route.params.gid &&
+      this.productionReaderEntryPageIndex === route.params.index
+  }
+
+  private tryOpenProductionThumbnail(source: ReaderTrialEntrySource): boolean {
+    const accepted = this.ctx().applicationInfo.debug &&
+      connectNextEReaderBackendSelection().current() === NextEReaderBackend.SHARED &&
+      this.readerTrialHostAlive && this.readerEntryVisibility.foreground && !this.securitySettings.locked &&
+      !this.safeMode.restricted() && !this.readerOverlay.visible && this.readerTrialRequest === null &&
+      this.readerTrialClosing === null && this.readerEntryClaim === null && source.isCurrent()
+    if (!accepted) return false
+    if (this.productionReaderEntryActive()) return true
+    this.productionReaderEntryPendingGalleryId = source.galleryId
+    void this.openProductionThumbnail(source)
+    return true
+  }
+
+  private async openProductionThumbnail(source: ReaderTrialEntrySource): Promise<void> {
+    const epoch = ++this.productionReaderEntryEpoch
+    const navigation = this.navStackHolder.navigationRevision
+    if (!source.isCurrent()) { this.retireProductionReaderEntry(); return }
+    this.productionReaderEntryGuardToken = ReaderTrialEntryRelay.holdPending(source.site, source.galleryId,
+      (): boolean => {
+        if (epoch !== this.productionReaderEntryEpoch || !this.productionReaderEntryActive()) return false
+        this.retireProductionReaderEntry()
+        return true
+      })
+    let sourceRect = new ReaderEntryRect()
+    let viewport = new ReaderEntryRect()
+    try {
+      sourceRect = this.readerEntryRect(source.snapshotComponentId)
+      viewport = this.readerEntryRect('nexte-reader-entry-host')
+    } catch (_) {}
+    if (!sourceRect.valid() || !viewport.valid() || source.snapshot === null || !source.snapshot.isCurrent()) {
+      this.presentProductionThumbnail(source, null, epoch)
+      return
+    }
+    const claim = new IndexReaderEntryClaim(epoch, navigation, source, sourceRect, viewport)
+    this.productionReaderEntryClaim = claim
+    const wholePage = source.snapshot.spriteWidth > 0 && source.snapshot.thumbWidth > 0 &&
+      source.snapshot.thumbHeight > 0
+    const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
+      source.snapshotComponentId, wholePage ? 'whole-page' : 'unknown',
+      (entryId: number): boolean => this.authorizeProductionReaderEntryDeparture(claim, entryId))
+    if (epoch !== this.productionReaderEntryEpoch || navigation !== this.navStackHolder.navigationRevision ||
+      !this.readerEntryVisibility.foreground || this.readerOverlay.visible || this.securitySettings.locked ||
+      this.safeMode.restricted() || !source.isCurrent()) {
+      preview?.release()
+      if (this.productionReaderEntryClaim === claim) this.retireProductionReaderEntry()
+      return
+    }
+    this.presentProductionThumbnail(source, preview, epoch)
+  }
+
+  private presentProductionThumbnail(source: ReaderTrialEntrySource,
+    preview: ReaderEntryPreviewSource | null, epoch: number): void {
+    if (epoch !== this.productionReaderEntryEpoch || !source.isCurrent() || this.readerOverlay.visible ||
+      this.securitySettings.locked || this.safeMode.restricted()) {
+      preview?.release()
+      this.retireProductionReaderEntry()
+      return
+    }
+    this.retireProductionReaderEntryGuard()
+    this.productionReaderEntryGalleryId = source.galleryId
+    this.productionReaderEntryPageIndex = source.pageIndex
+    this.productionReaderEntryPreview = preview
+    this.productionReaderEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
+      new ReaderDisplayPart(new ReaderUnitKey(source.site, source.galleryId, source.galleryId), null, source.pageIndex))
+    if (preview === null) this.productionReaderEntryClaim = null
+    ReaderThumbnailTransitionCoordinator.armSharedReturn(this.getUIContext(), source)
+    this.readerOverlay.openSharedTransition(source.params, false)
+    if (preview === null) this.finishProductionReaderEntry()
+  }
+
   private readerEntryRect(componentId: string): ReaderEntryRect {
-    const context = this.getUIContext()
-    const rect = context.getComponentUtils().getRectangleById(componentId)
-    return new ReaderEntryRect(context.px2vp(rect.windowOffset.x), context.px2vp(rect.windowOffset.y),
-      context.px2vp(rect.size.width), context.px2vp(rect.size.height))
+    return NextEReaderEntryPreviewCapture.rect(this.getUIContext(), componentId)
   }
 
   private sameReaderEntryRect(left: ReaderEntryRect, right: ReaderEntryRect): boolean {
-    return left.valid() && right.valid() && left.x === right.x && left.y === right.y &&
-      left.width === right.width && left.height === right.height
+    return NextEReaderEntryPreviewCapture.sameRect(left, right)
   }
 
   private authorizeReaderEntryDeparture(claim: IndexReaderEntryClaim, entryId: number): boolean {
@@ -875,26 +1012,13 @@ struct Index {
     }
     const claim = new IndexReaderEntryClaim(epoch, this.navStackHolder.navigationRevision, source, sourceRect, viewport)
     this.readerEntryClaim = claim
-    let preview: ReaderEntryPreviewSource | null = null
-    let captured: image.PixelMap | null = null
-    try {
-      const pixels = await this.getUIContext().getComponentSnapshot().get(source.snapshotComponentId,
-        { waitUntilRenderFinished: true })
-      captured = pixels
-      const after = this.readerEntryRect(source.snapshotComponentId)
-      const size = pixels.getImageInfoSync().size
-      if (this.sameReaderEntryRect(sourceRect, after) && size.width > 0 && size.height > 0 && snapshotSource.isCurrent()) {
-        // These fitted content nodes contain a complete EH page thumbnail cell only in the
-        // validated sprite branch. The legacy whole-image Cover branch can still crop pixels.
-        const wholePage = snapshotSource.spriteWidth > 0 && snapshotSource.thumbWidth > 0 && snapshotSource.thumbHeight > 0
-        preview = new ReaderEntryPreviewSource(pixels,
-          new ReaderEntryRect(after.x, after.y, after.width, after.width * size.height / size.width),
-          (entryId: number): boolean => this.authorizeReaderEntryDeparture(claim, entryId),
-          wholePage ? 'whole-page' : 'unknown')
-        captured = null
-      }
-    } catch (_) {}
-    if (captured !== null) void captured.release()
+    // Sprite cells are complete EH page thumbnails. The legacy whole-image Cover
+    // branch may still be cropped, so it must not claim whole-page geometry.
+    const contentKind = snapshotSource.spriteWidth > 0 && snapshotSource.thumbWidth > 0 &&
+      snapshotSource.thumbHeight > 0 ? 'whole-page' : 'unknown'
+    const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
+      source.snapshotComponentId, contentKind,
+      (entryId: number): boolean => this.authorizeReaderEntryDeparture(claim, entryId))
     if (!this.authorizeReaderEntryDeparture(claim, epoch)) {
       preview?.release()
       return
@@ -1132,6 +1256,9 @@ struct Index {
     this.readerTrialHostAlive = true
     this.handleReaderLabLaunch()
     this.readerOverlay.reset()
+    ReaderTrialEntryRelay.clearProduction(this.productionReaderEntryToken)
+    this.productionReaderEntryToken = ReaderTrialEntryRelay.installProduction(
+      (source: ReaderTrialEntrySource): boolean => this.tryOpenProductionThumbnail(source))
     this.handlePendingEhUrl()
     this.handleClipboardLinkCandidate()
     this.syncDownloadQueuePageActive()
@@ -1148,6 +1275,9 @@ struct Index {
     this.readerEntryEpoch += 1
     this.readerEntryPreview?.release()
     ReaderTrialEntryRelay.clear(this.readerEntryToken)
+    ReaderTrialEntryRelay.clearProduction(this.productionReaderEntryToken)
+    this.productionReaderEntryToken = 0
+    this.retireProductionReaderEntry()
     setDownloadQueuePageActive(false)
     this.clearHomeTabAnimationGuardTimer()
   }
@@ -1998,6 +2128,29 @@ struct Index {
     }
   }
 
+  private closeSharedReader(route: ReaderOverlayRoute, context: ReaderCloseContext | null,
+    image: EhGalleryImage | null): void {
+    const galleryId = route.params.gid
+    if (context !== null && image !== null && context.unit.scope === this.currentReaderEntrySite() &&
+      context.unit.work === galleryId) {
+      this.readerThumbnailTransition.updateCurrent(galleryId, context.part.sourceIndex, image)
+    }
+    const finish = (animated: boolean): void => { this.readerOverlay.close(animated) }
+    if (context === null || image === null || context.unit.scope !== this.currentReaderEntrySite() ||
+      context.unit.work !== galleryId || context.contentAspectRatio <= 0 ||
+      !this.readerThumbnailTransition.normalCloseReadyFor(galleryId)) {
+      finish(true)
+      return
+    }
+    void ReaderThumbnailTransitionCoordinator.waitForTargetLayoutCommit(this.getUIContext())
+      .then((targetReady: boolean): void => {
+        if (targetReady && ReaderThumbnailTransitionCoordinator.close(this.getUIContext(), galleryId,
+          context.part.sourceIndex, image, true, context.captureComponentId,
+          context.contentAspectRatio, 1, finish)) return
+        finish(true)
+      })
+  }
+
   @Builder
   readerOverlayRouterMap(name: string, param: Object) {
     if (!SafeModeGate.routeAllowed(name)) {
@@ -2014,11 +2167,23 @@ struct Index {
       NextEReaderLabPage({
         request: new NextEProductionReaderRequest((param as ReaderOverlayRoute).params),
         entryParams: (param as ReaderOverlayRoute).params,
+        entryTransition: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
+          ? this.productionReaderEntryTransition : null,
+        entryPreview: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
+          ? this.productionReaderEntryPreview : null,
+        entryPhase: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
+          ? this.productionReaderEntryTransition?.phase ?? 'finished' : 'finished',
         settingsSheetContent: (dismiss: () => void) => {
           this.ReaderSettingsSheet(dismiss)
         },
-        onClose: (): void => { this.readerOverlay.close() },
-        onDisappeared: (): void => { this.readerOverlay.finishClose() },
+        onEntrySettled: (): void => { this.finishProductionReaderEntry() },
+        onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {
+          this.closeSharedReader(param as ReaderOverlayRoute, context, image)
+        },
+        onDisappeared: (): void => {
+          this.retireProductionReaderEntry()
+          this.readerOverlay.finishClose()
+        },
       })
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
@@ -2813,6 +2978,13 @@ struct Index {
       if (this.readerEntryClaim !== null) {
         IndexReaderEntryPendingOverlay({ sourceRect: this.readerEntryClaim.sourceRect,
           onViewportChanged: (): void => { if (this.readerEntryClaim !== null) this.closeReaderTrial() } })
+      }
+      if (this.productionReaderEntryClaim !== null &&
+        (this.productionReaderEntryTransition === null || this.productionReaderEntryTransition.phase === 'layout')) {
+        IndexReaderEntryPendingOverlay({ sourceRect: this.productionReaderEntryClaim.sourceRect,
+          onViewportChanged: (): void => {
+            if (this.productionReaderEntryClaim !== null) this.retireProductionReaderEntry()
+          } })
       }
       if (this.securitySettings.locked) {
         SecurityLockOverlay({

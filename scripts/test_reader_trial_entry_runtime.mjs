@@ -45,6 +45,34 @@ test('default production is untouched and a live unready source reaches only the
   assert.equal(captured.snapshotComponentId, 'source-content'); assert.equal(v.open(), false)
 })
 
+test('production rehearsal handler is persistent while an exact Debug trial remains one-shot and takes precedence', () => {
+  const v = setup(); let productionCalls = 0; let debugCalls = 0
+  const production = v.relay.installProduction(() => { productionCalls++; return true })
+  assert.equal(v.open(), true); assert.equal(v.open(), true); assert.equal(productionCalls, 2)
+  v.relay.install('eh', 'work', () => { debugCalls++; return true })
+  assert.equal(v.open(), true); assert.equal(debugCalls, 1); assert.equal(productionCalls, 2)
+  assert.equal(v.open(), true); assert.equal(productionCalls, 3)
+  v.relay.clearProduction(production)
+  assert.equal(v.open(), false)
+})
+
+test('a rejected exact Debug handler falls through to the production rehearsal host', () => {
+  const v = setup(); let productionCalls = 0
+  v.relay.installProduction(() => { productionCalls++; return true })
+  v.relay.install('eh', 'work', () => false)
+  assert.equal(v.open(), true); assert.equal(productionCalls, 1)
+})
+
+test('pending capture owns quick Back without consuming the persistent production rehearsal host', () => {
+  const v = setup(); let productionCalls = 0; let cancelCalls = 0
+  v.relay.installProduction(() => { productionCalls++; return true })
+  const pending = v.relay.holdPending('eh', 'work', () => { cancelCalls++; return true })
+  assert.equal(v.open(), true); assert.equal(productionCalls, 0)
+  assert.equal(v.relay.cancelPending('eh', 'work'), true); assert.equal(cancelCalls, 1)
+  v.relay.releasePending(pending)
+  assert.equal(v.open(), true); assert.equal(productionCalls, 1)
+})
+
 test('ready is exact live crop identity; a null from an older child cannot erase a current source', () => {
   const v = setup(); v.relay.updateSnapshot(v.handle, v.snapshot)
   assert.equal(v.relay.isSnapshotReady('eh', 'source'), true)

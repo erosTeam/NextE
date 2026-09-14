@@ -90,13 +90,18 @@ export class ReaderTrialEntrySource {
   }
 }
 
-/** Optional Debug host only. Unregistered entries leave the production coordinator untouched. */
+/**
+ * Thumbnail source relay. Gallery owns live source identity; root hosts decide
+ * whether a Debug trial or the optional production rehearsal claims it.
+ */
 export class ReaderTrialEntryRelay {
   private static serial: number = 0
   private static token: number = 0
   private static site: ReaderTrialEntrySite = 'eh'
   private static galleryId: string = ''
   private static handler: ((source: ReaderTrialEntrySource) => boolean) | null = null
+  private static productionToken: number = 0
+  private static productionHandler: ((source: ReaderTrialEntrySource) => boolean) | null = null
   private static pendingToken: number = 0
   private static pendingSite: ReaderTrialEntrySite = 'eh'
   private static pendingGalleryId: string = ''
@@ -154,6 +159,19 @@ export class ReaderTrialEntryRelay {
     ReaderTrialEntryRelay.token = 0; ReaderTrialEntryRelay.galleryId = ''; ReaderTrialEntryRelay.handler = null
   }
 
+  static installProduction(handler: (source: ReaderTrialEntrySource) => boolean): number {
+    const token = ++ReaderTrialEntryRelay.serial
+    ReaderTrialEntryRelay.productionToken = token
+    ReaderTrialEntryRelay.productionHandler = handler
+    return token
+  }
+
+  static clearProduction(token: number): void {
+    if (ReaderTrialEntryRelay.productionToken !== token) return
+    ReaderTrialEntryRelay.productionToken = 0
+    ReaderTrialEntryRelay.productionHandler = null
+  }
+
   static holdPending(site: ReaderTrialEntrySite, galleryId: string, cancel: () => boolean): number {
     const token = ++ReaderTrialEntryRelay.serial
     ReaderTrialEntryRelay.pendingToken = token; ReaderTrialEntryRelay.pendingSite = site
@@ -179,9 +197,7 @@ export class ReaderTrialEntryRelay {
     const site = ReaderTrialEntryRelay.currentSite()
     if (ReaderTrialEntryRelay.pendingToken !== 0 && ReaderTrialEntryRelay.pendingSite === site &&
       ReaderTrialEntryRelay.pendingGalleryId === galleryId) return true
-    const handler = ReaderTrialEntryRelay.handler
-    if (handler === null || ReaderTrialEntryRelay.site !== site || ReaderTrialEntryRelay.galleryId !== galleryId ||
-      galleryId.length === 0 || sourceId.length === 0 || !Number.isSafeInteger(pageIndex) || pageIndex < 0 ||
+    if (galleryId.length === 0 || sourceId.length === 0 || !Number.isSafeInteger(pageIndex) || pageIndex < 0 ||
       image.page !== pageIndex + 1 || params.gid !== galleryId || params.index !== pageIndex ||
       params.token.length === 0) return false
     const handle = ReaderTrialEntryRelay.sources.get(ReaderTrialEntryRelay.sourceKey(site, sourceId))
@@ -190,9 +206,14 @@ export class ReaderTrialEntryRelay {
     const snapshot = ready !== null && ready.isCurrent() && handle.identity.matchesSnapshot(ready) ? ready : null
     const source = new ReaderTrialEntrySource(galleryId, pageIndex, handle, params, snapshot,
       (): boolean => ReaderTrialEntryRelay.sourceCurrent(handle))
-    const token = ReaderTrialEntryRelay.token
-    if (!handler(source)) return false
-    ReaderTrialEntryRelay.clear(token)
-    return true
+    const handler = ReaderTrialEntryRelay.handler
+    if (handler !== null && ReaderTrialEntryRelay.site === site && ReaderTrialEntryRelay.galleryId === galleryId) {
+      const token = ReaderTrialEntryRelay.token
+      if (handler(source)) {
+        ReaderTrialEntryRelay.clear(token)
+        return true
+      }
+    }
+    return ReaderTrialEntryRelay.productionHandler?.(source) ?? false
   }
 }

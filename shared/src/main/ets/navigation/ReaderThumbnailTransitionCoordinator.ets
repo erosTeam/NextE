@@ -65,7 +65,9 @@ export class ReaderThumbnailTransitionCoordinator {
     try {
       const targetRect = uiContext.getComponentUtils().getRectangleById(targetId)
       const proxyHostRect = uiContext.getComponentUtils().getRectangleById(
-        ReaderThumbnailTransitionCoordinator.closeProxyHostId(),
+        transition.closeProxyOwnedByRoot()
+          ? 'nexte-root-navigation'
+          : ReaderThumbnailTransitionCoordinator.closeProxyHostId(),
       )
       if (
         targetRect.size.width <= 0 || targetRect.size.height <= 0 ||

@@ -49,6 +49,7 @@ export struct NextEReaderLabPage {
   @Event onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => void = () => {}
   @Event onShown: () => void = () => {}
   @Event onDisappeared: () => void = () => {}
+  @Event onEntrySettled: () => void = () => {}
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
@@ -66,6 +67,7 @@ export struct NextEReaderLabPage {
   @Local private closeRequested: boolean = false
   @Local private readerSettingsSheetShown: boolean = false
   private volumeDisposed: boolean = false
+  private entrySettledNotified: boolean = false
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
@@ -544,6 +546,13 @@ export struct NextEReaderLabPage {
       x, y, 1, 1)
     if (action === 'previous' || action === 'next' || action === 'left' || action === 'right') return action
     return 'menu'
+  }
+
+  @Monitor('entryPhase')
+  private notifyEntrySettled(): void {
+    if (this.entrySettledNotified || (this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled')) return
+    this.entrySettledNotified = true
+    this.onEntrySettled()
   }
 
   aboutToDisappear(): void {

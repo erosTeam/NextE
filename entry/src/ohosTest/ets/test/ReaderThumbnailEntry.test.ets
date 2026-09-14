@@ -6,7 +6,8 @@ import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { AppStrings, connectNavStack, connectReadMode, connectReaderThumbnailTransition, GalleryDetailParams, connectReaderOverlayNavigation,
   ReadMode, ReadColumnMode, ReadSpreadLayout, ReadModeSettings, StorageKeys, ReaderParams,
-  ReaderTrialEntryProbe, ReaderTrialEntryRelay, ReaderTrialEntrySite } from 'shared'
+  ReaderTrialEntryProbe, ReaderTrialEntryRelay, ReaderTrialEntrySite,
+  connectNextEReaderBackendSelection, NextEReaderBackend } from 'shared'
 import { connectNextEReaderLabContextProbe } from 'reader'
 
 const FIRST_THUMBNAIL: string = '^reader-thumb-gallery-detail-[0-9]+-page-0$'
@@ -1449,6 +1450,196 @@ function readerThumbnailSaveTrial(work: string, unit: string): void {
   })
 }
 
+async function waitSharedProductionSpread(driver: Driver): Promise<void> {
+  for (let attempt: number = 0; attempt < 100; attempt++) {
+    const surface = await driver.findComponent(ON.id('rkit-reading-surface'))
+    if (surface !== null && await completedPart(driver, 0) && await completedPart(driver, 1) &&
+      await driver.findComponent(ON.id('rkit-entry-preview-image')) === null &&
+      await driver.findComponent(ON.id('rkit-entry-source-pending')) === null) {
+      const first = await (await driver.findComponent(ON.id('rkit-part-0-whole')
+        .within(ON.id('rkit-image-viewport')))).getBounds()
+      const second = await (await driver.findComponent(ON.id('rkit-part-1-whole')
+        .within(ON.id('rkit-image-viewport')))).getBounds()
+      expect(second.right <= first.left + 1).assertTrue()
+      expect(await driver.findComponent(ON.id('reader-overlay-navigation')) !== null).assertTrue()
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+      return
+    }
+    await driver.delayMs(250)
+  }
+  throw new Error('Production shared Reader did not settle to the RTL P1/P2 spread')
+}
+
+async function closeSharedProductionReader(driver: Driver): Promise<void> {
+  let close = await driver.findComponent(ON.id('rkit-close'))
+  if (close === null) {
+    const surface = await (await driver.findComponent(ON.id('rkit-reading-surface'))).getBounds()
+    await driver.click(Math.round((surface.left + surface.right) / 2),
+      Math.round((surface.top + surface.bottom) / 2))
+    for (let attempt: number = 0; attempt < 30 && close === null; attempt++) {
+      await driver.delayMs(150)
+      close = await driver.findComponent(ON.id('rkit-close'))
+    }
+  }
+  if (close === null) throw new Error('Production shared Reader close action was unavailable')
+  await close.click()
+}
+
+async function waitProductionGridClosed(driver: Driver, sourceId: string): Promise<Component> {
+  for (let attempt: number = 0; attempt < 100; attempt++) {
+    const returned = await driver.findComponent(ON.id(sourceId).within(ON.type('Grid')))
+    if (returned !== null && isAllThumbnailsRoute() &&
+      await driver.findComponent(ON.id('reader-overlay-navigation')) === null &&
+      !connectReaderThumbnailTransition().active()) return returned
+    await driver.delayMs(250)
+  }
+  throw new Error('Production shared Reader did not return to the same standalone AllThumbnails source')
+}
+
+function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): void {
+  describe('ReaderProductionSharedThumbnailEntryTrial', (): void => {
+    it('normalDetailThumbnailUsesSharedForwardAndReturnTransition', 0, async (): Promise<void> => {
+      clearEntryCaptures(['production-shared-source', 'production-shared-reader',
+        'production-shared-closed', 'production-shared-exception'])
+      const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+      const driver = Driver.create()
+      let context: common.UIAbilityContext | null = null
+      let originalMode: string = ''
+      let originalDoublePage: boolean = false
+      let originalSpreadLayout: string = ''
+      let originalCrop: boolean = false
+      let settingsSaved: boolean = false
+      try {
+        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { nexte_reader_backend: 'shared' } })
+        for (let attempt: number = 0; attempt < 60; attempt++) {
+          if (await driver.findComponent(ON.id('nexte-root-navigation')) !== null) break
+          if (attempt === 59) throw new Error('Normal NextE root was not ready')
+          await driver.delayMs(250)
+        }
+        expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
+        const ability = await delegator.getCurrentTopAbility()
+        context = ability.context
+        const mode = connectReadMode()
+        originalMode = mode.mode
+        originalDoublePage = mode.doublePageEnabled
+        originalSpreadLayout = mode.spreadLayoutMode
+        originalCrop = mode.cropBordersPaged
+        settingsSaved = true
+        await ReadModeSettings.setMode(context, ReadMode.RTL)
+        await ReadModeSettings.setDoublePageEnabled(context, true)
+        await ReadModeSettings.setSpreadLayoutMode(context, ReadSpreadLayout.JOINED)
+        await ReadModeSettings.setCropBordersPaged(context, false)
+        connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
+        const source = await findFirstDetailThumbnail(driver)
+        const sourceId = await source.getId()
+        const site = ReaderTrialEntryRelay.currentSite()
+        await waitSnapshotReady(driver, site, sourceId)
+        const before = await source.getBounds()
+        await captureEntry(driver, 'production-shared-source')
+        await source.click()
+        await waitSharedProductionSpread(driver)
+        await captureEntry(driver, 'production-shared-reader')
+        await closeSharedProductionReader(driver)
+        for (let attempt: number = 0; attempt < 100; attempt++) {
+          const returned = await driver.findComponent(ON.id(sourceId).within(ON.id('gallery-detail-pane')))
+          if (returned !== null && await driver.findComponent(ON.id('reader-overlay-navigation')) === null &&
+            !connectReaderThumbnailTransition().active()) {
+            const after = await returned.getBounds()
+            expect(Math.abs(before.left - after.left) <= 1 && Math.abs(before.right - after.right) <= 1 &&
+              Math.abs(before.top - after.top) <= 1 && Math.abs(before.bottom - after.bottom) <= 1).assertTrue()
+            await captureEntry(driver, 'production-shared-closed')
+            console.info('[ReaderProductionSharedThumbnailEntryTrial] backend=shared normalDetail=true ' +
+              'forwardSettled=true rtlSpread=true returnedToSameSource=true')
+            return
+          }
+          await driver.delayMs(250)
+        }
+        throw new Error('Production shared Reader did not return to the same Detail thumbnail')
+      } catch (error) {
+        try { await captureEntry(driver, 'production-shared-exception') } catch (_) {}
+        throw error as Error
+      } finally {
+        connectNextEReaderBackendSelection().selectForRehearsal(NextEReaderBackend.LEGACY, true)
+        if (settingsSaved && context !== null) {
+          await ReadModeSettings.setMode(context, originalMode)
+          await ReadModeSettings.setDoublePageEnabled(context, originalDoublePage)
+          await ReadModeSettings.setSpreadLayoutMode(context, originalSpreadLayout)
+          await ReadModeSettings.setCropBordersPaged(context, originalCrop)
+        }
+      }
+    })
+
+    it('standaloneAllThumbnailsUsesSharedForwardAndReturnTransition', 0, async (): Promise<void> => {
+      clearEntryCaptures(['production-shared-grid-source', 'production-shared-grid-reader',
+        'production-shared-grid-closed', 'production-shared-grid-exception'])
+      const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+      const driver = Driver.create()
+      let context: common.UIAbilityContext | null = null
+      let originalMode: string = ''
+      let originalDoublePage: boolean = false
+      let originalSpreadLayout: string = ''
+      let originalCrop: boolean = false
+      let settingsSaved: boolean = false
+      try {
+        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { nexte_reader_backend: 'shared' } })
+        for (let attempt: number = 0; attempt < 60; attempt++) {
+          if (await driver.findComponent(ON.id('nexte-root-navigation')) !== null) break
+          if (attempt === 59) throw new Error('Normal NextE root was not ready for standalone thumbnails')
+          await driver.delayMs(250)
+        }
+        expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
+        connectNavStack().stack.clear(false)
+        await driver.delayMs(300)
+        const ability = await delegator.getCurrentTopAbility()
+        context = ability.context
+        const mode = connectReadMode()
+        originalMode = mode.mode
+        originalDoublePage = mode.doublePageEnabled
+        originalSpreadLayout = mode.spreadLayoutMode
+        originalCrop = mode.cropBordersPaged
+        settingsSaved = true
+        await ReadModeSettings.setMode(context, ReadMode.RTL)
+        await ReadModeSettings.setDoublePageEnabled(context, true)
+        await ReadModeSettings.setSpreadLayoutMode(context, ReadSpreadLayout.JOINED)
+        await ReadModeSettings.setCropBordersPaged(context, false)
+        connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
+        const source = await openFirstGridThumbnail(driver)
+        const sourceId = await source.getId()
+        expect(new RegExp(FIRST_GRID_THUMBNAIL).test(sourceId)).assertTrue()
+        const site = ReaderTrialEntryRelay.currentSite()
+        await waitSnapshotReady(driver, site, sourceId)
+        const before = await source.getBounds()
+        await captureEntry(driver, 'production-shared-grid-source')
+        await source.click()
+        await waitSharedProductionSpread(driver)
+        await captureEntry(driver, 'production-shared-grid-reader')
+        await closeSharedProductionReader(driver)
+        const returned = await waitProductionGridClosed(driver, sourceId)
+        const after = await returned.getBounds()
+        expect(Math.abs(before.left - after.left) <= 1 && Math.abs(before.right - after.right) <= 1 &&
+          Math.abs(before.top - after.top) <= 1 && Math.abs(before.bottom - after.bottom) <= 1).assertTrue()
+        await captureEntry(driver, 'production-shared-grid-closed')
+        console.info('[ReaderProductionSharedThumbnailEntryTrial] backend=shared standaloneAllThumbnails=true ' +
+          'forwardSettled=true rtlSpread=true returnedToSameSource=true')
+      } catch (error) {
+        try { await captureEntry(driver, 'production-shared-grid-exception') } catch (_) {}
+        throw error as Error
+      } finally {
+        connectNextEReaderBackendSelection().selectForRehearsal(NextEReaderBackend.LEGACY, true)
+        if (settingsSaved && context !== null) {
+          await ReadModeSettings.setMode(context, originalMode)
+          await ReadModeSettings.setDoublePageEnabled(context, originalDoublePage)
+          await ReadModeSettings.setSpreadLayoutMode(context, originalSpreadLayout)
+          await ReadModeSettings.setCropBordersPaged(context, originalCrop)
+        }
+        connectNavStack().stack.clear(false)
+      }
+    })
+  })
+}
+
 /** Only the explicitly selected real-device protocol may execute this source-entry sequence. */
 export default function readerThumbnailEntryTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
@@ -1463,6 +1654,11 @@ export default function readerThumbnailEntryTest(): void {
   const work = args['-s readerLabWork']
   const unit = args['-s readerLabUnit']
   const direction = args['-s readerLabEntryDirection'] === 'rtl' ? 'rtl' : 'ltr'
+  if (args['-s class'] === 'ReaderProductionSharedThumbnailEntryTrial' && typeof work === 'string' &&
+    work.length > 0 && typeof unit === 'string' && unit.length > 0) {
+    readerProductionSharedThumbnailEntryTrial(work, unit)
+    return
+  }
   if ((args['-s class'] === 'ReaderProductionCropTrial' || args['-s class'] === 'ReaderProductionCropSpreadTrial' ||
     args['-s class'] === 'ReaderProductionCropContinuousTrial' || args['-s class'] === 'ReaderProductionCropZoomTrial') && typeof work === 'string' && work.length > 0 &&
     typeof unit === 'string' && unit.length > 0) {

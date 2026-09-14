@@ -48,6 +48,16 @@ export class ReaderOverlayNavigationState {
     this.visible = true
   }
 
+  /** Root-host-only entry after a live shared thumbnail source was claimed. */
+  openSharedTransition(params: ReaderParams, animated: boolean = false): void {
+    this.stack.clear(false)
+    this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
+    this.pendingReader = new ReaderOverlayRoute(params, NextEReaderBackend.SHARED)
+    this.pendingReaderAnimated = animated
+    this.closing = false
+    this.visible = true
+  }
+
   presentPendingReader(): void {
     const route: ReaderOverlayRoute | null = this.pendingReader
     if (!this.visible || this.closing || route === null) {

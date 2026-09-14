@@ -15,6 +15,12 @@ NextE 是原生 HarmonyOS NEXT（ArkTS/ArkUI）的 E-Hentai / ExHentai 客户端
 旧 Reader，overlay 在接纳路由时固定本次实现；仍由旧协议驱动的活动缩略图转场也固定走旧 Reader。
 现有 ReaderPage 仍是默认与回退路径，不迁移持久化设置。
 
+普通详情和独立全部缩略图页仍拥有实时缩略图节点与分页状态；根 `entry` 只在显式 Debug 共享后端下
+通过缩略图 relay 接纳一次进入，校验当前页面/画廊/页码/布局后捕获已渲染像素，并把不含 NextE 组件 ID
+的预览交给 reader-kit。异步捕获期间的 Back 只取消本次进入，不弹走来源页；前向预览结束后由
+reader-kit 释放像素，返回目标测量和根级飞行动画继续由 NextE 壳负责。旧 Reader 未注册这条生产排练
+处理器时仍走原 `ReaderThumbnailTransitionCoordinator.open()` 路径。
+
 ```text
 entry
 ├── shared ── reader_enhancement（third_party/reader-enhancement）
