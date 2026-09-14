@@ -1,5 +1,5 @@
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
-  ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions } from '@reader-kit/ui'
+  ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
@@ -775,12 +775,12 @@ export struct NextEReaderLabPage {
               onHostAction: (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
                 this.handleHostAction(id, source, navigation, sourceIndex)
               },
-              hostStatusVisible: this.currentSourceIndex >= 0 &&
-                (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex),
-              hostStatusBusy: this.translationBusyPage === this.currentSourceIndex,
-              hostStatusText: this.translationBusyPage === this.currentSourceIndex
-                ? AppStrings.get('reader_comic_translation_running')
-                : AppStrings.get('reader_comic_translation_failed'),
+              hostStatus: this.currentSourceIndex >= 0 &&
+                (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex)
+                ? new ReaderHostStatus(this.translationBusyPage === this.currentSourceIndex
+                  ? AppStrings.get('reader_comic_translation_running')
+                  : AppStrings.get('reader_comic_translation_failed'),
+                this.translationBusyPage === this.currentSourceIndex) : null,
               onObservedPosition: (position: ReaderObservedPosition): void => { this.observeReaderPosition(position) },
               onPolicyChanged: (policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void => {
                 this.persistRuntimePolicy(policy, intent)
