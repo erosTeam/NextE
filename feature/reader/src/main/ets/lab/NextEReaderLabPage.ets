@@ -1,4 +1,4 @@
-import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction,
+import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
   ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy } from '@reader-kit/ui'
@@ -752,7 +752,8 @@ export struct NextEReaderLabPage {
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
               input: this.input, mediaActions: this.mediaActions,
-              tapZoneResolver: (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
+              tapPolicy: new ReaderTapPolicy(
+                (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout)),
               autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds),
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
