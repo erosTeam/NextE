@@ -1,7 +1,8 @@
 import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, ON } from '@kit.TestKit'
 import { window } from '@kit.ArkUI'
-import { connectReadMode, connectGalleryReadProgress, connectSiteMode, ReadMode } from 'shared'
+import { connectReadMode, connectGalleryReadProgress, connectSiteMode, ReadMode, ReadModeSettings } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 async function waitId(d: Driver, id: string): Promise<Component> {
   for (let i = 0; i < 60; i++) {
@@ -104,6 +105,52 @@ function signature(): string {
 /** Read only current saved paged policy, preserving synchronization. */
 export default function readerPageNumberTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
+  if (args['-s class'] === 'ReaderPageNumberToggleTrial') {
+    describe('ReaderPageNumberToggleTrial', (): void => {
+      it('hiddenChromePassivePageNumberTracksThePreferenceBothWays', 0, async (): Promise<void> => {
+        const d = Driver.create(), a = abilityDelegatorRegistry.getAbilityDelegator()
+        await a.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+        for (let i = 0; i < 60 && connectReadMode().restoreResult !== 'applied'; i++) await d.delayMs(250)
+        const ability = await a.getCurrentTopAbility()
+        const context: common.UIAbilityContext = ability.context
+        const original: boolean = connectReadMode().showPageNumber
+        let restored: boolean = false
+        let failed: boolean = false
+        try {
+          // The optional flag already inherits the canonical host preference, so
+          // exercise it directly through the existing settings owner instead of
+          // writing a fixture preference row.
+          await ReadModeSettings.setShowPageNumber(context, false)
+          expect(connectReadMode().showPageNumber).assertFalse()
+          await exercise(d, false, connectReadMode().mode === ReadMode.RTL, 'pref-off')
+          await closeTrial(d)
+          await ReadModeSettings.setShowPageNumber(context, true)
+          expect(connectReadMode().showPageNumber).assertTrue()
+          await exercise(d, true, connectReadMode().mode === ReadMode.RTL, 'pref-on')
+          await closeTrial(d)
+          console.info('[ReaderPageNumberTest] toggle offHidden=false onHidden=true chromeCountsPreserved=true')
+        } catch (error) {
+          failed = true
+          try { await capture(d, 'toggle-exception') } catch (_) {}
+          throw error as Error
+        } finally {
+          await ReadModeSettings.setShowPageNumber(context, original)
+          expect(connectReadMode().showPageNumber).assertEqual(original)
+          restored = true
+          try {
+            await closeTrial(d)
+            await assertHost()
+            await capture(d, 'toggle-exit')
+          } catch (error) {
+            // Surface a cleanup failure that would otherwise be masked by the
+            // primary assertion error already thrown above.
+            if (!failed) throw error as Error
+          }
+        }
+      })
+    })
+    return
+  }
   if (args['-s class'] !== 'ReaderPageNumberReadOnlyTrial') return
   describe('ReaderPageNumberReadOnlyTrial', (): void => {
     it('currentSavedPageNumberReadOnly', 0, async (): Promise<void> => {
