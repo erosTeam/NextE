@@ -9,6 +9,8 @@ import { AppStrings, connectNavStack, connectReadMode, connectReaderThumbnailTra
   ReaderTrialEntryProbe, ReaderTrialEntryRelay, ReaderTrialEntrySite,
   connectNextEReaderBackendSelection, NextEReaderBackend } from 'shared'
 import { connectNextEReaderLabContextProbe } from 'reader'
+import { leaveBackendSettings, openBackendSettings, selectBackend }
+  from './ReaderLocalSourceTrial.test'
 
 const FIRST_THUMBNAIL: string = '^reader-thumb-gallery-detail-[0-9]+-page-0$'
 const FIRST_GRID_THUMBNAIL: string = '^reader-thumb-all-thumbnails-[0-9]+-page-0$'
@@ -1496,8 +1498,54 @@ async function waitProductionGridClosed(driver: Driver, sourceId: string): Promi
   throw new Error('Production shared Reader did not return to the same standalone AllThumbnails source')
 }
 
-function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): void {
-  describe('ReaderProductionSharedThumbnailEntryTrial', (): void => {
+/**
+ * In-app variant: the backend is chosen through the existing Debug Settings
+ * selector inside one process instead of a `nexte_reader_backend` Want, because
+ * any ordinary launch resets the process selector to Legacy.
+ */
+async function selectBackendInAppThenOpenDetail(
+  driver: Driver, work: string, unit: string, backend: NextEReaderBackend): Promise<common.UIAbilityContext> {
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+  // A plain launch restores whatever route the previous case left behind, so the
+  // selector row may not be reachable yet. Return to the retained root first.
+  for (let attempt: number = 0; attempt < 80; attempt++) {
+    if (await driver.findComponent(ON.id('nexte-root-tab-4')) !== null) break
+    if (attempt === 20) connectNavStack().stack.clear(false)
+    if (attempt === 79) throw new Error('Normal NextE root was not ready for the in-app entry rehearsal')
+    await driver.delayMs(250)
+  }
+  expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.LEGACY)
+  await openBackendSettings(driver)
+  await selectBackend(driver, backend)
+  await leaveBackendSettings(driver)
+  expect(connectNextEReaderBackendSelection().current()).assertEqual(backend)
+  const ability = await delegator.getCurrentTopAbility()
+  connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
+  return ability.context
+}
+
+/** Original Debug-Want launch path, retained so both sources stay comparable. */
+async function sharedBackendWantContext(
+  delegator: object, driver: Driver): Promise<common.UIAbilityContext> {
+  await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+    bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+    parameters: { nexte_reader_backend: 'shared' },
+  })
+  for (let attempt: number = 0; attempt < 60; attempt++) {
+    if (await driver.findComponent(ON.id('nexte-root-navigation')) !== null) break
+    if (attempt === 59) throw new Error('Normal NextE root was not ready')
+    await driver.delayMs(250)
+  }
+  expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
+  const ability = await abilityDelegatorRegistry.getAbilityDelegator().getCurrentTopAbility()
+  return ability.context
+}
+
+function readerProductionSharedThumbnailEntryTrial(work: string, unit: string, inAppBackend: boolean): void {
+  describe(inAppBackend
+    ? 'ReaderProductionInAppThumbnailEntryTrial'
+    : 'ReaderProductionSharedThumbnailEntryTrial', (): void => {
     it('normalDetailThumbnailUsesSharedForwardAndReturnTransition', 0, async (): Promise<void> => {
       clearEntryCaptures(['production-shared-source', 'production-shared-reader',
         'production-shared-closed', 'production-shared-exception'])
@@ -1510,16 +1558,9 @@ function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): 
       let originalCrop: boolean = false
       let settingsSaved: boolean = false
       try {
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-          parameters: { nexte_reader_backend: 'shared' } })
-        for (let attempt: number = 0; attempt < 60; attempt++) {
-          if (await driver.findComponent(ON.id('nexte-root-navigation')) !== null) break
-          if (attempt === 59) throw new Error('Normal NextE root was not ready')
-          await driver.delayMs(250)
-        }
-        expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
-        const ability = await delegator.getCurrentTopAbility()
-        context = ability.context
+        context = inAppBackend
+          ? await selectBackendInAppThenOpenDetail(driver, work, unit, NextEReaderBackend.SHARED)
+          : await sharedBackendWantContext(delegator, driver)
         const mode = connectReadMode()
         originalMode = mode.mode
         originalDoublePage = mode.doublePageEnabled
@@ -1530,7 +1571,7 @@ function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): 
         await ReadModeSettings.setDoublePageEnabled(context, true)
         await ReadModeSettings.setSpreadLayoutMode(context, ReadSpreadLayout.JOINED)
         await ReadModeSettings.setCropBordersPaged(context, false)
-        connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
+        if (!inAppBackend) connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
         const source = await findFirstDetailThumbnail(driver)
         const sourceId = await source.getId()
         const site = ReaderTrialEntryRelay.currentSite()
@@ -1582,18 +1623,13 @@ function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): 
       let originalCrop: boolean = false
       let settingsSaved: boolean = false
       try {
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-          parameters: { nexte_reader_backend: 'shared' } })
-        for (let attempt: number = 0; attempt < 60; attempt++) {
-          if (await driver.findComponent(ON.id('nexte-root-navigation')) !== null) break
-          if (attempt === 59) throw new Error('Normal NextE root was not ready for standalone thumbnails')
-          await driver.delayMs(250)
+        context = inAppBackend
+          ? await selectBackendInAppThenOpenDetail(driver, work, unit, NextEReaderBackend.SHARED)
+          : await sharedBackendWantContext(delegator, driver)
+        if (!inAppBackend) {
+          connectNavStack().stack.clear(false)
+          await driver.delayMs(300)
         }
-        expect(connectNextEReaderBackendSelection().current()).assertEqual(NextEReaderBackend.SHARED)
-        connectNavStack().stack.clear(false)
-        await driver.delayMs(300)
-        const ability = await delegator.getCurrentTopAbility()
-        context = ability.context
         const mode = connectReadMode()
         originalMode = mode.mode
         originalDoublePage = mode.doublePageEnabled
@@ -1604,7 +1640,7 @@ function readerProductionSharedThumbnailEntryTrial(work: string, unit: string): 
         await ReadModeSettings.setDoublePageEnabled(context, true)
         await ReadModeSettings.setSpreadLayoutMode(context, ReadSpreadLayout.JOINED)
         await ReadModeSettings.setCropBordersPaged(context, false)
-        connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
+        if (!inAppBackend) connectNavStack().stack.pushPathByName('GalleryDetail', new GalleryDetailParams(work, unit))
         const source = await openFirstGridThumbnail(driver)
         const sourceId = await source.getId()
         expect(new RegExp(FIRST_GRID_THUMBNAIL).test(sourceId)).assertTrue()
@@ -1656,7 +1692,12 @@ export default function readerThumbnailEntryTest(): void {
   const direction = args['-s readerLabEntryDirection'] === 'rtl' ? 'rtl' : 'ltr'
   if (args['-s class'] === 'ReaderProductionSharedThumbnailEntryTrial' && typeof work === 'string' &&
     work.length > 0 && typeof unit === 'string' && unit.length > 0) {
-    readerProductionSharedThumbnailEntryTrial(work, unit)
+    readerProductionSharedThumbnailEntryTrial(work, unit, false)
+    return
+  }
+  if (args['-s class'] === 'ReaderProductionInAppThumbnailEntryTrial' && typeof work === 'string' &&
+    work.length > 0 && typeof unit === 'string' && unit.length > 0) {
+    readerProductionSharedThumbnailEntryTrial(work, unit, true)
     return
   }
   if ((args['-s class'] === 'ReaderProductionCropTrial' || args['-s class'] === 'ReaderProductionCropSpreadTrial' ||

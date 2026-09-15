@@ -96,7 +96,7 @@ async function entryContext(driver: Driver): Promise<common.UIAbilityContext> {
   throw new Error('reader_backend_rehearsal_entry_context_unavailable')
 }
 
-async function selectBackend(driver: Driver, backend: NextEReaderBackend): Promise<void> {
+export async function selectBackend(driver: Driver, backend: NextEReaderBackend): Promise<void> {
   await (await waitId(driver, 'nexte-reader-backend-rehearsal-row')).click()
   const label = AppStrings.get(backend === NextEReaderBackend.SHARED
     ? 'settings_reader_backend_shared'
@@ -116,7 +116,7 @@ async function selectBackend(driver: Driver, backend: NextEReaderBackend): Promi
   throw new Error(`reader_backend_rehearsal_selection_failed:${backend}`)
 }
 
-async function leaveBackendSettings(driver: Driver): Promise<void> {
+export async function leaveBackendSettings(driver: Driver): Promise<void> {
   for (let attempt: number = 0; attempt < 3; attempt++) {
     if (await driver.findComponent(ON.id('nexte-reader-backend-rehearsal-row')) === null) return
     await driver.pressBack()
@@ -125,7 +125,7 @@ async function leaveBackendSettings(driver: Driver): Promise<void> {
   throw new Error('reader_backend_rehearsal_settings_did_not_close')
 }
 
-async function openBackendSettings(driver: Driver): Promise<void> {
+export async function openBackendSettings(driver: Driver): Promise<void> {
   await (await waitId(driver, 'nexte-root-tab-4')).click()
   await (await waitId(driver, 'nexte-settings-reader-row')).click()
   await waitId(driver, 'nexte-reader-backend-rehearsal-row')
