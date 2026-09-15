@@ -166,6 +166,9 @@ function setup({ readiness = 'not-required' } = {}) {
   const windows = []
   const installs = []
   const releases = []
+  const holds = []
+  const productionInstalls = []
+  const productionClears = []
   const transition = {
     sourceScope: 'detail-scope', overlayOpacity: 1,
     reset() { this.resetCount = (this.resetCount ?? 0) + 1 },
@@ -205,6 +208,16 @@ function setup({ readiness = 'not-required' } = {}) {
   const relay = {
     clear() {}, releasePending(token) { releases.push(token) },
     install(site, work, callback) { installs.push({ site, work, callback }); return installs.length },
+    // The real relay gained a production handoff pair and a pending hold for the
+    // shared-entry rehearsal. The host stubs must mirror them or aboutToDisappear
+    // throws before the assertion under test is reached.
+    holdPending(site, galleryId, cancel) {
+      holds.push({ site, galleryId, cancel }); return holds.length
+    },
+    installProduction(handler) {
+      productionInstalls.push(handler); return productionInstalls.length
+    },
+    clearProduction(token) { productionClears.push(token) },
   }
   const exports = {}
   vm.runInNewContext(compiled.outputText, {
