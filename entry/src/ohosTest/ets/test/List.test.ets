@@ -92,6 +92,7 @@ import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
 import readerProgressDurabilityTest from './ReaderProgressDurability.test'
 import readerLocalSourceTrialTest from './ReaderLocalSourceTrial.test'
 import readerBackendSelectionTest from './ReaderBackendSelection.test'
+import nextERuntimeContinuityTest from './ReaderRuntimeContinuity.test'
 
 export default function testsuite(): void {
   gallerySplitTransitionTest()
@@ -188,4 +189,5 @@ export default function testsuite(): void {
   readerProgressDurabilityTest()
   readerLocalSourceTrialTest()
   readerBackendSelectionTest()
+  nextERuntimeContinuityTest()
 }
