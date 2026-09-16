@@ -641,28 +641,43 @@ function readerHostTranslationActionsTest(): void {
       }
       expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
      expect(await driver.findComponent(ON.id('rkit-host-action-translate-auto')) !== null).assertTrue()
-      await captureChrome(driver, 'host-translation-actions')
+     await captureChrome(driver, 'host-translation-actions')
       const translatePage = await driver.findComponent(ON.id('rkit-host-action-translate-page'))
       expect(translatePage !== null).assertTrue()
       if (translatePage !== null) await translatePage.click()
-      await driver.delayMs(1500)
-     expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
-     await captureChrome(driver, 'host-translation-dispatched')
-     const display = await driver.getDisplaySize()
+      let hostStatusText: string = ''
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const status = await driver.findComponent(ON.id('rkit-host-status'))
+        if (status !== null) {
+          try { hostStatusText = (await status.getText()).trim() } catch (_) {}
+          break
+        }
+        await driver.delayMs(200)
+      }
+      expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
+      console.info(`[ReaderHostTranslationActionsTrial] translation_dispatched hostStatus=${hostStatusText}`)
+      await captureChrome(driver, 'host-translation-dispatched')
+      const display = await driver.getDisplaySize()
       let moreBtn = await driver.findComponent(ON.id('rkit-more'))
       if (moreBtn === null) {
         await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
         await driver.delayMs(500)
         moreBtn = await driver.findComponent(ON.id('rkit-more'))
       }
+      expect(moreBtn !== null).assertTrue()
       if (moreBtn !== null) {
         await moreBtn.click()
         await driver.delayMs(400)
-        expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
+        const retryPage = await driver.findComponent(ON.id('rkit-host-action-translate-page'))
+        expect(retryPage !== null).assertTrue()
         await captureChrome(driver, 'host-translation-followup')
-        await driver.pressBack()
-        await driver.delayMs(400)
-      }
+        if (retryPage !== null) {
+          await retryPage.click()
+          await driver.delayMs(1200)
+         expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
+         await captureChrome(driver, 'host-translation-retried')
+       }
+     }
       let closeBtn = await driver.findComponent(ON.id('rkit-close'))
       if (closeBtn === null) {
         await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
