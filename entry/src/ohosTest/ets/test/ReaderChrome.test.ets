@@ -630,8 +630,8 @@ function readerHostTranslationActionsTest(): void {
           readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
         },
       })
-      await waitChromeImage(driver, 'rkit-image-viewport')
-      const more = await driver.findComponent(ON.id('rkit-more'))
+     await waitChromeImage(driver, 'rkit-image-viewport')
+     const more = await driver.findComponent(ON.id('rkit-more'))
       expect(more !== null).assertTrue()
       if (more !== null) await more.click()
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -640,11 +640,28 @@ function readerHostTranslationActionsTest(): void {
         await driver.delayMs(250)
       }
       expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
-      expect(await driver.findComponent(ON.id('rkit-host-action-translate-auto')) !== null).assertTrue()
+     expect(await driver.findComponent(ON.id('rkit-host-action-translate-auto')) !== null).assertTrue()
       await captureChrome(driver, 'host-translation-actions')
-      await driver.pressBack(); await driver.delayMs(400)
+      const translatePage = await driver.findComponent(ON.id('rkit-host-action-translate-page'))
+      expect(translatePage !== null).assertTrue()
+      if (translatePage !== null) await translatePage.click()
+      await driver.delayMs(1500)
+      expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
+      await captureChrome(driver, 'host-translation-dispatched')
+      const display = await driver.getDisplaySize()
+      await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
+      await driver.delayMs(400)
+      const followMore = await driver.findComponent(ON.id('rkit-more'))
+      if (followMore !== null) {
+        await followMore.click()
+        await driver.delayMs(400)
+       expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
+       await captureChrome(driver, 'host-translation-followup')
+       await driver.pressBack()
+       await driver.delayMs(300)
+     }
       expect(await driver.findComponent(ON.id('rkit-close')) !== null).assertTrue()
-      await (await driver.findComponent(ON.id('rkit-close'))).click()
+     await (await driver.findComponent(ON.id('rkit-close'))).click()
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
