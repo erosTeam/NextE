@@ -138,18 +138,32 @@ async function openFixtureFromDownloads(driver: Driver): Promise<void> {
 }
 
 async function closeSharedReader(driver: Driver): Promise<void> {
-  let close = await driver.findComponent(ON.id('rkit-close'))
-  if (close === null) {
-    const surface = await waitId(driver, 'rkit-reading-surface')
-    const bounds = await surface.getBounds()
-    await driver.click(Math.round((bounds.left + bounds.right) / 2),
-      Math.round((bounds.top + bounds.bottom) / 2))
-    close = await waitId(driver, 'rkit-close')
-  }
-  await close.click()
-  for (let attempt: number = 0; attempt < 80; attempt++) {
-    if (await driver.findComponent(ON.id('reader-overlay-navigation')) === null) return
-    await driver.delayMs(250)
+  for (let attempt: number = 0; attempt < 5; attempt++) {
+    let clicked = false
+    try {
+      let close = await driver.findComponent(ON.id('rkit-close'))
+      if (close === null) {
+        const surface = await driver.findComponent(ON.id('rkit-reading-surface'))
+        if (surface !== null) {
+          const bounds = await surface.getBounds()
+          await driver.click(Math.round((bounds.left + bounds.right) / 2),
+            Math.round((bounds.top + bounds.bottom) / 2))
+          await driver.delayMs(500)
+          close = await driver.findComponent(ON.id('rkit-close'))
+        }
+      }
+      if (close !== null) {
+        await close.click()
+        clicked = true
+      }
+    } catch (_) {}
+    if (!clicked && await driver.findComponent(ON.id('reader-overlay-navigation')) !== null) {
+      await driver.pressBack()
+    }
+    for (let waitAttempt: number = 0; waitAttempt < 40; waitAttempt++) {
+      if (await driver.findComponent(ON.id('reader-overlay-navigation')) === null) return
+      await driver.delayMs(250)
+    }
   }
   throw new Error('shared_reader_did_not_return_to_downloads')
 }
