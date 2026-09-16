@@ -646,23 +646,32 @@ function readerHostTranslationActionsTest(): void {
       expect(translatePage !== null).assertTrue()
       if (translatePage !== null) await translatePage.click()
       await driver.delayMs(1500)
-      expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
-      await captureChrome(driver, 'host-translation-dispatched')
-      const display = await driver.getDisplaySize()
-      await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
-      await driver.delayMs(400)
-      const followMore = await driver.findComponent(ON.id('rkit-more'))
-      if (followMore !== null) {
-        await followMore.click()
+     expect(await driver.findComponent(ON.id('rkit-image-viewport')) !== null).assertTrue()
+     await captureChrome(driver, 'host-translation-dispatched')
+     const display = await driver.getDisplaySize()
+      let moreBtn = await driver.findComponent(ON.id('rkit-more'))
+      if (moreBtn === null) {
+        await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
+        await driver.delayMs(500)
+        moreBtn = await driver.findComponent(ON.id('rkit-more'))
+      }
+      if (moreBtn !== null) {
+        await moreBtn.click()
         await driver.delayMs(400)
-       expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
-       await captureChrome(driver, 'host-translation-followup')
-       await driver.pressBack()
-       await driver.delayMs(300)
-     }
-      expect(await driver.findComponent(ON.id('rkit-close')) !== null).assertTrue()
-     await (await driver.findComponent(ON.id('rkit-close'))).click()
-      await driver.delayMs(500)
+        expect(await driver.findComponent(ON.id('rkit-host-action-translate-page')) !== null).assertTrue()
+        await captureChrome(driver, 'host-translation-followup')
+        await driver.pressBack()
+        await driver.delayMs(400)
+      }
+      let closeBtn = await driver.findComponent(ON.id('rkit-close'))
+      if (closeBtn === null) {
+        await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
+        await driver.delayMs(500)
+        closeBtn = await driver.findComponent(ON.id('rkit-close'))
+      }
+      expect(closeBtn !== null).assertTrue()
+      if (closeBtn !== null) await closeBtn.click()
+     await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
   })
