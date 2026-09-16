@@ -140,20 +140,27 @@ async function openFixtureFromDownloads(driver: Driver): Promise<void> {
 async function closeSharedReader(driver: Driver): Promise<void> {
   let closeBtn: Component | null = null
   for (let attempt: number = 0; attempt < 10; attempt++) {
-    closeBtn = await driver.findComponent(ON.id('rkit-close'))
-    if (closeBtn !== null) break
+    const candidate = await driver.findComponent(ON.id('rkit-close'))
+    if (candidate !== null) {
+      try {
+        await candidate.click()
+        closeBtn = candidate
+        break
+      } catch (_) {
+        await driver.delayMs(400)
+      }
+    }
     const surface = await driver.findComponent(ON.id('rkit-reading-surface'))
     if (surface !== null) {
       const bounds = await surface.getBounds()
       await driver.click(Math.round((bounds.left + bounds.right) / 2),
         Math.round((bounds.top + bounds.bottom) / 2))
     }
-    await driver.delayMs(500)
+    await driver.delayMs(600)
   }
   if (closeBtn === null) {
-    throw new Error('rkit_close_button_not_available_on_shared_reader')
+    throw new Error('rkit_close_button_could_not_be_clicked')
   }
-  await closeBtn.click()
   console.info('[ReaderProductionInAppBackendRehearsalTrial] rkit-close clicked explicitly')
   for (let attempt: number = 0; attempt < 80; attempt++) {
     if (await driver.findComponent(ON.id('reader-overlay-navigation')) === null) return
