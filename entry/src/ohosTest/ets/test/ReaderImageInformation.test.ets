@@ -48,13 +48,16 @@ async function openInformationMenu(driver: Driver): Promise<void> {
   // The More menu renders its items asynchronously; wait for the information entry instead of a
   // fixed 400 ms, otherwise a slow frame leaves the item null and the click throws.
   let info = await driver.findComponent(ON.id('rkit-image-info'))
-  const deadline = Date.now() + 8000
-  while (info === null && Date.now() < deadline) {
-    await driver.delayMs(100)
+  // The information entry is enabled only once the current frame's original asset is displayed and
+  // information-available; a present-but-disabled item clicks to a no-op, so wait for enabled.
+  const deadline = Date.now() + 15000
+  while (Date.now() < deadline) {
     info = await driver.findComponent(ON.id('rkit-image-info'))
     if (info === null) info = await driver.findComponent(ON.id('rkit-image-info-spread'))
+    if (info !== null && await info.isEnabled()) break
+    await driver.delayMs(150)
   }
-  if (info === null) throw new Error('Image information menu entry unavailable')
+  if (info === null || !await info.isEnabled()) throw new Error('Image information menu entry unavailable')
   await info.click()
   await driver.delayMs(500)
 }
@@ -126,6 +129,7 @@ async function informationRecoveryTrial(work: string, unit: string, mode: string
   const delegator = abilityDelegatorRegistry.getAbilityDelegator()
   await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
     parameters: { readerLabWork: work, readerLabUnit: unit, readerLabPage: '1', readerLabChrome: 'true',
+      readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr',
       readerLabInformationProbe: mode === 'failure' ? 'fail-once' : 'delay-once' } })
   await driver.delayMs(1500); await informationReady(driver)
   expect(await informationPage(driver)).assertEqual(2)
@@ -139,18 +143,24 @@ async function informationRecoveryTrial(work: string, unit: string, mode: string
     expect(await informationPage(driver)).assertEqual(2)
   } else {
     expect(await (await driver.findComponent(ON.id('rkit-more'))).isEnabled()).assertFalse()
-    await captureInformation(driver, 'pending')
     if (mode === 'page') {
+      // Turn the real page with a native swipe while the read is pending. The shared contract
+      // intentionally locks tap input while informationBusy (reader-kit reader-tap-routing), but a
+      // real swipe still navigates and retires the pending request for the new page. Swipe before the
+      // slow capture so it lands inside the delay window.
       const bounds = await (await driver.findComponent(ON.id('rkit-image-viewport'))).getBounds()
-      await driver.click(Math.round(bounds.left + (bounds.right - bounds.left) * 0.8),
-        Math.round((bounds.top + bounds.bottom) / 2))
+      const midY = Math.round((bounds.top + bounds.bottom) / 2)
+      await driver.swipe(Math.round(bounds.left + (bounds.right - bounds.left) * 0.82), midY,
+        Math.round(bounds.left + (bounds.right - bounds.left) * 0.18), midY, 3000)
       expectedPage = 3
-      await driver.delayMs(500); await informationReady(driver)
+      await driver.delayMs(800); await captureInformation(driver, 'changed'); await informationReady(driver)
     } else if (mode === 'close') {
+      await captureInformation(driver, 'pending')
       await (await driver.findComponent(ON.id('rkit-close'))).click()
       await driver.delayMs(700)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     } else {
+      await captureInformation(driver, 'pending')
       const ability = await delegator.getCurrentTopAbility()
       try {
         await delegator.doAbilityBackground(ability); await driver.delayMs(500)
@@ -166,7 +176,7 @@ async function informationRecoveryTrial(work: string, unit: string, mode: string
       }
       await driver.delayMs(700); await informationReady(driver)
     }
-    if (mode !== 'background') await captureInformation(driver, 'changed')
+    if (mode !== 'background' && mode !== 'page') await captureInformation(driver, 'changed')
     await driver.delayMs(3500)
     await captureInformation(driver, 'late')
     expect(await driver.findComponent(ON.type('AlertDialog'))).assertNull()
@@ -587,17 +597,28 @@ export default function readerImageInformationTest(): void {
         const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const prepareFailure = trial === 'ReaderOriginalPrepareFailureTrial'
         try {
-          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-              readerLabPage: '1', readerLabChrome: 'true',
-              readerLabOriginalVariantProbe: prepareFailure ? 'prepare-fail-once' : 'decode-fail-once' } })
-          await informationReady(driver)
+          let entered = false
+          for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+            await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+              parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+                readerLabPage: '1', readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr',
+                readerLabOriginalVariantProbe: prepareFailure ? 'prepare-fail-once' : 'decode-fail-once' } })
+            await driver.delayMs(1500)
+            try {
+              await informationReady(driver, 60)
+              entered = true
+            } catch (entryError) {
+              if (attempt === 2) throw entryError as Error
+              await driver.delayMs(1500)
+            }
+          }
+          expect(await originalActionReady(driver)).assertTrue()
           await (await driver.findComponent(ON.id('rkit-original-image'))).click()
           if (prepareFailure) {
-            await informationReady(driver)
+            await informationReady(driver, 120)
             expect(await driver.findComponent(ON.id('rkit-failure-page-2'))).assertNull()
             await openInformationMenu(driver)
-            await assertInformation(driver, 2, 'original-prepare-retained', '可用', '重采样图片')
+            await assertInformation(driver, 2, 'original-prepare-retained', '可用', '重采样图片', 120)
             await (await driver.findComponent(ON.id('rkit-original-image'))).click()
           } else {
             let failed = false
@@ -610,10 +631,10 @@ export default function readerImageInformationTest(): void {
             await captureInformation(driver, 'original-decode-failed')
             await (await driver.findComponent(ON.id('rkit-retry-page-2'))).click()
           }
-          await informationReady(driver)
+          await informationReady(driver, 120)
           expect(await driver.findComponent(ON.id('rkit-failure-page-2'))).assertNull()
           await openInformationMenu(driver)
-          await assertInformation(driver, 2, 'original-recovered', '可用', '原图')
+          await assertInformation(driver, 2, 'original-recovered', '可用', '原图', 120)
           expect(await informationPage(driver)).assertEqual(2)
           await (await driver.findComponent(ON.id('rkit-close'))).click()
           await driver.delayMs(700)
