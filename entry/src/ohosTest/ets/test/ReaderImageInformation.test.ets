@@ -33,8 +33,8 @@ async function captureInformation(driver: Driver, name: string): Promise<void> {
   }
   expect(await driver.screenCap(`${cache}/rkit-info-${name}.png`)).assertTrue()
 }
-async function informationReady(driver: Driver): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt++) {
+async function informationReady(driver: Driver, attempts: number = 40): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const more = await driver.findComponent(ON.id('rkit-more'))
     if (more !== null && await more.isEnabled()) return
     await driver.delayMs(500)
@@ -223,10 +223,20 @@ export default function readerImageInformationTest(): void {
         const previousEnabled = readMode.superResolutionEnabled
         try {
           readMode.superResolutionEnabled = false
-          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-              readerLabPage: '0', readerLabChrome: 'true' } })
-          await informationReady(driver)
+          let entered = false
+          for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+            await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+              parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+                readerLabPage: '0', readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+            await driver.delayMs(1500)
+            try {
+              await informationReady(driver)
+              entered = true
+            } catch (entryError) {
+              if (attempt === 2) throw entryError as Error
+              await driver.delayMs(1500)
+            }
+          }
           await openInformationMenu(driver)
           const dialog = await driver.findComponent(ON.type('AlertDialog'))
           expect(dialog !== null).assertTrue()
@@ -461,10 +471,20 @@ export default function readerImageInformationTest(): void {
         const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
         const last = trial === 'ReaderSpreadShiftLastTrial'
         try {
-          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-              readerLabPage: last ? '44' : '1', readerLabChrome: 'true', readerLabVolumeKeys: 'true' } })
-          await informationReady(driver)
+          let entered = false
+          for (let attempt = 0; attempt < 2 && !entered; attempt++) {
+            await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+              parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+                readerLabPage: last ? '44' : '1', readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+            await driver.delayMs(1500)
+            try {
+              await informationReady(driver, 100)
+              entered = true
+            } catch (entryError) {
+              if (attempt === 1) throw entryError as Error
+              await driver.delayMs(1500)
+            }
+          }
           expect(await driver.findComponent(ON.id('rkit-shift-spread'))).assertNull()
           await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()
           await driver.delayMs(400)
