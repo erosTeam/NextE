@@ -156,6 +156,7 @@ export struct NextEReaderLabPage {
     if (this.request.progressReadWrite && !this.request.pageIndexProvided) {
       this.request.pageIndex = progress.getIndex(this.request.work)
     }
+    this.currentSourceIndex = Math.max(0, Math.floor(this.request.pageIndex))
     console.info(`[NextEReaderLab] initial_policy column=${column} cover=${policy.firstPageAlone} layout=${policy.layout} axis=${policy.pagingAxis} direction=${policy.direction} spread=${policy.spreadLayout}`)
     this.session = session
   }
@@ -389,6 +390,7 @@ export struct NextEReaderLabPage {
       this.translationHiddenPages = this.includePage(this.translationHiddenPages, sourceIndex)
       this.translationRequestedPages = this.excludePage(this.translationRequestedPages, sourceIndex)
     } else {
+      this.currentSourceIndex = sourceIndex
       this.translationHiddenPages = this.excludePage(this.translationHiddenPages, sourceIndex)
       this.translationAutoFailedPages = this.excludePage(this.translationAutoFailedPages, sourceIndex)
       this.translationRequestedPages = this.includePage(this.translationRequestedPages, sourceIndex)
@@ -777,12 +779,12 @@ export struct NextEReaderLabPage {
                 (id: string, source: ReaderUnitKey, navigation: number, sourceIndex: number): void => {
                   this.handleHostAction(id, source, navigation, sourceIndex)
                 }),
-              hostStatus: this.currentSourceIndex >= 0 &&
-                (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex)
-                ? new ReaderHostStatus(this.translationBusyPage === this.currentSourceIndex
-                  ? AppStrings.get('reader_comic_translation_running')
-                  : AppStrings.get('reader_comic_translation_failed'),
-                this.translationBusyPage === this.currentSourceIndex) : null,
+             hostStatus: this.currentSourceIndex >= 0 &&
+               (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex)
+               ? new ReaderHostStatus(this.translationBusyPage === this.currentSourceIndex
+                 ? AppStrings.get('reader_comic_translation_running')
+                  : AppStrings.get('reader_comic_translation_failed').replace(' · %s', '').replace('%s', '').trim(),
+               this.translationBusyPage === this.currentSourceIndex) : null,
               observation: new ReaderObservationSink(null,
                 (position: ReaderObservedPosition): void => { this.observeReaderPosition(position) }),
               preferenceSink: new ReaderPreferenceSink(
