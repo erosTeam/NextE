@@ -257,7 +257,6 @@ export default function nextERuntimeContinuityTest(): void {
 
       let gid: string = ''
       if (writing) {
-        const target: number = 3
         gid = await openNewestHistoryDetail(driver)
         await tapDetailReadAction(driver)
         await waitId(driver, 'rkit-reading-surface', 240)
@@ -265,24 +264,34 @@ export default function nextERuntimeContinuityTest(): void {
         // The persisted mode decides paged vs continuous and LTR vs RTL. The
         // reader turns pages from its tap zones rather than swipe distances, so
         // tap a point outside the centered body and confirm the label moved.
-        let current: number = start
-        for (let turn: number = 0; turn < 48 && current !== target; turn++) {
+        // Drive one real tap, whichever direction it lands: the left and right
+        // zones are the non-menu tap regions, and RTL/LTR/tap-zone presets decide
+        // which one advances. Chasing a fixed page is not the contract here — the
+        // trial only needs a real page move so the host persists a non-default
+        // position; a durable page that already equals any chosen target must not
+        // be treated as a failure.
+        const turnOnce = async (from: number): Promise<number> => {
           const viewport = await waitId(driver, 'rkit-image-viewport')
           const bounds = await viewport.getBounds()
           const midY = Math.round((bounds.top + bounds.bottom) / 2)
           const nearLeft = Math.round(bounds.left + (bounds.right - bounds.left) * 0.06)
           const nearRight = Math.round(bounds.right - (bounds.right - bounds.left) * 0.06)
-          let after: number = current
+          let after: number = from
           for (const x of [nearLeft, nearRight]) {
             await driver.click(x, midY)
             await driver.delayMs(700)
             try { after = await sharedVisiblePage(driver) } catch (_) {}
-            if (after !== current) break
+            if (after !== from) break
           }
-          if (after === current) break
-          current = after
+          return after
         }
-        if (current === start) {
+        let current: number = start
+        let turned: boolean = false
+        for (let turn: number = 0; turn < 4 && !turned; turn++) {
+          const after: number = await turnOnce(current)
+          if (after !== current) { turned = true; current = after }
+        }
+        if (!turned) {
           await capture(driver, `write-stuck-${start}`)
           throw new Error(`NextE Reader did not turn from page ${start}`)
         }
