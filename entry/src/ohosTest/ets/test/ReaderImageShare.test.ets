@@ -17,12 +17,19 @@ function clearShareCaptures(): void {
 }
 
 async function captureShare(driver: Driver, name: string): Promise<void> {
-  const cache = abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir
+  const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+  const cache = delegator.getAppContext().cacheDir
   const layout = `${cache}/rkit-share-${name}.json`
   const screen = `${cache}/rkit-share-${name}.png`
   if (fileIo.accessSync(layout)) fileIo.unlinkSync(layout)
   if (fileIo.accessSync(screen)) fileIo.unlinkSync(screen)
-  expect(await driver.dumpLayout(layout)).assertTrue()
+  // Driver.dumpLayout is absent on some SDK builds; fall back to the uitest CLI like the other
+  // NextE trials do, so the share evidence capture works on the same device.
+  if (typeof driver.dumpLayout === 'function') expect(await driver.dumpLayout(layout)).assertTrue()
+  else {
+    expect((await delegator.executeShellCommand(
+      `uitest dumpLayout -p /data/local/tmp/rkit-share-${name}.json`, 15)).exitCode).assertEqual(0)
+  }
   expect(await driver.screenCap(screen)).assertTrue()
 }
 async function sharePage(driver: Driver): Promise<number> {
