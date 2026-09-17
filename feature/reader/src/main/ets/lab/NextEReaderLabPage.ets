@@ -156,7 +156,6 @@ export struct NextEReaderLabPage {
     if (this.request.progressReadWrite && !this.request.pageIndexProvided) {
       this.request.pageIndex = progress.getIndex(this.request.work)
     }
-    this.currentSourceIndex = Math.max(0, Math.floor(this.request.pageIndex))
     console.info(`[NextEReaderLab] initial_policy column=${column} cover=${policy.firstPageAlone} layout=${policy.layout} axis=${policy.pagingAxis} direction=${policy.direction} spread=${policy.spreadLayout}`)
     this.session = session
   }
