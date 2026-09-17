@@ -261,6 +261,7 @@ export default function readerChromeTest(): void {
   readerHostTranslationActionsTest()
   readerHostTranslationFailureTest()
   readerHostTranslationAutoRecoveryTest()
+  readerHostTranslationBusyTest()
   readerEnhancementStatusTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
@@ -864,6 +865,69 @@ function readerHostTranslationAutoRecoveryTest(): void {
           probe.cancel(epoch)
         }
       })
+  })
+}
+
+/**
+ * Debug-seam trial: while a translation is in flight the shared reader shows the
+ * host busy status strip and clears it once the result is applied. The probe's
+ * one-shot pause holds the in-flight state long enough to observe it.
+ */
+function readerHostTranslationBusyTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderHostTranslationBusyTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostTranslationBusyTrial', (): void => {
+    it('showsBusyStatusWhileTranslatingThenClearsIt', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const probe = connectNextEReaderTranslationProbe()
+      const stages: Set<string> = new Set<string>()
+      let epoch: number = 0
+      try {
+        const fixture = await writeTranslationFixture()
+        // pausedSource 0 holds the first result so the busy strip can be observed.
+        epoch = probe.arm(work, fixture,
+          (sourceIndex: number, stage: string, _identity: string): void => {
+            stages.add(sourceIndex + ':' + stage)
+            console.info('[ReaderHostTranslationBusyTrial] stage=' + sourceIndex + ':' + stage)
+          }, 0)
+        await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+          bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+            readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+            readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+          },
+        })
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        await waitChromeId(driver, 'rkit-chrome-page')
+
+        expect(probe.invoke(epoch, 'translate-page')).assertTrue()
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (stages.has('0:prepare')) break
+          await driver.delayMs(100)
+        }
+        expect(stages.has('0:prepare')).assertTrue()
+        const busyText = await waitChromeTextWithin(driver, 'rkit-host-status')
+        expect(busyText).assertEqual(AppStrings.get('reader_comic_translation_running'))
+        await captureChrome(driver, 'host-translation-busy')
+
+        probe.release(epoch)
+        for (let attempt = 0; attempt < 80; attempt++) {
+          if (stages.has('0:applied')) break
+          await driver.delayMs(100)
+        }
+        expect(stages.has('0:applied')).assertTrue()
+        for (let attempt = 0; attempt < 50; attempt++) {
+          if (await driver.findComponent(ON.id('rkit-host-status')) === null) break
+          await driver.delayMs(100)
+        }
+        expect(await driver.findComponent(ON.id('rkit-host-status'))).assertNull()
+      } finally {
+        probe.release(epoch)
+        probe.cancel(epoch)
+      }
+    })
   })
 }
 
