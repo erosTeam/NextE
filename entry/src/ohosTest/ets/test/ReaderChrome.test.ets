@@ -275,10 +275,22 @@ export default function readerChromeTest(): void {
       const driver = Driver.create()
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-        parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true' },
+        parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          // This case asserts LTR geometry (slider left edge = page 1). Pin the Debug-only
+          // direction so an RTL-persisted device does not reverse the slider and fail on trial
+          // geometry rather than product behavior.
+          readerLabEntryDirection: 'ltr' },
       })
       await driver.delayMs(2200)
-      const bounds = await (await driver.findComponent(ON.id('rkit-image-viewport'))).getBounds()
+      // Wait for the surface rather than assuming a fixed 2200 ms; a cold decode can be slower.
+      let viewport: Component | null = null
+      for (let attempt: number = 0; attempt < 80; attempt++) {
+        viewport = await driver.findComponent(ON.id('rkit-image-viewport'))
+        if (viewport !== null) break
+        await driver.delayMs(250)
+      }
+      expect(viewport !== null).assertTrue()
+      const bounds = await (viewport as Component).getBounds()
       const x = Math.round((bounds.left + bounds.right) / 2)
       const y = Math.round((bounds.top + bounds.bottom) / 2)
       await captureChrome(driver, 'shown')
@@ -321,7 +333,9 @@ export default function readerChromeTest(): void {
       const driver = Driver.create()
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-        parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true' },
+        // Start from a pinned LTR state; the case itself then switches to RTL and back.
+        parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabEntryDirection: 'ltr' },
       })
       await driver.delayMs(1200)
       await waitChromeImage(driver, 'rkit-image-viewport')
