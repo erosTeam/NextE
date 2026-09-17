@@ -45,8 +45,17 @@ async function informationReady(driver: Driver): Promise<void> {
 async function openInformationMenu(driver: Driver): Promise<void> {
   await informationReady(driver)
   await (await driver.findComponent(ON.id('rkit-more'))).click()
-  await driver.delayMs(400)
-  await (await driver.findComponent(ON.id('rkit-image-info'))).click()
+  // The More menu renders its items asynchronously; wait for the information entry instead of a
+  // fixed 400 ms, otherwise a slow frame leaves the item null and the click throws.
+  let info = await driver.findComponent(ON.id('rkit-image-info'))
+  const deadline = Date.now() + 8000
+  while (info === null && Date.now() < deadline) {
+    await driver.delayMs(100)
+    info = await driver.findComponent(ON.id('rkit-image-info'))
+    if (info === null) info = await driver.findComponent(ON.id('rkit-image-info-spread'))
+  }
+  if (info === null) throw new Error('Image information menu entry unavailable')
+  await info.click()
   await driver.delayMs(500)
 }
 async function assertInformation(driver: Driver, page: number, name: string, expectedOriginal: string = '', expectedVariant: string = ''): Promise<void> {
