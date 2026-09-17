@@ -438,8 +438,13 @@ export default function readerImageInformationTest(): void {
             readerLabPage: '1', readerLabChrome: 'true' } })
         await informationReady(driver); await verify('shown', true)
         await delegator.doAbilityBackground(ability); await verify('background', before)
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
-        await informationReady(driver); await verify('resumed', true)
+        // NextE retires the shared reader route when the app backgrounds (its own
+        // ReaderLifecycleRecoveryTrial and ReaderInformationBackgroundTrial assert that), so returning to
+        // reading needs a fresh explicit entry; keep-awake must be re-acquired on that new route.
+        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+            readerLabPage: '1', readerLabChrome: 'true' } })
+        await informationReady(driver); await verify('reentered', true)
         expect(await informationPage(driver)).assertEqual(2)
         await captureInformation(driver, 'returned')
         await (await driver.findComponent(ON.id('rkit-close'))).click()
