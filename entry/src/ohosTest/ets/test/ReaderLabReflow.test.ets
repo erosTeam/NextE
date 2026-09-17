@@ -16,6 +16,19 @@ async function capture(driver: Driver, name: string): Promise<void> {
   console.info(`[ReaderLabReflowTest] checkpoint=${name}`)
 }
 
+async function waitContinuousPage(driver: Driver): Promise<void> {
+  // Switching layout briefly re-enters the catalog phase (0 / 0) before the
+  // continuous row is laid out, so poll the real node instead of a fixed delay.
+  for (let attempt = 0; attempt < 240; attempt++) {
+    const page = await driver.findComponent(ON.id('rkit-continuous-page-0'))
+    if (page !== null &&
+      await driver.findComponent(ON.type('Image').within(ON.id('rkit-continuous-page-0'))) !== null &&
+      await driver.findComponent(ON.type('LoadingProgress').within(ON.id('rkit-continuous-page-0'))) === null) return
+    await driver.delayMs(250)
+  }
+  expect(false).assertTrue()
+}
+
 /** Explicit device acceptance only; never navigates from the ordinary test suite. */
 export default function readerLabReflowTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
@@ -33,7 +46,7 @@ export default function readerLabReflowTest(): void {
       await driver.delayMs(2500)
       await (await driver.findComponent(ON.id('rkit-layout'))).click()
       await (await driver.findComponent(ON.text('连续'))).click()
-      await driver.delayMs(600)
+      await waitContinuousPage(driver)
       if (selected === 'ReaderLabReflowSprite') {
         await (await driver.findComponent(ON.id('rkit-asset-kind'))).click()
         await driver.delayMs(1500)
