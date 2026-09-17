@@ -77,7 +77,19 @@ export default function readerThumbnailRailTest(): void {
       await waitOriginal(driver)
       await captureRail(driver, 'selected')
       await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()
-      await (await driver.findComponent(ON.text('右→左'))).click()
+      // The runtime menu mounts asynchronously and its direction row names the *target*
+      // direction, so accept either label before toggling it.
+      const RTL_ROW: string = '右→左'
+      const LTR_ROW: string = '左→右'
+      let direction = await driver.findComponent(ON.text(RTL_ROW))
+      if (direction === null) direction = await driver.findComponent(ON.text(LTR_ROW))
+      for (let attempt = 0; attempt < 20 && direction === null; attempt++) {
+        await driver.delayMs(150)
+        direction = await driver.findComponent(ON.text(RTL_ROW))
+        if (direction === null) direction = await driver.findComponent(ON.text(LTR_ROW))
+      }
+      expect(direction !== null).assertTrue()
+      if (direction !== null) await direction.click()
       await driver.delayMs(1000)
       expect(await pageNumber(driver)).assertEqual(selected + 1)
       await captureRail(driver, 'rtl')
