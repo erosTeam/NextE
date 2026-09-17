@@ -71,6 +71,7 @@ async function shareRecoveryTrial(work: string, unit: string, mode: string): Pro
   const delegator = abilityDelegatorRegistry.getAbilityDelegator()
   await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
     parameters: { readerLabWork: work, readerLabUnit: unit, readerLabPage: '1', readerLabChrome: 'true',
+      readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr',
       readerLabShareProbe: mode === 'failure' ? 'fail-once' : 'delay-once' } })
   await driver.delayMs(1800); await shareImageReady(driver)
   expect(await sharePage(driver)).assertEqual(2)
@@ -89,11 +90,15 @@ async function shareRecoveryTrial(work: string, unit: string, mode: string): Pro
   } else {
     await driver.delayMs(300)
     expect(await (await driver.findComponent(ON.id('rkit-share-image'))).isEnabled()).assertFalse()
-    await captureShare(driver, 'pending')
     if (mode === 'page') {
+      // Turn the real page with a native swipe while the share preparation is pending. The shared
+      // contract intentionally locks tap and volume input while shareBusy (reader-tap-routing), but a
+      // native pager swipe still navigates and retires the pending share for the new page. Swipe
+      // before the slow capture so it lands inside the delay window.
       const bounds = await (await driver.findComponent(ON.id('rkit-image-viewport'))).getBounds()
-      await driver.click(Math.round(bounds.left + (bounds.right - bounds.left) * 0.8),
-        Math.round((bounds.top + bounds.bottom) / 2))
+      const midY = Math.round((bounds.top + bounds.bottom) / 2)
+      await driver.swipe(Math.round(bounds.left + (bounds.right - bounds.left) * 0.82), midY,
+        Math.round(bounds.left + (bounds.right - bounds.left) * 0.18), midY, 3000)
       await driver.delayMs(500)
       expect(await sharePage(driver)).assertEqual(3)
       await captureShare(driver, 'changed')
