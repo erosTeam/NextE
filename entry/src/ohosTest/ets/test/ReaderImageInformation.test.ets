@@ -824,10 +824,24 @@ export default function readerImageInformationTest(): void {
     it('actualFileInformationKeepsSingleAndBothSpreadSourceIdentities', 0, async (): Promise<void> => {
       clearInformationCaptures()
       const driver = Driver.create()
-      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-        parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-          readerLabPage: '1', readerLabChrome: 'true', readerLabVolumeKeys: 'true' } })
-      await driver.delayMs(1500); await informationReady(driver)
+      // The single-page phase assumes one visible frame, so pin the Debug entry layout to single; the
+      // device's persisted double-page would otherwise expose the spread information submenu instead of
+      // the direct entry. The trial toggles to spread itself afterwards.
+      let entered = false
+      for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+        await abilityDelegatorRegistry.getAbilityDelegator().startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+          parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+            readerLabPage: '1', readerLabChrome: 'true', readerLabVolumeKeys: 'true',
+            readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+        await driver.delayMs(1500)
+        try {
+          await informationReady(driver, 60)
+          entered = true
+        } catch (entryError) {
+          if (attempt === 2) throw entryError as Error
+          await driver.delayMs(1500)
+        }
+      }
       await captureInformation(driver, 'baseline')
       await openInformationMenu(driver)
       await assertInformation(driver, 2, 'single')
