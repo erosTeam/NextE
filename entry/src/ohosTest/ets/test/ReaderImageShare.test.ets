@@ -35,14 +35,25 @@ async function captureShare(driver: Driver, name: string): Promise<void> {
 async function sharePage(driver: Driver): Promise<number> {
   return Number((await (await driver.findComponent(ON.id('rkit-chrome-page'))).getText()).split('/')[0].trim())
 }
-async function shareImageReady(driver: Driver): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt++) {
+async function shareImageReady(driver: Driver, attempts: number = 40): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     if (await driver.findComponent(ON.type('Image').within(ON.id('rkit-image-viewport'))) !== null &&
       await driver.findComponent(ON.type('LoadingProgress').within(ON.id('rkit-image-viewport'))) === null) return
     await driver.delayMs(500)
   }
   await captureShare(driver, 'exception')
   expect(false).assertTrue()
+}
+
+// The chrome original action only enables once the page asset reaches 'displayed'.
+async function shareOriginalReady(driver: Driver, attempts: number = 120): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const action = await driver.findComponent(ON.id('rkit-original-image'))
+    if (action !== null && await action.isEnabled()) return true
+    await driver.delayMs(500)
+  }
+  await captureShare(driver, 'exception')
+  return false
 }
 async function shareAndCancel(driver: Driver, page: number, prefix: string): Promise<void> {
   const button = await driver.findComponent(ON.id('rkit-share-image'))
@@ -137,21 +148,42 @@ export default function readerImageShareTest(): void {
       it('selectedOriginalOpensSystemShareAndCancellationRetainsPage', 0, async (): Promise<void> => {
         clearShareCaptures()
         const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-          parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-            readerLabPage: '1', readerLabChrome: 'true' } })
-        await shareImageReady(driver)
+        let entered = false
+        for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+              readerLabPage: '1', readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+          await driver.delayMs(1500)
+          try {
+            await shareImageReady(driver, 60)
+            entered = true
+          } catch (entryError) {
+            if (attempt === 2) throw entryError as Error
+            await driver.delayMs(1500)
+          }
+        }
+        expect(await shareOriginalReady(driver)).assertTrue()
         await (await driver.findComponent(ON.id('rkit-original-image'))).click()
+        // Switching to the original re-decodes a JPEG asset; wait for the chrome to settle and the
+        // information entry to be usable before opening it.
+        await shareImageReady(driver, 120)
         let ready = false
-        for (let attempt = 0; attempt < 60; attempt++) {
+        for (let attempt = 0; attempt < 120; attempt++) {
           const more = await driver.findComponent(ON.id('rkit-more'))
           if (more !== null && await more.isEnabled()) { ready = true; break }
           await driver.delayMs(500)
         }
         expect(ready).assertTrue()
         await (await driver.findComponent(ON.id('rkit-more'))).click()
-        await driver.delayMs(400)
-        await (await driver.findComponent(ON.id('rkit-image-info'))).click()
+        let info = await driver.findComponent(ON.id('rkit-image-info'))
+        const deadline = Date.now() + 8000
+        while (info === null && Date.now() < deadline) {
+          await driver.delayMs(100)
+          info = await driver.findComponent(ON.id('rkit-image-info'))
+          if (info === null) info = await driver.findComponent(ON.id('rkit-image-info-spread'))
+        }
+        expect(info !== null).assertTrue()
+        await info.click()
         await driver.delayMs(500)
         const information = await driver.findComponent(ON.type('AlertDialog'))
         expect(information !== null && (await information.getText()).indexOf('当前：原图') >= 0).assertTrue()
