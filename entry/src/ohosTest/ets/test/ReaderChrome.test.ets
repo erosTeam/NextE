@@ -331,6 +331,15 @@ export default function readerChromeTest(): void {
 
     it('sourceSeekAndDirectionRemainReadingIntents', 0, async (): Promise<void> => {
       const driver = Driver.create()
+      // This case asserts the right/left thirds advance/retreat, which is only true for the
+      // edge-based RIGHT_LEFT preset with no inversion. Pin the in-memory tap-zone state (not the
+      // persisted preference) so a device carrying an L-shaped/inverted preset does not send the
+      // right-third tap to menu/previous and fail on tap-zone geometry rather than product behavior.
+      const tapMode = connectReadMode()
+      const previousTapLayoutPaged = tapMode.tapZoneLayoutPaged
+      const previousTapInvertPaged = tapMode.tapZoneInvertPaged
+      tapMode.tapZoneLayoutPaged = 'rightLeft'
+      tapMode.tapZoneInvertPaged = 'none'
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         // Start from a pinned LTR state; the case itself then switches to RTL and back.
@@ -378,6 +387,8 @@ export default function readerChromeTest(): void {
       await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
       await captureChrome(driver, 'navigation-closed')
+      tapMode.tapZoneLayoutPaged = previousTapLayoutPaged
+      tapMode.tapZoneInvertPaged = previousTapInvertPaged
     })
   })
 }
