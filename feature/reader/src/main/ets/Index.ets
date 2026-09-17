@@ -16,3 +16,4 @@ export {
 export { ReaderComicTranslationAutoPolicy } from './model/ReaderComicTranslationAutoPolicy'
 export { ReaderThumbnailGeometry, ReaderThumbnailSize } from './model/ReaderThumbnailGeometry'
 export { connectNextEReaderLabContextProbe } from './lab/NextEReaderLabContextProbe'
+export { connectNextEReaderTranslationProbe } from './lab/NextEReaderTranslationProbe'

@@ -10,6 +10,7 @@ import {
   ComicVisualTranslationRunResult,
 } from 'shared'
 import { NextEReaderCropSource } from './NextEReaderCropSource'
+import { connectNextEReaderTranslationProbe } from './NextEReaderTranslationProbe'
 
 export class NextEReaderTranslationConfiguration {
   enabled: boolean
@@ -123,27 +124,55 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
     }
     const sourcePath = this.sourcePaths.get(this.pageIdentity(page)) ?? ''
     if (sourcePath.length === 0) throw new Error('reader_translation_source_unavailable')
-    const input = new ComicTranslationReaderPageInput()
-    input.projectId = configuration.projectId
-    input.pageIndex = page.sourceIndex
-    input.imageFilePath = sourcePath
-    input.imageWidth = page.width
-    input.imageHeight = page.height
-    input.sourceLanguage = configuration.sourceLanguage
-    input.targetLanguage = configuration.targetLanguage
-    let result: ComicVisualTranslationRunResult
+    const probe = connectNextEReaderTranslationProbe()
+    const work = page.unit.work
+    const detach = cancellation.onCancel((): void => {
+      probe.deliver(this.context, work, page.sourceIndex, 'cancelled', identity)
+    })
     try {
-      result = await ComicTranslationRuntimeService.runReaderPage(this.context, input)
+      // Debug-only local seam: prove apply/failure/recovery without a configured production service.
+      const probePath = probe.result(this.context, work)
+      if (probePath.length > 0) {
+        probe.deliver(this.context, work, page.sourceIndex, 'prepare', identity)
+        await probe.pauseBeforeResult(this.context, work, page.sourceIndex, cancellation)
+        cancellation.check()
+        if (probe.unavailable(this.context, work, page.sourceIndex)) {
+          this.failureCodes.set(page.sourceIndex, 'local_visual_unavailable')
+          throw new Error('reader_translation_probe_unavailable')
+        }
+        this.failureCodes.delete(page.sourceIndex)
+        probe.deliver(this.context, work, page.sourceIndex, 'applied', identity)
+        return new NextEReaderTranslationPlan(page, identity, probePath,
+          this.provider.prepareOriginal !== undefined, this.cropStrength)
+      }
+      const input = new ComicTranslationReaderPageInput()
+      input.projectId = configuration.projectId
+      input.pageIndex = page.sourceIndex
+      input.imageFilePath = sourcePath
+      input.imageWidth = page.width
+      input.imageHeight = page.height
+      input.sourceLanguage = configuration.sourceLanguage
+      input.targetLanguage = configuration.targetLanguage
+      let result: ComicVisualTranslationRunResult
+      try {
+        result = await ComicTranslationRuntimeService.runReaderPage(this.context, input)
+      } catch (error) {
+        this.failureCodes.set(page.sourceIndex, ComicTranslationErrorClassifier.classify(error as Error))
+        throw error as Error
+      }
+      this.failureCodes.delete(page.sourceIndex)
+      cancellation.check()
+      if (this.configuration(page).identity() !== identity || !configuration.resultMatches(page, result) ||
+        result.renderedPage.localFilePath.length === 0) throw new Error('reader_translation_result_stale')
+      probe.deliver(this.context, work, page.sourceIndex, 'applied', identity)
+      return new NextEReaderTranslationPlan(page, identity, result.renderedPage.localFilePath,
+        this.provider.prepareOriginal !== undefined, this.cropStrength)
     } catch (error) {
-      this.failureCodes.set(page.sourceIndex, ComicTranslationErrorClassifier.classify(error as Error))
+      probe.deliver(this.context, work, page.sourceIndex, 'unavailable', identity)
       throw error as Error
+    } finally {
+      detach()
     }
-    this.failureCodes.delete(page.sourceIndex)
-    cancellation.check()
-    if (this.configuration(page).identity() !== identity || !configuration.resultMatches(page, result) ||
-      result.renderedPage.localFilePath.length === 0) throw new Error('reader_translation_result_stale')
-    return new NextEReaderTranslationPlan(page, identity, result.renderedPage.localFilePath,
-      this.provider.prepareOriginal !== undefined, this.cropStrength)
   }
 
   /** Last classified translation failure for one source page; empty when none is recorded. */

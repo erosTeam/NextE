@@ -54,6 +54,11 @@ vm.runInNewContext(ts.transpileModule(source, {
     if (name === './NextEReaderCropSource') return { NextEReaderCropSource: class {
       constructor(path, _identity, _strength) { this.path = path }
     } }
+    // Debug seam: no local result is armed, so the probe stays inert in this logic test.
+    if (name === './NextEReaderTranslationProbe') return { connectNextEReaderTranslationProbe: () => ({
+      deliver() {}, result() { return '' }, unavailable() { return false },
+      async pauseBeforeResult() {}, release() {}, cancel() {},
+    }) }
     throw new Error(`unexpected import ${name}`)
   },
 })

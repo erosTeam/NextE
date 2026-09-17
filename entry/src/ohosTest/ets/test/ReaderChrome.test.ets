@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
-import { connectNextEReaderLabContextProbe } from 'reader'
+import { connectNextEReaderLabContextProbe, connectNextEReaderTranslationProbe } from 'reader'
 import { AppStrings, connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel } from 'shared'
 
 const CHROME_CAPTURE_PREFIX: string = 'rkit-chrome-'
@@ -30,6 +30,17 @@ async function waitChromeId(driver: Driver, id: string): Promise<Component> {
     }
   }
   throw new Error(`Reader endpoint did not appear: ${id}; menuItems=${visible.join('|')}`)
+}
+
+async function waitChromeTextWithin(driver: Driver, owner: string): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const text = await driver.findComponent(ON.type('Text').within(ON.id(owner)))
+    if (text !== null) {
+      try { return (await text.getText()).trim() } catch (_) {}
+    }
+    await driver.delayMs(100)
+  }
+  return ''
 }
 
 async function waitChromeEnabled(driver: Driver, id: string): Promise<Component> {
@@ -248,6 +259,7 @@ export default function readerChromeTest(): void {
   readerImageBlockSharedTest()
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
+  readerHostTranslationFailureTest()
   readerEnhancementStatusTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
@@ -688,6 +700,90 @@ function readerHostTranslationActionsTest(): void {
       if (closeBtn !== null) await closeBtn.click()
      await driver.delayMs(500)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+    })
+  })
+}
+
+/**
+ * Debug-seam trial: the shared reader surfaces a host-owned translation failure in
+ * the reader status strip and recovers when the same page is retried successfully.
+ * Unlike ReaderHostTranslationActionsTrial this does not depend on a configured
+ * cloud provider: NextEReaderTranslationProbe supplies a local fixture result and
+ * can force one source to fail once.
+ */
+async function writeTranslationFixture(): Promise<string> {
+  const context = abilityDelegatorRegistry.getAbilityDelegator().getAppContext()
+  const bytes = await context.resourceManager.getRawFileContent('comic_translation_live_eval_page_02.jpg')
+  const path: string = context.cacheDir + '/rkit-nexte-translation-result.jpg'
+  const file = fileIo.openSync(path,
+    fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC)
+  try {
+    const written = fileIo.writeSync(file.fd, bytes.buffer, { length: bytes.byteLength })
+    expect(written).assertEqual(bytes.byteLength)
+  } finally {
+    fileIo.closeSync(file)
+  }
+  return path
+}
+
+function readerHostTranslationFailureTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderHostTranslationFailureTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostTranslationFailureTrial', (): void => {
+    it('surfacesTranslationFailureThenRecoversOnRetry', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const probe = connectNextEReaderTranslationProbe()
+      const stages: Set<string> = new Set<string>()
+      let epoch: number = 0
+      try {
+        const fixture = await writeTranslationFixture()
+        epoch = probe.arm(work, fixture,
+          (sourceIndex: number, stage: string, _identity: string): void => {
+            stages.add(sourceIndex + ':' + stage)
+            console.info('[ReaderHostTranslationFailureTrial] stage=' + sourceIndex + ':' + stage)
+          })
+        expect(probe.setUnavailable(epoch, 0, true)).assertTrue()
+        await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+          bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+            readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+            readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+          },
+        })
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        await waitChromeId(driver, 'rkit-chrome-page')
+
+        expect(probe.invoke(epoch, 'translate-page')).assertTrue()
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (stages.has('0:unavailable')) break
+          await driver.delayMs(100)
+        }
+        expect(stages.has('0:prepare')).assertTrue()
+        expect(stages.has('0:unavailable')).assertTrue()
+        expect(stages.has('0:applied')).assertFalse()
+        await waitChromeId(driver, 'rkit-host-status')
+        const failureText = await waitChromeTextWithin(driver, 'rkit-host-status')
+        expect(failureText).assertEqual(AppStrings.get('reader_comic_translation_local_visual_unavailable'))
+        await captureChrome(driver, 'host-translation-failed')
+
+        expect(probe.setUnavailable(epoch, 0, false)).assertTrue()
+        expect(probe.invoke(epoch, 'translate-page')).assertTrue()
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (stages.has('0:applied')) break
+          await driver.delayMs(100)
+        }
+        expect(stages.has('0:applied')).assertTrue()
+        await captureChrome(driver, 'host-translation-recovered')
+        for (let attempt = 0; attempt < 40; attempt++) {
+          if (await driver.findComponent(ON.id('rkit-host-status')) === null) break
+          await driver.delayMs(100)
+        }
+        expect(await driver.findComponent(ON.id('rkit-host-status'))).assertNull()
+      } finally {
+        probe.cancel(epoch)
+      }
     })
   })
 }
