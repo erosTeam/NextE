@@ -260,6 +260,7 @@ export default function readerChromeTest(): void {
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
   readerHostTranslationFailureTest()
+  readerHostTranslationAutoRecoveryTest()
   readerEnhancementStatusTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
@@ -785,6 +786,84 @@ function readerHostTranslationFailureTest(): void {
         probe.cancel(epoch)
       }
     })
+  })
+}
+
+/**
+ * Debug-seam trial: with auto-translate on, a failing current page surfaces the
+ * host failure copy while the reader still prepares and applies the next page;
+ * retrying the current page then recovers it and clears the status strip.
+ */
+function readerHostTranslationAutoRecoveryTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderHostTranslationAutoTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostTranslationAutoTrial', (): void => {
+    it('autoTranslatesNextPageWhileCurrentFailsAndRecoversCurrentOnRetry', 0,
+      async (): Promise<void> => {
+        const driver = Driver.create()
+        const probe = connectNextEReaderTranslationProbe()
+        const stages: Set<string> = new Set<string>()
+        const prepareCounts: Map<number, number> = new Map<number, number>()
+        let epoch: number = 0
+        try {
+          const fixture = await writeTranslationFixture()
+          epoch = probe.arm(work, fixture,
+            (sourceIndex: number, stage: string, _identity: string): void => {
+              stages.add(sourceIndex + ':' + stage)
+              if (stage === 'prepare') prepareCounts.set(sourceIndex, (prepareCounts.get(sourceIndex) ?? 0) + 1)
+              console.info('[ReaderHostTranslationAutoTrial] stage=' + sourceIndex + ':' + stage)
+            })
+          expect(probe.setUnavailable(epoch, 0, true)).assertTrue()
+          await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+            bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+              readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+              readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+            },
+          })
+          await waitChromeImage(driver, 'rkit-image-viewport')
+          await waitChromeId(driver, 'rkit-chrome-page')
+
+          // Enabling auto opens the host confirm dialog; the revision only changes on confirm.
+          expect(probe.invoke(epoch, 'translate-auto')).assertFalse()
+          for (let attempt = 0; attempt < 40; attempt++) {
+            if (await driver.findComponent(ON.text(AppStrings.get('common_on'))) !== null) break
+            await driver.delayMs(100)
+          }
+          const confirm = await driver.findComponent(ON.text(AppStrings.get('common_on')))
+          expect(confirm !== null).assertTrue()
+          if (confirm !== null) await confirm.click()
+          for (let attempt = 0; attempt < 120; attempt++) {
+            if (stages.has('0:unavailable') && stages.has('1:applied')) break
+            await driver.delayMs(100)
+          }
+          expect(stages.has('0:unavailable')).assertTrue()
+          expect(stages.has('0:applied')).assertFalse()
+          expect(stages.has('1:applied')).assertTrue()
+          const failureText = await waitChromeTextWithin(driver, 'rkit-host-status')
+          expect(failureText).assertEqual(AppStrings.get('reader_comic_translation_local_visual_unavailable'))
+          await captureChrome(driver, 'host-translation-auto-next-ready')
+
+          expect(probe.setUnavailable(epoch, 0, false)).assertTrue()
+          expect(probe.invoke(epoch, 'translate-page')).assertTrue()
+          for (let attempt = 0; attempt < 120; attempt++) {
+            if (stages.has('0:applied')) break
+            await driver.delayMs(100)
+          }
+          expect(stages.has('0:applied')).assertTrue()
+          expect(prepareCounts.get(1) ?? 0).assertEqual(1)
+          await captureChrome(driver, 'host-translation-auto-current-recovered')
+          for (let attempt = 0; attempt < 50; attempt++) {
+            if (await driver.findComponent(ON.id('rkit-host-status')) === null) break
+            await driver.delayMs(100)
+          }
+          expect(await driver.findComponent(ON.id('rkit-host-status'))).assertNull()
+        } finally {
+          probe.cancel(epoch)
+        }
+      })
   })
 }
 
