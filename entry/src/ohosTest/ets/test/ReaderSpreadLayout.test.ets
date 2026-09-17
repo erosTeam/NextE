@@ -109,7 +109,11 @@ export default function readerSpreadLayoutTest(): void {
       try {
         await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
           parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-            readerLabPage: String(source), readerLabChrome: 'true', readerLabVolumeKeys: 'false' } })
+            readerLabPage: String(source), readerLabChrome: 'true', readerLabVolumeKeys: 'false',
+            // This trial asserts LTR geometry (slider right edge = last page; "forward" swipe = next).
+            // Pin direction so an RTL-persisted device cannot reverse the slider/gesture axis and
+            // fail on trial geometry rather than product behavior. Debug-only Want; never persisted.
+            readerLabEntryDirection: 'ltr' } })
         await driver.delayMs(1800)
         const ability = await delegator.getCurrentTopAbility()
         mainWindow = await window.getLastWindow(ability.context)
