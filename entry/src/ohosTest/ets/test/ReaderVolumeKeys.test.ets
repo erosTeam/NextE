@@ -224,7 +224,7 @@ export default function readerVolumeKeysTest(): void {
       const delegator = abilityDelegatorRegistry.getAbilityDelegator()
       await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-          readerLabChrome: 'true', readerLabVolumeKeys: 'true' } })
+          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr' } })
       await driver.delayMs(1800); await volumeImage(driver)
       expect(await volumePage(driver)).assertEqual(1)
       await captureVolume(driver, 'baseline')
@@ -248,17 +248,6 @@ export default function readerVolumeKeysTest(): void {
         zoomed.bottom - zoomed.top > original.bottom - original.top).assertTrue()
       await volumeKey(driver, KeyCode.KEYCODE_VOLUME_DOWN, 2)
       await captureVolume(driver, 'zoom-blocked')
-      const ability = await delegator.getCurrentTopAbility()
-      try {
-        await delegator.doAbilityBackground(ability); await driver.delayMs(500)
-        expect(delegator.getAbilityState(ability)).assertEqual(abilityDelegatorRegistry.AbilityLifecycleState.BACKGROUND)
-        await captureVolume(driver, 'background')
-      } finally {
-        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
-      }
-      await driver.delayMs(900)
-      await volumeKey(driver, KeyCode.KEYCODE_VOLUME_DOWN, 2)
-      await captureVolume(driver, 'restored-blocked')
       // Double-tap cycles fit -> 2x -> native -> fit; it is not a universal reset.
       const points = PointerMatrix.create(2, 12)
       for (let step = 0; step < 12; step++) {
@@ -277,6 +266,35 @@ export default function readerVolumeKeysTest(): void {
       await driver.delayMs(1000)
       await volumeKey(driver, KeyCode.KEYCODE_VOLUME_DOWN, 4)
       await captureVolume(driver, 'continuous-next')
+      // NextE closes the shared reader route when the app backgrounds (its own
+      // ReaderLifecycleRecoveryTrial and ReaderInformationBackgroundTrial assert that), so returning
+      // to reading requires a fresh explicit entry; volume-key turning must re-arm on that new route.
+      const ability = await delegator.getCurrentTopAbility()
+      try {
+        await delegator.doAbilityBackground(ability); await driver.delayMs(500)
+        expect(delegator.getAbilityState(ability)).assertEqual(abilityDelegatorRegistry.AbilityLifecycleState.BACKGROUND)
+        await captureVolume(driver, 'background')
+      } finally {
+        await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+      }
+      // NextE retires the shared reader route on background (asserted by ReaderLifecycleRecoveryTrial
+      // and ReaderInformationBackgroundTrial); the plain relaunch must show no live reader chrome.
+      let retired = false
+      for (let attempt = 0; attempt < 40; attempt++) {
+        if (await driver.findComponent(ON.id('rkit-trial-navigation')) === null) { retired = true; break }
+        await driver.delayMs(250)
+      }
+      expect(retired).assertTrue()
+      await captureVolume(driver, 'background-retired')
+      // A fresh explicit entry re-arms volume-key turning on the new route.
+      await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+        parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr' } })
+      await driver.delayMs(1800); await volumeImage(driver)
+      const reentered = await volumePage(driver)
+      // Assert the transition, not a fixed page: the fresh route may resume a stored position.
+      await volumeKey(driver, KeyCode.KEYCODE_VOLUME_DOWN, reentered + 1)
+      await volumeImage(driver); await captureVolume(driver, 'reentered-next')
       await (await driver.findComponent(ON.id('rkit-close'))).click()
       await driver.delayMs(700)
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
