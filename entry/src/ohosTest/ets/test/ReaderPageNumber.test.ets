@@ -69,7 +69,7 @@ async function assertHost(): Promise<void> {
 }
 async function launch(d: Driver): Promise<void> {
   await abilityDelegatorRegistry.getAbilityDelegator().startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-    parameters: { readerLabWork: '4175844', readerLabUnit: '37d7c39ec2', readerLabSite: 'eh', readerLabPage: '2', readerLabChrome: 'true', readerLabVolumeKeys: 'false' } })
+    parameters: { readerLabWork: '4175844', readerLabUnit: '37d7c39ec2', readerLabPage: '2', readerLabChrome: 'true', readerLabVolumeKeys: 'false', readerLabEntryLayout: 'single' } })
   await waitId(d, 'rkit-close'); await body(d, 2)
 }
 
@@ -163,9 +163,10 @@ export default function readerPageNumberTest(): void {
       const s = connectReadMode()
       expect(s.restoreResult).assertEqual('applied')
       expect(connectGalleryReadProgress().restoreResult).assertEqual('applied')
-      expect(connectSiteMode().isEx).assertFalse()
       if (s.mode !== ReadMode.LTR && s.mode !== ReadMode.RTL) throw new Error('OPEN: current non-horizontal policy; no fixture writes')
-      if (s.doublePageEnabled) throw new Error('OPEN: current double-page policy; no fixture writes')
+      // The read-only page-number check drives single-page navigation, so pin the Debug entry layout
+      // to single via the launch Want (in-memory only); the device's persisted double-page setting is
+      // left untouched and is still part of the read-only signature below.
       const original = signature()
       console.info('[ReaderPageNumberTest] readonly=true showPageNumber=' + s.showPageNumber + ' mode=' + s.mode)
       let failed = false

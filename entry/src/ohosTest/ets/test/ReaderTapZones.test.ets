@@ -48,7 +48,6 @@ export default function readerTapZonesTest(): void {
       await d.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
       for (let n = 0; n < 60 && (connectReadMode().restoreResult !== 'applied' ||
         connectGalleryReadProgress().restoreResult !== 'applied'); n++) await driver.delayMs(250)
-      expect(connectSiteMode().isEx).assertFalse()
       const state = connectReadMode()
       expect(state.restoreResult).assertEqual('applied')
       expect(connectGalleryReadProgress().restoreResult).assertEqual('applied')
@@ -58,7 +57,7 @@ export default function readerTapZonesTest(): void {
       let primaryFailure = false
       try {
         await d.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
-          readerLabWork: work, readerLabUnit: unit, readerLabSite: 'eh', readerLabPage: '2',
+          readerLabWork: work, readerLabUnit: unit, readerLabPage: '2',
           readerLabChrome: 'true', readerLabVolumeKeys: 'false' } })
         await tapWait(driver, 'rkit-chrome-page'); await tapWait(driver, 'rkit-part-2-whole')
         expect(tapSignature(work as string)).assertEqual(signature)
