@@ -58,7 +58,8 @@ async function openInformationMenu(driver: Driver): Promise<void> {
   await info.click()
   await driver.delayMs(500)
 }
-async function assertInformation(driver: Driver, page: number, name: string, expectedOriginal: string = '', expectedVariant: string = ''): Promise<void> {
+async function assertInformation(driver: Driver, page: number, name: string, expectedOriginal: string = '', expectedVariant: string = '',
+  readyAttempts: number = 40): Promise<void> {
   const title = `图片信息 · 第 ${page} 页`
   for (let attempt = 0; attempt < 20; attempt++) {
     if (await driver.findComponent(ON.text(title)) !== null) break
@@ -80,11 +81,23 @@ async function assertInformation(driver: Driver, page: number, name: string, exp
   await driver.triggerKey(KeyCode.KEYCODE_BACK)
   await driver.delayMs(600)
   expect(await driver.findComponent(ON.type('AlertDialog'))).assertNull()
-  await informationReady(driver)
+  await informationReady(driver, readyAttempts)
 }
 
 async function informationPage(driver: Driver): Promise<number> {
   return Number((await (await driver.findComponent(ON.id('rkit-chrome-page'))).getText()).split('/')[0].trim())
+}
+
+// The chrome's original button is enabled only once the current page asset reaches phase 'displayed',
+// i.e. the real image has finished rendering. Wait for that instead of assuming the first ready frame.
+async function originalActionReady(driver: Driver, attempts: number = 60): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const action = await driver.findComponent(ON.id('rkit-original-image'))
+    if (action !== null && await action.isEnabled()) return true
+    await driver.delayMs(500)
+  }
+  await captureInformation(driver, 'exception')
+  return false
 }
 
 async function assertSpreadVariant(driver: Driver, source: number, name: string, variant: string): Promise<void> {
@@ -104,7 +117,7 @@ async function assertSpreadVariant(driver: Driver, source: number, name: string,
     await driver.delayMs(500)
   }
   expect(ready).assertTrue()
-  await assertInformation(driver, source + 1, name, '可用', variant)
+  await assertInformation(driver, source + 1, name, '可用', variant, 120)
 }
 
 async function informationRecoveryTrial(work: string, unit: string, mode: string): Promise<void> {
@@ -623,10 +636,20 @@ export default function readerImageInformationTest(): void {
         clearInformationCaptures()
         const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
         try {
-          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-              readerLabPage: '1', readerLabChrome: 'true' } })
-          await informationReady(driver)
+          let entered = false
+          for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+            await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+              parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+                readerLabPage: '1', readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+            await driver.delayMs(1500)
+            try {
+              await informationReady(driver, 60)
+              entered = true
+            } catch (entryError) {
+              if (attempt === 2) throw entryError as Error
+              await driver.delayMs(1500)
+            }
+          }
           await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()
           await driver.delayMs(400)
           await (await driver.findComponent(ON.text('右→左'))).click()
@@ -635,9 +658,12 @@ export default function readerImageInformationTest(): void {
           await informationReady(driver)
           // Reflow preserves the selected source P2, not the spread's first source P1.
           expect(await informationPage(driver)).assertEqual(2)
+          expect(await originalActionReady(driver)).assertTrue()
           await (await driver.findComponent(ON.id('rkit-original-image'))).click()
+          // Both spread sides must reach a displayed original asset before their menu items enable;
+          // a cold spread reflow decodes two remote pages, so allow a wider window than the single page.
           let ready = false
-          for (let attempt = 0; attempt < 60; attempt++) {
+          for (let attempt = 0; attempt < 120; attempt++) {
             const left = await driver.findComponent(ON.id('rkit-original-source-1'))
             const right = await driver.findComponent(ON.id('rkit-original-source-0'))
             if (left !== null && right !== null && await left.isEnabled() && await right.isEnabled()) {
@@ -647,6 +673,7 @@ export default function readerImageInformationTest(): void {
             }
             await driver.delayMs(500)
           }
+          if (!ready) await captureInformation(driver, 'original-spread-menu-fail')
           expect(ready).assertTrue()
           await captureInformation(driver, 'original-spread-menu')
           await (await driver.findComponent(ON.id('rkit-original-source-1'))).click()
@@ -686,26 +713,36 @@ export default function readerImageInformationTest(): void {
         clearInformationCaptures()
         const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
         try {
-          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-              readerLabPage: '1', readerLabChrome: 'true' } })
-          await informationReady(driver)
+          let entered = false
+          for (let attempt = 0; attempt < 3 && !entered; attempt++) {
+            await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+              parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+                readerLabPage: '1', readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+            await driver.delayMs(1500)
+            try {
+              await informationReady(driver, 60)
+              entered = true
+            } catch (entryError) {
+              if (attempt === 2) throw entryError as Error
+              await driver.delayMs(1500)
+            }
+          }
           expect(await informationPage(driver)).assertEqual(2)
+          expect(await originalActionReady(driver)).assertTrue()
           const action = await driver.findComponent(ON.id('rkit-original-image'))
-          expect(action !== null && await action.isEnabled()).assertTrue()
           await captureInformation(driver, 'original-baseline')
           await action.click()
           await informationReady(driver)
           expect(await informationPage(driver)).assertEqual(2)
           await captureInformation(driver, 'original-on')
           await openInformationMenu(driver)
-          await assertInformation(driver, 2, 'original-info', '可用', '原图')
+          await assertInformation(driver, 2, 'original-info', '可用', '原图', 120)
           await (await driver.findComponent(ON.id('rkit-original-image'))).click()
-          await informationReady(driver)
+          await informationReady(driver, 120)
           expect(await informationPage(driver)).assertEqual(2)
           await captureInformation(driver, 'original-off')
           await openInformationMenu(driver)
-          await assertInformation(driver, 2, 'original-off-info', '可用', '重采样图片')
+          await assertInformation(driver, 2, 'original-off-info', '可用', '重采样图片', 120)
           await (await driver.findComponent(ON.id('rkit-close'))).click()
           await driver.delayMs(700)
           expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
