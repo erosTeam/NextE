@@ -6,7 +6,8 @@ import {
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
 import {
-  ComicTranslationReaderPageInput, ComicTranslationRuntimeService, ComicVisualTranslationRunResult,
+  ComicTranslationErrorClassifier, ComicTranslationReaderPageInput, ComicTranslationRuntimeService,
+  ComicVisualTranslationRunResult,
 } from 'shared'
 import { NextEReaderCropSource } from './NextEReaderCropSource'
 
@@ -77,6 +78,7 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
   private context: common.UIAbilityContext
   private configuration: (page: ReaderPage) => NextEReaderTranslationConfiguration
   private sourcePaths: Map<string, string> = new Map<string, string>()
+  private failureCodes: Map<number, string> = new Map<number, string>()
   private cropStrength: () => string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
@@ -129,12 +131,24 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
     input.imageHeight = page.height
     input.sourceLanguage = configuration.sourceLanguage
     input.targetLanguage = configuration.targetLanguage
-    const result = await ComicTranslationRuntimeService.runReaderPage(this.context, input)
+    let result: ComicVisualTranslationRunResult
+    try {
+      result = await ComicTranslationRuntimeService.runReaderPage(this.context, input)
+    } catch (error) {
+      this.failureCodes.set(page.sourceIndex, ComicTranslationErrorClassifier.classify(error as Error))
+      throw error as Error
+    }
+    this.failureCodes.delete(page.sourceIndex)
     cancellation.check()
     if (this.configuration(page).identity() !== identity || !configuration.resultMatches(page, result) ||
       result.renderedPage.localFilePath.length === 0) throw new Error('reader_translation_result_stale')
     return new NextEReaderTranslationPlan(page, identity, result.renderedPage.localFilePath,
       this.provider.prepareOriginal !== undefined, this.cropStrength)
+  }
+
+  /** Last classified translation failure for one source page; empty when none is recorded. */
+  lastFailureCode(sourceIndex: number): string {
+    return this.failureCodes.get(sourceIndex) ?? ''
   }
 
   private pageIdentity(page: ReaderPage): string {

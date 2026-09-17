@@ -59,6 +59,7 @@ export struct NextEReaderLabPage {
   @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
+  private translationProviderRef: NextEReaderTranslationProvider | null = null
   private superResolutionProvider: NextEReaderSuperResolutionProvider | null = null
   private imageBlockProvider: NextEReaderImageBlockProvider | null = null
   private mediaActions: ReaderMediaActions = new ReaderMediaActions()
@@ -127,6 +128,7 @@ export struct NextEReaderLabPage {
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page),
       (): string => this.cropStrength())
+    this.translationProviderRef = translationProvider
     const assetProvider: ReaderAssetProvider = lab === null
       ? translationProvider
       : new ReaderLabAssetProbe(translationProvider, lab.thumbnailFailurePage,
@@ -338,6 +340,27 @@ export struct NextEReaderLabPage {
     return enhancement.enabled
       ? new ReaderVariantPreference('enhanced', enhancement.identity())
       : new ReaderVariantPreference()
+  }
+
+  /** Mirrors the legacy reader's comic-translation failure copy for the same classified codes. */
+  private translationFailureText(): string {
+    const code = this.translationProviderRef?.lastFailureCode(this.currentSourceIndex) ?? ''
+    if (code === 'rendering_service_configuration') {
+      return AppStrings.get('reader_comic_translation_rendering_service_unavailable')
+    }
+    if (code === 'provider_configuration') {
+      return AppStrings.get('reader_comic_translation_provider_unavailable')
+    }
+    if (code === 'local_visual_unavailable') {
+      return AppStrings.get('reader_comic_translation_local_visual_unavailable')
+    }
+    if (code === 'no_translatable_text') {
+      return AppStrings.get('reader_comic_translation_no_translatable_text')
+    }
+    // Mirror the legacy coded generic; a code that never reached classification keeps the plain label.
+    return code.length === 0 ? AppStrings.get('reader_comic_translation_failed')
+      .replace(' \u00b7 %s', '').replace('%s', '').trim()
+      : AppStrings.get('reader_comic_translation_failed').replace('%s', code)
   }
 
   private translationActions(): ReaderHostAction[] {
@@ -782,7 +805,7 @@ export struct NextEReaderLabPage {
                (this.translationBusyPage === this.currentSourceIndex || this.translationErrorPage === this.currentSourceIndex)
                ? new ReaderHostStatus(this.translationBusyPage === this.currentSourceIndex
                  ? AppStrings.get('reader_comic_translation_running')
-                  : AppStrings.get('reader_comic_translation_failed').replace(' · %s', '').replace('%s', '').trim(),
+                  : this.translationFailureText(),
                this.translationBusyPage === this.currentSourceIndex) : null,
               observation: new ReaderObservationSink(null,
                 (position: ReaderObservedPosition): void => { this.observeReaderPosition(position) }),

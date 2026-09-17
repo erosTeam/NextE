@@ -25,6 +25,17 @@ const shared = {
   ComicTranslationRuntimeService: {
     async runReaderPage(...args) { calls.push(args); return pending === null ? runtimeResult : pending },
   },
+  // Mirrors the real classifier contract for the failure-code recording path.
+  ComicTranslationErrorClassifier: {
+    classify(error) {
+      const message = String(error && error.message).toLowerCase()
+      if (message.includes('manga rendering service')) return 'rendering_service_configuration'
+      if (message.includes('api key')) return 'provider_configuration'
+      if (message.includes('harmony device ocr')) return 'local_visual_unavailable'
+      if (message.includes('no translatable text')) return 'no_translatable_text'
+      return 'provider_request_failed'
+    },
+  },
 }
 const exports = {}
 const source = fs.readFileSync(path.join(root,
@@ -102,5 +113,24 @@ runtimeResult = { renderedPage: { identity: { projectId: 'other', pageIndex: 0,
   targetLanguage: 'zh-CN' }, localFilePath: '/cache/stale.png' } }
 await assert.rejects(provider.prepareVariant(page, 'translated', identity, new core.ReaderCancellation()),
   /reader_translation_result_stale/)
+
+// A translation failure records its classified code for the host to render, and an
+// ordinary success clears any earlier code.
+assert.equal(provider.lastFailureCode(page.sourceIndex), '')
+const failingProvider = new NextEReaderTranslationProvider({}, backend, () => configuration)
+await failingProvider.load(page, 'original', cancellation, false)
+pending = Promise.reject(new Error('Configure the manga rendering service first'))
+await assert.rejects(failingProvider.prepareVariant(page, 'translated', identity,
+  new core.ReaderCancellation()), /manga rendering service/)
+pending = null
+assert.equal(failingProvider.lastFailureCode(page.sourceIndex), 'rendering_service_configuration')
+
+runtimeResult = { renderedPage: { identity: { projectId: 'nexte-gallery:eh:12:zh-CN', pageIndex: 0,
+  targetLanguage: 'zh-CN' }, localFilePath: '/cache/translated.png' } }
+const okProvider = new NextEReaderTranslationProvider({}, backend, () => configuration)
+await okProvider.load(page, 'original', cancellation, false)
+assert.equal(okProvider.lastFailureCode(page.sourceIndex), '')
+await okProvider.prepareVariant(page, 'translated', identity, new core.ReaderCancellation())
+assert.equal(okProvider.lastFailureCode(page.sourceIndex), '')
 
 console.log('reader translation provider runtime: ok')
