@@ -5163,6 +5163,138 @@
     {
       "name": "navigation_back_guard_toast",
       "value": "再按一次返回退出"
+    },
+    {
+      "name": "text_translation_prompt_profiles_title",
+      "value": "翻译提示词方案"
+    },
+    {
+      "name": "text_translation_prompt_builtin_group",
+      "value": "内置方案"
+    },
+    {
+      "name": "text_translation_prompt_custom_group",
+      "value": "自定义方案"
+    },
+    {
+      "name": "text_translation_prompt_new",
+      "value": "新建自定义方案"
+    },
+    {
+      "name": "text_translation_prompt_builtin_standard",
+      "value": "标准（默认）"
+    },
+    {
+      "name": "text_translation_prompt_builtin_faithful",
+      "value": "忠实完整"
+    },
+    {
+      "name": "text_translation_prompt_builtin_natural",
+      "value": "自然本地化"
+    },
+    {
+      "name": "text_translation_prompt_builtin_proper_noun_safe",
+      "value": "专名保守"
+    },
+    {
+      "name": "text_translation_prompt_detail_built_in",
+      "value": "内置方案详情"
+    },
+    {
+      "name": "text_translation_prompt_detail_custom",
+      "value": "自定义方案详情"
+    },
+    {
+      "name": "text_translation_prompt_detail_new",
+      "value": "新建方案"
+    },
+    {
+      "name": "text_translation_prompt_name_placeholder",
+      "value": "输入方案名称"
+    },
+    {
+      "name": "text_translation_prompt_style_label",
+      "value": "翻译风格说明"
+    },
+    {
+      "name": "text_translation_prompt_style_placeholder",
+      "value": "描述期望的翻译风格与语气"
+    },
+    {
+      "name": "text_translation_prompt_use",
+      "value": "使用此方案"
+    },
+    {
+      "name": "text_translation_prompt_create",
+      "value": "创建方案"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom",
+      "value": "复制为自定义"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom_hint",
+      "value": "以此内置方案为模板创建可编辑副本"
+    },
+    {
+      "name": "text_translation_prompt_copy_suffix",
+      "value": "（副本）"
+    },
+    {
+      "name": "text_translation_prompt_selected",
+      "value": "已选用该方案"
+    },
+    {
+      "name": "text_translation_prompt_saved",
+      "value": "方案已保存"
+    },
+    {
+      "name": "text_translation_prompt_delete_confirm",
+      "value": "确定要删除此方案吗？"
+    },
+    {
+      "name": "text_translation_prompt_delete_current_confirm",
+      "value": "该方案为当前使用中方案，删除后将自动回退至标准方案。是否继续？"
+    },
+    {
+      "name": "text_translation_prompt_save_failed",
+      "value": "保存方案失败：%s"
+    },
+    {
+      "name": "text_translation_prompt_delete_failed",
+      "value": "删除方案失败：%s"
+    },
+    {
+      "name": "text_translation_prompt_fields_required",
+      "value": "名称和风格说明均不能为空"
+    },
+    {
+      "name": "text_translation_prompt_name_too_long",
+      "value": "方案名称过长"
+    },
+    {
+      "name": "text_translation_prompt_style_too_long",
+      "value": "风格说明过长"
+    },
+    {
+      "name": "text_translation_prompt_limit_reached",
+      "value": "已达到自定义方案上限（32项）"
+    },
+    {
+      "name": "text_translation_prompt_discard_changes",
+      "value": "放弃未保存修改？"
+    },
+    {
+      "name": "text_translation_prompt_discard_confirm",
+      "value": "当前修改尚未保存，确定要退出吗？"
+    },
+    {
+      "name": "comment_translation_prompt_profile",
+      "value": "AI 翻译方案"
+    },
+    {
+      "name": "comment_translation_prompt_profile_hint",
+      "value": "评论与标题共用；仅 AI 路径生效"
     }
   ]
 }

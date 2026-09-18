@@ -34,6 +34,7 @@ import { WebLoginStyleSettings } from './WebLoginStyleSettings'
 import { ImageBlockSettings } from './ImageBlockSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { CommentTranslationSettings } from './CommentTranslationSettings'
+import { TextTranslationPromptProfileRepository } from './TextTranslationPromptProfileRepository'
 import { ComicTranslationProviderSettings } from './ComicTranslationProviderSettings'
 import { LlmSourceProfileRepository } from './LlmSourceProfileRepository'
 import { LlmSourceMigrationService } from '../services/LlmSourceMigrationService'
@@ -108,6 +109,7 @@ export class SettingsBootstrap {
         ImageBlockSettings.restore(context),
         TagTranslationSettings.restore(context),
         CommentTranslationSettings.restore(context),
+        TextTranslationPromptProfileRepository.restore(context),
         ComicTranslationProviderSettings.restore(context),
         DownloadSettings.restore(context),
         SecuritySettings.restore(context),

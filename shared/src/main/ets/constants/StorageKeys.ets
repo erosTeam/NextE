@@ -114,6 +114,10 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
   static readonly COMMENT_TRANSLATION_LLM_SOURCE_PROFILE: string = 'commentTranslation.llmSourceProfile'
   static readonly COMMENT_TRANSLATION_LLM_MODEL: string = 'commentTranslation.llmModel'
+  // Comment/gallery-title translation prompt selection. No credentials; plaintext backup only,
+  // never synced. Built-in profiles are code-defined and never persisted here.
+  static readonly TEXT_TRANSLATION_PROMPT_CUSTOM_PROFILES: string = 'textTranslationPrompt.customProfiles'
+  static readonly TEXT_TRANSLATION_PROMPT_SELECTED_PROFILE: string = 'textTranslationPrompt.selectedProfile'
   static readonly COMIC_TRANSLATION_PROVIDER: string = 'comicTranslation.provider'
   static readonly COMIC_TRANSLATION_API_URL: string = 'comicTranslation.apiUrl'
   static readonly COMIC_TRANSLATION_API_KEY: string = 'comicTranslation.apiKey'

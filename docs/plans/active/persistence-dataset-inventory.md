@@ -124,6 +124,8 @@ Allowed `Sync` values:
 | StorageKeys.COMMENT_TRANSLATION_MODEL | setting | plaintext | excluded | Comment translation model |
 | StorageKeys.COMMENT_TRANSLATION_LLM_SOURCE_PROFILE | setting | plaintext | excluded | Shared LLM source selected by comment translation; a missing referenced profile remains explicitly unconfigured |
 | StorageKeys.COMMENT_TRANSLATION_LLM_MODEL | setting | plaintext | excluded | Comment translation model selected within its shared source |
+| StorageKeys.TEXT_TRANSLATION_PROMPT_CUSTOM_PROFILES | setting | plaintext | excluded | User-defined text-translation prompt styles (comment and title share the selection); built-ins are code-defined and never persisted |
+| StorageKeys.TEXT_TRANSLATION_PROMPT_SELECTED_PROFILE | setting | plaintext | excluded | Shared prompt selection for comments and gallery titles; invalid or removed ids resolve to the standard built-in |
 | StorageKeys.COMIC_TRANSLATION_PROVIDER | setting | plaintext | excluded | Active manga-analysis provider |
 | StorageKeys.COMIC_TRANSLATION_API_URL | setting | plaintext | excluded | Manga-analysis Responses endpoint |
 | StorageKeys.COMIC_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Manga-analysis API credential |

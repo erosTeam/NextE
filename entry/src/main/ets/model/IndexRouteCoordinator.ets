@@ -37,6 +37,8 @@ export type IndexDestinationFamily =
   'mangaRenderingServiceSettings' |
   'llmSourceManager' |
   'llmSourceDetail' |
+  'textTranslationPromptProfiles' |
+  'textTranslationPromptProfileDetail' |
   'syncSettings' |
   'webDavSyncSettings' |
   'advancedSettings' |
@@ -87,6 +89,8 @@ export class IndexRouteCoordinator {
     'MangaRenderingServiceSettings': 'mangaRenderingServiceSettings',
     'LlmSourceManager': 'llmSourceManager',
     'LlmSourceDetail': 'llmSourceDetail',
+    'TextTranslationPromptProfiles': 'textTranslationPromptProfiles',
+    'TextTranslationPromptProfileDetail': 'textTranslationPromptProfileDetail',
     'SyncSettings': 'syncSettings',
     'WebDavSyncSettings': 'webDavSyncSettings',
     'AdvancedSettings': 'advancedSettings',

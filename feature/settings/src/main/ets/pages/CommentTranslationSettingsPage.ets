@@ -22,9 +22,11 @@ import {
   ThemeConstants,
   ListRowDivider,
   connectCommentTranslationSettings,
+  connectTextTranslationPromptProfiles,
   connectLlmSourceProfiles,
   connectNavStack,
   immersiveTitleBar,
+  TextTranslationPromptProfilesState,
   supportsCommentTranslation,
 } from 'shared'
 
@@ -32,6 +34,7 @@ import {
 export struct CommentTranslationSettingsPage {
   @Local private settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local private llmSources: LlmSourceProfilesState = connectLlmSourceProfiles();
+  @Local private promptProfiles: TextTranslationPromptProfilesState = connectTextTranslationPromptProfiles();
   @Local private fetchingModels: boolean = false;
   @Local private modelOptions: string[] = [];
   @Local private selectedSourceId: string = '';
@@ -397,6 +400,17 @@ export struct CommentTranslationSettingsPage {
               },
               isEnabled: this.settings.enabled && !this.settings.useGoogleOnly &&
                 this.selectedSourceId.length > 0 && !this.fetchingModels,
+            })
+            ListRowDivider()
+            ConciseListRow({
+              title: $r('app.string.comment_translation_prompt_profile'),
+              subtitle: $r('app.string.comment_translation_prompt_profile_hint'),
+              leadingIcon: $r('sys.symbol.textformat'),
+              trailingText: this.promptProfiles.selectedProfile().displayName,
+              showChevron: true,
+              action: () => {
+                this.stack.pushPathByName('TextTranslationPromptProfiles', null)
+              },
             })
           }
         }

@@ -135,6 +135,8 @@ import {
   MangaRenderingServiceSettingsPage,
   LlmSourceManagerPage,
   LlmSourceDetailPage,
+  TextTranslationPromptProfilesPage,
+  TextTranslationPromptProfileDetailPage,
   SyncSettingsPage,
   WebDavSyncSettingsPage,
   AdvancedSettingsPage,
@@ -482,6 +484,16 @@ function IndexLlmSourceManagerRoute() {
 @Builder
 function IndexLlmSourceDetailRoute() {
   LlmSourceDetailPage()
+}
+
+@Builder
+function IndexTextTranslationPromptProfilesRoute() {
+  TextTranslationPromptProfilesPage()
+}
+
+@Builder
+function IndexTextTranslationPromptProfileDetailRoute() {
+  TextTranslationPromptProfileDetailPage()
 }
 
 @Builder
@@ -987,6 +999,8 @@ struct Index {
     'mangaRenderingServiceSettings': wrapBuilder<[]>(IndexMangaRenderingServiceSettingsRoute),
     'llmSourceManager': wrapBuilder<[]>(IndexLlmSourceManagerRoute),
     'llmSourceDetail': wrapBuilder<[]>(IndexLlmSourceDetailRoute),
+    'textTranslationPromptProfiles': wrapBuilder<[]>(IndexTextTranslationPromptProfilesRoute),
+    'textTranslationPromptProfileDetail': wrapBuilder<[]>(IndexTextTranslationPromptProfileDetailRoute),
     'syncSettings': wrapBuilder<[]>(IndexSyncSettingsRoute),
     'webDavSyncSettings': wrapBuilder<[]>(IndexWebDavSyncSettingsRoute),
     'advancedSettings': wrapBuilder<[]>(IndexAdvancedSettingsRoute),

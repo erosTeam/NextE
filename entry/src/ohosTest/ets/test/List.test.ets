@@ -80,6 +80,7 @@ import mangaTranslatorUiSidecarSessionTest from './MangaTranslatorUiSidecarSessi
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
 import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
+import textTranslationPromptProfilesTest from './TextTranslationPromptProfiles.test'
 import comicLocalVisualBackendTest from './ComicLocalVisualBackend.test'
 import comicWholePageTranslationOrchestratorTest from './ComicWholePageTranslationOrchestrator.test'
 import toriiWholePageSettingsTest from './ToriiWholePageSettings.test'
@@ -173,6 +174,7 @@ export default function testsuite(): void {
   llmSourceProfileRepositoryTest()
   llmSourceMigrationTest()
   indexRouteCoordinatorTest()
+  textTranslationPromptProfilesTest()
   comicLocalVisualBackendTest()
   comicWholePageTranslationOrchestratorTest()
   toriiWholePageSettingsTest()

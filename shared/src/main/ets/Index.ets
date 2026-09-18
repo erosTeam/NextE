@@ -108,6 +108,12 @@ export {
   supportsMangaTranslation,
 } from './model/LlmSourceProfile'
 export {
+  TEXT_TRANSLATION_CONTENT_COMMENT,
+  TEXT_TRANSLATION_CONTENT_GALLERY_TITLE,
+  TEXT_TRANSLATION_PROMPT_SCHEMA_VERSION,
+  TextTranslationPromptProfile,
+} from './model/TextTranslationPromptProfile'
+export {
   ReaderSourceDescriptor,
   ReaderSourceKind,
   ReaderSourceVariant,
@@ -630,6 +636,24 @@ export {
   CommentTranslationService,
 } from './services/CommentTranslationService'
 export { GalleryTitleTranslationService } from './services/GalleryTitleTranslationService'
+export {
+  TEXT_TRANSLATION_PROMPT_BUILTIN_FAITHFUL,
+  TEXT_TRANSLATION_PROMPT_BUILTIN_IDS,
+  TEXT_TRANSLATION_PROMPT_BUILTIN_NATURAL,
+  TEXT_TRANSLATION_PROMPT_BUILTIN_PROPER_NOUN_SAFE,
+  TEXT_TRANSLATION_PROMPT_BUILTIN_STANDARD,
+  TextTranslationPromptCatalog,
+} from './services/TextTranslationPromptCatalog'
+export {
+  MAX_TEXT_TRANSLATION_CUSTOM_PROFILES,
+  MAX_TEXT_TRANSLATION_CUSTOM_STORE_CHARS,
+  MAX_TEXT_TRANSLATION_PROMPT_ID_CHARS,
+  MAX_TEXT_TRANSLATION_PROMPT_NAME_CHARS,
+  MAX_TEXT_TRANSLATION_STYLE_CHARS,
+  TextTranslationPromptContract,
+} from './services/TextTranslationPromptContract'
+export { TextTranslationPromptCodec } from './services/TextTranslationPromptCodec'
+export { TextTranslationPromptComposer } from './services/TextTranslationPromptComposer'
 export { LocalBlockService } from './services/LocalBlockService'
 export { ImageBlockFeedParser } from './services/ImageBlockFeedParser'
 export { ImageBlockService } from './services/ImageBlockService'
@@ -780,7 +804,12 @@ export {
   LlmSourceProfilesState,
   connectLlmSourceProfiles,
 } from './state/LlmSourceProfilesState'
+export {
+  TextTranslationPromptProfilesState,
+  connectTextTranslationPromptProfiles,
+} from './state/TextTranslationPromptProfilesState'
 export { LlmSourceProfileRepository } from './settings/LlmSourceProfileRepository'
+export { TextTranslationPromptProfileRepository } from './settings/TextTranslationPromptProfileRepository'
 export { LlmSourceProfileCodec } from './services/LlmSourceProfileCodec'
 export {
   LlmSourceProfileContract,

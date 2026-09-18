@@ -5163,6 +5163,138 @@
     {
       "name": "navigation_back_guard_toast",
       "value": "Press back again to exit"
+    },
+    {
+      "name": "text_translation_prompt_profiles_title",
+      "value": "Translation Profiles"
+    },
+    {
+      "name": "text_translation_prompt_builtin_group",
+      "value": "Built-in Profiles"
+    },
+    {
+      "name": "text_translation_prompt_custom_group",
+      "value": "Custom Profiles"
+    },
+    {
+      "name": "text_translation_prompt_new",
+      "value": "New Custom Profile"
+    },
+    {
+      "name": "text_translation_prompt_builtin_standard",
+      "value": "Standard (Default)"
+    },
+    {
+      "name": "text_translation_prompt_builtin_faithful",
+      "value": "Faithful & Complete"
+    },
+    {
+      "name": "text_translation_prompt_builtin_natural",
+      "value": "Natural Localization"
+    },
+    {
+      "name": "text_translation_prompt_builtin_proper_noun_safe",
+      "value": "Proper Noun Safe"
+    },
+    {
+      "name": "text_translation_prompt_detail_built_in",
+      "value": "Built-in Profile"
+    },
+    {
+      "name": "text_translation_prompt_detail_custom",
+      "value": "Custom Profile"
+    },
+    {
+      "name": "text_translation_prompt_detail_new",
+      "value": "New Profile"
+    },
+    {
+      "name": "text_translation_prompt_name_placeholder",
+      "value": "Enter profile name"
+    },
+    {
+      "name": "text_translation_prompt_style_label",
+      "value": "Translation Style Instructions"
+    },
+    {
+      "name": "text_translation_prompt_style_placeholder",
+      "value": "Describe the desired translation style and tone"
+    },
+    {
+      "name": "text_translation_prompt_use",
+      "value": "Use This Profile"
+    },
+    {
+      "name": "text_translation_prompt_create",
+      "value": "Create Profile"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom",
+      "value": "Copy as Custom"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom_hint",
+      "value": "Create an editable copy from this built-in profile"
+    },
+    {
+      "name": "text_translation_prompt_copy_suffix",
+      "value": "(Copy)"
+    },
+    {
+      "name": "text_translation_prompt_selected",
+      "value": "Profile selected"
+    },
+    {
+      "name": "text_translation_prompt_saved",
+      "value": "Profile saved"
+    },
+    {
+      "name": "text_translation_prompt_delete_confirm",
+      "value": "Are you sure you want to delete this profile?"
+    },
+    {
+      "name": "text_translation_prompt_delete_current_confirm",
+      "value": "This profile is currently active. Deleting it will switch back to the standard profile. Continue?"
+    },
+    {
+      "name": "text_translation_prompt_save_failed",
+      "value": "Failed to save profile: %s"
+    },
+    {
+      "name": "text_translation_prompt_delete_failed",
+      "value": "Failed to delete profile: %s"
+    },
+    {
+      "name": "text_translation_prompt_fields_required",
+      "value": "Both name and style instructions are required"
+    },
+    {
+      "name": "text_translation_prompt_name_too_long",
+      "value": "Profile name is too long"
+    },
+    {
+      "name": "text_translation_prompt_style_too_long",
+      "value": "Style instructions are too long"
+    },
+    {
+      "name": "text_translation_prompt_limit_reached",
+      "value": "Maximum number of custom profiles reached (32)"
+    },
+    {
+      "name": "text_translation_prompt_discard_changes",
+      "value": "Discard changes?"
+    },
+    {
+      "name": "text_translation_prompt_discard_confirm",
+      "value": "Your changes have not been saved. Return without saving?"
+    },
+    {
+      "name": "comment_translation_prompt_profile",
+      "value": "AI Translation Profile"
+    },
+    {
+      "name": "comment_translation_prompt_profile_hint",
+      "value": "Shared for comments and titles; AI path only"
     }
   ]
 }

@@ -26,6 +26,11 @@ export {
   LlmSourceManagerPage,
 } from './pages/LlmSourceManagerPage'
 export { LlmSourceDetailPage } from './pages/LlmSourceDetailPage'
+export { TextTranslationPromptProfilesPage } from './pages/TextTranslationPromptProfilesPage'
+export {
+  TextTranslationPromptProfileDetailPage,
+  TextTranslationPromptProfileDetailParams,
+} from './pages/TextTranslationPromptProfileDetailPage'
 export { SyncSettingsPage } from './pages/SyncSettingsPage'
 export { WebDavSyncSettingsPage } from './pages/WebDavSyncSettingsPage'
 export { AdvancedSettingsPage } from './pages/AdvancedSettingsPage'
