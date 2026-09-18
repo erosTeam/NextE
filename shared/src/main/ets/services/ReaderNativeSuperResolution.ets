@@ -243,7 +243,12 @@ export class ReaderNativeSuperResolution {
     if (requestId <= 0) {
       return
     }
-    nativeRuntime.setRequestActive(requestId, active)
+    try {
+      nativeRuntime.setRequestActive(requestId, active)
+    } catch (_error) {
+      // The enhancement NAPI is optional at runtime; a failed or missing native
+      // module must never throw from a Reader page-change observer.
+    }
   }
 
   static setInteractionPaused(paused: boolean): void {
