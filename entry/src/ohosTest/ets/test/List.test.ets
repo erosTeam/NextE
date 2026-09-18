@@ -91,6 +91,7 @@ import comicNativeBubbleMaskerTest from './ComicNativeBubbleMasker.test'
 import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
 import customProfileNameVerifyTrialTest from './CustomProfileNameRepair.test'
+import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test' 
 
 export default function testsuite(): void {
   gallerySplitTransitionTest()
@@ -186,4 +187,5 @@ export default function testsuite(): void {
   comicLocalProductionQualityTest()
   comicLocalExternalReplayTest()
   customProfileNameVerifyTrialTest()
+  readerLegacyEnhancementCrashTrialTest() 
 }
