@@ -5179,6 +5179,138 @@
     {
       "name": "navigation_back_guard_toast",
       "value": "一度押して終了します"
+    },
+    {
+      "name": "text_translation_prompt_profiles_title",
+      "value": "翻訳プロファイル"
+    },
+    {
+      "name": "text_translation_prompt_builtin_group",
+      "value": "組み込みプロファイル"
+    },
+    {
+      "name": "text_translation_prompt_custom_group",
+      "value": "カスタムプロファイル"
+    },
+    {
+      "name": "text_translation_prompt_new",
+      "value": "新規カスタムプロファイル"
+    },
+    {
+      "name": "text_translation_prompt_builtin_standard",
+      "value": "標準（デフォルト）"
+    },
+    {
+      "name": "text_translation_prompt_builtin_faithful",
+      "value": "忠実・完全"
+    },
+    {
+      "name": "text_translation_prompt_builtin_natural",
+      "value": "自然なローカライズ"
+    },
+    {
+      "name": "text_translation_prompt_builtin_proper_noun_safe",
+      "value": "固有名詞保護"
+    },
+    {
+      "name": "text_translation_prompt_detail_built_in",
+      "value": "組み込みプロファイル詳細"
+    },
+    {
+      "name": "text_translation_prompt_detail_custom",
+      "value": "カスタムプロファイル詳細"
+    },
+    {
+      "name": "text_translation_prompt_detail_new",
+      "value": "新規プロファイル"
+    },
+    {
+      "name": "text_translation_prompt_name_placeholder",
+      "value": "プロファイル名を入力"
+    },
+    {
+      "name": "text_translation_prompt_style_label",
+      "value": "翻訳スタイル説明"
+    },
+    {
+      "name": "text_translation_prompt_style_placeholder",
+      "value": "希望する翻訳スタイルやトーンを記述"
+    },
+    {
+      "name": "text_translation_prompt_use",
+      "value": "このプロファイルを使用"
+    },
+    {
+      "name": "text_translation_prompt_create",
+      "value": "プロファイルを作成"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom",
+      "value": "カスタムとしてコピー"
+    },
+    {
+      "name": "text_translation_prompt_copy_as_custom_hint",
+      "value": "この組み込みプロファイルを元に編集可能なコピーを作成"
+    },
+    {
+      "name": "text_translation_prompt_copy_suffix",
+      "value": "（コピー）"
+    },
+    {
+      "name": "text_translation_prompt_selected",
+      "value": "プロファイルを選択しました"
+    },
+    {
+      "name": "text_translation_prompt_saved",
+      "value": "プロファイルを保存しました"
+    },
+    {
+      "name": "text_translation_prompt_delete_confirm",
+      "value": "このプロファイルを削除しますか？"
+    },
+    {
+      "name": "text_translation_prompt_delete_current_confirm",
+      "value": "このプロファイルは現在使用中です。削除すると標準プロファイルに戻ります。続行しますか？"
+    },
+    {
+      "name": "text_translation_prompt_save_failed",
+      "value": "プロファイルの保存に失敗しました：%s"
+    },
+    {
+      "name": "text_translation_prompt_delete_failed",
+      "value": "プロファイルの削除に失敗しました：%s"
+    },
+    {
+      "name": "text_translation_prompt_fields_required",
+      "value": "名前とスタイル説明は必須です"
+    },
+    {
+      "name": "text_translation_prompt_name_too_long",
+      "value": "プロファイル名が長すぎます"
+    },
+    {
+      "name": "text_translation_prompt_style_too_long",
+      "value": "スタイル説明が長すぎます"
+    },
+    {
+      "name": "text_translation_prompt_limit_reached",
+      "value": "カスタムプロファイルの上限に達しました（32件）"
+    },
+    {
+      "name": "text_translation_prompt_discard_changes",
+      "value": "変更を破棄しますか？"
+    },
+    {
+      "name": "text_translation_prompt_discard_confirm",
+      "value": "変更内容は保存されていません。破棄して戻りますか？"
+    },
+    {
+      "name": "comment_translation_prompt_profile",
+      "value": "AI 翻訳プロファイル"
+    },
+    {
+      "name": "comment_translation_prompt_profile_hint",
+      "value": "コメントとタイトルで共有；AIパスでのみ有効"
     }
   ]
 }

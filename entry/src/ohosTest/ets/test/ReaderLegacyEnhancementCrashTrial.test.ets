@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON } from '@kit.TestKit'
 import { common } from '@kit.AbilityKit'
-import { AppStrings, connectReadMode, ReadModeSettings, ReaderSuperResolutionModel } from 'shared'
+import { connectReadMode, ReadModeSettings, ReaderSuperResolutionModel } from 'shared'
 
 const CAPTURE_PREFIX: string = 'reader-legacy-enh-crash'
 
@@ -31,37 +31,23 @@ async function capture(driver: Driver, name: string): Promise<void> {
   try { await driver.screenCap(cache + '/' + CAPTURE_PREFIX + '-' + name + '.png') } catch (_) {}
 }
 
-async function openHistoryList(driver: Driver): Promise<void> {
-  await (await waitId(driver, 'nexte-root-tab-4')).click()
-  const row = await driver.findComponent(ON.text(AppStrings.get('tab_history')))
-  if (row === null) throw new Error('History row unavailable')
-  await row.click()
-}
-
-async function openNewestHistoryDetail(driver: Driver): Promise<string> {
-  await openHistoryList(driver)
-  const pattern = '^gallery-list-history-[0-9]+-history-[0-9]+$'
-  const selector = ON.id(pattern, MatchPattern.REG_EXP)
+/** Open the first Home gallery card through the real waterfall cover. */
+async function openFirstHomeGalleryDetail(driver: Driver): Promise<string> {
+  const pattern = '^gallery-list-primary-1-waterfall-[0-9]+-cover$'
+  const selector = ON.id(pattern, MatchPattern.REG_EXP).within(ON.id('nexte-root-navigation'))
   for (let attempt: number = 0; attempt < 120; attempt++) {
-    const rows = await driver.findComponents(selector) ?? []
-    if (rows.length > 0) {
-      const row = rows[0]
-      const id: string = await row.getId()
-      await row.click()
-      return id.substring(id.lastIndexOf('-') + 1)
-    }
-    const owners = await driver.findComponents(ON.type('List')) ?? []
-    for (const list of owners) {
-      const found = await list.scrollSearch(selector, true)
-      if (found !== null) {
-        const id: string = await found.getId()
-        await found.click()
-        return id.substring(id.lastIndexOf('-') + 1)
-      }
+    const covers = await driver.findComponents(selector) ?? []
+    if (covers.length > 0) {
+      const cover = covers[0]
+      const id: string = await cover.getId()
+      await cover.click()
+      await waitId(driver, 'gallery-detail-pane', 160)
+      const m: RegExpMatchArray | null = id.match(/waterfall-([0-9]+)-cover/)
+      return m === null ? '' : m[1]
     }
     await driver.delayMs(250)
   }
-  throw new Error('History row unavailable')
+  throw new Error('Home gallery card unavailable')
 }
 
 async function tapDetailReadAction(driver: Driver): Promise<void> {
@@ -103,7 +89,7 @@ export default function readerLegacyEnhancementCrashTrialTest(): void {
         await ReadModeSettings.setSuperResolutionMaxHeight(context, 2000)
         await ReadModeSettings.setSuperResolutionEnabled(context, true)
         console.info('[ReaderLegacyEnhancementCrashTrial] enabled=true model=' + model)
-        const gid: string = await openNewestHistoryDetail(driver)
+        const gid: string = await openFirstHomeGalleryDetail(driver)
         console.info('[ReaderLegacyEnhancementCrashTrial] detail gid=' + gid)
         await tapDetailReadAction(driver)
         const surface: Component = await waitId(driver, 'reader_key_surface', 240)

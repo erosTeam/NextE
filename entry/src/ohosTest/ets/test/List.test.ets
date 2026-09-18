@@ -80,6 +80,7 @@ import mangaTranslatorUiSidecarSessionTest from './MangaTranslatorUiSidecarSessi
 import llmSourceProfileRepositoryTest from './LlmSourceProfileRepository.test'
 import llmSourceMigrationTest from './LlmSourceMigration.test'
 import indexRouteCoordinatorTest from './IndexRouteCoordinator.test'
+import textTranslationPromptProfilesTest from './TextTranslationPromptProfiles.test'
 import comicLocalVisualBackendTest from './ComicLocalVisualBackend.test'
 import comicWholePageTranslationOrchestratorTest from './ComicWholePageTranslationOrchestrator.test'
 import toriiWholePageSettingsTest from './ToriiWholePageSettings.test'
@@ -89,12 +90,12 @@ import comicNativeTextMaskerTest from './ComicNativeTextMasker.test'
 import comicNativeBubbleMaskerTest from './ComicNativeBubbleMasker.test'
 import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
+import customProfileNameVerifyTrialTest from './CustomProfileNameRepair.test'
 import readerProgressDurabilityTest from './ReaderProgressDurability.test'
 import readerLocalSourceTrialTest from './ReaderLocalSourceTrial.test'
-import customProfileNameVerifyTrialTest from './CustomProfileNameRepair.test'
-import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test'
 import readerBackendSelectionTest from './ReaderBackendSelection.test'
 import nextERuntimeContinuityTest from './ReaderRuntimeContinuity.test'
+import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test' 
 
 export default function testsuite(): void {
   gallerySplitTransitionTest()
@@ -179,6 +180,7 @@ export default function testsuite(): void {
   llmSourceProfileRepositoryTest()
   llmSourceMigrationTest()
   indexRouteCoordinatorTest()
+  textTranslationPromptProfilesTest()
   comicLocalVisualBackendTest()
   comicWholePageTranslationOrchestratorTest()
   toriiWholePageSettingsTest()
@@ -188,10 +190,10 @@ export default function testsuite(): void {
   comicNativeBubbleMaskerTest()
   comicLocalProductionQualityTest()
   comicLocalExternalReplayTest()
+  customProfileNameVerifyTrialTest()
   readerProgressDurabilityTest()
   readerLocalSourceTrialTest()
-  customProfileNameVerifyTrialTest()
-  readerLegacyEnhancementCrashTrialTest()
   readerBackendSelectionTest()
   nextERuntimeContinuityTest()
+  readerLegacyEnhancementCrashTrialTest() 
 }

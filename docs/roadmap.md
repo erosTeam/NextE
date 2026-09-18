@@ -1,6 +1,6 @@
 # NextE Planning Index
 
-Last reviewed: 2026-08-23.
+Last reviewed: 2026-09-18.
 
 This file is a planning index, not a priority queue. The user's latest explicit request decides what to work on.
 The old milestone snapshot is archived at
@@ -26,6 +26,9 @@ The old milestone snapshot is archived at
 - [Shared LLM Source Profiles](plans/active/llm-source-profiles.md) — consolidate comment/comic endpoint, credential,
   Codex login, model-catalog and usage plumbing into multiple reusable source profiles while keeping per-feature model
   and policy bindings separate.
+- [Comment and Title AI Translation Prompt Profiles](plans/completed/comment-title-translation-prompt-profiles.md) —
+  add read-only built-in and editable custom prompt profiles for comment/title AI translation while keeping immutable
+  task rules, content-kind cache identity, Google routing, LLM source credentials and manga translation separate.
 - [Sync Design](plans/active/sync-design.md) — provider-neutral sync, Huawei Cloud and WebDAV protocol.
 - [Persistence Dataset Inventory](plans/active/persistence-dataset-inventory.md) — owner/backup/sync classification
   used by the persistence contract.

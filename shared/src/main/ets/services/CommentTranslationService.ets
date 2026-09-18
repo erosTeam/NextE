@@ -9,15 +9,25 @@ import {
   LlmConsumerBinding,
   LlmSourceResolution,
 } from '../model/LlmSourceProfile'
+import {
+  TEXT_TRANSLATION_CONTENT_COMMENT,
+  TextTranslationPromptProfile,
+} from '../model/TextTranslationPromptProfile'
 import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { connectLanguageState } from '../state/AppearanceState'
-import { CommentTranslationSettings } from '../settings/CommentTranslationSettings'
+import {
+  CommentTranslationSettings,
+  CommentTranslationSettingsSnapshot,
+} from '../settings/CommentTranslationSettings'
 import { LlmSourceProfileRepository } from '../settings/LlmSourceProfileRepository'
+import { TextTranslationPromptProfileRepository } from '../settings/TextTranslationPromptProfileRepository'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import { CacheStat } from './CacheStat'
 import { ComicTranslationModelCatalogService } from './ComicTranslationModelCatalogService'
 import { ExperimentalCodexResponsesTextService } from './ExperimentalCodexResponsesTextService'
 import { LlmSourceRuntimeConfig, LlmSourceRuntimeResolver } from './LlmSourceRuntimeResolver'
+import { TextTranslationPromptCatalog } from './TextTranslationPromptCatalog'
+import { TextTranslationPromptComposer } from './TextTranslationPromptComposer'
 
 const COMMENT_TRANSLATION_TTL_MS: number = 7 * 24 * 60 * 60 * 1000
 const TRANSLATION_CONNECT_TIMEOUT_MS: number = 12000
@@ -50,6 +60,20 @@ const COMMENT_LANGUAGE_URL_RE: RegExp = /https?:\/\/[^\s<>"']+/g
 const COMMENT_LANGUAGE_DOMAIN_RE: RegExp =
   /\b(?:www\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?:\/[^\s<>"']*)?/g
 const COMMENT_LANGUAGE_TOKEN_RE: RegExp = /NEXTEATHEX[0-9a-fA-F]+TOKEN/g
+
+/**
+ * One translation request's resolved logical route. It is decided exactly once at the start of
+ * translate() and the same instance (and, for LLM routes, the same prompt snapshot) then feeds
+ * both the cache scope and the provider call, so a profile switch mid-flight can never write an
+ * A-profile result under a B-profile scope.
+ */
+class TranslationRoute {
+  kind: string = ''
+  targetLang: string = ''
+  contentKind: string = TEXT_TRANSLATION_CONTENT_COMMENT
+  llm: LlmSourceRuntimeConfig | null = null
+  llmProfile: TextTranslationPromptProfile | null = null
+}
 
 class ChatMessage {
   role: string = ''
@@ -586,9 +610,28 @@ export class CommentTranslationService {
     context: common.UIAbilityContext,
     text: string,
     targetLang: string,
+    contentKind: string = TEXT_TRANSLATION_CONTENT_COMMENT,
+  ): Promise<string> {
+    const route: TranslationRoute =
+      await CommentTranslationService.resolveRoute(context, targetLang, contentKind)
+    return CommentTranslationService.readCached(
+      context,
+      text,
+      CommentTranslationService.cacheScopeForRoute(route),
+    )
+  }
+
+  /**
+   * Reads the memory and RDB cache within one explicitly supplied scope. translate() passes the
+   * scope of its already-resolved route so a request never compares an A-profile cache scope
+   * against a B-profile scope.
+   */
+  private static async readCached(
+    context: common.UIAbilityContext,
+    text: string,
+    cacheScope: string,
   ): Promise<string> {
     const cacheEpoch: number = CommentTranslationService.cacheEpoch.snapshot()
-    const cacheScope: string = CommentTranslationService.cacheScope(targetLang)
     const key: string = CommentTranslationService.cacheKey(text, cacheScope)
     const now: number = Date.now()
     const memoryHit: string = CommentTranslationService.memory.get(key, now)
@@ -620,21 +663,27 @@ export class CommentTranslationService {
     text: string,
     force: boolean = false,
     priority: number = COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
+    contentKind: string = TEXT_TRANSLATION_CONTENT_COMMENT,
   ): Promise<string> {
     const source: string = text.trim()
     if (source.length === 0) {
       return ''
     }
     const targetLang: string = CommentTranslationService.targetLanguage()
-    const cacheScope: string = CommentTranslationService.cacheScope(targetLang)
+    // The logical route is decided exactly once here. Google-only and the direct-fallback routes
+    // never create a prompt snapshot; only the LLM route resolves the current profile snapshot,
+    // and the same instance then feeds both the cache scope and the provider call.
+    const route: TranslationRoute =
+      await CommentTranslationService.resolveRoute(context, targetLang, contentKind)
+    const cacheScope: string = CommentTranslationService.cacheScopeForRoute(route)
     const key: string = CommentTranslationService.cacheKey(source, cacheScope)
     if (!force) {
-      const cached: string = await CommentTranslationService.getCached(context, source, targetLang)
+      const cached: string = await CommentTranslationService.readCached(context, source, cacheScope)
       if (cached.length > 0) {
         DiagnosticLogger.info(
           'translation',
           'comment_cache_hit',
-          `target=${targetLang} len=${source.length} textHash=${DiagnosticLogger.ownerHash(source)}`,
+          `target=${targetLang} content=${contentKind} len=${source.length} textHash=${DiagnosticLogger.ownerHash(source)}`,
         )
         return cached
       }
@@ -662,6 +711,7 @@ export class CommentTranslationService {
         targetLang,
         cacheScope,
         cacheEpoch,
+        route,
       ),
       CommentTranslationService.scheduler,
     )
@@ -857,11 +907,15 @@ export class CommentTranslationService {
 
   static async validateConfiguredLlm(context: common.UIAbilityContext): Promise<void> {
     const runtime: LlmSourceRuntimeConfig = await LlmSourceRuntimeResolver.resolveComment(context)
+    // The validation probe is a comment translation sent with the currently selected profile.
+    const llmProfile: TextTranslationPromptProfile = TextTranslationPromptProfileRepository.currentSelection()
     await CommentTranslationService.callLlm(
       context,
       'Hello',
       CommentTranslationService.targetLanguage(),
       runtime,
+      llmProfile,
+      TEXT_TRANSLATION_CONTENT_COMMENT,
     )
   }
 
@@ -879,24 +933,26 @@ export class CommentTranslationService {
     targetLang: string,
     cacheScope: string,
     cacheEpoch: number,
+    route: TranslationRoute,
   ): Promise<string> {
     const startedAt: number = Date.now()
     DiagnosticLogger.info(
       'translation',
       'comment_translate_start',
-      `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
+      `target=${targetLang} content=${route.contentKind} route=${route.kind} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
     )
     const rawResult: string = await CommentTranslationService.callTranslation(
       context,
       text,
       targetLang,
+      route,
     )
     const result: string = CommentTranslationService.restoreMentionTokens(rawResult)
     await CommentTranslationService.save(context, text, cacheScope, result, cacheEpoch)
     DiagnosticLogger.info(
       'translation',
       'comment_translate_done',
-      `target=${targetLang} len=${text.length} resultLen=${result.length} elapsedMs=${Date.now() - startedAt} textHash=${DiagnosticLogger.ownerHash(text)}`,
+      `target=${targetLang} content=${route.contentKind} route=${route.kind} len=${text.length} resultLen=${result.length} elapsedMs=${Date.now() - startedAt} textHash=${DiagnosticLogger.ownerHash(text)}`,
     )
     return result
   }
@@ -985,32 +1041,73 @@ export class CommentTranslationService {
     CommentTranslationService.persistedCacheMaintenanceFollowUp = false
   }
 
-  private static async callTranslation(
+  /**
+   * Decide the logical route exactly once per request.
+   *
+   * The LLM branch is the only one that resolves the current prompt profile; both Google-only
+   * and the unresolved-fallback branch carry a null llmProfile, and the cache scope below uses
+   * the same snapshot for the entire request.
+   */
+  static async resolveRoute(
     context: common.UIAbilityContext,
-    text: string,
     targetLang: string,
-  ): Promise<string> {
-    const settings = CommentTranslationSettings.current()
+    contentKind: string,
+  ): Promise<TranslationRoute> {
+    const route: TranslationRoute = new TranslationRoute()
+    route.targetLang = targetLang
+    route.contentKind = contentKind
+    const settings: CommentTranslationSettingsSnapshot = CommentTranslationSettings.current()
     if (!settings.useGoogleOnly) {
       try {
         const runtime: LlmSourceRuntimeConfig =
           await LlmSourceRuntimeResolver.resolveComment(context)
-        const llmStartedAt: number = Date.now()
-        DiagnosticLogger.info(
-          'translation',
-          'comment_llm_start',
-          `target=${targetLang} len=${text.length} source=${runtime.sourceProfileId} revision=${runtime.sourceRevision} model=${runtime.modelId}`,
-        )
+        route.kind = 'llm'
+        route.llm = runtime
+        route.llmProfile = TextTranslationPromptProfileRepository.currentSelection()
+        return route
+      } catch (_error) {
+        // Behavior of the current path: an unresolvable LLM binding is an explicit Google fallback,
+        // not a provider call.
+      }
+    }
+    route.kind = settings.useGoogleOnly ? 'google-only' : 'google-fallback'
+    route.llm = null
+    route.llmProfile = null
+    return route
+  }
+
+  /**
+   * Provider dispatch. The route is passed whole, so this method never re-reads the LLM binding,
+   * the prompt profile, or the Google-only flag — every one of those was fixed at resolveRoute
+   * time. An LLM that fails mid-request falls through to Google, and the result is saved
+   * under the LLM scope by translateAndCache.
+   */
+  private static async callTranslation(
+    context: common.UIAbilityContext,
+    text: string,
+    targetLang: string,
+    route: TranslationRoute,
+  ): Promise<string> {
+    if (route.kind === 'llm' && route.llm !== null && route.llmProfile !== null) {
+      const llmStartedAt: number = Date.now()
+      DiagnosticLogger.info(
+        'translation',
+        'comment_llm_start',
+        `target=${targetLang} content=${route.contentKind} source=${route.llm.sourceProfileId} revision=${route.llm.sourceRevision} model=${route.llm.modelId} prompt=${route.llmProfile.promptProfileId} promptRevision=${route.llmProfile.promptRevision}`,
+      )
+      try {
         const llmResult: string = await CommentTranslationService.callLlm(
           context,
           text,
           targetLang,
-          runtime,
+          route.llm,
+          route.llmProfile,
+          route.contentKind,
         )
         DiagnosticLogger.info(
           'translation',
           'comment_llm_done',
-          `target=${targetLang} resultLen=${llmResult.length} elapsedMs=${Date.now() - llmStartedAt}`,
+          `target=${targetLang} content=${route.contentKind} resultLen=${llmResult.length} elapsedMs=${Date.now() - llmStartedAt}`,
         )
         return llmResult
       } catch (error) {
@@ -1021,13 +1118,13 @@ export class CommentTranslationService {
     DiagnosticLogger.info(
       'translation',
       'comment_google_start',
-      `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
+      `target=${targetLang} content=${route.contentKind} route=${route.kind} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
     )
     const googleResult: string = await CommentTranslationService.callGoogle(text, targetLang)
     DiagnosticLogger.info(
       'translation',
       'comment_google_done',
-      `target=${targetLang} resultLen=${googleResult.length} elapsedMs=${Date.now() - googleStartedAt}`,
+      `target=${targetLang} content=${route.contentKind} route=${route.kind} resultLen=${googleResult.length} elapsedMs=${Date.now() - googleStartedAt}`,
     )
     return googleResult
   }
@@ -1037,8 +1134,14 @@ export class CommentTranslationService {
     text: string,
     targetLang: string,
     runtime: LlmSourceRuntimeConfig,
+    llmProfile: TextTranslationPromptProfile,
+    contentKind: string,
   ): Promise<string> {
-    const instructions: string = CommentTranslationService.translationInstructions(targetLang)
+    const instructions: string = TextTranslationPromptComposer.composeInstructions(
+      targetLang,
+      contentKind,
+      llmProfile.styleInstructions,
+    )
     if (runtime.sourceType === LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL) {
       return ExperimentalCodexResponsesTextService.generate(
         context,
@@ -1196,10 +1299,33 @@ export class CommentTranslationService {
     return out
   }
 
-  /** Keeps cached output attached to the selected route, source revision and model. */
-  private static cacheScope(targetLang: string): string {
+  /**
+   * Pure cache-scope builders. Keeping the field layout in exactly one place means unit tests
+   * can prove cache identification without touching V2 state, a binding, or a device: content
+   * kind, source profile id + revision, model, and prompt id + revision. The display name is
+   * deliberately absent, so renaming a profile never changes the scope.
+   */
+  static llmCacheScope(
+    targetLang: string,
+    contentKind: string,
+    sourceProfileId: string,
+    sourceRevision: number,
+    modelId: string,
+    promptProfileId: string,
+    promptRevision: number,
+  ): string {
+    return targetLang + '|' + contentKind + '|' + sourceProfileId + '|r' + sourceRevision +
+      '|' + modelId + '|' + promptProfileId + '|pr' + promptRevision
+  }
+
+  static googleCacheScope(targetLang: string, contentKind: string, googleOnly: boolean): string {
+    const suffix: string = googleOnly ? 'google-v1' : 'google-fallback-v1'
+    return targetLang + '|' + contentKind + '|' + suffix
+  }
+
+  static cacheScopeForKind(targetLang: string, contentKind: string): string {
     if (CommentTranslationSettings.current().useGoogleOnly) {
-      return `${targetLang}|google-v1`
+      return CommentTranslationService.googleCacheScope(targetLang, contentKind, true)
     }
     try {
       const binding: LlmConsumerBinding = LlmSourceProfileRepository.currentBinding(
@@ -1210,12 +1336,43 @@ export class CommentTranslationService {
         binding,
       )
       if (resolution !== null) {
-        return `${targetLang}|${resolution.profile.sourceProfileId}|r${resolution.profile.sourceRevision}|${resolution.modelId}`
+        const prompt: TextTranslationPromptProfile =
+          TextTranslationPromptProfileRepository.currentSelection()
+        return CommentTranslationService.llmCacheScope(
+          targetLang,
+          contentKind,
+          resolution.profile.sourceProfileId,
+          resolution.profile.sourceRevision,
+          resolution.modelId,
+          prompt.promptProfileId,
+          prompt.promptRevision,
+        )
       }
     } catch (_error) {
       // Missing or damaged source selection follows the same explicit Google fallback as the request path.
     }
-    return `${targetLang}|google-fallback-v1`
+    return CommentTranslationService.googleCacheScope(targetLang, contentKind, false)
+  }
+
+  static cacheScopeForRoute(route: TranslationRoute): string {
+    if (route.kind === 'google-only') {
+      return CommentTranslationService.googleCacheScope(route.targetLang, route.contentKind, true)
+    }
+    if (route.kind === 'llm') {
+      if (route.llm === null || route.llmProfile === null) {
+        return CommentTranslationService.googleCacheScope(route.targetLang, route.contentKind, false)
+      }
+      return CommentTranslationService.llmCacheScope(
+        route.targetLang,
+        route.contentKind,
+        route.llm.sourceProfileId,
+        route.llm.sourceRevision,
+        route.llm.modelId,
+        route.llmProfile.promptProfileId,
+        route.llmProfile.promptRevision,
+      )
+    }
+    return CommentTranslationService.googleCacheScope(route.targetLang, route.contentKind, false)
   }
 
   private static cacheKey(text: string, cacheScope: string): string {
@@ -1239,18 +1396,4 @@ export class CommentTranslationService {
     return out.endsWith('/v1') ? out.substring(0, out.length - 3) : out
   }
 
-  private static translationInstructions(targetLang: string): string {
-    return `You are a translator. Translate the following text to ${CommentTranslationService.langName(targetLang)}. ` +
-      'Keep NEXTEATHEX...TOKEN placeholders unchanged. Output ONLY the translated text, no explanations.'
-  }
-
-  private static langName(lang: string): string {
-    if (lang === 'zh-CN') {
-      return 'Simplified Chinese'
-    }
-    if (lang === 'zh-TW') {
-      return 'Traditional Chinese'
-    }
-    return lang
-  }
 }

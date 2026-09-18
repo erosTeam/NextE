@@ -3,6 +3,7 @@ import {
   COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
   CommentTranslationService,
 } from './CommentTranslationService'
+import { TEXT_TRANSLATION_CONTENT_GALLERY_TITLE } from '../model/TextTranslationPromptProfile'
 
 /**
  * Title-facing boundary over the shared short-text translation pipeline.
@@ -18,6 +19,7 @@ export class GalleryTitleTranslationService {
       sourceText,
       false,
       COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
+      TEXT_TRANSLATION_CONTENT_GALLERY_TITLE,
     )
   }
 }
