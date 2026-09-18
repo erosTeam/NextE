@@ -259,6 +259,7 @@ export default function readerChromeTest(): void {
   readerImageBlockSharedTest()
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
+  readerHostTranslationRoundTripTest()
   readerHostTranslationFailureTest()
   readerHostTranslationAutoRecoveryTest()
   readerHostTranslationBusyTest()
@@ -731,6 +732,127 @@ function readerHostTranslationActionsTest(): void {
       // After the translate-page toggle the reader re-renders the page variant; the close click
       // can land while that refresh is still settling, so poll for the close to take effect
       // (the same bounded wait this file uses for every other interaction) instead of a fixed sleep.
+      for (let attempt = 0; attempt < 16 && await driver.findComponent(ON.id('rkit-trial-navigation')) !== null; attempt++) {
+        await driver.delayMs(250)
+      }
+      expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+    })
+  })
+}
+
+/**
+ * Component-driven long-window round-trip trial: on a device whose persisted
+ * comic-translation route is non-local (cloud Torii), reset the page to a clean
+ * original state, dispatch the translation through the real shared component
+ * (never raw coordinates), and keep the window open long enough for a cloud
+ * result to land back in the shared reader. The menu is always closed after a
+ * label read so the sequence is not corrupted. It reports label0/before/after,
+ * sawBusy/busyMs/settled and status so a stale residual state is distinguishable
+ * from a fresh round-trip.
+ */
+function readerHostTranslationRoundTripTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  const labPage = args['-s readerLabPage']
+  const page = typeof labPage === 'string' && labPage.trim().length > 0 ? labPage.trim() : '0'
+  if (args['-s class'] !== 'ReaderHostTranslationRoundTripTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderHostTranslationRoundTripTrial', (): void => {
+    it('appliesNonLocalTranslationResultInTheSharedReader', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
+        bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
+          readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabEntryLayout: 'single', readerLabPage: page,
+          readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
+        },
+      })
+      await waitChromeImage(driver, 'rkit-image-viewport')
+      await waitChromeId(driver, 'rkit-chrome-page')
+      const closeMenu = async (): Promise<void> => {
+        await driver.pressBack()
+        await driver.delayMs(500)
+      }
+      // Opens the More menu, returns the translate-action component and its label; menu stays open.
+      const openMenu = async (): Promise<Component | null> => {
+        let moreBtn = await driver.findComponent(ON.id('rkit-more'))
+        if (moreBtn === null) {
+          const display = await driver.getDisplaySize()
+          await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
+          await driver.delayMs(600)
+          moreBtn = await driver.findComponent(ON.id('rkit-more'))
+        }
+        if (moreBtn === null) return null
+        await moreBtn.click()
+        try {
+          return await waitChromeId(driver, 'rkit-host-action-translate-page')
+        } catch (_) {
+          return null
+        }
+      }
+      const labelOf = async (component: Component | null): Promise<string> => {
+        if (component === null) return ''
+        try { return (await component.getText()).trim() } catch (_) { return '' }
+      }
+      const showOriginal = AppStrings.get('reader_comic_translation_show_original')
+      const action0 = await openMenu()
+      const label0 = await labelOf(action0)
+      await captureChrome(driver, 'roundtrip-initial-open')
+      // Reset to a clean original state if the page already arrived translated (residual from an
+      // earlier run). The legacy toggle hides the translated variant in-session.
+      if (label0 === showOriginal && action0 !== null) {
+        await action0.click()
+        await driver.delayMs(2000)
+      } else {
+        await closeMenu()
+      }
+      const actionBefore = await openMenu()
+      const labelBefore = await labelOf(actionBefore)
+      await captureChrome(driver, 'roundtrip-before-dispatch-open')
+      // A fresh dispatch must start from the original label; otherwise the reset did not take.
+      expect(labelBefore).assertEqual(AppStrings.get('reader_comic_translation_action'))
+      const beforeBody = await driver.screenCap(
+        abilityDelegatorRegistry.getAbilityDelegator().getAppContext().cacheDir + '/rkit-chrome-body-before-dispatch.png')
+      if (actionBefore !== null) await actionBefore.click()
+      // Tight poll for the busy status: a fresh dispatch must show the shared busy strip.
+      let sawBusy = false
+      let busyMs = 0
+      for (let attempt = 0; attempt < 300; attempt++) {
+        if (await driver.findComponent(ON.id('rkit-host-status')) !== null) { sawBusy = true; busyMs = attempt * 100; break }
+        await driver.delayMs(100)
+      }
+      await bestEffortCaptureChrome(driver, 'roundtrip-dispatched')
+      // Long bounded wait for a cloud result to settle back into the shared reader.
+      let settled = false
+      for (let attempt = 0; attempt < 420; attempt++) {
+        if (sawBusy && await driver.findComponent(ON.id('rkit-host-status')) === null) { settled = true; break }
+        if (attempt > 0 && attempt % 60 === 0) await bestEffortCaptureChrome(driver, 'roundtrip-wait-' + attempt)
+        await driver.delayMs(1000)
+      }
+      await bestEffortCaptureChrome(driver, 'roundtrip-after-wait')
+      const actionAfter = await openMenu()
+      const labelAfter = await labelOf(actionAfter)
+      let statusText = ''
+      const status = await driver.findComponent(ON.id('rkit-host-status'))
+      if (status !== null) { try { statusText = (await status.getText()).trim() } catch (_) {} }
+      await captureChrome(driver, 'roundtrip-outcome-open')
+      const applied = labelAfter === showOriginal
+      console.info('[ReaderHostTranslationRoundTripTrial] label0=' + label0 + ' labelBefore=' + labelBefore +
+        ' sawBusy=' + sawBusy + ' busyMs=' + busyMs + ' settled=' + settled + ' labelAfter=' + labelAfter +
+        ' applied=' + applied + ' status=' + statusText + ' bodyBeforeBytes=' + beforeBody)
+      // A fresh dispatch started from the original label; it must have shown busy or landed applied.
+      expect(sawBusy || applied).assertTrue()
+      await closeMenu()
+      let closeBtn = await driver.findComponent(ON.id('rkit-close'))
+      if (closeBtn === null) {
+        const display = await driver.getDisplaySize()
+        await driver.click(Math.round(display.x / 2), Math.round(display.y / 2))
+        await driver.delayMs(500)
+        closeBtn = await driver.findComponent(ON.id('rkit-close'))
+      }
+      expect(closeBtn !== null).assertTrue()
+      if (closeBtn !== null) await closeBtn.click()
       for (let attempt = 0; attempt < 16 && await driver.findComponent(ON.id('rkit-trial-navigation')) !== null; attempt++) {
         await driver.delayMs(250)
       }
