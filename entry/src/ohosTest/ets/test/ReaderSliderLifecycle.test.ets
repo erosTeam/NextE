@@ -12,7 +12,15 @@ async function captureSeek(driver: Driver, name: string): Promise<void> {
   expect(await driver.screenCap(screen)).assertTrue()
 }
 async function seekPage(driver: Driver): Promise<number> {
-  return Number((await (await driver.findComponent(ON.id('rkit-chrome-page'))).getText()).split('/')[0].trim())
+  // The toggle-thumbnails click re-renders the surface, so the page chrome can be transiently
+  // unavailable right after it; wait for it (bounded) instead of reading it once and crashing.
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const chrome = await driver.findComponent(ON.id('rkit-chrome-page'))
+    if (chrome !== null) return Number((await chrome.getText()).split('/')[0].trim())
+    await driver.delayMs(250)
+  }
+  expect(false).assertTrue()
+  return -1
 }
 async function waitSeekOriginal(driver: Driver): Promise<void> {
   for (let attempt = 0; attempt < 40; attempt++) {
@@ -34,7 +42,9 @@ export default function readerSliderLifecycleTest(): void {
       await delegator.startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '', readerLabChrome: 'true',
-          readerLabEntryLayout: 'single' },
+          // Pin the Debug-only entry direction to LTR so the runtime row '右→左' (switch to RTL)
+          // is present to click; device 197/237 persist RTL, where the row would read '左→右'.
+          readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' },
       })
       await driver.delayMs(1800); await waitSeekOriginal(driver)
       await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()
@@ -75,10 +85,40 @@ export default function readerSliderLifecycleTest(): void {
       }
       await driver.delayMs(1200)
       await captureSeek(driver, 'restored')
+      // NextE retires the shared reader route when the app backgrounds (its own
+      // ReaderLifecycleRecoveryTrial / ReaderInformationBackgroundTrial assert that), so the
+      // interrupted gesture cannot be re-observed on the same route. Assert the route retired,
+      // then re-enter explicitly: because the cancelled RTL drag did not commit, the fresh route
+      // opens again on the same page 1 / slider 1.
+      let retired = false
+      for (let attempt = 0; attempt < 40; attempt++) {
+            if (await driver.findComponent(ON.id('rkit-trial-navigation')) === null) { retired = true; break }
+            await driver.delayMs(250)
+      }
+      expect(retired).assertTrue()
+      await delegator.startAbility({
+            bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+        readerLabChrome: 'true', readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' },
+      })
+      await driver.delayMs(1800); await waitSeekOriginal(driver)
       expect(await seekPage(driver)).assertEqual(1)
       expect(Number(await (await driver.findComponent(ON.id('rkit-source-slider'))).getText())).assertEqual(1)
+      // Re-enter pinned LTR, then switch to RTL through the runtime row (the row shows the target,
+      // so '右→左' is present because the fresh route is LTR) and open the rail.
+      await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()
+      await driver.delayMs(400)
+      await (await driver.findComponent(ON.text('右→左'))).click()
+      await driver.delayMs(600)
+      await (await driver.findComponent(ON.id('rkit-toggle-thumbnails'))).click()
+      await driver.delayMs(1800)
+      expect(await seekPage(driver)).assertEqual(1)
       expect(await driver.findComponent(ON.id('rkit-thumbnail-0')) !== null).assertTrue()
-      await driver.swipe(start, y, start - 140, y, 200)
+      const freshSlider = await (await driver.findComponent(ON.id('rkit-source-slider'))).getBounds()
+      const freshY = Math.round((freshSlider.top + freshSlider.bottom) / 2)
+      const freshStart = freshSlider.right - 48
+      await captureSeek(driver, 'rtl-fresh-before')
+      await driver.swipe(freshStart, freshY, freshStart - 140, freshY, 200)
       await driver.delayMs(700)
       const selected = await seekPage(driver)
       expect(selected > 1).assertTrue()

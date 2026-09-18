@@ -666,6 +666,7 @@ function readerHostTranslationActionsTest(): void {
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
           readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabEntryLayout: 'single',
           readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
         },
       })
@@ -725,7 +726,12 @@ function readerHostTranslationActionsTest(): void {
       }
       expect(closeBtn !== null).assertTrue()
       if (closeBtn !== null) await closeBtn.click()
-     await driver.delayMs(500)
+      // After the translate-page toggle the reader re-renders the page variant; the close click
+      // can land while that refresh is still settling, so poll for the close to take effect
+      // (the same bounded wait this file uses for every other interaction) instead of a fixed sleep.
+      for (let attempt = 0; attempt < 16 && await driver.findComponent(ON.id('rkit-trial-navigation')) !== null; attempt++) {
+        await driver.delayMs(250)
+      }
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
     })
   })
@@ -969,6 +975,7 @@ function readerHostSettingsTest(): void {
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
           readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+          readerLabEntryLayout: 'single',
           readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
         },
       })
