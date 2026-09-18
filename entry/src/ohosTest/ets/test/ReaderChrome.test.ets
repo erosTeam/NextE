@@ -278,8 +278,9 @@ export default function readerChromeTest(): void {
         parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
           // This case asserts LTR geometry (slider left edge = page 1). Pin the Debug-only
           // direction so an RTL-persisted device does not reverse the slider and fail on trial
-          // geometry rather than product behavior.
-          readerLabEntryDirection: 'ltr' },
+          // geometry rather than product behavior. Also pin the entry layout single: a device
+          // that persists spread has no single rkit-image-viewport for this case.
+          readerLabEntryDirection: 'ltr', readerLabEntryLayout: 'single' },
       })
       await driver.delayMs(2200)
       // Wait for the surface rather than assuming a fixed 2200 ms; a cold decode can be slower.
@@ -343,8 +344,9 @@ export default function readerChromeTest(): void {
       await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         // Start from a pinned LTR state; the case itself then switches to RTL and back.
+        // Also pin the entry layout single for a device that persists spread.
         parameters: { readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
-          readerLabEntryDirection: 'ltr' },
+          readerLabEntryDirection: 'ltr', readerLabEntryLayout: 'single' },
       })
       await driver.delayMs(1200)
       await waitChromeImage(driver, 'rkit-image-viewport')
