@@ -10,6 +10,7 @@ import {
   MAX_TEXT_TRANSLATION_PROMPT_NAME_CHARS,
   MAX_TEXT_TRANSLATION_STYLE_CHARS,
   SecondaryListScaffold,
+  SectionHeader,
   SettingsTextField,
   TextTranslationPromptContract,
   TextTranslationPromptProfile,
@@ -278,6 +279,152 @@ export struct TextTranslationPromptProfileDetailPage {
     return $r('app.string.common_save')
   }
 
+  @Builder
+  private BuiltInView() {
+    ListItem() {
+      SectionHeader({ title: $r('app.string.text_translation_prompt_detail_built_in') })
+    }
+    .margin({ top: ThemeConstants.SPACE_XS })
+    ListItem() {
+      GroupedListSection() {
+        ConciseListRow({
+          leadingIcon: $r('sys.symbol.doc_plaintext'),
+          title: $r('app.string.llm_source_name'),
+          trailingText: this.nameDraft,
+          showChevron: false,
+        })
+      }
+    }
+    ListItem() {
+      SectionHeader({ title: $r('app.string.text_translation_prompt_style_label') })
+    }
+    .margin({ top: ThemeConstants.SPACE_MD })
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        Text(this.styleDraft)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(22)
+          .width('100%')
+          .padding(ThemeConstants.SPACE_LG)
+          .copyOption(CopyOptions.LocalDevice)
+      }
+    }
+    ListItem() {
+      GroupedListSection() {
+        ConciseListRow({
+          title: this.primaryButtonLabel(),
+          leadingIcon: $r('sys.symbol.checkmark_circle'),
+          showChevron: false,
+          isEnabled: !this.saving,
+          action: () => {
+            this.useCurrentAsSelection()
+          },
+        })
+        ListRowDivider()
+        ConciseListRow({
+          title: $r('app.string.text_translation_prompt_copy_as_custom'),
+          subtitle: $r('app.string.text_translation_prompt_copy_as_custom_hint'),
+          leadingIcon: $r('sys.symbol.square_and_pencil'),
+          showChevron: false,
+          action: () => {
+            this.copyAsCustom()
+          },
+        })
+      }
+    }
+    .margin({ top: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
+  private CustomEditView() {
+    ListItem() {
+      SectionHeader({
+        title: this.promptProfileId.length > 0
+          ? $r('app.string.text_translation_prompt_detail_custom')
+          : $r('app.string.text_translation_prompt_detail_new')
+      })
+    }
+    .margin({ top: ThemeConstants.SPACE_XS })
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        SettingsTextField({
+          label: $r('app.string.llm_source_name'),
+          value: this.nameDraft,
+          placeholder: $r('app.string.text_translation_prompt_name_placeholder'),
+          onChange: (value: string) => {
+            this.nameDraft = value
+          },
+        })
+      }
+    }
+    ListItem() {
+      SectionHeader({ title: $r('app.string.text_translation_prompt_style_label') })
+    }
+    .margin({ top: ThemeConstants.SPACE_MD })
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          TextArea({
+            text: this.styleDraft,
+            placeholder: $r('app.string.text_translation_prompt_style_placeholder'),
+          })
+            .width('100%')
+            .height(180)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+            .padding(ThemeConstants.SPACE_SM)
+            .onChange((value: string) => {
+              this.styleDraft = value
+            })
+          Row() {
+            Blank()
+            Text(`${this.styleDraft.length} / ${MAX_TEXT_TRANSLATION_STYLE_CHARS}`)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          .width('100%')
+          .padding({ right: ThemeConstants.SPACE_XS, top: ThemeConstants.SPACE_XS })
+        }
+        .padding({
+          left: ThemeConstants.SPACE_MD,
+          right: ThemeConstants.SPACE_MD,
+          top: ThemeConstants.SPACE_SM,
+          bottom: ThemeConstants.SPACE_SM,
+        })
+        .width('100%')
+      }
+    }
+    ListItem() {
+      GroupedListSection() {
+        ConciseListRow({
+          title: this.primaryButtonLabel(),
+          leadingIcon: $r('sys.symbol.checkmark_circle'),
+          showChevron: false,
+          isEnabled: !this.saving && !this.deleting,
+          action: () => {
+            this.save()
+          },
+        })
+        if (this.sourceIsCustom && this.promptProfileId.length > 0) {
+          ListRowDivider()
+          ConciseListRow({
+            title: $r('app.string.common_delete'),
+            leadingIcon: $r('sys.symbol.trash'),
+            destructive: true,
+            showChevron: false,
+            isEnabled: !this.saving && !this.deleting,
+            action: () => {
+              this.confirmDelete()
+            },
+          })
+        }
+      }
+    }
+    .margin({ top: ThemeConstants.SPACE_MD })
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -286,85 +433,10 @@ export struct TextTranslationPromptProfileDetailPage {
         alwaysEnableEdgeSpring: true,
       }) {
         if (this.loaded) {
-          ListItem() {
-            GroupedListSection({ inset: 0 }) {
-              Column({ space: ThemeConstants.SPACE_SM }) {
-                SettingsTextField({
-                  label: $r('app.string.llm_source_name'),
-                  value: this.nameDraft,
-                  placeholder: $r('app.string.text_translation_prompt_name_placeholder'),
-                  isEnabled: !this.builtIn,
-                  onChange: (value: string) => {
-                    this.nameDraft = value
-                  },
-                })
-                Text($r('app.string.text_translation_prompt_style_label'))
-                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                  .fontColor($r('sys.color.font_secondary'))
-                  .width('100%')
-                TextArea({
-                  text: this.styleDraft,
-                  placeholder: $r('app.string.text_translation_prompt_style_placeholder'),
-                })
-                  .width('100%')
-                  .height(180)
-                  .backgroundColor(Color.Transparent)
-                  .enabled(!this.builtIn)
-                  .onChange((value: string) => {
-                    this.styleDraft = value
-                  })
-              }
-              .padding(ThemeConstants.SPACE_MD)
-              .width('100%')
-            }
-          }
-          ListItem() {
-            GroupedListSection() {
-              if (this.builtIn) {
-                ConciseListRow({
-                  title: this.primaryButtonLabel(),
-                  leadingIcon: $r('sys.symbol.checkmark_circle'),
-                  showChevron: false,
-                  isEnabled: !this.saving,
-                  action: () => {
-                    this.useCurrentAsSelection()
-                  },
-                })
-                ListRowDivider()
-                ConciseListRow({
-                  title: $r('app.string.text_translation_prompt_copy_as_custom'),
-                  subtitle: $r('app.string.text_translation_prompt_copy_as_custom_hint'),
-                  leadingIcon: $r('sys.symbol.square_and_pencil'),
-                  showChevron: false,
-                  action: () => {
-                    this.copyAsCustom()
-                  },
-                })
-              } else {
-                ConciseListRow({
-                  title: this.primaryButtonLabel(),
-                  leadingIcon: $r('sys.symbol.checkmark_circle'),
-                  showChevron: false,
-                  isEnabled: !this.saving && !this.deleting,
-                  action: () => {
-                    this.save()
-                  },
-                })
-                if (this.sourceIsCustom) {
-                  ListRowDivider()
-                  ConciseListRow({
-                    title: $r('app.string.common_delete'),
-                    leadingIcon: $r('sys.symbol.trash'),
-                    destructive: true,
-                    showChevron: false,
-                    isEnabled: !this.saving && !this.deleting,
-                    action: () => {
-                      this.confirmDelete()
-                    },
-                  })
-                }
-              }
-            }
+          if (this.builtIn) {
+            this.BuiltInView()
+          } else {
+            this.CustomEditView()
           }
         }
       }

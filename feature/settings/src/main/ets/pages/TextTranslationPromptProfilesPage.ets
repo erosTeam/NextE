@@ -3,9 +3,10 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
   ConciseListRow,
-  GroupedListSection,
-  SecondaryListScaffold,
-  TextTranslationPromptCatalog,
+ GroupedListSection,
+ SecondaryListScaffold,
+  SectionHeader,
+ TextTranslationPromptCatalog,
   TextTranslationPromptProfile,
   TextTranslationPromptProfilesState,
   ThemeConstants,
@@ -82,42 +83,42 @@ export struct TextTranslationPromptProfilesPage {
         bottomPadding: ThemeConstants.SPACE_XL,
         alwaysEnableEdgeSpring: true,
       }) {
+       ListItem() {
+          SectionHeader({ title: $r('app.string.text_translation_prompt_builtin_group') })
+        }
+        .margin({ top: ThemeConstants.SPACE_XS })
         ListItem() {
           GroupedListSection() {
-            Text($r('app.string.text_translation_prompt_builtin_group'))
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-              .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
             ForEach(
               TextTranslationPromptCatalog.builtInProfiles(),
               (profile: TextTranslationPromptProfile, index: number) => {
-                this.ProfileRow(profile)
-                if (index < TextTranslationPromptCatalog.builtInProfiles().length - 1) {
+                if (index > 0) {
                   ListRowDivider()
                 }
+                this.ProfileRow(profile)
               },
               (profile: TextTranslationPromptProfile) => profile.promptProfileId,
             )
           }
         }
-        ListItem() {
-          GroupedListSection() {
-            Text($r('app.string.text_translation_prompt_custom_group'))
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-              .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-            ForEach(
-              this.profiles.customProfiles,
-              (profile: TextTranslationPromptProfile, index: number) => {
-                this.ProfileRow(profile.copy())
-                if (index < this.profiles.customProfiles.length - 1) {
-                  ListRowDivider()
-                }
-              },
-              (profile: TextTranslationPromptProfile) => profile.promptProfileId,
-            )
+        if (this.profiles.customProfiles.length > 0) {
+          ListItem() {
+            SectionHeader({ title: $r('app.string.text_translation_prompt_custom_group') })
+          }
+          .margin({ top: ThemeConstants.SPACE_MD })
+          ListItem() {
+            GroupedListSection() {
+              ForEach(
+                this.profiles.customProfiles,
+                (profile: TextTranslationPromptProfile, index: number) => {
+                  if (index > 0) {
+                    ListRowDivider()
+                  }
+                  this.ProfileRow(profile.copy())
+                },
+                (profile: TextTranslationPromptProfile) => profile.promptProfileId,
+              )
+            }
           }
         }
         ListItem() {
@@ -125,13 +126,14 @@ export struct TextTranslationPromptProfilesPage {
             ConciseListRow({
               title: $r('app.string.text_translation_prompt_new'),
               leadingIcon: $r('sys.symbol.plus'),
-              showChevron: false,
+              showChevron: true,
               action: () => {
                 this.openNewCustom()
               },
             })
           }
         }
+        .margin({ top: ThemeConstants.SPACE_MD })
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('text_translation_prompt_profiles_title')))
