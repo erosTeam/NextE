@@ -224,7 +224,8 @@ export default function readerVolumeKeysTest(): void {
       const delegator = abilityDelegatorRegistry.getAbilityDelegator()
       await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr' } })
+          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr',
+          readerLabEntryLayout: 'single' } })
       await driver.delayMs(1800); await volumeImage(driver)
       expect(await volumePage(driver)).assertEqual(1)
       await captureVolume(driver, 'baseline')
@@ -289,7 +290,8 @@ export default function readerVolumeKeysTest(): void {
       // A fresh explicit entry re-arms volume-key turning on the new route.
       await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
         parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
-          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr' } })
+          readerLabChrome: 'true', readerLabVolumeKeys: 'true', readerLabEntryDirection: 'ltr',
+          readerLabEntryLayout: 'single' } })
       await driver.delayMs(1800); await volumeImage(driver)
       const reentered = await volumePage(driver)
       // Assert the transition, not a fixed page: the fresh route may resume a stored position.

@@ -33,7 +33,8 @@ export default function readerSliderLifecycleTest(): void {
       const delegator = abilityDelegatorRegistry.getAbilityDelegator()
       await delegator.startAbility({
         bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
-        parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '', readerLabChrome: 'true' },
+        parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '', readerLabChrome: 'true',
+          readerLabEntryLayout: 'single' },
       })
       await driver.delayMs(1800); await waitSeekOriginal(driver)
       await (await driver.findComponent(ON.id('rkit-runtime-settings'))).click()

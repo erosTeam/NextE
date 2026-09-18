@@ -110,6 +110,10 @@ export default function readerSpreadLayoutTest(): void {
         await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
           parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
             readerLabPage: String(source), readerLabChrome: 'true', readerLabVolumeKeys: 'false',
+            // Start from single-page: this case toggles spread itself. A device that persists a spread
+            // layout would otherwise open two panes and fail on trial geometry, not product behavior
+            // (the same Debug-only launch-parameter pin the RTL direction case uses).
+            readerLabEntryLayout: 'single',
             // This trial asserts LTR geometry (slider right edge = last page; "forward" swipe = next).
             // Pin direction so an RTL-persisted device cannot reverse the slider/gesture axis and
             // fail on trial geometry rather than product behavior. Debug-only Want; never persisted.
