@@ -264,6 +264,7 @@ export default function readerChromeTest(): void {
   readerHostTranslationAutoRecoveryTest()
   readerHostTranslationBusyTest()
   readerEnhancementStatusTest()
+  readerEnhancementResultTest()
   readerManualReloadTest()
   readerLifecycleRecoveryTest()
   readerFailurePresentationTest()
@@ -432,6 +433,74 @@ function readerEnhancementStatusTest(): void {
         await captureChrome(driver, 'enhancement-hidden')
       } catch (error) {
         await bestEffortCaptureChrome(driver, 'enhancement-exception')
+        throw error as Error
+      } finally {
+        readMode.superResolutionEnabled = previousEnabled
+        readMode.superResolutionModel = previousModel
+        readMode.superResolutionMaxHeight = previousMaxHeight
+        await bestEffortCloseChromeTrial(driver)
+      }
+    })
+  })
+}
+
+
+/** NextE real super-resolution RESULT: a genuine enhanced derivative for the visible page. */
+function readerEnhancementResultTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderEnhancementResultTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderEnhancementResultTrial', (): void => {
+    it('appliesARealEnhancedDerivativeForTheVisiblePage', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const readMode = connectReadMode()
+      const previousEnabled = readMode.superResolutionEnabled
+      const previousModel = readMode.superResolutionModel
+      const previousMaxHeight = readMode.superResolutionMaxHeight
+      clearChromeCaptures(['enhancement-result', 'enhancement-result-info'])
+      await bestEffortCloseChromeTrial(driver)
+      try {
+        await startFreshChromeTrial(driver, work, unit, -1, 0, 'single', false, (): void => {
+          readMode.superResolutionEnabled = true
+          readMode.superResolutionModel = ReaderSuperResolutionModel.SYSTEM_CORE_VISION
+          readMode.superResolutionMaxHeight = 2000
+        })
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        await captureChrome(driver, 'enhancement-result')
+        const appliedToken = AppStrings.get('reader_image_info_enhancement_applied').replace('%s', '')
+        let applied = false
+        let lastMessage = ''
+        for (let attempt = 0; attempt < 30 && !applied; attempt++) {
+          const more = await driver.findComponent(ON.id('rkit-more'))
+          if (more !== null && await more.isEnabled()) {
+            await more.click()
+            await driver.delayMs(400)
+            let info = await driver.findComponent(ON.id('rkit-image-info'))
+            if (info === null) info = await driver.findComponent(ON.id('rkit-image-info-spread'))
+            if (info !== null && await info.isEnabled()) {
+              await info.click()
+              await driver.delayMs(500)
+              const dialog = await driver.findComponent(ON.type('AlertDialog'))
+              if (dialog !== null) {
+                lastMessage = await dialog.getText()
+                if (lastMessage.indexOf(appliedToken) >= 0) applied = true
+                await captureChrome(driver, 'enhancement-result-info')
+                try { await driver.pressBack() } catch (_) {}
+                await driver.delayMs(300)
+              }
+            } else {
+              await driver.pressBack(); await driver.delayMs(300)
+            }
+          }
+          if (!applied) await driver.delayMs(1000)
+        }
+        abilityDelegatorRegistry.getAbilityDelegator().print(
+          `[EnhResult] applied=${applied} token=${appliedToken} last=${JSON.stringify(lastMessage)}`)
+        expect(applied).assertTrue()
+      } catch (error) {
+        await bestEffortCaptureChrome(driver, 'enhancement-result-exception')
         throw error as Error
       } finally {
         readMode.superResolutionEnabled = previousEnabled
