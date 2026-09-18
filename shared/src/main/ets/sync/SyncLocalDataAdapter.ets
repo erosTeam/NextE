@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { LocalDataStore } from '../storage/LocalDataStore'
+import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
 import {
   PROFILE_TYPE_GALLERY,
   STARTER_ANTHOLOGY_UUID,
@@ -213,6 +214,9 @@ export class SyncLocalDataAdapter {
       )
       await SyncLocalDataAdapter.applyImageBlockRules(store, envelope.datasets.imageBlockRules)
       await SyncLocalDataAdapter.applyCustomProfiles(store, envelope.datasets.customProfiles)
+      if (envelope.datasets.customProfiles.length > 0) {
+        await CustomProfilesRepository.repairResourceNamesWithStore(store)
+      }
       store.commit()
     } catch (error) {
       store.rollBack()

@@ -310,3 +310,40 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
   the physical RDB/AGC key column is `(scope_key, profile_uuid)`.
 
 Search and profile order are carried by `position_index` from the winning record.
+
+## Custom-profile name integrity (resource keys must never persist)
+
+Status: fix implemented and verified on the real device path (2026-09-18).
+
+A built-in custom profile keeps a stable uuid, and its visible label is a presentation resource, not
+user text: `builtin-default` / `builtin-popular` / `builtin-watched` / `starter-language-chinese` /
+`starter-other-anthology` must resolve through `home_source_*` / `tab_seed_*`. `AppStrings.get()` returns
+the key itself when the string resource cannot be resolved (e.g. the locale/resource manager is not yet
+ready). If that key is written into `custom_profiles.name`, it becomes durable user-looking text and then
+synchronizes to every device, so a device shows `home_source_default` where it should show `默认`.
+
+**Historical evidence that this really happened (real UI artifacts, not this session test DB):**
+`.hvigor/outputs/nexte-layoutprobe/run/single.json` (197, 11:35) shows `home_source_default` /
+`home_source_popular`; `.hvigor/outputs/nexte-probe-ground/run/t6.json` (197, 09:48) shows
+`home_source_popular` / `home_source_watched`; `.hvigor/outputs/nexte-237-hostsettings-2594d6f/run/open.json`
+(237, 12:47) shows `home_source_popular` / `home_source_watched` / `tab_seed_chinese`. These are the actual
+tab labels those builds rendered, so the corruption existed before the fix.
+
+**Fix:** `shared/src/main/ets/settings/CustomProfileNames.ets` centralizes the reserved-uuid to resource-key
+map and refuses an unresolved key as a name. `CustomProfilesRepository.repairResourceNames*` re-reads the
+active (`deleted_at = 0`, `scope = global`) rows and, only when a reserved uuid name still equals its own
+key, rewrites `name` (and advances `last_edit_time` past any incoming future clock) under an optimistic
+`WHERE name = ? AND last_edit_time = ?` guard, so a genuine custom rename is never overwritten. It runs from
+`CustomProfilesSettings.restore` (startup), `flushForSync` (before every export, WebDAV and Huawei Cloud), and
+`SyncLocalDataAdapter.applyEnvelope` (after applying a remote envelope, inside the same transaction). New
+writes are additionally guarded by `assertPersistable`, so a key can no longer be stored.
+
+**Device verification (237 VDE-AL00, real app store `/data/storage/el2/database/entry`):** after injecting the
+five key names back into the live `custom_profiles` rows (clock `1789745348931`), a single ordinary cold
+start (no test call, no manual repair) restored all five to `默认 / 热门 / 订阅 / 中文 / 选集` with a bumped
+clock (`1789745364131`..4133), and a second cold start left the names and clocks byte-identical - so the
+repair fires once and does not churn on every launch. Custom rows and order were untouched.
+
+> Correction: an earlier note in this session claimed the real store "was never polluted" and that this was
+> "NextN not NextE". Both were wrong. The pollution is a real NextE history (the UI artifacts above), and the
+> mid-session "clean" reads only showed that the freshly installed fix build had already repaired the rows.

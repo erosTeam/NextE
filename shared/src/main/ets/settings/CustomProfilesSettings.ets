@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
-import { AppStrings } from '../i18n/AppStrings'
+import { CustomProfileNames } from './CustomProfileNames'
 import { ListMode } from '../state/ListModeState'
 import { connectCustomProfiles, CustomProfilesState } from '../state/CustomProfilesState'
 import {
@@ -99,6 +99,7 @@ export class CustomProfilesSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await CustomProfilesSettings.migrateLegacyPreferences(context)
+      await CustomProfilesSettings.repairResourceNames(context)
       for (let attempt: number = 0; attempt < 2; attempt++) {
         await CustomProfilesSettings.rdbWriteScheduler.flush()
         const revision: number = CustomProfilesSettings.mutationRevision
@@ -340,8 +341,17 @@ export class CustomProfilesSettings {
   }
 
   /** Drain queued writes before backup and sync providers read the custom-profile tables. */
-  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+  static async flushForSync(context: common.UIAbilityContext): Promise<void> {
     await CustomProfilesSettings.rdbWriteScheduler.flush()
+    await CustomProfilesSettings.repairResourceNames(context)
+  }
+
+  private static async repairResourceNames(context: common.UIAbilityContext): Promise<void> {
+    await CustomProfilesSettings.enqueueRdbWrite(async (): Promise<void> => {
+      if (await CustomProfilesRepository.repairResourceNames(context)) {
+        SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_name_repair')
+      }
+    })
   }
 
   // ---- internals ----
@@ -393,21 +403,21 @@ export class CustomProfilesSettings {
     out.push(
       CustomProfilesSettings.builtin(
         BUILTIN_DEFAULT_UUID,
-        AppStrings.get('home_source_default'),
+        CustomProfileNames.defaultName('home_source_default'),
         PROFILE_TYPE_GALLERY,
       ),
     )
     out.push(
       CustomProfilesSettings.builtin(
         BUILTIN_POPULAR_UUID,
-        AppStrings.get('home_source_popular'),
+        CustomProfileNames.defaultName('home_source_popular'),
         PROFILE_TYPE_POPULAR,
       ),
     )
     out.push(
       CustomProfilesSettings.builtin(
         BUILTIN_WATCHED_UUID,
-        AppStrings.get('home_source_watched'),
+        CustomProfileNames.defaultName('home_source_watched'),
         PROFILE_TYPE_WATCHED,
       ),
     )
@@ -415,14 +425,14 @@ export class CustomProfilesSettings {
     out.push(
       CustomProfilesSettings.starter(
         STARTER_CHINESE_UUID,
-        AppStrings.get('tab_seed_chinese'),
+        CustomProfileNames.defaultName('tab_seed_chinese'),
         'language:chinese',
       ),
     )
     out.push(
       CustomProfilesSettings.starter(
         STARTER_ANTHOLOGY_UUID,
-        AppStrings.get('tab_seed_anthology'),
+        CustomProfileNames.defaultName('tab_seed_anthology'),
         'other:anthology',
       ),
     )
@@ -460,21 +470,21 @@ export class CustomProfilesSettings {
     changed = CustomProfilesSettings.addMissingBuiltin(
       out,
       BUILTIN_DEFAULT_UUID,
-      AppStrings.get('home_source_default'),
+      'home_source_default',
       PROFILE_TYPE_GALLERY,
       '',
     ) || changed
     changed = CustomProfilesSettings.addMissingBuiltin(
       out,
       BUILTIN_POPULAR_UUID,
-      AppStrings.get('home_source_popular'),
+      'home_source_popular',
       PROFILE_TYPE_POPULAR,
       BUILTIN_DEFAULT_UUID,
     ) || changed
     changed = CustomProfilesSettings.addMissingBuiltin(
       out,
       BUILTIN_WATCHED_UUID,
-      AppStrings.get('home_source_watched'),
+      'home_source_watched',
       PROFILE_TYPE_WATCHED,
       BUILTIN_POPULAR_UUID,
     ) || changed
@@ -508,7 +518,9 @@ export class CustomProfilesSettings {
     if (CustomProfilesSettings.indexOfUuid(profiles, uuid) >= 0) {
       return false
     }
-    const profile: CustomProfile = CustomProfilesSettings.builtin(uuid, name, listType)
+    const profile: CustomProfile = CustomProfilesSettings.builtin(
+      uuid, CustomProfileNames.defaultName(name), listType,
+    )
     const afterIndex: number =
       afterUuid.length > 0 ? CustomProfilesSettings.indexOfUuid(profiles, afterUuid) : -1
     if (afterIndex >= 0) {
@@ -534,13 +546,13 @@ export class CustomProfilesSettings {
 
   private static builtinName(uuid: string): string {
     if (uuid === BUILTIN_DEFAULT_UUID) {
-      return AppStrings.get('home_source_default')
+      return CustomProfileNames.defaultName('home_source_default')
     }
     if (uuid === BUILTIN_POPULAR_UUID) {
-      return AppStrings.get('home_source_popular')
+      return CustomProfileNames.defaultName('home_source_popular')
     }
     if (uuid === BUILTIN_WATCHED_UUID) {
-      return AppStrings.get('home_source_watched')
+      return CustomProfileNames.defaultName('home_source_watched')
     }
     return ''
   }
@@ -551,7 +563,7 @@ export class CustomProfilesSettings {
     profiles.forEach((p: CustomProfile) => {
       if (p.searchText === 'language:chinese' && p.name === '汉化') {
         const c: CustomProfile = p.copy()
-        c.name = AppStrings.get('tab_seed_chinese')
+        c.name = CustomProfileNames.defaultName('tab_seed_chinese')
         out.push(c)
         changed = true
       } else {

@@ -7,6 +7,7 @@ import {
   PROFILE_TYPE_GALLERY,
 } from '../model/CustomProfile'
 import { LocalDataStore } from './LocalDataStore'
+import { CustomProfileNames } from '../settings/CustomProfileNames'
 
 const SCOPE_GLOBAL: string = 'global'
 const SQL_SELECT_PROFILES: string =
@@ -88,6 +89,46 @@ class CustomProfileClock {
 }
 
 export class CustomProfilesRepository {
+  /** Repair names only; never rewrite positions, selection, filters or tombstones. */
+  static async repairResourceNames(context: common.UIAbilityContext): Promise<boolean> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      const repaired: boolean = await CustomProfilesRepository.repairResourceNamesWithStore(store)
+      store.commit()
+      return repaired
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
+  /** Caller owns the transaction, including WebDAV conflict resolution. */
+  static async repairResourceNamesWithStore(store: relationalStore.RdbStore): Promise<boolean> {
+    const rows: CustomProfile[] = []
+    const result: relationalStore.ResultSet = await store.querySql(SQL_SELECT_PROFILES, [SCOPE_GLOBAL])
+    try {
+      while (result.goToNextRow()) rows.push(CustomProfilesRepository.readProfile(result))
+    } finally {
+      result.close()
+    }
+    let repaired: boolean = false
+    for (let i: number = 0; i < rows.length; i++) {
+      const row: CustomProfile = rows[i]
+      const name: string = CustomProfileNames.repair(row.uuid, row.name)
+      if (name === row.name) continue
+      const clock: number = Math.max(Date.now(), row.lastEditTime + 1)
+      await store.executeSql(
+        'UPDATE custom_profiles SET name = ?, last_edit_time = ? ' +
+        'WHERE scope_key = ? AND profile_uuid = ? AND name = ? ' +
+        'AND COALESCE(last_edit_time, 0) = ? AND COALESCE(deleted_at, 0) = 0',
+        [name, clock, SCOPE_GLOBAL, row.uuid, row.name, row.lastEditTime],
+      )
+      repaired = true
+    }
+    return repaired
+  }
+
   /** Any profile or selection row, including a tombstone, makes RDB canonical over stale legacy JSON. */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -235,6 +276,7 @@ export class CustomProfilesRepository {
     if (profile.uuid.length === 0) {
       return
     }
+    CustomProfileNames.assertPersistable(profile.uuid, profile.name)
     await store.executeSql(authoritative ? SQL_REPLACE_PROFILE : SQL_UPSERT_PROFILE, [
       SCOPE_GLOBAL,
       profile.uuid,
