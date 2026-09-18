@@ -1,8 +1,12 @@
 import { describe, expect, it } from '@ohos/hypium'
 import { abilityDelegatorRegistry, Component, Driver, MatchPattern, ON, PointerMatrix } from '@kit.TestKit'
 import { fileIo } from '@kit.CoreFileKit'
+import { common } from '@kit.AbilityKit'
 import { connectNextEReaderLabContextProbe, connectNextEReaderTranslationProbe } from 'reader'
-import { AppStrings, connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel } from 'shared'
+import { AppStrings, connectImageBlockSettings, connectReadMode, ReaderSuperResolutionModel,
+  ComicVisualProviderSettings, ComicVisualProviderSettingsSnapshot, COMIC_VISUAL_ROUTE_SELF_HOSTED,
+  MangaRenderingServiceSettings, MangaRenderingServiceSettingsSnapshot, MangaRenderingServiceCredential,
+  MangaRenderingServiceSecretStore } from 'shared'
 
 const CHROME_CAPTURE_PREFIX: string = 'rkit-chrome-'
 
@@ -260,6 +264,7 @@ export default function readerChromeTest(): void {
   readerHostSettingsTest()
   readerHostTranslationActionsTest()
   readerHostTranslationRoundTripTest()
+  readerSelfHostedPublishTest()
   readerHostTranslationFailureTest()
   readerHostTranslationAutoRecoveryTest()
   readerHostTranslationBusyTest()
@@ -857,6 +862,108 @@ function readerHostTranslationRoundTripTest(): void {
         await driver.delayMs(250)
       }
       expect(await driver.findComponent(ON.id('rkit-trial-navigation'))).assertNull()
+    })
+  })
+}
+
+async function waitSelfHostedVisible(driver: Driver, value: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const found = await driver.findComponent(ON.text(value))
+    if (found !== null) {
+      try { return (await found.getText()) === value } catch (_) { return false }
+    }
+    await driver.delayMs(50)
+  }
+  return false
+}
+
+/**
+ * Self-hosted route through the shared surface: snapshot the device's visual route,
+ * render-service endpoint and sidecar credential, temporarily configure the
+ * self-hosted route (sidecar baseUrl + QA credential), drive the shared translate
+ * action on a real page and observe the applied translated result, then restore all
+ * three snapshots exactly and verify. This is a settings-write requirement, so it is
+ * a named device protocol only and restores the pre-run state on every exit path.
+ */
+function readerSelfHostedPublishTest(): void {
+  const args = abilityDelegatorRegistry.getArguments().parameters
+  const work = args['-s readerLabWork']
+  const unit = args['-s readerLabUnit']
+  if (args['-s class'] !== 'ReaderSelfHostedPublishTrial' || typeof work !== 'string' ||
+    typeof unit !== 'string') return
+  describe('ReaderSelfHostedPublishTrial', (): void => {
+    it('publishesTheSelfHostedTranslationThroughTheSharedSurface', 0, async (): Promise<void> => {
+      const driver = Driver.create()
+      const delegator = abilityDelegatorRegistry.getAbilityDelegator()
+      const context = delegator.getAppContext() as common.UIAbilityContext
+      // Snapshot the three settings this trial temporarily changes.
+      const originalVisual: ComicVisualProviderSettingsSnapshot =
+        await ComicVisualProviderSettings.load(context)
+      const originalRender: MangaRenderingServiceSettingsSnapshot =
+        await MangaRenderingServiceSettings.load(context)
+      const originalCredential: MangaRenderingServiceCredential =
+        await MangaRenderingServiceSecretStore.read(context)
+      let restored = false
+      let failed = false
+      try {
+        // Temporarily point the device at the QA sidecar with the known QA credential.
+        const visual = new ComicVisualProviderSettingsSnapshot()
+        visual.route = COMIC_VISUAL_ROUTE_SELF_HOSTED
+        visual.multimodalTranslationEnabled = originalVisual.multimodalTranslationEnabled
+        visual.toriiModelId = originalVisual.toriiModelId
+        visual.toriiFontId = originalVisual.toriiFontId
+        await ComicVisualProviderSettings.save(context, visual)
+        const render = new MangaRenderingServiceSettingsSnapshot()
+        render.baseUrl = 'http://192.168.50.133:8001'
+        render.detectionProfile = originalRender.detectionProfile
+        render.inpaintingProfile = originalRender.inpaintingProfile
+        await MangaRenderingServiceSettings.save(context, render)
+        await MangaRenderingServiceSecretStore.save(context,
+          MangaRenderingServiceCredential.account('nexte_qa_0728', 'QaSidecar0728'))
+
+        await startFreshChromeTrial(driver, work, unit, -1, 0, 'single', true)
+        await waitChromeImage(driver, 'rkit-image-viewport')
+        const showOriginal = AppStrings.get('reader_comic_translation_show_original')
+        const failedLabel = AppStrings.get('reader_comic_translation_failed')
+        const actionLabel = AppStrings.get('reader_comic_translation_action')
+        const more = await waitChromeId(driver, 'rkit-more')
+        await more.click()
+        const action = await waitChromeId(driver, 'rkit-host-action-translate-page')
+        await captureChrome(driver, 'selfhosted-before')
+        expect(await action.isEnabled()).assertTrue()
+        await action.click()
+        let applied = false
+        let hostOutcome = ''
+        for (let attempt = 0; attempt < 540; attempt++) {
+          if (await waitSelfHostedVisible(driver, showOriginal)) { applied = true; break }
+          if (await waitSelfHostedVisible(driver, failedLabel)) { hostOutcome = failedLabel; break }
+          if (attempt > 0 && attempt % 60 === 0) { try { await captureChrome(driver, 'selfhosted-wait-' + attempt) } catch (_) {} }
+          await driver.delayMs(1000)
+        }
+        await captureChrome(driver, 'selfhosted-outcome')
+        console.info('[ReaderSelfHostedPublishTrial] applied=' + applied + ' hostOutcome=' + hostOutcome +
+          ' actionLabel=' + actionLabel)
+        expect(applied).assertTrue()
+      } catch (error) {
+        failed = true
+        try { await captureChrome(driver, 'selfhosted-exception') } catch (_) {}
+        throw error as Error
+      } finally {
+        try { await bestEffortCloseChromeTrial(driver) } catch (_) {}
+        // Restore every snapshotted setting exactly, then verify the route round-trips.
+        await MangaRenderingServiceSecretStore.save(context, originalCredential)
+        await MangaRenderingServiceSettings.save(context, originalRender)
+        await ComicVisualProviderSettings.save(context, originalVisual)
+        const readBack: ComicVisualProviderSettingsSnapshot =
+          await ComicVisualProviderSettings.load(context)
+        const readRender: MangaRenderingServiceSettingsSnapshot =
+          await MangaRenderingServiceSettings.load(context)
+        expect(readBack.route).assertEqual(originalVisual.route)
+        expect(readRender.baseUrl).assertEqual(originalRender.baseUrl)
+        restored = true
+        console.info('[ReaderSelfHostedPublishTrial] restored=' + restored + ' route=' +
+          readBack.route + ' failed=' + failed)
+      }
     })
   })
 }
