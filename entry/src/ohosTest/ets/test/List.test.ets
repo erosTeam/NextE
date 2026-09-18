@@ -91,6 +91,7 @@ import comicLocalProductionQualityTest from './ComicLocalProductionQuality.test'
 import comicLocalExternalReplayTest from './ComicLocalExternalReplay.test'
 import readerProgressDurabilityTest from './ReaderProgressDurability.test'
 import readerLocalSourceTrialTest from './ReaderLocalSourceTrial.test'
+import customProfileNameVerifyTrialTest from './CustomProfileNameRepair.test'
 import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test'
 import readerBackendSelectionTest from './ReaderBackendSelection.test'
 import nextERuntimeContinuityTest from './ReaderRuntimeContinuity.test'
@@ -189,6 +190,7 @@ export default function testsuite(): void {
   comicLocalExternalReplayTest()
   readerProgressDurabilityTest()
   readerLocalSourceTrialTest()
+  customProfileNameVerifyTrialTest()
   readerLegacyEnhancementCrashTrialTest()
   readerBackendSelectionTest()
   nextERuntimeContinuityTest()
