@@ -906,6 +906,7 @@ function readerHostTranslationFailureTest(): void {
         await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
           bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
             readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+            readerLabEntryLayout: 'single',
             readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
           },
         })
@@ -976,6 +977,7 @@ function readerHostTranslationAutoRecoveryTest(): void {
           await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
             bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
               readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+            readerLabEntryLayout: 'single',
               readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
             },
           })
@@ -1051,6 +1053,7 @@ function readerHostTranslationBusyTest(): void {
         await abilityDelegatorRegistry.getAbilityDelegator().startAbility({
           bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility', parameters: {
             readerLabWork: work, readerLabUnit: unit, readerLabChrome: 'true',
+            readerLabEntryLayout: 'single',
             readerLabPreferencesReadWrite: 'true', readerLabVolumeKeys: 'false',
           },
         })
