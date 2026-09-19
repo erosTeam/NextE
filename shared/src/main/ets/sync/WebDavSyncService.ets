@@ -64,6 +64,13 @@ class WebDavBuiltShard {
   updatedAt: number = 0
 }
 
+class DiscoveredRemoteShard {
+  id: string = ''
+  path: string = ''
+  contentLength: number = 0
+  lastModifiedMs: number = 0
+}
+
 @Concurrent
 function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
   const shardCount: number = 64
@@ -442,6 +449,9 @@ export class WebDavSyncService {
         `attempt=${attempt + 1},exists=${manifestRemote.exists},durationMs=${Date.now() - manifestStartedAt}`,
       )
       const manifest: SyncManifestV1 = WebDavSyncService.parseManifest(manifestRemote.body)
+      if (manifest.corrupted) {
+        await WebDavSyncService.preserveUnknownRemoteDatasets(rootUrl, manifest, config)
+      }
       await WebDavSyncService.ensureCollections(
         rootUrl,
         config,
@@ -519,18 +529,19 @@ export class WebDavSyncService {
       CONNECT_TIMEOUT_MS,
       READ_TIMEOUT_MS,
     )
-    const code: number = resp.statusCode
-    if (code === 404) {
-      return out
-    }
-    if (code < 200 || code >= 300) {
-      throw new Error(`WebDAV GET failed: HTTP ${code}`)
-    }
-    out.body = resp.body
-    out.exists = true
-    out.etag = resp.etag
-    return out
-  }
+   const code: number = resp.statusCode
+   if (code === 404) {
+     return out
+   }
+   if (code < 200 || code >= 300) {
+     throw new Error(`WebDAV GET failed: HTTP ${code}`)
+   }
+   WebDavSyncService.verifyTransferIntegrity(url, resp)
+   out.body = resp.body
+   out.exists = true
+   out.etag = resp.etag
+   return out
+ }
 
   static async writeRemote(url: string, config: WebDavSyncConfig, raw: string): Promise<void> {
     const header: Record<string, string> = WebDavSyncService.headers(config)
@@ -588,7 +599,12 @@ export class WebDavSyncService {
   }
 
   private static async readRemoteOptional(url: string, config: WebDavSyncConfig): Promise<string> {
-    return WebDavSyncService.readRemote(url, config)
+    try {
+      return await WebDavSyncService.readRemote(url, config)
+    } catch (error) {
+      DiagnosticLogger.warn('sync', 'webdav_read_retry', `url=${url},error=${(error as Error).message}`)
+      return await WebDavSyncService.readRemote(url, config)
+    }
   }
 
   private static async probeTransport(rootUrl: string, config: WebDavSyncConfig): Promise<void> {
@@ -679,32 +695,75 @@ export class WebDavSyncService {
   ): Promise<SyncEnvelopeV1> {
     let out: SyncEnvelopeV1 = new SyncEnvelopeV1()
     const entry: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
-    if (entry === null) {
-      return out
-    }
-    for (let i: number = 0; i < entry.shards.length; i++) {
-      const shard: SyncManifestShard = entry.shards[i]
-      if (WebDavSyncService.localShardMatchesManifest(localShards, shard)) {
+    const processedShards: Set<string> = new Set<string>()
+
+    if (entry !== null) {
+      for (let i: number = 0; i < entry.shards.length; i++) {
+        const shard: SyncManifestShard = entry.shards[i]
+        processedShards.add(shard.id)
+        if (WebDavSyncService.localShardMatchesManifest(localShards, shard)) {
+          DiagnosticLogger.info(
+            'sync',
+            'webdav_shard_download_skipped',
+            `dataset=${datasetId},shard=${shard.id}`,
+          )
+          continue
+        }
         DiagnosticLogger.info(
           'sync',
-          'webdav_shard_download_skipped',
-          `dataset=${datasetId},shard=${shard.id}`,
+          'webdav_shard_download_required',
+          `dataset=${datasetId},shard=${shard.id},reason=${
+            WebDavSyncService.localShardMismatchReason(localShards, shard)
+          }`,
         )
-        continue
+        const raw: string = await WebDavSyncService.readRemoteOptional(rootUrl + shard.path, config)
+        if (raw.length === 0) {
+          DiagnosticLogger.error('sync', 'webdav_shard_missing_or_empty', `dataset=${datasetId},shard=${shard.id}`)
+          throw new Error(`WebDAV shard ${datasetId}/${shard.id} read failed or empty; aborting to prevent data loss`)
+        }
+        try {
+          const shardEnvelope: SyncEnvelopeV1 = SyncService.parseRaw(raw)
+          out = SyncLocalDataAdapter.mergeEnvelopes(out, shardEnvelope)
+        } catch (error) {
+          DiagnosticLogger.error(
+            'sync',
+            'webdav_shard_corrupt',
+            `dataset=${datasetId},shard=${shard.id},error=${(error as Error).message}`,
+          )
+          throw new Error(`WebDAV shard ${datasetId}/${shard.id} corrupt: ${(error as Error).message}`)
+        }
       }
-      DiagnosticLogger.info(
-        'sync',
-        'webdav_shard_download_required',
-        `dataset=${datasetId},shard=${shard.id},reason=${
-          WebDavSyncService.localShardMismatchReason(localShards, shard)
-        }`,
-      )
-      const raw: string = await WebDavSyncService.readRemoteOptional(rootUrl + shard.path, config)
-      if (raw.length === 0) {
-        continue
-      }
-      out = SyncLocalDataAdapter.mergeEnvelopes(out, SyncService.parseRaw(raw))
     }
+
+    if (manifest.corrupted || entry === null) {
+      const discoveredShards: DiscoveredRemoteShard[] = await WebDavSyncService.discoverRemoteShards(rootUrl, datasetId, config)
+      for (let i = 0; i < discoveredShards.length; i++) {
+        const dShard = discoveredShards[i]
+        if (processedShards.has(dShard.id)) {
+          continue
+        }
+        processedShards.add(dShard.id)
+        DiagnosticLogger.info('sync', 'webdav_discovered_shard_fetch', `dataset=${datasetId},shard=${dShard.id}`)
+        const shardPath: string = 'datasets/' + datasetId + '/' + dShard.id + '.json'
+        const raw: string = await WebDavSyncService.readRemoteOptional(rootUrl + shardPath, config)
+        if (raw.length === 0) {
+          DiagnosticLogger.error('sync', 'webdav_shard_missing_or_empty', `dataset=${datasetId},shard=${dShard.id}`)
+          throw new Error(`WebDAV discovered shard ${datasetId}/${dShard.id} read failed or empty; aborting to prevent data loss`)
+        }
+        try {
+          const shardEnvelope: SyncEnvelopeV1 = SyncService.parseRaw(raw)
+          out = SyncLocalDataAdapter.mergeEnvelopes(out, shardEnvelope)
+        } catch (error) {
+          DiagnosticLogger.error(
+            'sync',
+            'webdav_shard_corrupt',
+            `dataset=${datasetId},shard=${dShard.id},error=${(error as Error).message}`,
+          )
+          throw new Error(`WebDAV shard ${datasetId}/${dShard.id} corrupt: ${(error as Error).message}`)
+        }
+      }
+    }
+
     return WebDavSyncService.selectDataset(out, datasetId)
   }
 
@@ -1011,16 +1070,34 @@ export class WebDavSyncService {
     return null
   }
 
-  private static parseManifest(raw: string): SyncManifestV1 {
-    if (raw.trim().length === 0) {
-      const empty: SyncManifestV1 = new SyncManifestV1()
-      empty.generatedAt = new Date().toISOString()
-      return empty
-    }
-    const parsed: SyncManifestV1 = JSON.parse(raw) as SyncManifestV1
-    if (parsed.magic !== SYNC_MAGIC || parsed.appId !== SYNC_APP_ID) {
-      throw new Error('Invalid NextE sync manifest')
-    }
+ private static parseManifest(raw: string): SyncManifestV1 {
+   if (raw.trim().length === 0) {
+     const empty: SyncManifestV1 = new SyncManifestV1()
+     empty.generatedAt = new Date().toISOString()
+     return empty
+   }
+   let parsed: SyncManifestV1 | null = null
+   try {
+     parsed = JSON.parse(raw) as SyncManifestV1
+   } catch (error) {
+     DiagnosticLogger.warn(
+       'sync',
+       'webdav_manifest_corrupted_recover',
+       `length=${raw.length},error=${(error as Error).message}`,
+     )
+     parsed = WebDavSyncService.recoverTruncatedManifest(raw)
+     if (parsed === null) {
+       DiagnosticLogger.error(
+         'sync',
+         'webdav_manifest_corrupt',
+         `length=${raw.length},error=${(error as Error).message}`,
+       )
+       throw new Error(`WebDAV manifest corrupt or truncated: ${(error as Error).message}`)
+     }
+   }
+   if (parsed.magic !== SYNC_MAGIC || parsed.appId !== SYNC_APP_ID) {
+     throw new Error('Invalid NextE sync manifest')
+   }
     if (parsed.schemaVersion !== SYNC_SCHEMA_VERSION ||
       parsed.minSupportedSchemaVersion > SYNC_SCHEMA_VERSION) {
       throw new Error('Unsupported NextE sync manifest schema')
@@ -1094,16 +1171,240 @@ export class WebDavSyncService {
     return trimmed + '/'
   }
 
-  private static shardId(key: string): string {
-    let hash: number = 2166136261
-    for (let i: number = 0; i < key.length; i++) {
-      hash ^= key.charCodeAt(i)
-      hash = Math.imul(hash, 16777619) >>> 0
+ private static shardId(key: string): string {
+   let hash: number = 2166136261
+   for (let i: number = 0; i < key.length; i++) {
+     hash ^= key.charCodeAt(i)
+     hash = Math.imul(hash, 16777619) >>> 0
+   }
+   return (hash % SHARD_COUNT).toString(16).padStart(2, '0')
+ }
+
+ private static recoverTruncatedManifest(raw: string): SyncManifestV1 | null {
+   let idx: number = raw.length
+   while (true) {
+     idx = raw.lastIndexOf('}', idx - 1)
+     if (idx <= 0) break
+     const candidate: string = raw.substring(0, idx + 1)
+     const suffixes: string[] = [']}]}', ']}}', ']}', '}', '}]}', '}]}']
+     for (let s = 0; s < suffixes.length; s++) {
+       try {
+         const obj: SyncManifestV1 = JSON.parse(candidate + suffixes[s]) as SyncManifestV1
+         if (obj.magic === SYNC_MAGIC && obj.appId === SYNC_APP_ID && Array.isArray(obj.datasets)) {
+           DiagnosticLogger.info('sync', 'webdav_manifest_recovered_prefix', `datasets=${obj.datasets.length}`)
+           obj.corrupted = true
+           return obj
+         }
+       } catch (_) {}
+     }
+   }
+   return null
+ }
+
+  private static async discoverRemoteShards(
+    rootUrl: string,
+    datasetId: string,
+    config: WebDavSyncConfig,
+  ): Promise<DiscoveredRemoteShard[]> {
+    const url: string = rootUrl + 'datasets/' + datasetId + '/'
+    const header: Record<string, string> = WebDavSyncService.headers(config)
+    header['Depth'] = '1'
+    try {
+      const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+        url,
+        'PROPFIND',
+        header,
+        '',
+        CONNECT_TIMEOUT_MS,
+        READ_TIMEOUT_MS,
+      )
+      if (resp.statusCode === 404) {
+        return []
+      }
+      if (resp.statusCode !== 207) {
+        throw new Error(`WebDAV PROPFIND failed for ${datasetId}: HTTP ${resp.statusCode}`)
+      }
+      if (!/<\/(?:\w+:)?multistatus>/i.test(resp.body)) {
+        DiagnosticLogger.error('sync', 'webdav_propfind_truncated', `dataset=${datasetId},length=${resp.body.length}`)
+        throw new Error(`WebDAV PROPFIND response for ${datasetId} is truncated XML (missing closing multistatus tag)`)
+      }
+      const out: DiscoveredRemoteShard[] = []
+      const responseBlocks: string[] = resp.body.split(/<\/(?:\w+:)?response>/i)
+      for (let i = 0; i < responseBlocks.length - 1; i++) {
+        const block = responseBlocks[i]
+        const hrefMatch = /<(?:[^:>]+:)?href>([^<]+)<\/(?:\w+:)?href>/i.exec(block)
+        if (hrefMatch === null) continue
+        const href = hrefMatch[1].trim()
+        const idMatch = /\/([0-3][0-9a-fA-F])\.json$/i.exec(href)
+        if (idMatch === null) continue
+
+        const statusMatch = /<(?:[^:>]+:)?status>[^<]*?([0-9]{3})[^\d<]*<\/(?:\w+:)?status>/i.exec(block)
+        const code = statusMatch !== null ? parseInt(statusMatch[1], 10) : 200
+        if (code >= 300) {
+          DiagnosticLogger.error('sync', 'webdav_propfind_shard_status_error', `href=${href},code=${code}`)
+          throw new Error(`WebDAV PROPFIND reported error status ${code} for shard ${href}`)
+        }
+
+        const shard = new DiscoveredRemoteShard()
+        shard.id = idMatch[1].toLowerCase()
+        shard.path = 'datasets/' + datasetId + '/' + shard.id + '.json'
+
+        const lenMatch = /<(?:[^:>]+:)?getcontentlength>([0-9]+)<\/(?:\w+:)?getcontentlength>/i.exec(block)
+        if (lenMatch !== null) {
+          shard.contentLength = parseInt(lenMatch[1], 10)
+        }
+        const modMatch = /<(?:[^:>]+:)?getlastmodified>([^<]+)<\/(?:\w+:)?getlastmodified>/i.exec(block)
+        if (modMatch !== null) {
+          const parsedDate = Date.parse(modMatch[1].trim())
+          if (!isNaN(parsedDate)) {
+            shard.lastModifiedMs = parsedDate
+          }
+        }
+        out.push(shard)
+      }
+      DiagnosticLogger.info('sync', 'webdav_shards_discovered', `dataset=${datasetId},count=${out.length}`)
+      return out
+    } catch (err) {
+      DiagnosticLogger.error('sync', 'webdav_discover_shards_failed', `dataset=${datasetId},error=${(err as Error).message}`)
+      throw new Error(`WebDAV PROPFIND failed for ${datasetId}: ${(err as Error).message}`)
     }
-    return (hash % SHARD_COUNT).toString(16).padStart(2, '0')
   }
 
-  private static headers(config: WebDavSyncConfig): Record<string, string> {
+  private static async preserveUnknownRemoteDatasets(
+    rootUrl: string,
+    manifest: SyncManifestV1,
+    config: WebDavSyncConfig,
+  ): Promise<void> {
+    const allDatasets: string[] = await WebDavSyncService.discoverRemoteDatasetDirectories(rootUrl, config)
+    for (let i: number = 0; i < allDatasets.length; i++) {
+      const dsId: string = allDatasets[i]
+      if (DATASET_IDS.indexOf(dsId) < 0) {
+        let existingDataset: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, dsId)
+        if (existingDataset === null) {
+          existingDataset = new SyncManifestDataset()
+          existingDataset.id = dsId
+          manifest.datasets.push(existingDataset)
+        }
+        const discovered = await WebDavSyncService.discoverRemoteShards(rootUrl, dsId, config)
+        const existingShards = new Set<string>()
+        for (let s = 0; s < existingDataset.shards.length; s++) {
+          existingShards.add(existingDataset.shards[s].id)
+        }
+        for (let d = 0; d < discovered.length; d++) {
+          const ds = discovered[d]
+          if (!existingShards.has(ds.id)) {
+            const m = new SyncManifestShard()
+            m.id = ds.id
+            m.path = ds.path
+            m.updatedAt = ds.lastModifiedMs
+            try {
+              const raw = await WebDavSyncService.readRemoteOptional(rootUrl + ds.path, config)
+              if (raw.length === 0) {
+                DiagnosticLogger.error('sync', 'webdav_unknown_shard_missing_or_empty', `dataset=${dsId},shard=${ds.id}`)
+                throw new Error(`Failed to verify unknown remote shard ${dsId}/${ds.id}: read returned empty; aborting to protect remote state`)
+              }
+              m.sha256 = WebDavSyncService.hashText(raw)
+              const parsed = SyncService.parseRaw(raw)
+              m.recordCount = WebDavSyncService.datasetRecordCount(parsed, dsId)
+              if (m.updatedAt <= 0) {
+                m.updatedAt = WebDavSyncService.datasetUpdatedAt(parsed, dsId)
+              }
+            } catch (_err) {
+              DiagnosticLogger.error('sync', 'webdav_unknown_shard_verify_failed', `dataset=${dsId},shard=${ds.id}`)
+              throw new Error(`Failed to verify unknown remote shard ${dsId}/${ds.id}: aborting to protect remote state`)
+            }
+            existingDataset.shards.push(m)
+          }
+        }
+        DiagnosticLogger.info('sync', 'webdav_unknown_dataset_preserved', `dataset=${dsId},shards=${existingDataset.shards.length}`)
+      }
+    }
+  }
+
+  private static async discoverRemoteDatasetDirectories(
+    rootUrl: string,
+    config: WebDavSyncConfig,
+  ): Promise<string[]> {
+    const url: string = rootUrl + 'datasets/'
+    const header: Record<string, string> = WebDavSyncService.headers(config)
+    header['Depth'] = '1'
+    try {
+      const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+        url,
+        'PROPFIND',
+        header,
+        '',
+        CONNECT_TIMEOUT_MS,
+        READ_TIMEOUT_MS,
+      )
+      if (resp.statusCode === 404) {
+        return []
+      }
+      if (resp.statusCode !== 207) {
+        throw new Error(`WebDAV PROPFIND datasets failed: HTTP ${resp.statusCode}`)
+      }
+      if (!/<\/(?:\w+:)?multistatus>/i.test(resp.body)) {
+        DiagnosticLogger.error('sync', 'webdav_propfind_datasets_truncated', `length=${resp.body.length}`)
+        throw new Error(`WebDAV PROPFIND response for datasets/ is truncated XML (missing closing multistatus tag)`)
+      }
+      const out: string[] = []
+      const responseBlocks = resp.body.split(/<\/(?:\w+:)?response>/i)
+      for (let i = 0; i < responseBlocks.length - 1; i++) {
+        const block = responseBlocks[i]
+        const hrefMatch = /<(?:[^:>]+:)?href>([^<]+)<\/(?:\w+:)?href>/i.exec(block)
+        if (hrefMatch === null) continue
+        const href = hrefMatch[1].trim()
+        const statusMatch = /<(?:[^:>]+:)?status>[^<]*?([0-9]{3})[^<]*<\/(?:[^:>]+:)?status>/i.exec(block)
+        const code = statusMatch !== null ? parseInt(statusMatch[1], 10) : 200
+        if (code >= 300) {
+          DiagnosticLogger.error("sync", "webdav_propfind_dir_status_error", "href=" + href + ",code=" + code)
+          throw new Error("WebDAV PROPFIND reported error status " + code + " for directory " + href)
+        }
+        const match = /\/datasets\/([a-zA-Z0-9_-]+)\/?$/i.exec(href)
+        if (match === null) continue
+        const name = match[1].toLowerCase()
+        if (out.indexOf(name) < 0 && name !== 'datasets') {
+          out.push(name)
+        }
+      }
+      return out
+    } catch (err) {
+      DiagnosticLogger.error('sync', 'webdav_discover_datasets_failed', (err as Error).message)
+      throw new Error(`Failed to discover remote datasets: ${(err as Error).message}`)
+    }
+  }
+
+  static hashText(text: string): string {
+    const md = cryptoFramework.createMd('SHA256')
+    const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
+    md.updateSync({ data: bytes })
+    const digest = md.digestSync()
+    const parts: string[] = []
+    for (let i = 0; i < digest.data.length; i++) {
+      parts.push(digest.data[i].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
+  }
+
+ private static verifyTransferIntegrity(url: string, resp: AxiosTextResponse): void {
+   const match: RegExpExecArray | null = /"content-length"\s*:\s*"(\d+)"/i.exec(resp.rawHeader)
+   if (match !== null && match[1].length > 0) {
+     const expectedBytes: number = parseInt(match[1], 10)
+     if (expectedBytes > 0) {
+       const receivedBytes: number = new util.TextEncoder().encodeInto(resp.body).byteLength
+       if (receivedBytes < expectedBytes) {
+         DiagnosticLogger.warn(
+           'sync',
+           'webdav_transfer_truncated',
+           `url=${url},expected=${expectedBytes},received=${receivedBytes}`,
+         )
+         throw new Error(`WebDAV transfer truncated: expected ${expectedBytes} bytes, received ${receivedBytes} bytes`)
+       }
+     }
+   }
+ }
+
+ private static headers(config: WebDavSyncConfig): Record<string, string> {
     const header: Record<string, string> = { 'Accept': 'application/json, text/plain, */*' }
     if (config.username.length > 0 || config.password.length > 0) {
       const bytes: Uint8Array = new util.TextEncoder().encodeInto(

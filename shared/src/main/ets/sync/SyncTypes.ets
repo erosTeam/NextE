@@ -187,6 +187,7 @@ export class SyncManifestV1 {
   minSupportedSchemaVersion: number = SYNC_MIN_SUPPORTED_SCHEMA_VERSION
   generatedAt: string = ''
   datasets: SyncManifestDataset[] = []
+  corrupted: boolean = false
 }
 
 export class SyncDatasetSelection {
