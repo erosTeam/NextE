@@ -792,6 +792,10 @@ export struct NextEReaderLabPage {
               tapPolicy: new ReaderTapPolicy(
                 (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout)),
               autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds),
+              // Production entries open chrome-hidden exactly like the legacy
+              // ReaderPage (showChrome = initialChromeVisible, default false).
+              // Only the Debug Lab request asks for the bars on the first frame.
+              initialChromeVisible: this.labRequest !== null,
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
               variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
