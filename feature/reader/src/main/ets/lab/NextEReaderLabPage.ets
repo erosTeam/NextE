@@ -8,6 +8,7 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
+  ReaderThumbnailTransitionCoordinator, connectReaderThumbnailTransition, ReaderThumbnailTransitionState,
   connectImageBlockSettings, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
@@ -65,6 +66,8 @@ export struct NextEReaderLabPage {
   private imageBlockProvider: NextEReaderImageBlockProvider | null = null
   private mediaActions: ReaderMediaActions = new ReaderMediaActions()
   @Local private labVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
+  @Local private readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+  @Local private chromeRepublishToken: number = 0
   @Local private readMode: ReadModeState = connectReadMode()
   @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay()
   @Local private routeActive: boolean = false
@@ -595,6 +598,8 @@ export struct NextEReaderLabPage {
 
   private observeReaderPosition(position: ReaderObservedPosition): void {
     const sourceIndex = position.anchor.sourceIndexHint
+    ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(
+      this.getUIContext(), this.request.work, sourceIndex + 1)
     if (this.currentSourceIndex !== sourceIndex) {
       this.currentSourceIndex = sourceIndex
       if (this.translationAutoEnabled && !this.pageIncluded(this.translationAutoFailedPages, sourceIndex) &&
@@ -606,6 +611,32 @@ export struct NextEReaderLabPage {
       this.translationPreferenceRevision += 1
     }
     this.persistObserved(position)
+  }
+
+  // Mirror the legacy ReaderPage presentation monitors: a fullscreen/background
+  // flip must reach the window through the surface's authoritative chrome event,
+  // not wait for the next chrome toggle.
+  @Monitor('readMode.fullscreen', 'readMode.backgroundMode', 'themeDisplay.effectiveDark')
+  syncReaderPresentationWindow(): void {
+    this.chromeRepublishToken += 1
+  }
+
+  @Builder
+  private ReaderOpeningPlaceholder() {
+    if (this.readerThumbnailTransition.readerOpeningProxyVisible() &&
+      this.readerThumbnailTransition.sourceSnapshot !== undefined) {
+      Image(this.readerThumbnailTransition.sourceSnapshot)
+        .width(this.readerThumbnailTransition.proxyWidth)
+        .height(this.readerThumbnailTransition.proxyHeight)
+        .objectFit(ImageFit.Fill)
+        .syncLoad(true)
+        .position({
+          x: this.readerThumbnailTransition.proxyX,
+          y: this.readerThumbnailTransition.proxyY,
+        })
+        .opacity(this.readerThumbnailTransition.openingProxyOpacity)
+        .hitTestBehavior(HitTestMode.None)
+    }
   }
 
   private setEnhancementInteractionBusy(busy: boolean): void {
@@ -793,9 +824,9 @@ export struct NextEReaderLabPage {
                 (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout)),
               autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds),
               // Production entries open chrome-hidden exactly like the legacy
-              // ReaderPage (showChrome = initialChromeVisible, default false).
-              // Only the Debug Lab request asks for the bars on the first frame.
-              initialChromeVisible: this.labRequest !== null,
+              // ReaderPage. Every reader experience entry shares this default;
+              // tests that need the menus reveal them with a real tap.
+              initialChromeVisible: false,
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
               preloadDepth: this.readMode.preloadPages,
               variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
@@ -832,6 +863,9 @@ export struct NextEReaderLabPage {
                 },
                 (enabled: boolean, policy: ReaderDisplayPolicy): void => { this.persistCrop(enabled, policy) }),
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
+              contentOpacity: this.readerThumbnailTransition.readerImageOpacity(this.request.pageIndex + 1),
+              openingPlaceholder: (): void => { this.ReaderOpeningPlaceholder() },
+              chromeRepublishToken: this.chromeRepublishToken,
               active: this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown,
               closing: this.closeRequested || this.hostClosing,
               beforeShowChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareChromeShow(isCurrent),

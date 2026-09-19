@@ -302,6 +302,15 @@ export class ReaderThumbnailTransitionState {
     this.phase = ReaderThumbnailTransitionPhase.OPEN
   }
 
+  /**
+   * The shared reader has no local close-proxy host of its own, so the root
+   * navigation owns the return flight for a session claimed this way. Legacy
+   * Reader keeps the local ownership that arm() establishes.
+   */
+  adoptRootCloseProxy(): void {
+    this.rootCloseProxy = true
+  }
+
   updateRootSize(width: number, height: number): void {
     if (width > 0 && height > 0) {
       this.rootWidth = width

@@ -242,6 +242,29 @@ export class ReaderThumbnailTransitionCoordinator {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (ReaderTrialEntryRelay.tryOpen(galleryId, index, image,
       ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index), params)) return
+    ReaderThumbnailTransitionCoordinator.openClaimed(uiContext, sourceScope, galleryId, index,
+      image, params, false, openReader)
+  }
+
+  /**
+   * Entry startup without the relay intercept, for a production entry whose
+   * claim the host already owns. The host-side epoch/navigation/visibility
+   * guards already ran, and the relay must not re-enter the host claim path.
+   * closeProxyOwnedByRoot selects the return-flight owner: the shared reader
+   * has no local close-proxy host and keeps the root ownership that armReturn
+   * granted, while the legacy Reader keeps arm()'s local ownership.
+   */
+  static openClaimed(
+    uiContext: UIContext,
+    sourceScope: string,
+    galleryId: string,
+    index: number,
+    image: EhGalleryImage,
+    params: ReaderParams,
+    closeProxyOwnedByRoot: boolean,
+    openReader: (animated: boolean) => void,
+  ): void {
+    const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     transition.reset()
     const sourceComponentId: string = ReaderThumbnailTransitionCoordinator.sourceId(sourceScope, index)
     if (
@@ -300,6 +323,7 @@ export class ReaderThumbnailTransitionCoordinator {
         ThemeConstants.THUMB_RADIUS,
         sourceSnapshot,
       )
+      if (closeProxyOwnedByRoot) transition.adoptRootCloseProxy()
       DiagnosticLogger.info(
         'reader-transition',
         'armed',

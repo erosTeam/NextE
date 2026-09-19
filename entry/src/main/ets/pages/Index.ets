@@ -827,16 +827,24 @@ struct Index {
       this.retireProductionReaderEntry()
       return
     }
-    this.retireProductionReaderEntryGuard()
-    this.productionReaderEntryGalleryId = source.galleryId
-    this.productionReaderEntryPageIndex = source.pageIndex
-    this.productionReaderEntryPreview = preview
-    this.productionReaderEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
-      new ReaderDisplayPart(new ReaderUnitKey(source.site, source.galleryId, source.galleryId), null, source.pageIndex))
-    if (preview === null) this.productionReaderEntryClaim = null
-    ReaderThumbnailTransitionCoordinator.armSharedReturn(this.getUIContext(), source)
-    this.readerOverlay.openSharedTransition(source.params, false)
-    if (preview === null) this.finishProductionReaderEntry()
+    // The root proxy owns the forward flight from the live thumbnail: it captures
+    // the source synchronously and arms before the reader route is pushed, so the
+    // flight never waits for reader content layout. Content readiness only hands
+    // the real image over afterwards. The captured preview and the in-content
+    // ReaderEntryTransition stay owned by the Debug trial path.
+    this.retireProductionReaderEntry()
+    ReaderThumbnailTransitionCoordinator.openClaimed(
+      this.getUIContext(),
+      source.sourceScope(),
+      source.galleryId,
+      source.pageIndex,
+      source.identity.image(),
+      source.params,
+      true,
+      (animated: boolean): void => {
+        this.readerOverlay.openSharedTransition(source.params, animated)
+      },
+    )
   }
 
   private readerEntryRect(componentId: string): ReaderEntryRect {
@@ -2197,6 +2205,10 @@ struct Index {
         onDisappeared: (): void => {
           this.retireProductionReaderEntry()
           this.readerOverlay.finishClose()
+        },
+        onShown: (): void => {
+          ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(),
+            (param as ReaderOverlayRoute).params.gid)
         },
       })
     } else if (name === 'ReaderSettings') {
