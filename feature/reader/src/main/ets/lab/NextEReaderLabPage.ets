@@ -375,10 +375,13 @@ export struct NextEReaderLabPage {
 
   private translationActions(): ReaderHostAction[] {
     if (!this.request.preferencesReadWrite || this.currentSourceIndex < 0) return []
-    const translated = this.translationFrame(this.currentSourceIndex)?.asset.variant === 'translated' ||
-      (this.pageIncluded(this.translationAppliedPages, this.currentSourceIndex) &&
-        !this.pageIncluded(this.translationHiddenPages, this.currentSourceIndex))
     const hidden = this.pageIncluded(this.translationHiddenPages, this.currentSourceIndex)
+    // A hidden page keeps its translated plan, so the frame variant alone would
+    // keep reading as "translated shown" and the action could never re-show it.
+    // Hidden therefore takes priority, matching the legacy Reader label.
+    const translated = !hidden &&
+      (this.translationFrame(this.currentSourceIndex)?.asset.variant === 'translated' ||
+        this.pageIncluded(this.translationAppliedPages, this.currentSourceIndex))
     const label = translated ? AppStrings.get('reader_comic_translation_show_original') :
       hidden ? AppStrings.get('reader_comic_translation_show_result') :
         AppStrings.get('reader_comic_translation_action')
@@ -414,10 +417,10 @@ export struct NextEReaderLabPage {
       return
     }
     if (id !== 'translate-page' || this.translationBusyPage >= 0) return
-    const translated = this.translationFrame(sourceIndex)?.asset.variant === 'translated' ||
-      (this.pageIncluded(this.translationAppliedPages, sourceIndex) &&
-        !this.pageIncluded(this.translationHiddenPages, sourceIndex))
     const hidden = this.pageIncluded(this.translationHiddenPages, sourceIndex)
+    const translated = !hidden &&
+      (this.translationFrame(sourceIndex)?.asset.variant === 'translated' ||
+        this.pageIncluded(this.translationAppliedPages, sourceIndex))
     if (translated) {
       this.translationHiddenPages = this.includePage(this.translationHiddenPages, sourceIndex)
       this.translationRequestedPages = this.excludePage(this.translationRequestedPages, sourceIndex)

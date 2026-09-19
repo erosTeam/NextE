@@ -910,6 +910,31 @@ function readerHostTranslationRoundTripTest(): void {
       console.info('[ReaderHostTranslationRoundTripTrial] label0=' + label0 + ' labelBefore=' + labelBefore +
         ' sawBusy=' + sawBusy + ' busyMs=' + busyMs + ' settled=' + settled + ' labelAfter=' + labelAfter +
         ' applied=' + applied + ' status=' + statusText + ' bodyBeforeBytes=' + beforeBody)
+      // Landing is not the whole claim: the same host action must also return to
+      // the original and then offer the translation again. The post-toggle label
+      // is reported exactly as the host builds it, never forced.
+      let sawOriginal = false
+      let sawResultAgain = false
+      if (applied && actionAfter !== null) {
+        await actionAfter.click()
+        await driver.delayMs(2500)
+        await bestEffortCaptureChrome(driver, 'roundtrip-original')
+        const originalMenu = await openMenu()
+        const labelAfterOriginal = await labelOf(originalMenu)
+        console.info('[ReaderHostTranslationRoundTripTrial] labelAfterOriginal=' + labelAfterOriginal)
+        sawOriginal = labelAfterOriginal === AppStrings.get('reader_comic_translation_show_result')
+        if (sawOriginal && originalMenu !== null) {
+          await originalMenu.click()
+          await driver.delayMs(2500)
+          await bestEffortCaptureChrome(driver, 'roundtrip-restored')
+          const restoredMenu = await openMenu()
+          const labelAfterRestore = await labelOf(restoredMenu)
+          console.info('[ReaderHostTranslationRoundTripTrial] labelAfterRestore=' + labelAfterRestore)
+          sawResultAgain = labelAfterRestore === showOriginal
+        }
+        // The overflow menu is left open on purpose: the existing closeMenu() below
+        // is the single Back that dismisses it, so this block never pops the reader.
+      }
       // A fresh dispatch started from the original label; it must have shown busy or landed applied.
       expect(sawBusy || applied).assertTrue()
       await closeMenu()
