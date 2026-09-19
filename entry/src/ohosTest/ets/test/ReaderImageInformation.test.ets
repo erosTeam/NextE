@@ -4,7 +4,7 @@ import { common } from '@kit.AbilityKit'
 import { KeyCode } from '@kit.InputKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { window } from '@kit.ArkUI'
-import { ReaderPageCropStrength, ReaderTrialEntryProbe, ReadModeSettings, connectReadMode } from 'shared'
+import { ReadMode, ReaderPageCropStrength, ReaderTrialEntryProbe, ReadModeSettings, connectReadMode } from 'shared'
 
 const captureNames: string[] = ['baseline', 'single', 'single-return', 'spread', 'choice', 'left', 'right', 'returned', 'next', 'closed', 'exception',
   'recovery-baseline', 'failed', 'pending', 'changed', 'late', 'recovery-info', 'recovery-returned', 'recovery-closed',
@@ -202,6 +202,79 @@ export default function readerImageInformationTest(): void {
   const args = abilityDelegatorRegistry.getArguments().parameters
   const work = args['-s readerLabWork'], unit = args['-s readerLabUnit']
   const trial = args['-s class']
+  if (trial === 'ReaderSharedCropSettingLiveTrial' && typeof work === 'string' && work.length > 0) {
+    describe(trial, (): void => {
+      it('hostCropSettingChangeAppliesToTheOpenSharedPage', 0, async (): Promise<void> => {
+        clearInformationCaptures()
+        const driver = Driver.create(), delegator = abilityDelegatorRegistry.getAbilityDelegator()
+        const readMode = connectReadMode(), previousCrop = readMode.cropBordersPaged
+        const previousMode = readMode.mode
+        let context: common.UIAbilityContext | null = null
+        const sourceIndex = 3
+        try {
+          // Seed the real host preference BEFORE opening, so the surface's initial
+          // crop state comes from the host setting rather than a lab override.
+          // readerLabCropBorders is deliberately omitted: it would pin the policy
+          // to enabled=true and mask the switch this trial is about.
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility' })
+          for (let attempt = 0; attempt < 80; attempt++) {
+            try {
+              const ability = await delegator.getCurrentTopAbility()
+              if (ability.context.abilityInfo.name === 'EntryAbility') { context = ability.context; break }
+            } catch (_) {}
+            await driver.delayMs(100)
+          }
+          expect(context !== null).assertTrue()
+          const seedContext: common.UIAbilityContext = context as common.UIAbilityContext
+          await ReadModeSettings.setMode(seedContext, ReadMode.LTR)
+          await ReadModeSettings.setCropBordersPaged(seedContext, true)
+          await delegator.startAbility({ bundleName: 'com.erosteam.nexte', abilityName: 'EntryAbility',
+            parameters: { readerLabWork: work, readerLabUnit: typeof unit === 'string' ? unit : '',
+              readerLabPage: `${sourceIndex}`, readerLabChrome: 'true',
+              readerLabPreferencesReadWrite: 'true',
+              readerLabEntryLayout: 'single', readerLabEntryDirection: 'ltr' } })
+          await informationReady(driver)
+          context = (await delegator.getCurrentTopAbility()).context
+          expect(await informationPage(driver)).assertEqual(sourceIndex + 1)
+          const cropped = ON.id(`rkit-cropped-image-${sourceIndex}-whole`)
+          let present = false
+          for (let attempt = 0; attempt < 40; attempt++) {
+            if (await driver.findComponent(cropped) !== null) { present = true; break }
+            await driver.delayMs(250)
+          }
+          await captureInformation(driver, 'strength-before')
+          // Flip ONLY the host crop switch, exactly as the in-reader settings sheet does.
+          await ReadModeSettings.setCropBordersPaged(seedContext, false)
+          let stillPresent = true
+          for (let attempt = 0; attempt < 40; attempt++) {
+            if (await driver.findComponent(cropped) === null) { stillPresent = false; break }
+            await driver.delayMs(250)
+          }
+          await captureInformation(driver, 'strength-after')
+          await delegator.print(`ReaderSharedCropSetting page=${sourceIndex + 1} ` +
+            `initialCropped=${present} croppedAfterHostSwitchOff=${stillPresent}`)
+          expect(await informationPage(driver)).assertEqual(sourceIndex + 1)
+          // Legacy drops the cropped node when the open reader's crop switch turns off.
+          expect(present).assertTrue()
+          expect(stillPresent).assertFalse()
+          await (await driver.findComponent(ON.id('rkit-close'))).click()
+          await driver.delayMs(800)
+        } catch (error) {
+          await captureInformation(driver, 'exception')
+          throw error as Error
+        } finally {
+          if (context !== null) {
+            const restoreContext: common.UIAbilityContext = context as common.UIAbilityContext
+            await ReadModeSettings.setCropBordersPaged(restoreContext, previousCrop)
+            await ReadModeSettings.setMode(restoreContext, previousMode)
+          }
+          const close = await driver.findComponent(ON.id('rkit-close'))
+          if (close !== null) await close.click()
+        }
+      })
+    })
+    return
+  }
   if (trial === 'ReaderCropStrengthTrial' && typeof work === 'string' && work.length > 0) {
     describe(trial, (): void => {
       it('refreshesRetainedSharedCropWhenHostStrengthChanges', 0, async (): Promise<void> => {
