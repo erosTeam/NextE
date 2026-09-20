@@ -376,7 +376,7 @@ export struct LocalBlockSettingsPage {
       },
     }) {
       ListItem() {
-        GroupedListSection({ inset: 0 }) {
+        GroupedListSection() {
           ConciseListRow({
             title: $r('app.string.local_block_rule_type'),
             leadingIcon: this.typeIcon(this.draftType),
@@ -411,7 +411,7 @@ export struct LocalBlockSettingsPage {
         }
       }
       ListItem() {
-        GroupedListSection({ inset: 0 }) {
+        GroupedListSection() {
           Column({ space: ThemeConstants.SPACE_SM }) {
             Text($r('app.string.local_block_rule_text'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
