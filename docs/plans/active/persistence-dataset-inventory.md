@@ -76,7 +76,9 @@ Allowed `Sync` values:
 | StorageKeys.READING_PAGE_TURN_ANIMATION | setting | plaintext | excluded | Reader page-turn animation preference |
 | StorageKeys.READING_IMAGE_SCALING_QUALITY | setting | plaintext | excluded | Reader image interpolation preference |
 | StorageKeys.READING_CROP_BORDERS_PAGED | setting | plaintext | excluded | Paged-reader automatic border crop preference |
+| StorageKeys.READING_CROP_STRENGTH_PAGED | setting | plaintext | excluded | Paged-reader automatic border crop strength |
 | StorageKeys.READING_CROP_BORDERS_CONTINUOUS | setting | plaintext | excluded | Continuous-reader automatic border crop preference |
+| StorageKeys.READING_CROP_STRENGTH_CONTINUOUS | setting | plaintext | excluded | Continuous-reader automatic border crop strength |
 | StorageKeys.READING_SUPER_RESOLUTION_ENABLED | setting | plaintext | excluded | Reader super-resolution master switch |
 | StorageKeys.READING_SUPER_RESOLUTION_MODEL | setting | plaintext | excluded | Selected local super-resolution model |
 | StorageKeys.READING_SUPER_RESOLUTION_MAX_HEIGHT | setting | plaintext | excluded | Reader super-resolution input height limit |
