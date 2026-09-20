@@ -92,6 +92,7 @@ export class ThemeConstants {
   static readonly FONT_SIZE_LIST_ITEM: number = 13
   static readonly FONT_SIZE_TITLE: number = 16
   static readonly FONT_SIZE_HEADING: number = 18
+  static readonly FONT_SIZE_SELECTION_INDICATOR: number = 20
   static readonly FONT_SIZE_H2: number = 22
   static readonly FONT_SIZE_H1: number = 24
 
