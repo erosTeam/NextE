@@ -12,6 +12,7 @@ import {
   TextTranslationPromptCodec,
   TextTranslationPromptComposer,
   TextTranslationPromptContract,
+  ChatCompletionRequestBuilder,
   CommentTranslationService,
   TextTranslationPromptProfile,
   TextTranslationPromptProfileRepository,
@@ -303,17 +304,36 @@ export default function textTranslationPromptProfilesTest(): void {
     })
 
     it('builds cache scopes from isolated fields and never from the display name', 0, () => {
-      const base: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', 'custom-a', 2)
-      const title: string = CommentTranslationService.llmCacheScope('zh-CN', 'gallery_title', 'source-a', 3, 'model-m', 'custom-a', 2)
+      const base: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', '', 'custom-a', 2)
+      const title: string = CommentTranslationService.llmCacheScope('zh-CN', 'gallery_title', 'source-a', 3, 'model-m', '', 'custom-a', 2)
       expect(base === title).assertEqual(false)
       expect(base.indexOf('pr2') >= 0).assertEqual(true)
       expect(base.indexOf('gallery_title') >= 0).assertEqual(false)
       expect(title.indexOf('|comment|') >= 0).assertEqual(false)
 
-      const otherProfile: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', 'custom-b', 2)
-      const bumpedRevision: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', 'custom-a', 3)
+      const otherProfile: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', '', 'custom-b', 2)
+      const bumpedRevision: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', '', 'custom-a', 3)
+      const lowReasoning: string = CommentTranslationService.llmCacheScope('zh-CN', 'comment', 'source-a', 3, 'model-m', 'low', 'custom-a', 2)
       expect(base === otherProfile).assertEqual(false)
       expect(base === bumpedRevision).assertEqual(false)
+      expect(base === lowReasoning).assertEqual(false)
+    })
+
+    it('omits the Chat Completions reasoning field for model default and sends an override verbatim', 0, () => {
+      const defaultBody: string = ChatCompletionRequestBuilder.build(
+        'fixture-model',
+        'Translate to Chinese.',
+        'Hello',
+        '',
+      )
+      const lowBody: string = ChatCompletionRequestBuilder.build(
+        'fixture-model',
+        'Translate to Chinese.',
+        'Hello',
+        'low',
+      )
+      expect(defaultBody.includes('reasoning_effort')).assertEqual(false)
+      expect(lowBody.includes('"reasoning_effort":"low"')).assertEqual(true)
     })
 
     it('separates the three route kinds from prompt-specific fields', 0, () => {

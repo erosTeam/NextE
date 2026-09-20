@@ -2,6 +2,8 @@ import { describe, expect, it } from '@ohos/hypium'
 import {
   LLM_CONSUMER_COMMENT_TRANSLATION,
   LLM_CONSUMER_MANGA_TRANSLATION,
+  LLM_REASONING_EFFORT_HIGH,
+  LLM_REASONING_EFFORT_LOW,
   LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
   LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
   LlmConsumerBinding,
@@ -152,6 +154,25 @@ export default function llmSourceProfileRepositoryTest(): void {
       )
       expect(rejected((): void => LlmSourceProfileContract.validateBinding(missingModel))).assertEqual(true)
       expect(rejected((): void => LlmSourceProfileContract.validateBinding(missingSource))).assertEqual(true)
+    })
+
+    it('keeps a fixed reasoning-effort override on a configured binding', 0, () => {
+      const selected: LlmConsumerBinding = binding(
+        LLM_CONSUMER_COMMENT_TRANSLATION,
+        'source-api',
+        'fixture-model',
+      )
+      selected.reasoningEffort = LLM_REASONING_EFFORT_LOW
+      const copied: LlmConsumerBinding = selected.copy()
+      LlmSourceProfileContract.validateBinding(copied)
+      expect(copied.reasoningEffort).assertEqual(LLM_REASONING_EFFORT_LOW)
+
+      copied.reasoningEffort = 'unsupported-level'
+      expect(rejected((): void => LlmSourceProfileContract.validateBinding(copied))).assertEqual(true)
+
+      const empty: LlmConsumerBinding = binding(LLM_CONSUMER_MANGA_TRANSLATION, '', '')
+      empty.reasoningEffort = LLM_REASONING_EFFORT_HIGH
+      expect(rejected((): void => LlmSourceProfileContract.validateBinding(empty))).assertEqual(true)
     })
 
     it('rejects duplicate profiles, invalid URLs, and oversized stores', 0, () => {

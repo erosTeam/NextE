@@ -22,6 +22,7 @@ class ResponsesTextInputMessage {
 }
 
 class CodexResponsesTextReasoning {
+  effort: string = ''
 }
 
 class CodexResponsesTextRequestBody {
@@ -30,20 +31,32 @@ class CodexResponsesTextRequestBody {
   input: ResponsesTextInputMessage[] = []
   tool_choice: string = 'auto'
   parallel_tool_calls: boolean = false
-  reasoning: CodexResponsesTextReasoning | null = null
   store: boolean = false
   stream: boolean = true
   include: string[] = []
 }
 
+class CodexResponsesTextRequestBodyWithReasoning extends CodexResponsesTextRequestBody {
+  reasoning: CodexResponsesTextReasoning = new CodexResponsesTextReasoning()
+}
+
 export class CodexResponsesTextRequestBuilder {
-  static build(model: string, instructions: string, input: string): string {
+  static build(model: string, instructions: string, input: string, reasoningEffort: string = ''): string {
     const message: ResponsesTextInputMessage = new ResponsesTextInputMessage()
     message.content = [{ type: 'input_text', text: input }]
-    const body: CodexResponsesTextRequestBody = new CodexResponsesTextRequestBody()
+    if (reasoningEffort.length === 0) {
+      const body: CodexResponsesTextRequestBody = new CodexResponsesTextRequestBody()
+      body.model = model
+      body.instructions = instructions
+      body.input = [message]
+      return JSON.stringify(body)
+    }
+    const body: CodexResponsesTextRequestBodyWithReasoning =
+      new CodexResponsesTextRequestBodyWithReasoning()
     body.model = model
     body.instructions = instructions
     body.input = [message]
+    body.reasoning.effort = reasoningEffort
     return JSON.stringify(body)
   }
 }
@@ -88,6 +101,7 @@ export class ExperimentalCodexResponsesTextService {
     model: string,
     instructions: string,
     input: string,
+    reasoningEffort: string = '',
     transport: CodexResponsesTextHttpTransport = new DefaultCodexResponsesTextHttpTransport(),
   ): Promise<string> {
     if (sourceProfileId.length === 0 || model.trim().length === 0) {
@@ -105,6 +119,7 @@ export class ExperimentalCodexResponsesTextService {
       model,
       instructions,
       input,
+      reasoningEffort,
       transport,
     )
     if (response.statusCode === 401) {
@@ -118,6 +133,7 @@ export class ExperimentalCodexResponsesTextService {
         model,
         instructions,
         input,
+        reasoningEffort,
         transport,
       )
     }
@@ -132,6 +148,7 @@ export class ExperimentalCodexResponsesTextService {
     model: string,
     instructions: string,
     input: string,
+    reasoningEffort: string,
     transport: CodexResponsesTextHttpTransport,
   ): Promise<AxiosTextResponse> {
     const headers: Record<string, string> = {
@@ -148,7 +165,7 @@ export class ExperimentalCodexResponsesTextService {
       CODEX_RESPONSES_TEXT_URL,
       'POST',
       headers,
-      CodexResponsesTextRequestBuilder.build(model, instructions, input),
+      CodexResponsesTextRequestBuilder.build(model, instructions, input, reasoningEffort),
       CODEX_RESPONSES_TEXT_CONNECT_TIMEOUT_MS,
       CODEX_RESPONSES_TEXT_READ_TIMEOUT_MS,
     )

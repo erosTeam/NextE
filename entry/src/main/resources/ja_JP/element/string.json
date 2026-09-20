@@ -5109,6 +5109,18 @@
       "value": "このソースを照会してモデルを選択"
     },
     {
+      "name": "llm_reasoning_effort",
+      "value": "思考の深さ"
+    },
+    {
+      "name": "llm_reasoning_effort_hint",
+      "value": "モデルの対応状況を照会せず、選択したレベルを送信します"
+    },
+    {
+      "name": "llm_reasoning_effort_model_default",
+      "value": "モデルのデフォルト"
+    },
+    {
       "name": "llm_binding_save_failed",
       "value": "選択を保存できません：%s"
     },

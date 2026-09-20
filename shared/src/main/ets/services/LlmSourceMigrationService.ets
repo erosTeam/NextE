@@ -653,6 +653,11 @@ export class LlmSourceMigrationService {
         StorageKeys.COMMENT_TRANSLATION_LLM_MODEL,
         '',
       )
+      binding.reasoningEffort = LlmSourceMigrationService.readString(
+        store,
+        StorageKeys.COMMENT_TRANSLATION_LLM_REASONING_EFFORT,
+        '',
+      )
     } else {
       binding.sourceProfileId = LlmSourceMigrationService.readString(
         store,
@@ -662,6 +667,11 @@ export class LlmSourceMigrationService {
       binding.modelId = LlmSourceMigrationService.readString(
         store,
         StorageKeys.COMIC_TRANSLATION_LLM_MODEL,
+        '',
+      )
+      binding.reasoningEffort = LlmSourceMigrationService.readString(
+        store,
+        StorageKeys.COMIC_TRANSLATION_LLM_REASONING_EFFORT,
         '',
       )
     }
@@ -707,17 +717,21 @@ export class LlmSourceMigrationService {
   ): void {
     let sourceKey: string = StorageKeys.COMMENT_TRANSLATION_LLM_SOURCE_PROFILE
     let modelKey: string = StorageKeys.COMMENT_TRANSLATION_LLM_MODEL
+    let reasoningEffortKey: string = StorageKeys.COMMENT_TRANSLATION_LLM_REASONING_EFFORT
     if (binding.consumerId === LLM_CONSUMER_MANGA_TRANSLATION) {
       sourceKey = StorageKeys.COMIC_TRANSLATION_LLM_SOURCE_PROFILE
       modelKey = StorageKeys.COMIC_TRANSLATION_LLM_MODEL
+      reasoningEffortKey = StorageKeys.COMIC_TRANSLATION_LLM_REASONING_EFFORT
     }
     if (binding.configured()) {
       store.putSync(sourceKey, binding.sourceProfileId)
       store.putSync(modelKey, binding.modelId)
+      LlmSourceMigrationService.putOrDelete(store, reasoningEffortKey, binding.reasoningEffort)
       return
     }
     store.deleteSync(sourceKey)
     store.deleteSync(modelKey)
+    store.deleteSync(reasoningEffortKey)
   }
 
   private static putOrDelete(

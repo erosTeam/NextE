@@ -19,6 +19,7 @@ export class LlmSourceRuntimeConfig {
   sourceType: string = ''
   baseUrl: string = ''
   modelId: string = ''
+  reasoningEffort: string = ''
   apiKey: string = ''
 
   requestIdentity(): string {
@@ -27,6 +28,7 @@ export class LlmSourceRuntimeConfig {
       this.sourceRevision,
       this.sourceType,
       this.modelId,
+      this.reasoningEffort,
     ])
   }
 
@@ -74,7 +76,7 @@ export class LlmSourceRuntimeResolver {
     if (!profile.capabilities.modelCatalog) {
       throw new Error('Selected LLM source does not provide a model catalog')
     }
-    return LlmSourceRuntimeResolver.runtimeConfig(context, profile, '')
+    return LlmSourceRuntimeResolver.runtimeConfig(context, profile, '', '')
   }
 
   static profile(sourceProfileId: string): LlmSourceProfile {
@@ -104,6 +106,7 @@ export class LlmSourceRuntimeResolver {
       context,
       resolution.profile,
       resolution.modelId,
+      resolution.reasoningEffort,
     )
   }
 
@@ -111,6 +114,7 @@ export class LlmSourceRuntimeResolver {
     context: common.UIAbilityContext,
     profile: LlmSourceProfile,
     modelId: string,
+    reasoningEffort: string,
   ): Promise<LlmSourceRuntimeConfig> {
     const config: LlmSourceRuntimeConfig = new LlmSourceRuntimeConfig()
     config.sourceProfileId = profile.sourceProfileId
@@ -118,6 +122,7 @@ export class LlmSourceRuntimeResolver {
     config.sourceType = profile.sourceType
     config.baseUrl = profile.baseUrl
     config.modelId = modelId
+    config.reasoningEffort = reasoningEffort
     if (profile.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
       config.apiKey = await LlmSourceSecretStore.readApiKey(context, profile.sourceProfileId)
       if (config.apiKey.length === 0) {

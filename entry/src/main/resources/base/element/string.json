@@ -5109,6 +5109,18 @@
       "value": "Query this source and select a model"
     },
     {
+      "name": "llm_reasoning_effort",
+      "value": "Thinking depth"
+    },
+    {
+      "name": "llm_reasoning_effort_hint",
+      "value": "Send the selected level without querying model support"
+    },
+    {
+      "name": "llm_reasoning_effort_model_default",
+      "value": "Model default"
+    },
+    {
       "name": "llm_binding_save_failed",
       "value": "Could not save selection: %s"
     },

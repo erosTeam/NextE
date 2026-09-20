@@ -166,9 +166,15 @@ export class LlmSourceProfileRepository {
       if (isolated.configured()) {
         store.putSync(keys[0], isolated.sourceProfileId)
         store.putSync(keys[1], isolated.modelId)
+        if (isolated.reasoningEffort.length === 0) {
+          store.deleteSync(keys[2])
+        } else {
+          store.putSync(keys[2], isolated.reasoningEffort)
+        }
       } else {
         store.deleteSync(keys[0])
         store.deleteSync(keys[1])
+        store.deleteSync(keys[2])
       }
       store.flushSync()
       LlmSourceProfileRepository.applyBinding(isolated)
@@ -198,6 +204,7 @@ export class LlmSourceProfileRepository {
     const value: LlmSourceResolution = new LlmSourceResolution()
     value.profile = profiles[index].copy()
     value.modelId = binding.modelId
+    value.reasoningEffort = binding.reasoningEffort
     return value
   }
 
@@ -277,6 +284,10 @@ export class LlmSourceProfileRepository {
       store.getSync(keys[1], '') as string,
       MAX_LLM_MODEL_ID_CHARS,
     )
+    binding.reasoningEffort = LlmSourceProfileContract.canonicalText(
+      store.getSync(keys[2], '') as string,
+      16,
+    )
     try {
       LlmSourceProfileContract.validateBinding(binding)
       return binding
@@ -290,12 +301,14 @@ export class LlmSourceProfileRepository {
       return [
         StorageKeys.COMMENT_TRANSLATION_LLM_SOURCE_PROFILE,
         StorageKeys.COMMENT_TRANSLATION_LLM_MODEL,
+        StorageKeys.COMMENT_TRANSLATION_LLM_REASONING_EFFORT,
       ]
     }
     if (consumerId === LLM_CONSUMER_MANGA_TRANSLATION) {
       return [
         StorageKeys.COMIC_TRANSLATION_LLM_SOURCE_PROFILE,
         StorageKeys.COMIC_TRANSLATION_LLM_MODEL,
+        StorageKeys.COMIC_TRANSLATION_LLM_REASONING_EFFORT,
       ]
     }
     throw new Error('Unknown LLM consumer')

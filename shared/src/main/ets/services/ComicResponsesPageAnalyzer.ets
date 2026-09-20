@@ -58,7 +58,16 @@ class PublicResponsesRequestBody {
   max_output_tokens: number = 8192
 }
 
+class ResponsesReasoning {
+  effort: string = ''
+}
+
+class PublicResponsesRequestBodyWithReasoning extends PublicResponsesRequestBody {
+  reasoning: ResponsesReasoning = new ResponsesReasoning()
+}
+
 class CodexResponsesReasoning {
+  effort: string = ''
 }
 
 class CodexResponsesRequestBody {
@@ -67,10 +76,13 @@ class CodexResponsesRequestBody {
   input: ResponsesInputMessage[] = []
   tool_choice: string = 'auto'
   parallel_tool_calls: boolean = false
-  reasoning: CodexResponsesReasoning | null = null
   store: boolean = false
   stream: boolean = true
   include: string[] = []
+}
+
+class CodexResponsesRequestBodyWithReasoning extends CodexResponsesRequestBody {
+  reasoning: CodexResponsesReasoning = new CodexResponsesReasoning()
 }
 
 export class ComicResponsesRequestBuilder {
@@ -81,6 +93,7 @@ export class ComicResponsesRequestBuilder {
     eventStream: boolean,
     codexCompatibility: boolean,
     additionalImages: ComicResponsesLabeledImage[] = [],
+    reasoningEffort: string = '',
   ): string {
     const message: ResponsesInputMessage = new ResponsesInputMessage()
     const promptItem: ResponsesInputText = {
@@ -116,15 +129,30 @@ export class ComicResponsesRequestBuilder {
       })
     }
     if (codexCompatibility) {
-      const body: CodexResponsesRequestBody = new CodexResponsesRequestBody()
+      if (reasoningEffort.length === 0) {
+        const body: CodexResponsesRequestBody = new CodexResponsesRequestBody()
+        body.model = model
+        body.input = [message]
+        return JSON.stringify(body)
+      }
+      const body: CodexResponsesRequestBodyWithReasoning = new CodexResponsesRequestBodyWithReasoning()
       body.model = model
+      body.input = [message]
+      body.reasoning.effort = reasoningEffort
+      return JSON.stringify(body)
+    }
+    if (reasoningEffort.length === 0) {
+      const body: PublicResponsesRequestBody = new PublicResponsesRequestBody()
+      body.model = model
+      body.stream = eventStream
       body.input = [message]
       return JSON.stringify(body)
     }
-    const body: PublicResponsesRequestBody = new PublicResponsesRequestBody()
+    const body: PublicResponsesRequestBodyWithReasoning = new PublicResponsesRequestBodyWithReasoning()
     body.model = model
     body.stream = eventStream
     body.input = [message]
+    body.reasoning.effort = reasoningEffort
     return JSON.stringify(body)
   }
 }
@@ -231,6 +259,7 @@ export class ComicResponsesCallConfig {
   accountId: string = ''
   eventStream: boolean = false
   codexCompatibility: boolean = false
+  reasoningEffort: string = ''
 }
 
 export class ComicResponsesProviderCore {
@@ -295,6 +324,7 @@ export class ComicResponsesProviderCore {
       config.eventStream,
       config.codexCompatibility,
       additionalImages,
+      config.reasoningEffort,
     )
     let response: AxiosTextResponse
     try {
@@ -477,12 +507,14 @@ export class OpenAiApiComicPageAnalyzer implements ComicPageAnalyzer {
     model: string,
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
     providerId: string = 'openai-responses-api',
+    reasoningEffort: string = '',
   ) {
     this.config = new ComicResponsesCallConfig()
     this.config.providerId = providerId
     this.config.baseUrl = baseUrl
     this.config.accessToken = apiKey
     this.config.model = model
+    this.config.reasoningEffort = reasoningEffort
     this.core = new ComicResponsesProviderCore(transport)
   }
 
@@ -516,6 +548,7 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
   private readonly model: string
   private readonly sourceProfileId: string
   private readonly sourceRevision: number
+  private readonly reasoningEffort: string
   private readonly core: ComicResponsesProviderCore
 
   constructor(
@@ -524,11 +557,13 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
     transport: ComicResponsesHttpTransport = new DefaultComicResponsesHttpTransport(),
     sourceProfileId: string = '',
     sourceRevision: number = 0,
+    reasoningEffort: string = '',
   ) {
     this.context = context
     this.model = model
     this.sourceProfileId = sourceProfileId
     this.sourceRevision = sourceRevision
+    this.reasoningEffort = reasoningEffort
     this.core = new ComicResponsesProviderCore(transport)
   }
 
@@ -587,6 +622,7 @@ export class ExperimentalCodexComicPageAnalyzer implements ComicPageAnalyzer {
     config.accountId = tokens.accountId
     config.eventStream = true
     config.codexCompatibility = true
+    config.reasoningEffort = this.reasoningEffort
     return config
   }
 }
@@ -604,6 +640,7 @@ export class ComicPageAnalyzerFactory {
         transport,
         runtime.sourceProfileId,
         runtime.sourceRevision,
+        runtime.reasoningEffort,
       )
     }
     if (runtime.sourceType === LLM_SOURCE_TYPE_OPENAI_COMPATIBLE) {
@@ -613,6 +650,7 @@ export class ComicPageAnalyzerFactory {
         runtime.modelId,
         transport,
         runtime.providerId(),
+        runtime.reasoningEffort,
       )
     }
     throw new Error('Selected LLM source type is unsupported')

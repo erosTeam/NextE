@@ -5,6 +5,13 @@ export const LLM_SOURCE_TYPE_OPENAI_COMPATIBLE: string = 'openai_compatible'
 export const LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL: string = 'codex_oauth_experimental'
 export const LLM_CONSUMER_COMMENT_TRANSLATION: string = 'comment_translation'
 export const LLM_CONSUMER_MANGA_TRANSLATION: string = 'manga_translation'
+export const LLM_REASONING_EFFORT_NONE: string = 'none'
+export const LLM_REASONING_EFFORT_MINIMAL: string = 'minimal'
+export const LLM_REASONING_EFFORT_LOW: string = 'low'
+export const LLM_REASONING_EFFORT_MEDIUM: string = 'medium'
+export const LLM_REASONING_EFFORT_HIGH: string = 'high'
+export const LLM_REASONING_EFFORT_XHIGH: string = 'xhigh'
+export const LLM_REASONING_EFFORT_MAX: string = 'max'
 
 export class LlmSourceCapabilities {
   chatCompletions: boolean = false
@@ -80,12 +87,15 @@ export class LlmConsumerBinding {
   consumerId: string = ''
   sourceProfileId: string = ''
   modelId: string = ''
+  /** Empty means omit the request field and leave the choice to the model. */
+  reasoningEffort: string = ''
 
   copy(): LlmConsumerBinding {
     const value: LlmConsumerBinding = new LlmConsumerBinding()
     value.consumerId = this.consumerId
     value.sourceProfileId = this.sourceProfileId
     value.modelId = this.modelId
+    value.reasoningEffort = this.reasoningEffort
     return value
   }
 
@@ -97,6 +107,22 @@ export class LlmConsumerBinding {
 export class LlmSourceResolution {
   profile: LlmSourceProfile = new LlmSourceProfile()
   modelId: string = ''
+  reasoningEffort: string = ''
+}
+
+/**
+ * The app deliberately owns this complete menu. It is not inferred from model catalogs because
+ * neither Chat Completions nor /v1/models provides a portable capability-enumeration contract.
+ */
+export function isLlmReasoningEffort(value: string): boolean {
+  return value.length === 0 ||
+    value === LLM_REASONING_EFFORT_NONE ||
+    value === LLM_REASONING_EFFORT_MINIMAL ||
+    value === LLM_REASONING_EFFORT_LOW ||
+    value === LLM_REASONING_EFFORT_MEDIUM ||
+    value === LLM_REASONING_EFFORT_HIGH ||
+    value === LLM_REASONING_EFFORT_XHIGH ||
+    value === LLM_REASONING_EFFORT_MAX
 }
 
 export function supportsCommentTranslation(profile: LlmSourceProfile): boolean {

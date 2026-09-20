@@ -87,6 +87,38 @@ class ChatCompletionRequest {
   max_tokens: number = 2048
 }
 
+class ChatCompletionRequestWithReasoning extends ChatCompletionRequest {
+  reasoning_effort: string = ''
+}
+
+/** Builds the Chat Completions payload without model-capability discovery or fallback. */
+export class ChatCompletionRequestBuilder {
+  static build(
+    model: string,
+    instructions: string,
+    input: string,
+    reasoningEffort: string,
+  ): string {
+    const system: ChatMessage = new ChatMessage()
+    system.role = 'system'
+    system.content = instructions
+    const user: ChatMessage = new ChatMessage()
+    user.role = 'user'
+    user.content = input
+    if (reasoningEffort.length === 0) {
+      const body: ChatCompletionRequest = new ChatCompletionRequest()
+      body.model = model
+      body.messages = [system, user]
+      return JSON.stringify(body)
+    }
+    const body: ChatCompletionRequestWithReasoning = new ChatCompletionRequestWithReasoning()
+    body.model = model
+    body.messages = [system, user]
+    body.reasoning_effort = reasoningEffort
+    return JSON.stringify(body)
+  }
+}
+
 class ChatCompletionMessage {
   content: string = ''
 }
@@ -1079,8 +1111,8 @@ export class CommentTranslationService {
   /**
    * Provider dispatch. The route is passed whole, so this method never re-reads the LLM binding,
    * the prompt profile, or the Google-only flag — every one of those was fixed at resolveRoute
-   * time. An LLM that fails mid-request falls through to Google, and the result is saved
-   * under the LLM scope by translateAndCache.
+   * time. Legacy model-default requests retain the Google fallback. An explicitly selected
+   * reasoning override never falls through silently: the caller receives the provider failure.
    */
   private static async callTranslation(
     context: common.UIAbilityContext,
@@ -1093,7 +1125,7 @@ export class CommentTranslationService {
       DiagnosticLogger.info(
         'translation',
         'comment_llm_start',
-        `target=${targetLang} content=${route.contentKind} source=${route.llm.sourceProfileId} revision=${route.llm.sourceRevision} model=${route.llm.modelId} prompt=${route.llmProfile.promptProfileId} promptRevision=${route.llmProfile.promptRevision}`,
+        `target=${targetLang} content=${route.contentKind} source=${route.llm.sourceProfileId} revision=${route.llm.sourceRevision} model=${route.llm.modelId} reasoning=${route.llm.reasoningEffort || 'default'} prompt=${route.llmProfile.promptProfileId} promptRevision=${route.llmProfile.promptRevision}`,
       )
       try {
         const llmResult: string = await CommentTranslationService.callLlm(
@@ -1111,6 +1143,10 @@ export class CommentTranslationService {
         )
         return llmResult
       } catch (error) {
+        if (route.llm.reasoningEffort.length > 0) {
+          DiagnosticLogger.warn('translation', 'llm_reasoning_override_failed', (error as Error).message)
+          throw error as Error
+        }
         DiagnosticLogger.warn('translation', 'llm_failed_google_fallback', (error as Error).message)
       }
     }
@@ -1149,18 +1185,9 @@ export class CommentTranslationService {
         runtime.modelId,
         instructions,
         text,
+        runtime.reasoningEffort,
       )
     }
-    const reqBody = new ChatCompletionRequest()
-    reqBody.model = runtime.modelId
-    const system = new ChatMessage()
-    system.role = 'system'
-    system.content = instructions
-    const user = new ChatMessage()
-    user.role = 'user'
-    user.content = text
-    reqBody.messages = [system, user]
-
     try {
       const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
         `${CommentTranslationService.stripV1(runtime.baseUrl)}/v1/chat/completions`,
@@ -1171,7 +1198,12 @@ export class CommentTranslationService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${runtime.apiKey}`,
         },
-        JSON.stringify(reqBody),
+        ChatCompletionRequestBuilder.build(
+          runtime.modelId,
+          instructions,
+          text,
+          runtime.reasoningEffort,
+        ),
         TRANSLATION_CONNECT_TIMEOUT_MS,
         TRANSLATION_READ_TIMEOUT_MS,
       )
@@ -1311,11 +1343,13 @@ export class CommentTranslationService {
     sourceProfileId: string,
     sourceRevision: number,
     modelId: string,
+    reasoningEffort: string,
     promptProfileId: string,
     promptRevision: number,
   ): string {
+    const effortScope: string = reasoningEffort.length === 0 ? 'default' : reasoningEffort
     return targetLang + '|' + contentKind + '|' + sourceProfileId + '|r' + sourceRevision +
-      '|' + modelId + '|' + promptProfileId + '|pr' + promptRevision
+      '|' + modelId + '|re:' + effortScope + '|' + promptProfileId + '|pr' + promptRevision
   }
 
   static googleCacheScope(targetLang: string, contentKind: string, googleOnly: boolean): string {
@@ -1344,6 +1378,7 @@ export class CommentTranslationService {
           resolution.profile.sourceProfileId,
           resolution.profile.sourceRevision,
           resolution.modelId,
+          binding.reasoningEffort,
           prompt.promptProfileId,
           prompt.promptRevision,
         )
@@ -1368,6 +1403,7 @@ export class CommentTranslationService {
         route.llm.sourceProfileId,
         route.llm.sourceRevision,
         route.llm.modelId,
+        route.llm.reasoningEffort,
         route.llmProfile.promptProfileId,
         route.llmProfile.promptRevision,
       )
