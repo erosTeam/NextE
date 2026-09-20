@@ -92,9 +92,21 @@ export class ThemeConstants {
   static readonly FONT_SIZE_LIST_ITEM: number = 13
   static readonly FONT_SIZE_TITLE: number = 16
   static readonly FONT_SIZE_HEADING: number = 18
-  static readonly FONT_SIZE_SELECTION_INDICATOR: number = 20
   static readonly FONT_SIZE_H2: number = 22
   static readonly FONT_SIZE_H1: number = 24
+  static readonly FONT_SIZE_DISPLAY: number = 28
+
+  // System-symbol glyph scale
+  static readonly SYMBOL_SIZE_TINY: number = 12
+  static readonly SYMBOL_SIZE_COMPACT: number = 14
+  static readonly SYMBOL_SIZE_ACTION: number = 18
+  static readonly SYMBOL_SIZE_CONTROL: number = 20
+  static readonly SYMBOL_SIZE_ROW: number = 22
+  static readonly SYMBOL_SIZE_STANDARD: number = 24
+  static readonly SYMBOL_SIZE_PROMINENT: number = 28
+  static readonly SYMBOL_SIZE_FEATURE: number = 30
+  static readonly SYMBOL_SIZE_LARGE: number = 32
+  static readonly SYMBOL_SIZE_HERO: number = 36
 
   // Border radius
   static readonly RADIUS_SM: number = 4

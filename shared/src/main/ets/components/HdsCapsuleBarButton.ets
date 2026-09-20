@@ -4,6 +4,7 @@ import {
   connectImmersiveMaterialSettings,
   ImmersiveMaterialSettingsState,
 } from '../state/ImmersiveMaterialSettingsState'
+import { ThemeConstants } from '../theme/ThemeConstants'
 
 /**
  * HDS floating-material capsule button.
@@ -29,7 +30,7 @@ export struct HdsCapsuleBarButton {
 
   @Builder defaultButtonBuilder() {
     SymbolGlyph($r('sys.symbol.doc_plaintext'))
-      .fontSize(18)
+      .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
       .fontColor([$r('sys.color.brand')])
   }
 

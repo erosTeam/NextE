@@ -1678,7 +1678,7 @@ export struct GalleryCommentsCard {
     Row({ space: ThemeConstants.SPACE_SM }) {
       Row() {
         SymbolGlyph($r('sys.symbol.eye_slash'))
-          .fontSize(18)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
           .fontColor([$r('sys.color.font_tertiary')])
       }
       .width(24)
@@ -1724,7 +1724,7 @@ export struct GalleryCommentsCard {
   ExpandedBlockedHeader(c: EhGalleryComment) {
     Row({ space: ThemeConstants.SPACE_XS }) {
       SymbolGlyph($r('sys.symbol.eye_slash'))
-        .fontSize(14)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_COMPACT)
         .fontColor([$r('sys.color.font_tertiary')])
       Text($r('app.string.local_block_comment_collapsed'))
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)

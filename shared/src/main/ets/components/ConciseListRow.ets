@@ -298,7 +298,7 @@ export struct ConciseListRow {
     Row() {
       if (this.leadingIcon !== undefined) {
         SymbolGlyph(this.leadingIcon)
-          .fontSize(22)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ROW)
           .fontColor([
             this.destructive ? Color.Red : (this.secondaryColor ?? $r('sys.color.font_secondary')),
           ])

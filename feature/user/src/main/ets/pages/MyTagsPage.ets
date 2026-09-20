@@ -1400,15 +1400,15 @@ export struct MyTagsPage {
     Row() {
       if (row.item.watched) {
         SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-          .fontSize(24)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
           .fontColor(['#2BAE85'])
       } else if (row.item.hidden) {
         SymbolGlyph($r('sys.symbol.xmark_circle_fill'))
-          .fontSize(24)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
           .fontColor(['#DE1C31'])
       } else {
         SymbolGlyph($r('sys.symbol.dot_circle'))
-          .fontSize(24)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
           .fontColor([$r('sys.color.font_tertiary')])
       }
     }

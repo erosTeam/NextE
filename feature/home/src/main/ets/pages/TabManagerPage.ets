@@ -110,7 +110,7 @@ export struct TabManagerPage {
   private ProfileRow(p: CustomProfile) {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph(this.typeIcon(p))
-        .fontSize(22)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_ROW)
         .fontColor([$r('sys.color.font_secondary')])
       Column({ space: 2 }) {
         Row({ space: ThemeConstants.SPACE_SM }) {

@@ -348,7 +348,7 @@ export struct AboutPage {
   AppHeader() {
     Column({ space: ThemeConstants.SPACE_XS }) {
       Text('NextE')
-        .fontSize(28)
+        .fontSize(ThemeConstants.FONT_SIZE_DISPLAY)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
       Text($r('app.string.about_tagline'))

@@ -237,7 +237,7 @@ export struct AppModalScaffold {
     Column({ space: ThemeConstants.SPACE_XS }) {
       Button({ type: ButtonType.Circle, stateEffect: true }) {
         SymbolGlyph(icon)
-          .fontSize(22)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ROW)
           .fontColor([tint])
       }
       .buttonStyle(ButtonStyleMode.NORMAL)

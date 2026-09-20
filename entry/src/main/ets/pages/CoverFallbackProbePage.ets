@@ -23,7 +23,7 @@ export struct CoverFallbackProbePage {
       Scroll() {
         Column({ space: ThemeConstants.SPACE_LG }) {
           Text('Cover fallback probe')
-            .fontSize(22)
+            .fontSize(ThemeConstants.FONT_SIZE_H2)
             .fontWeight(FontWeight.Bold)
             .fontColor(ThemeConstants.TEXT_PRIMARY)
 
@@ -35,7 +35,7 @@ export struct CoverFallbackProbePage {
           .justifyContent(FlexAlign.Center)
 
           Text('Loading motion probe')
-            .fontSize(18)
+            .fontSize(ThemeConstants.FONT_SIZE_HEADING)
             .fontWeight(FontWeight.Medium)
             .fontColor(ThemeConstants.TEXT_PRIMARY)
             .width('100%')
@@ -76,7 +76,7 @@ export struct CoverFallbackProbePage {
       })
 
       Text(label)
-        .fontSize(14)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(ThemeConstants.TEXT_SECONDARY)
     }
   }
@@ -96,7 +96,7 @@ export struct CoverFallbackProbePage {
       .borderRadius(ThemeConstants.RADIUS_MD)
 
       Text('native')
-        .fontSize(12)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(ThemeConstants.TEXT_SECONDARY)
         .maxLines(2)
         .textAlign(TextAlign.Center)
@@ -122,7 +122,7 @@ export struct CoverFallbackProbePage {
       .borderRadius(ThemeConstants.RADIUS_MD)
 
       Text('thumbnail')
-        .fontSize(12)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(ThemeConstants.TEXT_SECONDARY)
         .maxLines(2)
         .textAlign(TextAlign.Center)
@@ -151,7 +151,7 @@ export struct CoverFallbackProbePage {
       .borderRadius(ThemeConstants.RADIUS_MD)
 
       Text('pending image')
-        .fontSize(12)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor(ThemeConstants.TEXT_SECONDARY)
         .maxLines(2)
         .textAlign(TextAlign.Center)

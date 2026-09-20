@@ -2182,7 +2182,7 @@ export struct ReaderPage {
           .color(Color.White)
       } else {
         SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
-          .fontSize(18)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
           .fontColor([Color.White])
       }
       Text(this.comicTranslationRunning
