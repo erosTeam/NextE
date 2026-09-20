@@ -1345,6 +1345,14 @@
       "value": "正在准备图片"
     },
     {
+      "name": "reader_super_resolution_page_disabled",
+      "value": "已关闭超分"
+    },
+    {
+      "name": "reader_super_resolution_page_enabled",
+      "value": "已开启超分"
+    },
+    {
       "name": "reader_image_blocked",
       "value": "图片已隐藏"
     },

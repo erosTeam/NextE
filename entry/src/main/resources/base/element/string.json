@@ -1345,6 +1345,14 @@
       "value": "Preparing image"
     },
     {
+      "name": "reader_super_resolution_page_disabled",
+      "value": "Image enhancement turned off"
+    },
+    {
+      "name": "reader_super_resolution_page_enabled",
+      "value": "Image enhancement turned on"
+    },
+    {
       "name": "reader_image_blocked",
       "value": "Image hidden"
     },
