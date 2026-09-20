@@ -135,6 +135,9 @@ export class ThemeConstants {
   static readonly LIST_SECTION_INSET: number = 4
   static readonly LIST_ROW_RADIUS: number = 19
   static readonly LIST_ROW_TEXT_INDENT: number = 8
+  // Dropdown values stay content-sized until this cap; without it a long selected value can consume the
+  // HDS card's primary-text area and hide the setting title and description.
+  static readonly LIST_ROW_DROPDOWN_VALUE_MAX_WIDTH: number = 144
 
   // Dimensions
   static readonly TITLE_BAR_HEIGHT: number = 56
