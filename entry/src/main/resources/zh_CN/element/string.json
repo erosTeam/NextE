@@ -4973,6 +4973,10 @@
       "value": "API 与 Codex OAuth 源可以同时存在"
     },
     {
+      "name": "llm_source_add_action",
+      "value": "选择类型"
+    },
+    {
       "name": "llm_source_type",
       "value": "源类型"
     },

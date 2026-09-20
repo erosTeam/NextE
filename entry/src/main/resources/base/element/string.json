@@ -4973,6 +4973,10 @@
       "value": "API and Codex OAuth sources can coexist"
     },
     {
+      "name": "llm_source_add_action",
+      "value": "Choose type"
+    },
+    {
       "name": "llm_source_type",
       "value": "Source type"
     },

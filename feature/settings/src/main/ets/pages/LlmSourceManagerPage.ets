@@ -153,6 +153,7 @@ export struct LlmSourceManagerPage {
               title: $r('app.string.llm_source_add'),
               subtitle: $r('app.string.llm_source_add_hint'),
               leadingIcon: $r('sys.symbol.plus'),
+              trailingText: $r('app.string.llm_source_add_action'),
               trailingDropdown: true,
               dropdownMenuEnabled: true,
               dropdownMenuBuilder: (select: (action: () => void) => void) => {

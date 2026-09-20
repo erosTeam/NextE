@@ -4973,6 +4973,10 @@
       "value": "API と Codex OAuth ソースを併用できます"
     },
     {
+      "name": "llm_source_add_action",
+      "value": "タイプを選択"
+    },
+    {
       "name": "llm_source_type",
       "value": "ソースの種類"
     },
