@@ -265,6 +265,7 @@ export struct ConciseListRow {
       .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .constraintSize({ maxWidth: ThemeConstants.LIST_ROW_DROPDOWN_VALUE_MAX_WIDTH })
     SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
       .fontSize(ThemeConstants.FONT_SIZE_TITLE)
       .fontColor([$r('sys.color.font_tertiary')])
@@ -297,7 +298,7 @@ export struct ConciseListRow {
     Row() {
       if (this.leadingIcon !== undefined) {
         SymbolGlyph(this.leadingIcon)
-          .fontSize(22)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ROW)
           .fontColor([
             this.destructive ? Color.Red : (this.secondaryColor ?? $r('sys.color.font_secondary')),
           ])

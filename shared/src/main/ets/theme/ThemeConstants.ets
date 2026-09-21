@@ -94,6 +94,19 @@ export class ThemeConstants {
   static readonly FONT_SIZE_HEADING: number = 18
   static readonly FONT_SIZE_H2: number = 22
   static readonly FONT_SIZE_H1: number = 24
+  static readonly FONT_SIZE_DISPLAY: number = 28
+
+  // System-symbol glyph scale
+  static readonly SYMBOL_SIZE_TINY: number = 12
+  static readonly SYMBOL_SIZE_COMPACT: number = 14
+  static readonly SYMBOL_SIZE_ACTION: number = 18
+  static readonly SYMBOL_SIZE_CONTROL: number = 20
+  static readonly SYMBOL_SIZE_ROW: number = 22
+  static readonly SYMBOL_SIZE_STANDARD: number = 24
+  static readonly SYMBOL_SIZE_PROMINENT: number = 28
+  static readonly SYMBOL_SIZE_FEATURE: number = 30
+  static readonly SYMBOL_SIZE_LARGE: number = 32
+  static readonly SYMBOL_SIZE_HERO: number = 36
 
   // Border radius
   static readonly RADIUS_SM: number = 4
@@ -135,6 +148,9 @@ export class ThemeConstants {
   static readonly LIST_SECTION_INSET: number = 4
   static readonly LIST_ROW_RADIUS: number = 19
   static readonly LIST_ROW_TEXT_INDENT: number = 8
+  // Dropdown values stay content-sized until this cap; without it a long selected value can consume the
+  // HDS card's primary-text area and hide the setting title and description.
+  static readonly LIST_ROW_DROPDOWN_VALUE_MAX_WIDTH: number = 144
 
   // Dimensions
   static readonly TITLE_BAR_HEIGHT: number = 56

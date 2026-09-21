@@ -2616,7 +2616,7 @@ export struct GalleryDetailPage {
   private RemoteFavoriteSlot(fav: Favcat) {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph($r('sys.symbol.heart_fill'))
-        .fontSize(24)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
         .fontColor([EhConstants.favCatColor(fav.favId)])
       Text(fav.favTitle)
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
@@ -2676,7 +2676,7 @@ export struct GalleryDetailPage {
   private LocalFavoriteRow() {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph(this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-        .fontSize(24)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
         .fontColor([
           this.isLocalFavorite() ? EhConstants.favCatColor('l') : $r('sys.color.font_secondary'),
         ])

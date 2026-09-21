@@ -120,7 +120,7 @@ export struct SearchFilterSheet {
   @Builder
   private FavoritePrefix(favId: string) {
     SymbolGlyph($r('sys.symbol.heart_fill'))
-      .fontSize(24)
+      .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
       .fontColor([this.favoriteColor(favId)])
       .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
   }

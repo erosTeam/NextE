@@ -682,7 +682,7 @@ export struct ImageBlockSettingsPage {
           .height('100%')
       } else {
         SymbolGlyph(icon)
-          .fontSize(30)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_FEATURE)
           .fontColor([$r('sys.color.font_secondary')])
       }
     }
@@ -1289,7 +1289,7 @@ struct ImageBlockRulePreview {
           .height('100%')
       } else {
         SymbolGlyph(this.icon)
-          .fontSize(30)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_FEATURE)
           .fontColor([$r('sys.color.font_secondary')])
       }
     }

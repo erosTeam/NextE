@@ -4997,6 +4997,10 @@
       "value": "API and Codex OAuth sources can coexist"
     },
     {
+      "name": "llm_source_add_action",
+      "value": "Choose type"
+    },
+    {
       "name": "llm_source_type",
       "value": "Source type"
     },
@@ -5131,6 +5135,18 @@
     {
       "name": "llm_binding_model_hint",
       "value": "Query this source and select a model"
+    },
+    {
+      "name": "llm_reasoning_effort",
+      "value": "Thinking depth"
+    },
+    {
+      "name": "llm_reasoning_effort_hint",
+      "value": "Send the selected level without querying model support"
+    },
+    {
+      "name": "llm_reasoning_effort_model_default",
+      "value": "Model default"
     },
     {
       "name": "llm_binding_save_failed",

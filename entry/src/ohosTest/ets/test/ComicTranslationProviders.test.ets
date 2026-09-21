@@ -639,7 +639,7 @@ export default function comicTranslationProvidersTest(): void {
       expect(codexBody.includes('"max_output_tokens"')).assertEqual(false)
       expect(codexBody.includes('"tool_choice":"auto"')).assertEqual(true)
       expect(codexBody.includes('"parallel_tool_calls":false')).assertEqual(true)
-      expect(codexBody.includes('"reasoning":null')).assertEqual(true)
+      expect(codexBody.includes('"reasoning"')).assertEqual(false)
       expect(codexBody.includes('"include":[]')).assertEqual(true)
 
       const publicBody: string = ComicResponsesRequestBuilder.build(
@@ -651,6 +651,18 @@ export default function comicTranslationProvidersTest(): void {
       )
       expect(publicBody.includes('"max_output_tokens":8192')).assertEqual(true)
       expect(publicBody.includes('"tool_choice"')).assertEqual(false)
+      expect(publicBody.includes('"reasoning"')).assertEqual(false)
+
+      const lowReasoningBody: string = ComicResponsesRequestBuilder.build(
+        'api-fixture',
+        'Analyze the page.',
+        'data:image/jpeg;base64,fixture',
+        false,
+        false,
+        [],
+        'low',
+      )
+      expect(lowReasoningBody.includes('"reasoning":{"effort":"low"}')).assertEqual(true)
       done()
     })
 

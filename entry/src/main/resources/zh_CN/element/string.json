@@ -4997,6 +4997,10 @@
       "value": "API 与 Codex OAuth 源可以同时存在"
     },
     {
+      "name": "llm_source_add_action",
+      "value": "选择类型"
+    },
+    {
       "name": "llm_source_type",
       "value": "源类型"
     },
@@ -5131,6 +5135,18 @@
     {
       "name": "llm_binding_model_hint",
       "value": "查看该 LLM 源支持的模型"
+    },
+    {
+      "name": "llm_reasoning_effort",
+      "value": "思考深度"
+    },
+    {
+      "name": "llm_reasoning_effort_hint",
+      "value": "不查询模型支持情况，直接发送所选档位"
+    },
+    {
+      "name": "llm_reasoning_effort_model_default",
+      "value": "模型默认"
     },
     {
       "name": "llm_binding_save_failed",

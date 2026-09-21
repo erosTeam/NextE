@@ -54,7 +54,7 @@ export struct TextTranslationPromptProfilesPage {
   private CheckSuffix(profile: TextTranslationPromptProfile) {
     if (this.profiles.selectedPromptProfileId === profile.promptProfileId) {
       SymbolGlyph($r('sys.symbol.checkmark'))
-        .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_CONTROL)
         .fontColor([ThemeConstants.BRAND_PRIMARY])
         .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_MD })
     }

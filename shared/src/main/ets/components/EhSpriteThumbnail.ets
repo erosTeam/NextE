@@ -419,7 +419,7 @@ export struct EhSpriteThumbnail {
         .height(this.boxHeight())
         .backgroundColor('#33000000')
       SymbolGlyph($r('sys.symbol.eye_slash'))
-        .fontSize(28)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_PROMINENT)
         .fontColor([Color.White])
     }
     .width(this.boxWidth())

@@ -4,6 +4,7 @@ import {
   LLM_SOURCE_PROFILE_SCHEMA_VERSION,
   LLM_SOURCE_TYPE_CODEX_OAUTH_EXPERIMENTAL,
   LLM_SOURCE_TYPE_OPENAI_COMPATIBLE,
+  isLlmReasoningEffort,
   LlmConsumerBinding,
   LlmSourceProfile,
 } from '../model/LlmSourceProfile'
@@ -61,11 +62,15 @@ export class LlmSourceProfileContract {
     const emptySource: boolean = binding.sourceProfileId.length === 0
     const emptyModel: boolean = binding.modelId.length === 0
     if (emptySource && emptyModel) {
-      return
+      if (binding.reasoningEffort.length === 0) {
+        return
+      }
+      throw new Error('LLM consumer binding is incomplete')
     }
     if (emptySource || emptyModel ||
       !LlmSourceProfileContract.identifier(binding.sourceProfileId, MAX_LLM_SOURCE_ID_CHARS) ||
-      !LlmSourceProfileContract.identifier(binding.modelId, MAX_LLM_MODEL_ID_CHARS)) {
+      !LlmSourceProfileContract.identifier(binding.modelId, MAX_LLM_MODEL_ID_CHARS) ||
+      !isLlmReasoningEffort(binding.reasoningEffort)) {
       throw new Error('LLM consumer binding is incomplete')
     }
   }

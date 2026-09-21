@@ -71,7 +71,7 @@ export struct FavoriteSelectorPage {
   @Builder
   private FavcatPrefix(favId: string) {
     SymbolGlyph($r('sys.symbol.heart_fill'))
-      .fontSize(24)
+      .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
       .fontColor([this.colorFor(favId)])
       .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
   }
@@ -81,7 +81,7 @@ export struct FavoriteSelectorPage {
     Row({ space: ThemeConstants.SPACE_XS }) {
       if (this.isSelected(fc)) {
         SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(18)
+          .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
           .fontColor([$r('sys.color.font_secondary')])
       }
       Text(this.trailingFor(fc))

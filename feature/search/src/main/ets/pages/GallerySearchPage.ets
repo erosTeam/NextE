@@ -677,7 +677,7 @@ export struct GallerySearchPage {
   private HistoryTranslateButton() {
     Button({ type: ButtonType.Circle, stateEffect: true }) {
       SymbolGlyph($r('sys.symbol.translate'))
-        .fontSize(18)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
         .fontColor([
           this.history.translateEnabled
             ? ThemeConstants.BRAND_PRIMARY
@@ -698,7 +698,7 @@ export struct GallerySearchPage {
   private HistoryClearButton() {
     Button({ type: ButtonType.Circle, stateEffect: true }) {
       SymbolGlyph($r('sys.symbol.trash'))
-        .fontSize(18)
+        .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
         .fontColor([$r('sys.color.font_emphasize')])
     }
     .onClick(() => {
@@ -742,7 +742,7 @@ export struct GallerySearchPage {
       ListItem() {
         Row({ space: ThemeConstants.SPACE_MD }) {
           SymbolGlyph($r('sys.symbol.link'))
-            .fontSize(24)
+            .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
             .fontColor([ThemeConstants.BRAND_PRIMARY])
           Column({ space: ThemeConstants.SPACE_XS }) {
             Text(this.directLinkTitle())
@@ -759,7 +759,7 @@ export struct GallerySearchPage {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
           SymbolGlyph($r('sys.symbol.arrow_right'))
-            .fontSize(18)
+            .fontSize(ThemeConstants.SYMBOL_SIZE_ACTION)
             .fontColor([$r('sys.color.font_tertiary')])
         }
         .width('100%')
@@ -808,7 +808,7 @@ export struct GallerySearchPage {
           ListItem() {
             Row({ space: ThemeConstants.SPACE_MD }) {
               SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                .fontSize(24)
+                .fontSize(ThemeConstants.SYMBOL_SIZE_STANDARD)
                 .fontColor([$r('sys.color.font_tertiary')])
               Column({ space: ThemeConstants.SPACE_XS }) {
                 Text(this.suggestionTitle(s))
