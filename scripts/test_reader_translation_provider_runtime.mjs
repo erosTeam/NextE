@@ -79,7 +79,9 @@ const backend = { cancellationMode: 'consumer-only', informationSupported: true,
     delegated = true
     return { page: p, variant, identity, async load() { return sourceAsset } }
   } }
-const provider = new NextEReaderTranslationProvider({}, backend, () => configuration)
+const saveUriForPage = (candidate) => candidate === page ? 'https://ehgt.org/original-page.jpg?token=fixture' : ''
+const provider = new NextEReaderTranslationProvider({}, backend, () => configuration,
+  () => '', saveUriForPage)
 const cancellation = new core.ReaderCancellation()
 await provider.load(page, 'original', cancellation, false)
 const identity = configuration.identity()
@@ -92,6 +94,7 @@ assert.equal(calls[0][1].imageHeight, 1400)
 assert.equal(calls[0][1].sourceLanguage, 'japanese')
 const translated = await plan.load(new core.ReaderCancellation(), false)
 assert.equal(translated.uri, 'file:///cache/translated.png')
+assert.equal(translated.saveUri, 'https://ehgt.org/original-page.jpg?token=fixture')
 assert.equal(translated.originalAvailable, true)
 
 await provider.prepareVariant(page, 'enhanced', 'enhanced-id', new core.ReaderCancellation())
@@ -122,7 +125,8 @@ await assert.rejects(provider.prepareVariant(page, 'translated', identity, new c
 // A translation failure records its classified code for the host to render, and an
 // ordinary success clears any earlier code.
 assert.equal(provider.lastFailureCode(page.sourceIndex), '')
-const failingProvider = new NextEReaderTranslationProvider({}, backend, () => configuration)
+const failingProvider = new NextEReaderTranslationProvider({}, backend, () => configuration,
+  () => '', saveUriForPage)
 await failingProvider.load(page, 'original', cancellation, false)
 pending = Promise.reject(new Error('Configure the manga rendering service first'))
 await assert.rejects(failingProvider.prepareVariant(page, 'translated', identity,
@@ -132,7 +136,8 @@ assert.equal(failingProvider.lastFailureCode(page.sourceIndex), 'rendering_servi
 
 runtimeResult = { renderedPage: { identity: { projectId: 'nexte-gallery:eh:12:zh-CN', pageIndex: 0,
   targetLanguage: 'zh-CN' }, localFilePath: '/cache/translated.png' } }
-const okProvider = new NextEReaderTranslationProvider({}, backend, () => configuration)
+const okProvider = new NextEReaderTranslationProvider({}, backend, () => configuration,
+  () => '', saveUriForPage)
 await okProvider.load(page, 'original', cancellation, false)
 assert.equal(okProvider.lastFailureCode(page.sourceIndex), '')
 await okProvider.prepareVariant(page, 'translated', identity, new core.ReaderCancellation())

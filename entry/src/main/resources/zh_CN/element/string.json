@@ -1289,6 +1289,14 @@
       "value": "%s · 未应用"
     },
     {
+      "name": "reader_super_resolution_page_disabled",
+      "value": "已关闭超分"
+    },
+    {
+      "name": "reader_super_resolution_page_enabled",
+      "value": "已开启超分"
+    },
+    {
       "name": "reader_image_info_original_available",
       "value": "原图：可用"
     },

@@ -52,15 +52,17 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
   private ownerKey: string
   private originalAvailable: boolean
   private cropStrength: () => string
+  private saveUri: string
 
   constructor(page: ReaderPage, identity: string, path: string, ownerKey: string, originalAvailable: boolean,
-    cropStrength: () => string = (): string => '') {
+    cropStrength: () => string = (): string => '', saveUri: string = '') {
     this.page = page.copy()
     this.identity = identity
     this.path = path
     this.ownerKey = ownerKey
     this.originalAvailable = originalAvailable
     this.cropStrength = cropStrength
+    this.saveUri = saveUri
   }
 
   async load(cancellation: ReaderCancellation, _forceReload: boolean): Promise<ReaderAsset> {
@@ -71,6 +73,7 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
     const asset = new ReaderAsset(`file://${this.path}`,
       (): void => { readerSuperResolutionReleaseOwner(this.ownerKey) },
       new ReaderFileInformation(this.path, facts))
+    asset.saveUri = this.saveUri
     asset.crop = new NextEReaderCropSource(this.path, 'reader-shared-variant', this.cropStrength)
     asset.originalAvailable = this.originalAvailable
     return asset
@@ -94,14 +97,17 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
   private cropStrength: () => string
+  private saveUriForPage: (page: ReaderPage) => string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: () => NextEReaderSuperResolutionConfiguration,
-    cropStrength: () => string = (): string => '') {
+    cropStrength: () => string = (): string => '',
+    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '') {
     this.context = context
     this.provider = provider
     this.configuration = configuration
     this.cropStrength = cropStrength
+    this.saveUriForPage = saveUriForPage
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     this.ownerPrefix = `reader-shared:${++NextEReaderSuperResolutionProvider.sequence}`
@@ -155,9 +161,11 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
         ? result.filePath
         : NextEReaderSuperResolutionProvider.localPath(result.displayUri)
       if (path.length === 0) throw new Error('reader_variant_output_unavailable')
+      const saveUri = this.saveUriForPage(page)
+      if (saveUri.length === 0) throw new Error('reader_variant_save_source_unavailable')
       retained = true
       return new NextEReaderSuperResolutionPlan(page, identity, path, ownerKey,
-        this.provider.prepareOriginal !== undefined, this.cropStrength)
+        this.provider.prepareOriginal !== undefined, this.cropStrength, saveUri)
     } catch (error) {
       const current = this.informationByPage.get(this.pageIdentity(page))
       if (current !== undefined && current.identity === identity && !current.applied &&

@@ -84,7 +84,8 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
         readerFileCacheKey: () => 'resampled-cache',
         loadReaderFile: async (_context, url, key, _priority, _unused, force) => {
           downloads.push({ url, key, force })
-          return { displayUri: url, filePath: 'local-file', bytes: 42 }
+          return { displayUri: force ? 'file:///cache/fresh-display.webp' : 'file:///cache/old-display.webp',
+            filePath: force ? '/cache/fresh-display.webp' : '/cache/old-display.webp', bytes: 42 }
         },
       },
       ReaderPageCropService: {},
@@ -109,8 +110,13 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
   adapter.pages.set('page', copyable({ page: 1, reloadKey: 'old-key', originImageUrl: '' }))
   const page = { key: 'page', unit: { work: 'gallery' }, sourceIndex: 0 }
 
-  await adapter.load(page, 'original', token(), false)
-  await adapter.load(page, 'original', token(), true)
+  const initial = await adapter.load(page, 'original', token(), false)
+  assert.equal(initial.uri, 'file:///cache/old-display.webp')
+  assert.equal(initial.saveUri, 'https://fixture.invalid/old.webp')
+  const refreshed = await adapter.load(page, 'original', token(), true)
+  assert.equal(refreshed.uri, 'file:///cache/fresh-display.webp')
+  assert.equal(refreshed.saveUri, 'https://fixture.invalid/fresh.webp')
+  assert.equal(adapter.saveUri(page), 'https://fixture.invalid/fresh.webp')
   await adapter.load(page, 'original', token(), true)
 
   assert.deepEqual(resolutions, [
@@ -305,7 +311,8 @@ test('optional adapter selects a complete local source before network and keeps 
 
 test('optional thumbnail entry reuses the exact host ReaderParams instead of refetching gallery detail', async () => {
   const network = [], inits = []
-  const selected = copyable({ page: 4, sUrl: 'https://e-hentai.org/s/exact/fixture-4', imgkey: 'exact-key',
+  const selected = copyable({ page: 4, sUrl: 'https://e-hentai.org/s/exact/fixture-4',
+    imageUrl: 'https://ehgt.org/exact-page-4.jpg', imgkey: 'exact-key',
     thumbUrl: 'https://ehgt.org/exact-sprite.webp', thumbWidth: 120, thumbHeight: 180,
     thumbOffsetX: 240, spriteWidth: 960, spriteHeight: 180 })
   const entry = { gid: 'gallery', token: 'token', index: 3, fileCount: 46, title: 'Retained detail title',
@@ -367,6 +374,7 @@ test('optional thumbnail entry reuses the exact host ReaderParams instead of ref
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')
 test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
   assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderAssetFailureClassifier,[\s\S]*?ReaderPreloadHost/)
-  assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter\)/)
+  assert.match(pageSource, /const autoReadSourceHost = lab\?\.autoReadSourceProbe === 'delay-once'[\s\S]*?new NextEReaderAutoReadSourceProbe\(adapter, lab\.autoReadSourceProbe\)[\s\S]*?: adapter/)
+  assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter, autoReadSourceHost\)/)
   assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
 })

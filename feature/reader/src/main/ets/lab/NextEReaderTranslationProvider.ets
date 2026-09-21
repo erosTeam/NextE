@@ -48,14 +48,16 @@ class NextEReaderTranslationPlan implements ReaderVariantAssetPlan {
   private path: string
   private originalAvailable: boolean
   private cropStrength: () => string
+  private saveUri: string
 
   constructor(page: ReaderPage, identity: string, path: string, originalAvailable: boolean,
-    cropStrength: () => string = (): string => '') {
+    cropStrength: () => string = (): string => '', saveUri: string = '') {
     this.page = page.copy()
     this.identity = identity
     this.path = path
     this.originalAvailable = originalAvailable
     this.cropStrength = cropStrength
+    this.saveUri = saveUri
   }
 
   async load(cancellation: ReaderCancellation, _forceReload: boolean): Promise<ReaderAsset> {
@@ -64,6 +66,7 @@ class NextEReaderTranslationPlan implements ReaderVariantAssetPlan {
     facts.variant = 'translated'
     facts.originalAvailable = this.originalAvailable
     const asset = new ReaderAsset(`file://${this.path}`, () => {}, new ReaderFileInformation(this.path, facts))
+    asset.saveUri = this.saveUri
     asset.crop = new NextEReaderCropSource(this.path, 'reader-shared-translation', this.cropStrength)
     asset.originalAvailable = this.originalAvailable
     return asset
@@ -81,14 +84,17 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
   private sourcePaths: Map<string, string> = new Map<string, string>()
   private failureCodes: Map<number, string> = new Map<number, string>()
   private cropStrength: () => string
+  private saveUriForPage: (page: ReaderPage) => string
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: (page: ReaderPage) => NextEReaderTranslationConfiguration,
-    cropStrength: () => string = (): string => '') {
+    cropStrength: () => string = (): string => '',
+    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '') {
     this.context = context
     this.provider = provider
     this.configuration = configuration
     this.cropStrength = cropStrength
+    this.saveUriForPage = saveUriForPage
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     if (provider.prepareOriginal !== undefined) {
@@ -124,6 +130,8 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
     }
     const sourcePath = this.sourcePaths.get(this.pageIdentity(page)) ?? ''
     if (sourcePath.length === 0) throw new Error('reader_translation_source_unavailable')
+    const saveUri = this.saveUriForPage(page)
+    if (saveUri.length === 0) throw new Error('reader_translation_save_source_unavailable')
     const probe = connectNextEReaderTranslationProbe()
     const work = page.unit.work
     const detach = cancellation.onCancel((): void => {
@@ -143,7 +151,7 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
         this.failureCodes.delete(page.sourceIndex)
         probe.deliver(this.context, work, page.sourceIndex, 'applied', identity)
         return new NextEReaderTranslationPlan(page, identity, probePath,
-          this.provider.prepareOriginal !== undefined, this.cropStrength)
+          this.provider.prepareOriginal !== undefined, this.cropStrength, saveUri)
       }
       const input = new ComicTranslationReaderPageInput()
       input.projectId = configuration.projectId
@@ -166,7 +174,7 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
         result.renderedPage.localFilePath.length === 0) throw new Error('reader_translation_result_stale')
       probe.deliver(this.context, work, page.sourceIndex, 'applied', identity)
       return new NextEReaderTranslationPlan(page, identity, result.renderedPage.localFilePath,
-        this.provider.prepareOriginal !== undefined, this.cropStrength)
+        this.provider.prepareOriginal !== undefined, this.cropStrength, saveUri)
     } catch (error) {
       probe.deliver(this.context, work, page.sourceIndex, 'unavailable', identity)
       throw error as Error

@@ -110,6 +110,10 @@ struct GalleryPreviewHorizontalSource {
     .clip(true)
     .visibility(this.readerTransition.sourceHidden(this.sourceId) ? Visibility.Hidden : Visibility.Visible)
     .onVisibleAreaChange([0.0, 1.0], (isExpanding: boolean, currentRatio: number): void => {
+      console.info(
+        `[NextEVisReport] id=${this.sourceId} expanding=${isExpanding}` +
+        ` ratio=${currentRatio.toFixed(4)} phase=${this.readerTransition.phase}`,
+      )
       this.readerTransition.reportSourceVisibility(this.sourceId, isExpanding && currentRatio >= 0.999)
     })
   }

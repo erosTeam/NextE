@@ -7,7 +7,7 @@ import {
   ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
-  ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderUnitKey, ReaderUnit, ReaderPage,
+  ReaderCatalog, ReaderAssetProvider, ReaderPreloadHost, ReaderAutoReadSourceHost, ReaderUnitKey, ReaderUnit, ReaderPage,
   ReaderCancellation, ReaderAsset, ReaderAssetFailure, ReaderAssetFailureClassifier, ReaderAssetKind, ReaderImageShareHost,
   ReaderImageShareTarget, ReaderImageSharePresentation,
   ReaderImageInformation, ReaderOriginalAssetPlan,
@@ -48,6 +48,7 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     facts.variant = 'original'
     facts.originalAvailable = true
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
+    asset.saveUri = this.url
     asset.originalAvailable = true
     if (result.filePath.length > 0) {
       asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-original', this.cropStrength)
@@ -57,7 +58,7 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
 }
 
 export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider, ReaderAssetFailureClassifier,
-  ReaderPreloadHost, ReaderImageShareHost {
+  ReaderPreloadHost, ReaderAutoReadSourceHost, ReaderImageShareHost {
   cancellationMode: 'consumer-only' | 'transport' = 'consumer-only'
   informationSupported: boolean = true
   private context: common.UIAbilityContext
@@ -91,6 +92,11 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   transitionImage(pageKey: string | null): EhGalleryImage | null {
     if (pageKey === null) return null
     return this.pages.get(pageKey)?.copy() ?? null
+  }
+
+  /** Legacy save exports the resolved source choice, never a generated reader variant. */
+  saveUri(page: ReaderPage): string {
+    return this.pages.get(page.key)?.imageUrl ?? ''
   }
 
   async open(key: ReaderUnitKey, cancellation: ReaderCancellation): Promise<ReaderUnit> {
@@ -150,6 +156,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
       if (source === undefined || !source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_page')
       const page = new ReaderPage(unit.key, `${unit.key.work}:${source.page}`, index)
       page.thumbnail.kind = 'image'
+      page.bodySourceReady = true
       this.pages.set(page.key, source)
       return page
     }
@@ -164,6 +171,10 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const source = vm.imageAt(index).copy()
     if (source.sUrl.length === 0) throw new Error('missing_eh_preview')
     const page = new ReaderPage(unit.key, `${unit.key.work}:${source.page}`, index)
+    // `sUrl` establishes only preview metadata. Automatic reading follows the
+    // legacy body-image condition, which becomes true after resolve() stores
+    // a non-empty imageUrl (or a body image has already loaded).
+    page.bodySourceReady = source.imageUrl.length > 0
     page.thumbnail.kind = source.spriteWidth > 0 && source.thumbWidth > 0 ? 'sprite' : 'image'
     page.thumbnail.width = source.thumbWidth
     page.thumbnail.height = source.thumbHeight
@@ -191,6 +202,27 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     await ImagePipelineService.loadReaderFile(this.context, url, key, 100)
     cancellation.check()
     console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=ready`)
+  }
+
+  /** Resolve one automatic-reading target without changing thumbnail availability. */
+  async prepareAutoReadSource(page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderPage> {
+    cancellation.check()
+    if (this.localUnits.has(page.unit.unit)) {
+      const local = this.pages.get(page.key)
+      if (local === undefined || !local.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_body_source')
+      const resolved = page.copy()
+      resolved.bodySourceReady = true
+      return resolved
+    }
+    const source = this.pages.get(page.key)?.copy()
+    if (source === undefined) throw new Error('missing_eh_auto_read_source')
+    await ImageResolveService.getInstance().resolve(source)
+    cancellation.check()
+    this.pages.set(page.key, source.copy())
+    if (source.imageUrl.length === 0) throw new Error('missing_eh_resolved_body_source')
+    const resolved = page.copy()
+    resolved.bodySourceReady = true
+    return resolved
   }
 
   sourceLanguage(): string { return this.gallerySourceLanguage }
@@ -280,6 +312,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
       const facts = new ReaderImageInformation()
       facts.variant = local.source.variant === 'original' ? 'original' : 'resampled'
       const asset = new ReaderAsset(source.imageUrl, () => {}, new ReaderFileInformation(path, facts))
+      asset.saveUri = source.imageUrl
       if (path.length > 0) asset.crop = new NextEReaderCropSource(path, 'reader-lab-local', this.cropStrength)
       return asset
     }
@@ -299,6 +332,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     facts.variant = 'resampled'
     facts.originalAvailable = source.originImageUrl.length > 0
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
+    asset.saveUri = url
     asset.originalAvailable = facts.originalAvailable
     if (result.filePath.length > 0) {
       asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-asset', this.cropStrength)

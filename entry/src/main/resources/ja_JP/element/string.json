@@ -1289,6 +1289,14 @@
       "value": "%s・未適用"
     },
     {
+      "name": "reader_super_resolution_page_disabled",
+      "value": "画像補正をオフにしました"
+    },
+    {
+      "name": "reader_super_resolution_page_enabled",
+      "value": "画像補正をオンにしました"
+    },
+    {
       "name": "reader_image_info_original_available",
       "value": "オリジナル: 利用可能"
     },

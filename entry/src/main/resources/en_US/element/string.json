@@ -1289,6 +1289,14 @@
       "value": "%s · not applied"
     },
     {
+      "name": "reader_super_resolution_page_disabled",
+      "value": "Image enhancement turned off"
+    },
+    {
+      "name": "reader_super_resolution_page_enabled",
+      "value": "Image enhancement turned on"
+    },
+    {
       "name": "reader_image_info_original_available",
       "value": "Original: Available"
     },

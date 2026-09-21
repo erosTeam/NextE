@@ -198,6 +198,17 @@ export class ReaderThumbnailTransitionState {
     return this.readerImageHidden(page) ? 0 : 1
   }
 
+  /**
+   * The shared Reader has no close-proxy host of its own. Once the root proxy
+   * has been prepared, its captured pixels are the only permitted Reader-body
+   * owner until the target thumbnail receives the close handoff. Keep the
+   * route mounted for its close callback and its canvas for the backdrop fade;
+   * only controls and live Reader content yield here.
+   */
+  readerBodyOpacity(): number {
+    return this.rootCloseProxy && this.closingProxyVisible() ? 0 : 1
+  }
+
   private imageRatio(image: EhGalleryImage): number {
     if (image.thumbWidth > 0 && image.thumbHeight > 0) {
       return image.thumbWidth / image.thumbHeight
@@ -333,6 +344,24 @@ export class ReaderThumbnailTransitionState {
     this.proxyRadius = this.openTargetRadius
   }
 
+  /**
+   * A shared Reader entry may resolve its real image part after the route is
+   * mounted. Keep the root proxy as the owner, but land it on that measured
+   * part instead of treating the full root as an implicit destination.
+   */
+  setOpeningTarget(x: number, y: number, width: number, height: number): boolean {
+    if (!this.waitingReader() || !Number.isFinite(x) || !Number.isFinite(y) ||
+      !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return false
+    }
+    this.openTargetX = x
+    this.openTargetY = y
+    this.openTargetWidth = width
+    this.openTargetHeight = height
+    this.openTargetRadius = 0
+    return true
+  }
+
   finishOpeningFlight(): boolean {
     if (this.phase === ReaderThumbnailTransitionPhase.OPENING) {
       // Mount the identical Reader-owned placeholder below the root flight proxy first. The root
@@ -461,6 +490,10 @@ export class ReaderThumbnailTransitionState {
     targetRadius: number,
     readerSnapshot: image.PixelMap | undefined,
     readerSnapshotAspectRatio: number,
+    readerStartX: number,
+    readerStartY: number,
+    readerStartWidth: number,
+    readerStartHeight: number,
     closeTargetSnapshot: image.PixelMap | undefined,
   ): void {
     this.sourceComponentId = sourceComponentId
@@ -478,6 +511,16 @@ export class ReaderThumbnailTransitionState {
       proxyHostWidth,
       proxyHostHeight,
     )
+    // A spread can still have a neighboring part visible when close begins. The
+    // captured selected part must therefore start at its live Reader rectangle,
+    // rather than being re-laid out as a newly fullscreen single page.
+    if (readerSnapshot !== undefined && readerStartWidth > 0 && readerStartHeight > 0) {
+      this.proxyX = readerStartX
+      this.proxyY = readerStartY
+      this.proxyWidth = readerStartWidth
+      this.proxyHeight = readerStartHeight
+      this.proxyRadius = 0
+    }
     this.closeTargetX = targetX
     this.closeTargetY = targetY
     this.closeTargetWidth = targetWidth

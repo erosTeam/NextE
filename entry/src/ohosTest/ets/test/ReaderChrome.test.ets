@@ -105,10 +105,30 @@ async function bestEffortCloseChromeTrial(driver: Driver): Promise<void> {
   } catch (_) {}
 }
 
+/**
+ * A named Lab trial is rendered outside the production Reader overlay.  A
+ * previous test can leave that overlay on top of the app, however; close only
+ * that pre-existing surface before arming the next explicit Lab request.
+ */
+async function closePreexistingReaderOverlay(driver: Driver): Promise<void> {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const overlay = await driver.findComponent(ON.id('reader-overlay-navigation'))
+    if (overlay === null) return
+    const legacy = await driver.findComponent(ON.id('reader_key_surface'))
+    const sharedClose = await driver.findComponent(ON.id('rkit-close'))
+    console.info(`[ReaderChromeTrial] preexisting_overlay legacy=${legacy !== null} shared=${sharedClose !== null}`)
+    if (sharedClose !== null) await sharedClose.click()
+    else await driver.pressBack()
+    await driver.delayMs(250)
+  }
+  throw new Error('Pre-existing Reader overlay did not close before Reader Lab trial')
+}
+
 async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
   failurePage: number = -1, pageIndex: number = 0, entryLayout: string = 'single',
   preferencesReadWrite: boolean = false, beforeMounted: (() => void) | null = null,
   forcedImageBlockSourceIndex: number = -1, assetFailureMessage: string = ''): Promise<void> {
+  await closePreexistingReaderOverlay(driver)
   let mounted = false
   const probe = connectNextEReaderLabContextProbe()
   const epoch = probe.arm(work, (): void => {
@@ -133,7 +153,12 @@ async function startFreshChromeTrial(driver: Driver, work: string, unit: string,
         await privacyAgree.click()
         await driver.delayMs(500)
       }
-      if (mounted && await driver.findComponent(ON.id('rkit-trial-navigation')) !== null) {
+      if (mounted && await driver.findComponent(ON.id('reader-overlay-navigation')) !== null) {
+        // A retained legacy overlay may surface while the Lab destination is
+        // mounting.  Close that foreground route, then wait for the already
+        // armed Lab trial rather than treating its hidden nodes as ready.
+        await closePreexistingReaderOverlay(driver)
+      } else if (mounted && await driver.findComponent(ON.id('rkit-trial-navigation')) !== null) {
         try {
           const ability = await delegator.getCurrentTopAbility()
           if (delegator.getAbilityState(ability) !== abilityDelegatorRegistry.AbilityLifecycleState.FOREGROUND) {
@@ -173,7 +198,13 @@ async function bestEffortCaptureChrome(driver: Driver, name: string): Promise<vo
 
 
 async function waitChromeImage(driver: Driver, owner: string): Promise<string> {
+  let legacyObserved = false
+  let overlayObserved = false
   for (let attempt = 0; attempt < 80; attempt++) {
+    const legacy = await driver.findComponent(ON.id('reader_key_surface'))
+    const overlay = await driver.findComponent(ON.id('reader-overlay-navigation'))
+    legacyObserved = legacyObserved || legacy !== null
+    overlayObserved = overlayObserved || overlay !== null
     const images = await driver.findComponents(ON.type('Image').within(ON.id(owner)))
     if (images !== null && images.length === 1 &&
       await driver.findComponent(ON.type('LoadingProgress').within(ON.id(owner))) === null &&
@@ -184,7 +215,14 @@ async function waitChromeImage(driver: Driver, owner: string): Promise<string> {
     }
     await driver.delayMs(250)
   }
-  throw new Error(`Reader image did not settle: ${owner}`)
+  const trial = await driver.findComponent(ON.id('rkit-trial-navigation'))
+  const surface = await driver.findComponent(ON.id('rkit-reading-surface'))
+  const page = await driver.findComponent(ON.id('rkit-chrome-page'))
+  console.info(`[ReaderChromeTrial] image_timeout owner=${owner} legacyObserved=${legacyObserved} ` +
+    `overlayObserved=${overlayObserved} trial=${trial !== null} surface=${surface !== null} chrome=${page !== null}`)
+  await bestEffortCaptureChrome(driver, 'image-timeout')
+  throw new Error(`Reader image did not settle: ${owner}; legacyObserved=${legacyObserved}; ` +
+    `overlayObserved=${overlayObserved}; trial=${trial !== null}; surface=${surface !== null}; chrome=${page !== null}`)
 }
 
 async function waitChromeImageGeneration(driver: Driver, owner: string, previousId: string): Promise<string> {
@@ -203,8 +241,23 @@ async function waitChromeImageGeneration(driver: Driver, owner: string, previous
 }
 
 async function chromePage(driver: Driver): Promise<number> {
-  const value = await (await driver.findComponent(ON.id('rkit-chrome-page'))).getText()
-  return Number(value.split('/')[0].trim())
+  // The image can settle before the chrome is reattached after a fresh Reader
+  // mount. Reuse the bounded wait used by the slider trial rather than reading
+  // a transient null page node on the tablet form factor.
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const page = await driver.findComponent(ON.id('rkit-chrome-page'))
+    if (page !== null) return Number((await page.getText()).split('/')[0].trim())
+    await driver.delayMs(250)
+  }
+  throw new Error('Reader chrome page did not settle')
+}
+
+async function revealChrome(driver: Driver): Promise<void> {
+  if (await driver.findComponent(ON.id('rkit-chrome-page')) !== null) return
+  const surface = await waitChromeId(driver, 'rkit-reading-surface')
+  const bounds = await surface.getBounds()
+  await driver.click(Math.round((bounds.left + bounds.right) / 2), Math.round((bounds.top + bounds.bottom) / 2))
+  await waitChromeId(driver, 'rkit-chrome-page')
 }
 
 async function reloadOneExactSpreadSource(driver: Driver, capturePrefix: string): Promise<void> {
@@ -567,12 +620,13 @@ function readerManualReloadTest(): void {
   describe('ReaderManualReloadTrial', (): void => {
     it('reloadsTheExactVisibleSource', 0, async (): Promise<void> => {
       const driver = Driver.create()
-      clearChromeCaptures(['reload-source-menu', 'reload-source-finished', 'enabled-timeout'])
+      clearChromeCaptures(['reload-source-menu', 'reload-source-finished', 'enabled-timeout', 'image-timeout'])
       await bestEffortCloseChromeTrial(driver)
       let bodyPassed = false
       try {
         await startFreshChromeTrial(driver, work, unit)
         const beforeId = await waitChromeImage(driver, 'rkit-image-viewport')
+        await revealChrome(driver)
         expect(await chromePage(driver)).assertEqual(1)
         const more = await waitChromeEnabled(driver, 'rkit-more')
         await more.click()
@@ -593,13 +647,14 @@ function readerManualReloadTest(): void {
 
     it('reloadsOneExactSpreadSource', 0, async (): Promise<void> => {
       const driver = Driver.create()
-      clearChromeCaptures(['reload-spread-choice', 'reload-spread-finished'])
+      clearChromeCaptures(['reload-spread-choice', 'reload-spread-finished', 'image-timeout'])
       await bestEffortCloseChromeTrial(driver)
       let bodyPassed = false
       try {
         await startFreshChromeTrial(driver, work, unit, -1, 1)
         await waitChromeImage(driver, 'rkit-image-viewport')
-        await (await driver.findComponent(ON.id('rkit-toggle-spread'))).click()
+        await revealChrome(driver)
+        await (await waitChromeEnabled(driver, 'rkit-toggle-spread')).click()
         await driver.delayMs(800)
         await reloadOneExactSpreadSource(driver, 'reload-spread')
         bodyPassed = true

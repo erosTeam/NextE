@@ -150,7 +150,7 @@ const realHost = section('struct Index {', '\n  @Builder')
   .replace('struct Index {', 'export class Index {') +
   section("  @Monitor('readerLabLaunch.version')", '\n  @Local navStackHolder:') +
   method('aboutToDisappear') + '\n}'
-const compiled = ts.transpileModule(realHost.replace(/@Local\s+/g, '')
+const compiled = ts.transpileModule(realHost.replace(/@Local\s+/g, '').replace(/@Computed\s+/g, '')
   .replace(/@Monitor\([\s\S]*?\)\s*/g, ''), {
     reportDiagnostics: true,
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },

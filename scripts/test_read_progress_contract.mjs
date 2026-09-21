@@ -24,6 +24,34 @@ import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
+function snapshotCrop(component, intrinsicAspectRatio) {
+  const displayWidth = component.width / component.height > intrinsicAspectRatio
+    ? component.height * intrinsicAspectRatio
+    : component.width
+  const displayHeight = displayWidth / intrinsicAspectRatio
+  const left = Math.max(0, Math.floor((component.width - displayWidth) / 2))
+  const top = Math.max(0, Math.floor((component.height - displayHeight) / 2))
+  const right = Math.min(component.width, Math.ceil(left + displayWidth))
+  const bottom = Math.min(component.height, Math.ceil(top + displayHeight))
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    windowX: component.windowX + left,
+    windowY: component.windowY + top,
+  }
+}
+
+function proxyStart(region, proxyHost) {
+  return {
+    x: region.windowX - proxyHost.windowX,
+    y: region.windowY - proxyHost.windowY,
+    width: region.right - region.left,
+    height: region.bottom - region.top,
+  }
+}
+
 // ── Mirror of GalleryReadProgressState (in-memory map, newest-wins) ──────────────────────
 class ProgressStore {
   constructor() {
@@ -542,8 +570,11 @@ const ok = (name, cond) => {
   ok('opening transition entry and image-level loading calls opt into the optional background',
     (readerPageSrc.match(/showTransitionBackground: this\.readerThumbnailTransition\.readerOpeningProxyVisible\(\)/g) ?? [])
       .length === 4)
-  ok('decoded Reader image fades in above the opaque opening proxy before that proxy is released',
-    /private static startOpeningHandoff\([\s\S]*?animateTo\([\s\S]*?transition\.startOpeningHandoff\(\)/.test(
+  ok('the root-owned shared route atomically transfers an already composed image while legacy keeps its fade',
+    /if \(transition\.closeProxyOwnedByRoot\(\)\) \{[\s\S]*?postFrameCallback\([\s\S]*?transition\.startOpeningHandoff\(\)[\s\S]*?transition\.finishOpeningHandoff\(\)/.test(
+      readerTransitionCoordinatorSrc,
+    ) &&
+    /if \(transition\.closeProxyOwnedByRoot\(\)\)[\s\S]*?return[\s\S]*?animateTo\([\s\S]*?transition\.startOpeningHandoff\(\)/.test(
       readerTransitionCoordinatorSrc,
     ) &&
     (readerTransitionCoordinatorSrc.match(
@@ -552,6 +583,49 @@ const ok = (name, cond) => {
   ok('all Reader image surfaces use the transition-owned image opacity above the opening proxy',
     (readerPageSrc.match(/this\.imageLoaded \? this\.readerThumbnailTransition\.readerImageOpacity\(this\.image\.page\) : 0/g) ?? [])
       .length === 3)
+  const readerTransitionStateSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/state/ReaderThumbnailTransitionState.ets'),
+    'utf8',
+  )
+  const sharedReaderPageSrc = readFileSync(
+    join(ROOT, 'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'),
+    'utf8',
+  )
+  const readerSurfaceSrc = readFileSync(
+    join(ROOT, 'third_party/reader-kit/reader-ui/src/main/ets/ReaderSurface.ets'),
+    'utf8',
+  )
+  const indexPageSrc = readFileSync(
+    join(ROOT, 'entry/src/main/ets/pages/Index.ets'),
+    'utf8',
+  )
+  ok('the shared root close retires only Reader content while its canvas follows the legacy backdrop fade',
+    /readerBodyOpacity\(\): number \{\s*return this\.rootCloseProxy && this\.closingProxyVisible\(\) \? 0 : 1/.test(
+      readerTransitionStateSrc,
+    ) &&
+    /canvasBackdropOpacity: this\.readerThumbnailTransition\.backdropOpacity/.test(sharedReaderPageSrc) &&
+    /bodyOpacity: this\.readerThumbnailTransition\.readerBodyOpacity\(\)/.test(sharedReaderPageSrc) &&
+    /@Param canvasBackdropOpacity: number = 1/.test(readerSurfaceSrc) &&
+    /@Param bodyOpacity: number = 1/.test(readerSurfaceSrc) &&
+    /\.opacity\(this\.canvasBackdropOpacity\)/.test(readerSurfaceSrc) &&
+    /\.opacity\(this\.bodyOpacity\)/.test(readerSurfaceSrc) &&
+    !/readerBodyOpacity: this\.readerThumbnailTransition\.readerBodyOpacity\(\)/.test(indexPageSrc))
+  const letterboxedCloseRegion = snapshotCrop(
+    { windowX: 420, windowY: 300, width: 900, height: 1000 },
+    2,
+  )
+  const letterboxedCloseStart = proxyStart(letterboxedCloseRegion, { windowX: 130, windowY: 80 })
+  ok('Reader close starts from the captured content crop under letterboxing and a non-zero root offset',
+    letterboxedCloseRegion.left === 0 && letterboxedCloseRegion.top === 275 &&
+      letterboxedCloseRegion.right === 900 && letterboxedCloseRegion.bottom === 725 &&
+      letterboxedCloseStart.x === 290 && letterboxedCloseStart.y === 495 &&
+      letterboxedCloseStart.width === 900 && letterboxedCloseStart.height === 450 &&
+      /class ReaderSnapshotRegion/.test(readerTransitionCoordinatorSrc) &&
+      /private static readerSnapshotRegion\(/.test(readerTransitionCoordinatorSrc) &&
+      /region: \{ left: region\.left, right: region\.right, top: region\.top, bottom: region\.bottom \}/.test(readerTransitionCoordinatorSrc) &&
+      /readerCapture\.region\.windowX - proxyHostRect\.windowOffset\.x/.test(readerTransitionCoordinatorSrc) &&
+      /readerCapture\.region\.right - readerCapture\.region\.left/.test(readerTransitionCoordinatorSrc) &&
+      /readerStartWidth > 0 && readerStartHeight > 0/.test(readerTransitionStateSrc))
   const detailPageSrc = readFileSync(
     join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
     'utf8',

@@ -54,7 +54,8 @@ const backend = { cancellationMode: 'consumer-only', informationSupported: true,
   async load() { return sourceAsset }, async prepareOriginal(p) {
     return { page: p, async load() { return sourceAsset } }
   } }
-const provider = new NextEReaderSuperResolutionProvider({}, backend, () => configuration)
+const provider = new NextEReaderSuperResolutionProvider({}, backend, () => configuration,
+  () => '', (candidate) => candidate === page ? 'https://ehgt.org/original-page.jpg?token=fixture' : '')
 const cancellation = new core.ReaderCancellation()
 await provider.load(page, 'original', cancellation, false)
 const identity = configuration.identity()
@@ -68,6 +69,7 @@ assert.equal(provider.information(page, identity).applied, true)
 assert.equal(provider.information(page, identity).reason, '')
 const enhanced = await plan.load(new core.ReaderCancellation(), false)
 assert.equal(enhanced.uri, 'file:///cache/enhanced.jpg')
+assert.equal(enhanced.saveUri, 'https://ehgt.org/original-page.jpg?token=fixture')
 assert.equal(enhanced.originalAvailable, true)
 enhanced.release(); enhanced.release()
 assert.equal(released.length, 1)

@@ -32,6 +32,45 @@ class ReaderThumbnailTransitionFrameCallback extends FrameCallback {
   }
 }
 
+/** The exact component-local crop used by the Reader snapshot and its live window rectangle. */
+class ReaderSnapshotRegion {
+  readonly left: number
+  readonly top: number
+  readonly right: number
+  readonly bottom: number
+  readonly windowX: number
+  readonly windowY: number
+
+  constructor(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+    windowX: number,
+    windowY: number,
+  ) {
+    this.left = left
+    this.top = top
+    this.right = right
+    this.bottom = bottom
+    this.windowX = windowX
+    this.windowY = windowY
+  }
+}
+
+class ReaderSnapshotCapture {
+  readonly snapshot: image.PixelMap
+  readonly region: ReaderSnapshotRegion
+
+  constructor(
+    snapshot: image.PixelMap,
+    region: ReaderSnapshotRegion,
+  ) {
+    this.snapshot = snapshot
+    this.region = region
+  }
+}
+
 /** Coordinates the real thumbnail node with one root-level Reader flight proxy. */
 export class ReaderThumbnailTransitionCoordinator {
   private static scopeSeed: number = 0
@@ -165,38 +204,62 @@ export class ReaderThumbnailTransitionCoordinator {
     }
   }
 
+  private static readerSnapshotRegion(
+    uiContext: UIContext,
+    componentId: string,
+    intrinsicWidth: number,
+    intrinsicHeight: number,
+  ): ReaderSnapshotRegion | undefined {
+    if (componentId.length === 0 || intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+      return undefined
+    }
+    const componentRect = uiContext.getComponentUtils().getRectangleById(componentId)
+    const componentWidth: number = Math.floor(componentRect.size.width)
+    const componentHeight: number = Math.floor(componentRect.size.height)
+    if (componentWidth <= 0 || componentHeight <= 0) {
+      return undefined
+    }
+    const ratio: number = intrinsicWidth / intrinsicHeight
+    const displayWidth: number = componentWidth / componentHeight > ratio
+      ? componentHeight * ratio
+      : componentWidth
+    const displayHeight: number = displayWidth / ratio
+    const left: number = Math.max(0, Math.floor((componentWidth - displayWidth) / 2))
+    const top: number = Math.max(0, Math.floor((componentHeight - displayHeight) / 2))
+    const right: number = Math.min(componentWidth, Math.ceil(left + displayWidth))
+    const bottom: number = Math.min(componentHeight, Math.ceil(top + displayHeight))
+    if (right <= left || bottom <= top) {
+      return undefined
+    }
+    return new ReaderSnapshotRegion(
+      left,
+      top,
+      right,
+      bottom,
+      componentRect.windowOffset.x + left,
+      componentRect.windowOffset.y + top,
+    )
+  }
+
   private static captureReaderImage(
     uiContext: UIContext,
     componentId: string,
     intrinsicWidth: number,
     intrinsicHeight: number,
-  ): image.PixelMap | undefined {
-    if (componentId.length === 0 || intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-      return undefined
-    }
+  ): ReaderSnapshotCapture | undefined {
     try {
-      const componentRect = uiContext.getComponentUtils().getRectangleById(componentId)
-      const componentWidth: number = Math.floor(componentRect.size.width)
-      const componentHeight: number = Math.floor(componentRect.size.height)
-      if (componentWidth <= 0 || componentHeight <= 0) {
-        return undefined
-      }
-      const ratio: number = intrinsicWidth / intrinsicHeight
-      const displayWidth: number = componentWidth / componentHeight > ratio
-        ? componentHeight * ratio
-        : componentWidth
-      const displayHeight: number = displayWidth / ratio
-      const left: number = Math.max(0, Math.floor((componentWidth - displayWidth) / 2))
-      const top: number = Math.max(0, Math.floor((componentHeight - displayHeight) / 2))
-      const right: number = Math.min(componentWidth, Math.ceil(left + displayWidth))
-      const bottom: number = Math.min(componentHeight, Math.ceil(top + displayHeight))
-      if (right <= left || bottom <= top) {
-        return undefined
-      }
-      return uiContext.getComponentSnapshot().getSync(componentId, {
+      const region = ReaderThumbnailTransitionCoordinator.readerSnapshotRegion(
+        uiContext,
+        componentId,
+        intrinsicWidth,
+        intrinsicHeight,
+      )
+      if (region === undefined) return undefined
+      const snapshot = uiContext.getComponentSnapshot().getSync(componentId, {
         waitUntilRenderFinished: true,
-        region: { left: left, right: right, top: top, bottom: bottom },
+        region: { left: region.left, right: region.right, top: region.top, bottom: region.bottom },
       })
+      return new ReaderSnapshotCapture(snapshot, region)
     } catch (error) {
       DiagnosticLogger.info(
         'reader-transition',
@@ -212,6 +275,23 @@ export class ReaderThumbnailTransitionCoordinator {
     transition: ReaderThumbnailTransitionState,
   ): void {
     if (!transition.openingHandoff()) {
+      return
+    }
+    if (transition.closeProxyOwnedByRoot()) {
+      // The normal shared route has already held the source snapshot through a
+      // root-flight/Reader-placeholder handoff. Its final Image reported after
+      // a composed frame, so blend-free replacement is safe here. Do not fade
+      // different source pixels together: even aligned thumbnail/original
+      // geometry produces a visibly doubled image during that overlap.
+      uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+        if (!transition.openingHandoff()) {
+          return
+        }
+        transition.startOpeningHandoff()
+        if (transition.finishOpeningHandoff()) {
+          DiagnosticLogger.info('reader-transition', 'open_finished_atomic', `index=${transition.currentIndex}`)
+        }
+      }))
       return
     }
     // Keep the decoded image above an opaque thumbnail placeholder while it fades in. This makes
@@ -361,7 +441,43 @@ export class ReaderThumbnailTransitionCoordinator {
     }
   }
 
-  static startOpening(uiContext: UIContext, galleryId: string): void {
+  /**
+   * Applies reader-kit measured image geometry to the existing root-owned
+   * forward proxy. The coordinates are window vp; the state stores them in
+   * the root proxy's local space just like the close target does.
+   */
+  static setOpeningTarget(
+    uiContext: UIContext,
+    galleryId: string,
+    targetWindowX: number,
+    targetWindowY: number,
+    targetWidth: number,
+    targetHeight: number,
+  ): boolean {
+    const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
+    if (!transition.waitingReader() || transition.galleryId !== galleryId) {
+      return false
+    }
+    try {
+      const rootRect = uiContext.getComponentUtils().getRectangleById('nexte-root-navigation')
+      const rootWidth = uiContext.px2vp(rootRect.size.width)
+      const rootHeight = uiContext.px2vp(rootRect.size.height)
+      if (rootWidth <= 0 || rootHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+        return false
+      }
+      return transition.setOpeningTarget(
+        targetWindowX - uiContext.px2vp(rootRect.windowOffset.x),
+        targetWindowY - uiContext.px2vp(rootRect.windowOffset.y),
+        targetWidth,
+        targetHeight,
+      )
+    } catch (_error) {
+      return false
+    }
+  }
+
+  static startOpening(uiContext: UIContext, galleryId: string,
+    onProxyAtTarget: (() => void) | null = null): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (transition.waitingReader() && transition.galleryId !== galleryId) {
       DiagnosticLogger.info(
@@ -396,6 +512,14 @@ export class ReaderThumbnailTransitionCoordinator {
           }
           if (!transition.finishOpeningFlight()) {
             return
+          }
+          if (onProxyAtTarget !== null) {
+            // ReaderEntryTransition owns per-part opacity. Start its neighbour
+            // reveal only after this root proxy has reached the selected image.
+            const revealNeighbor = onProxyAtTarget
+            uiContext.animateTo({ duration: 140, curve: Curve.Linear }, (): void => {
+              revealNeighbor()
+            })
           }
           DiagnosticLogger.info(
             'reader-transition',
@@ -439,7 +563,7 @@ export class ReaderThumbnailTransitionCoordinator {
     if (!transition.openingCanReverse() || transition.galleryId !== galleryId) {
       return false
     }
-    const reverseSnapshot: image.PixelMap | undefined = transition.openingHandoff()
+    const reverseCapture: ReaderSnapshotCapture | undefined = transition.openingHandoff()
       ? ReaderThumbnailTransitionCoordinator.captureReaderImage(
         uiContext,
         readerSnapshotComponentId,
@@ -447,6 +571,7 @@ export class ReaderThumbnailTransitionCoordinator {
         readerIntrinsicHeight,
       )
       : undefined
+    const reverseSnapshot: image.PixelMap | undefined = reverseCapture?.snapshot
     if (!transition.prepareOpeningReverse(reverseSnapshot)) {
       if (reverseSnapshot !== undefined) {
         reverseSnapshot.release().catch((_error: Error) => {})
@@ -579,7 +704,7 @@ export class ReaderThumbnailTransitionCoordinator {
       transition.reset()
       return false
     }
-    const readerSnapshot: image.PixelMap | undefined = readerImageReady
+    const readerCapture: ReaderSnapshotCapture | undefined = readerImageReady
       ? ReaderThumbnailTransitionCoordinator.captureReaderImage(
         uiContext,
         readerSnapshotComponentId,
@@ -587,6 +712,32 @@ export class ReaderThumbnailTransitionCoordinator {
         readerIntrinsicHeight,
       )
       : undefined
+    const readerSnapshot: image.PixelMap | undefined = readerCapture?.snapshot
+    let readerStartX: number = 0
+    let readerStartY: number = 0
+    let readerStartWidth: number = 0
+    let readerStartHeight: number = 0
+    if (readerCapture !== undefined) {
+      try {
+        const proxyHostRect = uiContext.getComponentUtils().getRectangleById(transition.closeProxyOwnedByRoot()
+          ? 'nexte-root-navigation' : ReaderThumbnailTransitionCoordinator.closeProxyHostId())
+        readerStartX = uiContext.px2vp(readerCapture.region.windowX - proxyHostRect.windowOffset.x)
+        readerStartY = uiContext.px2vp(readerCapture.region.windowY - proxyHostRect.windowOffset.y)
+        readerStartWidth = uiContext.px2vp(readerCapture.region.right - readerCapture.region.left)
+        readerStartHeight = uiContext.px2vp(readerCapture.region.bottom - readerCapture.region.top)
+        if (readerStartWidth <= 0 || readerStartHeight <= 0) {
+          readerStartX = 0
+          readerStartY = 0
+          readerStartWidth = 0
+          readerStartHeight = 0
+        }
+      } catch (_error) {
+        readerStartX = 0
+        readerStartY = 0
+        readerStartWidth = 0
+        readerStartHeight = 0
+      }
+    }
     const closeTargetSnapshotComponentId: string =
       ReaderThumbnailTransitionCoordinator.sourceSnapshotId(targetId)
     const closeTargetSnapshotId: string = ReaderThumbnailTransitionCoordinator.componentAvailable(
@@ -629,6 +780,10 @@ export class ReaderThumbnailTransitionCoordinator {
       readerSnapshot !== undefined && readerIntrinsicHeight > 0
         ? readerIntrinsicWidth / readerIntrinsicHeight
         : 0,
+      readerStartX,
+      readerStartY,
+      readerStartWidth,
+      readerStartHeight,
       closeTargetSnapshot,
     )
     uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
