@@ -113,4 +113,14 @@ path.write_text(next_text, encoding='utf-8')
 PY
 fi
 
-hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
+build_mode="${1:-debug}"
+case "$build_mode" in
+  debug) product="default" ;;
+  release) product="release" ;;
+  *)
+    echo "Usage: $0 [debug|release]" >&2
+    exit 64
+    ;;
+esac
+
+hvigorw assembleHap --mode module -p product="$product" -p buildMode="$build_mode" --no-daemon
