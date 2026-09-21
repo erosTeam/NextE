@@ -11,6 +11,52 @@
   完成之后，用户当场确认这是第三次复活已修回归；该候选作废，必须先恢复最后已提交时序，不能
   继续叠加替代实现。当前没有已接受的新候选，不得宣称返程问题完成。
 
+## 2026-09-20 当前权威状态（覆盖历史“最终候选”表述）
+
+- 本节优先于本文所有历史“最终候选”“DEVICE PASS”或类似措辞：那些记录只可作为旧实现／旧包的
+  对比材料，**不是**当前 shared-reader 候选的整体验收。当前整体仍为 `reopened / failed QA`，未知、
+  未复核或仅有静态依据的路径一律不得记为通过。
+- **F1 GRID：`path-pass / same-HAP Legacy comparator captured+reviewed`**。237 的同一签名 HAP、
+  同一资料 `4200057`、同一 Grid 缩略图 index `1` 已分别以 Legacy（无 shared Want）与 Current Shared
+  启动录制；资料每次均由当前页面语义与既有详情路由重新定位，未复用历史坐标。Legacy 工件为
+  `.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/`
+  `nexte-f1-legacy-same-source-20260920/recording/nexte_f1_legacy_same_source_grid_lifecycle_20260920.mp4`
+  （SHA-256 `57a9ff02ca87c4d77aed7dcf51be64240b808f595862e63734c0d48e0da5c407`），Current Shared 工件为
+  `.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/`
+  `nexte-f1-current-shared-same-source-20260920/recording/nexte_f1_current_shared_same_source_grid_lifecycle_20260920.mp4`
+  （SHA-256 `3c31f1708a7d7170d690e8825a4161354d2cba935376bab6da3733e2796a74a3`）。两段均覆盖缩略图进入、
+  正常 Back 返回与同项再入；VFR 全解码后 Legacy 为 325 帧，入口／返程／再入运动区间分别为
+  `0.948522–1.202211s`、`6.374100–6.576111s`、`10.695611–10.950189s`，Current Shared 为 207 帧，分别为
+  `1.127211–1.377844s`、`6.556089–6.787211s`、`11.009311–11.268656s`。逐帧视觉复核确认两者在这一路径
+  均保持连续的源缩略图几何／透明度交接，返程结构匹配，未见系统 POP 或全帧黑屏；因此只清除了 F1 的
+  Legacy 对照边界，**不**改变本文的整体 `reopened / failed QA` 状态，也不替代 F2、自动翻页宿主实机或
+  其他 Reader 路径的复核。
+- **初始 chrome／全屏：`path-pass`（限定当前 GRID 入场）**。稳定布局仅含阅读面、页码和增强状态；
+  没有 Reader 顶栏或底部控制栏。该项不替代其他入口、设置改变或退场的复核。
+- **F2 缓存／新处理页后翻页连续性：`unreviewed`**。尚未取得同条件旧实现录屏、PTS 或真实处理页
+  的往返证据。
+- **NextN `forceReload` 缓存维护：`source-audited / fixed-awaiting-verify`**。`d707a9ae` 已让共享资产
+  取得 cache lease、在实际呈现后 `markPresented`、由资产释放时归还 lease；适配器仍将
+  `forceReload` 传入既有缓存服务。需要以真实失败重试场景复验，不得只凭提交或测试关闭。
+- **NextE 按页图片源：`source-audited / F2-runtime-pending`**。共享适配器以 page key 保存已解析的
+  `EhGalleryImage`，并在重载后写回；`frame.asset` 在当前实现用于精确的请求／页定位，并非持久
+  图片源。它与旧 VM 的跨页缓存语义尚缺 F2 的动态对照，不能标为等价通过。
+- **自动翻页目标就绪：`source-audited / fixed-awaiting-verify`**。旧 NextN 仅等待当前可见面后直接
+  请求下一页；旧 NextE 在移动前要求目标已解码或已有解析图片 URL；旧 Koma 在移动前要求目标已解码，
+  或 canonical URI 非空且未失败（明确适用于 `preload=0`）。共享控制器仍是唯一的计时与导航所有者：
+  NextN 使用当前面门槛，NextE/Koma 声明 source 门槛。`ReaderPage.bodySourceReady`／`bodySourceFailed`
+  是独立的正文源事实，绝不复用 `thumbnail.available`：NextE 的 `sUrl` 只建立 preview，目标只有在
+  `ImageResolveService.resolve()` 写回非空 `imageUrl` 后才就绪；Koma 只接受非占位的 canonical `imageUri`。
+  目标不必先存在于 native render window；完整 dwell 到期后控制器发起一次共享的目标预热，源事实更新后
+  才重新计满完整 dwell。失败会保持停等，直到新宿主源事实到达，或用户对该页的 ORIGINAL 重试实际呈现成功；
+  后者明确写回 `bodySourceReady=true` 并清除 `bodySourceFailed`，返回后才开始新的完整 dwell。停止、关闭或
+  导航（即使随后回到同一 index）都会取消该预热代次，迟到 resolve 不得写回。`preload=0` 也走该预热事件，
+  双页目标要求所有 source part 就绪。当前 `reader-kit` 的自动翻页／paged-session／policy 选择集 61/61 通过，另有
+  NextE `sUrl` 有值而 `imageUrl` 未解析的契约反例 1/1；NextE、NextN、Koma 三个 debug 签名构建亦已通过。
+  这些仍只是静态集成依据，需要各宿主真实自动翻页复验，不得凭合同测试或构建关闭。
+- **三宿主菜单、设置、动作与生命周期映射：`unreviewed`**。后续只补实际缺口，并为每项附上旧／新
+  源码映射及匹配证据；不会建立一个没有实施价值的全新大矩阵。
+
 ## 2026-09-14 平板 Split 源卡片修复（DEVICE PASS，限定所报路径）
 
 - 依据：用户在 NextN 报告瀑布流竖屏打开 A、横屏 Split 后 A 隐藏，选择 B 替换详情后 A 持续隐藏。

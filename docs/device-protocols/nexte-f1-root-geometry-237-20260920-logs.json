@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-root-geometry-logs",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-root-geometry-20260920/logs/run",
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP eee860050f12c14d7d2977c2e9f96110b0e0bd9bc1187d8d86523b2925eaae78",
+    "page": "Collect only the numeric normal shared-reader geometry diagnostics from the immediately preceding continuous recording.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "notes": "No UI action; retain only normal_entry_geometry and initial_policy lines."
+  },
+  "preflight": [],
+  "measurement": {"actions": []},
+  "postflight": [
+    {"name": "geometry-log", "hdcArgs": ["shell", "hilog -x | grep -E 'normal_entry_geometry|NextEReaderLab.*initial_policy' | tail -120"], "timeoutSeconds": 20}
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-atomic-handoff-verified-preview",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-atomic-handoff-verified-20260920/preview/run",
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP f1713612e24f39dd60c88089310a3285c9f00bd96fdfde05f9dbf8d39207913e",
+    "page": "Enter the approved F1 result and restore the same visible preview grid and source tile before recording.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "notes": "Use the established result and detail coordinates. The postflight layout records the source-tile precondition."
+  },
+  "preflight": [{"name": "wake", "hdcArgs": ["shell", "power-shell", "wakeup"]}],
+  "measurement": {
+    "actions": [
+      {"name": "open-approved-result", "uiInput": ["click", "334", "1046"], "pauseAfterMs": 5000},
+      {"name": "restore-preview-grid", "uiInput": ["swipe", "660", "1600", "660", "400", "600"], "pauseAfterMs": 3000}
+    ]
+  },
+  "postflight": [
+    {"name": "preview-layout", "hdcArgs": ["shell", "uitest", "dumpLayout", "-p", "/data/local/tmp/nexte-f1-atomic-handoff-preview.json", "-a"], "timeoutSeconds": 45},
+    {"name": "preview-layout-recv", "hdcArgs": ["file", "recv", "/data/local/tmp/nexte-f1-atomic-handoff-preview.json", "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-atomic-handoff-verified-20260920/preview/run/preview.json"]}
+  ]
+}

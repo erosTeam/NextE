@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-root-geometry-setup",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-root-geometry-20260920/setup/run",
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP eee860050f12c14d7d2977c2e9f96110b0e0bd9bc1187d8d86523b2925eaae78",
+    "page": "Cold-start the Shared backend before restoring the approved F1 source through its established route.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "notes": "Install the focused geometry-diagnostic candidate with install -r only; preserve app data and record the current Home anchor."
+  },
+  "preflight": [
+    {"name": "wake", "hdcArgs": ["shell", "power-shell", "wakeup"]},
+    {"name": "install-focused-candidate", "hdcArgs": ["install", "-r", "/Users/honjow/git/NextE-wt/shared-reader-refactor/entry/build/default/outputs/default/entry-default-signed.hap"], "timeoutSeconds": 180},
+    {"name": "clear-geometry-log", "hdcArgs": ["shell", "hilog", "-r"]},
+    {"name": "force-stop", "hdcArgs": ["shell", "aa", "force-stop", "com.erosteam.nexte"]},
+    {"name": "cold-open-shared", "hdcArgs": ["shell", "aa", "start", "-b", "com.erosteam.nexte", "-a", "EntryAbility", "--ps", "nexte_reader_backend", "shared"], "timeoutSeconds": 20},
+    {"name": "settle-home", "hdcArgs": ["shell", "sleep", "8"], "timeoutSeconds": 15}
+  ],
+  "measurement": {"actions": []},
+  "postflight": [
+    {"name": "home-layout", "hdcArgs": ["shell", "uitest", "dumpLayout", "-p", "/data/local/tmp/nexte-f1-root-geometry-home.json", "-a"], "timeoutSeconds": 45},
+    {"name": "home-layout-recv", "hdcArgs": ["file", "recv", "/data/local/tmp/nexte-f1-root-geometry-home.json", "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-root-geometry-20260920/setup/run/home.json"]}
+  ]
+}

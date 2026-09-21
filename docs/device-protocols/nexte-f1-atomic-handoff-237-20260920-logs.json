@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-atomic-handoff-verified-logs",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-atomic-handoff-verified-20260920/logs/run",
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP f1713612e24f39dd60c88089310a3285c9f00bd96fdfde05f9dbf8d39207913e",
+    "page": "Collect only the normal shared-reader atomic-handoff diagnostic from the immediately preceding recording.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "notes": "No UI action; retain only initial_policy and open_finished_atomic lines."
+  },
+  "preflight": [],
+  "measurement": {"actions": []},
+  "postflight": [
+    {"name": "atomic-handoff-log", "hdcArgs": ["shell", "hilog -x | grep -E 'open_finished_atomic|NextEReaderLab.*initial_policy' | tail -120"], "timeoutSeconds": 20}
+  ]
+}

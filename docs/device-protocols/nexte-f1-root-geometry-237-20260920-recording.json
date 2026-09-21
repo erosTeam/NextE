@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-root-geometry-recording",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-root-geometry-20260920/recording",
+  "recordingFileName": "nexte_f1_root_geometry_20260920.mp4",
+  "timeoutMs": 86400000,
+  "warmupMs": 1200,
+  "idleRecordMs": 0,
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "actions": [
+    {"name": "open-same-preview-source", "uiInput": ["click", "660", "1465"], "pauseAfterMs": 5000},
+    {"name": "return-to-same-preview-source", "uiInput": ["keyEvent", "Back"], "pauseAfterMs": 4000},
+    {"name": "reopen-same-preview-source", "uiInput": ["click", "660", "1465"], "pauseAfterMs": 5000}
+  ],
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP eee860050f12c14d7d2977c2e9f96110b0e0bd9bc1187d8d86523b2925eaae78; nexte_reader_backend=shared",
+    "page": "Same source tile and preview Grid as the prior F1 sample, with source/current geometry established in the immediately preceding protocol.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "stateSequence": ["not-applicable/portrait-1320x2120"],
+    "notes": "One continuous normal-speed recording: source, entry, settled shared reader, Back return, and re-entry. The instrumented build logs numeric root/surface/viewport/proxy bounds only; decode every encoded frame and retain source PTS metadata."
+  }
+}

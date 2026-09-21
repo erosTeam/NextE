@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-atomic-handoff-verified-search",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-atomic-handoff-verified-20260920/search/run",
+  "display": {"widthPx": 1320, "heightPx": 2120},
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "signed debug HAP f1713612e24f39dd60c88089310a3285c9f00bd96fdfde05f9dbf8d39207913e",
+    "page": "Restore the same approved F1 source and verify the result before entering its detail route.",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "notes": "Reuse the established source query and coordinates; result inspection is the required precondition for the matching transition capture."
+  },
+  "preflight": [{"name": "wake", "hdcArgs": ["shell", "power-shell", "wakeup"]}],
+  "measurement": {
+    "actions": [
+      {"name": "open-search", "uiInput": ["click", "924", "201"], "pauseAfterMs": 1000},
+      {"name": "enter-established-source-query", "uiInput": ["text", "[Pixiv FANBOX] Nekogami (680215) (2021/05/01-2026/08/31)"], "pauseAfterMs": 250},
+      {"name": "submit-search", "uiInput": ["click", "1182", "369"], "pauseAfterMs": 5000}
+    ]
+  },
+  "postflight": [
+    {"name": "results-layout", "hdcArgs": ["shell", "uitest", "dumpLayout", "-p", "/data/local/tmp/nexte-f1-atomic-handoff-results.json", "-a"], "timeoutSeconds": 45},
+    {"name": "results-layout-recv", "hdcArgs": ["file", "recv", "/data/local/tmp/nexte-f1-atomic-handoff-results.json", "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-atomic-handoff-verified-20260920/search/run/results.json"]}
+  ]
+}

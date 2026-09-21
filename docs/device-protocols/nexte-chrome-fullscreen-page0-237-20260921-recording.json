@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-chrome-fullscreen-page0-237-20260921-recording",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-chrome-fullscreen-page0-20260921/recording",
+  "recordingFileName": "nexte_chrome_fullscreen_page0_20260921.mp4",
+  "timeoutMs": 86400000,
+  "warmupMs": 1200,
+  "idleRecordMs": 0,
+  "hilog": {
+    "hdcArgs": [
+      "shell",
+      "hilog"
+    ],
+    "localFile": "chrome_run.txt"
+  },
+  "display": {
+    "widthPx": 1320,
+    "heightPx": 2120
+  },
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "entry-default-signed.hap SHA-256 690bf46a5333b453d2820c27b4f4ad6ced3f14999d77224dc4cf66f2018c39b0; source tree HEAD 7866db7824bbabd5d848fd63f443d2d84ca304bf with uncommitted WIP; reader-kit b5fa38945b34fb37bca91989bb3b696db173618a",
+    "page": "paired setup dump nexte-chrome-fullscreen-page0-237-20260921-setup confirms Gallery detail preview grid with exactly one page-0 double-page source node reader-thumb-gallery-detail-1-page-0 at bounds [72,1195][448,1631], center [260,1413]",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "stateSequence": [
+      "not-applicable/portrait-1320x2120"
+    ],
+    "notes": "One normal-speed continuous recording only: click the fresh page-0 source center, enter reader; reader body tap point is the fresh display-bounds center [660,1060] (status/top/bottom chrome zones excluded); one tap reveals chrome (status+top+bottom visible, body stays), one tap hides all three (body stays); Back returns to the same grid; the same fresh center re-enters and initial chrome must be hidden. Tile center comes only from the paired fresh dump; no page turn, image information, More, settings, OhosTest, retry, or loop."
+  },
+  "actions": [
+    {
+      "name": "open-page0-source",
+      "uiInput": [
+        "click",
+        "260",
+        "1413"
+      ],
+      "pauseAfterMs": 6500
+    },
+    {
+      "name": "reveal-reader-chrome",
+      "uiInput": [
+        "click",
+        "660",
+        "1060"
+      ],
+      "pauseAfterMs": 1000
+    },
+    {
+      "name": "hide-reader-chrome",
+      "uiInput": [
+        "click",
+        "660",
+        "1060"
+      ],
+      "pauseAfterMs": 1000
+    },
+    {
+      "name": "return-to-grid",
+      "uiInput": [
+        "keyEvent",
+        "Back"
+      ],
+      "pauseAfterMs": 4000
+    },
+    {
+      "name": "reopen-page0-source",
+      "uiInput": [
+        "click",
+        "260",
+        "1413"
+      ],
+      "pauseAfterMs": 6500
+    }
+  ]
+}

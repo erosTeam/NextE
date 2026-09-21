@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "name": "nexte-f1-current-ordinary-continuity-setup",
+  "target": "192.168.50.237:12345",
+  "authorizedTarget": "192.168.50.237:12345",
+  "hdc": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc",
+  "artifactDir": "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-current-ordinary-continuity-20260921/setup/run",
+  "display": { "widthPx": 1320, "heightPx": 2120 },
+  "context": {
+    "project": "NextE",
+    "codeIdentity": "entry-default-signed.hap SHA-256 2733e030b3f88abcce38e2a7522e071a7a59c9cb12eb02aec469c060294994ee; source tree HEAD 7866db7824bbabd5d848fd63f443d2d84ca304bf with uncommitted WIP; reader-kit b5fa38945b34fb37bca91989bb3b696db173618a",
+    "page": "ordinary Shared Home -> Search -> Gallery 4200057 detail preview grid -> current page-index 1 tile",
+    "deviceAlias": "device237",
+    "deviceModel": "VDE-AL00",
+    "foldState": "not-applicable",
+    "orientation": "portrait",
+    "resolution": "1320x2120",
+    "stateSequence": ["not-applicable/portrait-1320x2120"],
+    "notes": "Precondition only. It installs the hash-pinned signed candidate with install -r, preserves user data, restores the previously validated ordinary source tile, and saves one layout/screenshot. The following recording may run only if that artifact shows the expected preview-grid source; no preference, page-turn, information dialog, or test-only route is used."
+  },
+  "preflight": [
+    { "name": "wake", "hdcArgs": ["shell", "power-shell", "wakeup"], "timeoutSeconds": 8 },
+    { "name": "install-current-signed-candidate", "hdcArgs": ["install", "-r", "/Users/honjow/git/NextE-wt/shared-reader-refactor/entry/build/default/outputs/default/entry-default-signed.hap"], "timeoutSeconds": 300 },
+    { "name": "force-stop-before-run", "hdcArgs": ["shell", "aa", "force-stop", "com.erosteam.nexte"], "timeoutSeconds": 20 },
+    { "name": "cold-open-shared-home", "hdcArgs": ["shell", "aa", "start", "-b", "com.erosteam.nexte", "-a", "EntryAbility", "--ps", "nexte_reader_backend", "shared"], "timeoutSeconds": 20 },
+    { "name": "settle-home", "hdcArgs": ["shell", "sleep", "8"], "timeoutSeconds": 15 },
+    { "name": "keep-awake", "hdcArgs": ["shell", "power-shell", "timeout", "-o", "86400000"], "timeoutSeconds": 8 },
+    { "name": "verify-awake-and-timeout", "hdcArgs": ["shell", "hidumper", "-s", "PowerManagerService", "-a", "-s"], "timeoutSeconds": 20 }
+  ],
+  "measurement": {
+    "actions": [
+      { "name": "open-current-search", "uiInput": ["click", "924", "201"], "pauseAfterMs": 1000 },
+      { "name": "enter-current-source-title", "uiInput": ["text", "[Pixiv FANBOX] Nekogami (680215) (2021/05/01-2026/08/31)"], "pauseAfterMs": 250 },
+      { "name": "submit-current-source-search", "uiInput": ["click", "1182", "369"], "pauseAfterMs": 5000 },
+      { "name": "open-current-gallery-4200057", "uiInput": ["click", "334", "1046"], "pauseAfterMs": 5000 },
+      { "name": "reveal-current-preview-grid", "uiInput": ["swipe", "660", "1600", "660", "400", "600"], "pauseAfterMs": 3000 }
+    ]
+  },
+  "postflight": [
+    { "name": "capture-preview-layout", "hdcArgs": ["shell", "uitest", "dumpLayout", "-p", "/data/local/tmp/nexte-f1-current-preview.json", "-a"], "timeoutSeconds": 45 },
+    { "name": "receive-preview-layout", "hdcArgs": ["file", "recv", "/data/local/tmp/nexte-f1-current-preview.json", "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-current-ordinary-continuity-20260921/setup/run/preview.json"], "timeoutSeconds": 45 },
+    { "name": "capture-preview-screen", "hdcArgs": ["shell", "uitest", "screenCap", "-p", "/data/local/tmp/nexte-f1-current-preview.png"], "timeoutSeconds": 20 },
+    { "name": "receive-preview-screen", "hdcArgs": ["file", "recv", "/data/local/tmp/nexte-f1-current-preview.png", "/Users/honjow/git/NextE-wt/shared-reader-refactor/.hvigor/outputs/device237__VDE-AL00/not-applicable/portrait-1320x2120/nexte-f1-current-ordinary-continuity-20260921/setup/run/preview.png"], "timeoutSeconds": 45 }
+  ]
+}
