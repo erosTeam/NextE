@@ -16,14 +16,16 @@ export enum NextEReaderBackend {
 @ObservedV2
 export class NextEReaderBackendSelectionState {
   @Trace version: number = 0
-  private backend: NextEReaderBackend = NextEReaderBackend.LEGACY
+  private backend: NextEReaderBackend = NextEReaderBackend.SHARED
 
   current(): NextEReaderBackend {
     return this.backend
   }
 
-  selectForRehearsal(backend: NextEReaderBackend, debugBuild: boolean): NextEReaderBackend {
-    const accepted = debugBuild && backend === NextEReaderBackend.SHARED
+  selectForRehearsal(backend: NextEReaderBackend, _debugBuild: boolean): NextEReaderBackend {
+    // The persisted user choice is the production authority; the shared reader
+    // is the default and the legacy reader is the explicit fallback.
+    const accepted = backend === NextEReaderBackend.SHARED
       ? NextEReaderBackend.SHARED
       : NextEReaderBackend.LEGACY
     if (this.backend !== accepted) {
@@ -51,9 +53,14 @@ export function connectNextEReaderBackendSelection(): NextEReaderBackendSelectio
  */
 export function captureNextEReaderBackendWant(want: Want, debugBuild: boolean): void {
   const state = connectNextEReaderBackendSelection()
-  const supplied = want.parameters?.['nexte_reader_backend']
-  state.selectForRehearsal(
-    supplied === NextEReaderBackend.SHARED ? NextEReaderBackend.SHARED : NextEReaderBackend.LEGACY,
-    debugBuild,
-  )
+  if (!debugBuild) {
+    // A release launch keeps whatever the production entry resolved from the
+    // persisted user choice; the debug Want override does not exist in release.
+    return
+  }
+  const supplied = want.parameters?.['nexte_reader_backend'] as NextEReaderBackend
+  if (supplied === NextEReaderBackend.SHARED || supplied === NextEReaderBackend.LEGACY) {
+    state.selectForRehearsal(supplied, true)
+  }
+  // An absent parameter keeps the current selection instead of forcing Legacy.
 }

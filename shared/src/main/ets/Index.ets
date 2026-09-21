@@ -969,6 +969,7 @@ export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
 export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { GalleryTitleState, connectGalleryTitle } from './state/GalleryTitleState'
 export {
+  ReaderImplementation,
   ReadMode,
   ReadColumnMode,
   ReadSpreadLayout,

@@ -2838,11 +2838,11 @@
     },
     {
       "name": "settings_reader_backend_legacy",
-      "value": "既存リーダー"
+      "value": "従来のリーダー"
     },
     {
       "name": "settings_reader_backend_shared",
-      "value": "共有リーダー"
+      "value": "新しいリーダー（デフォルト）"
     },
     {
       "name": "settings_reader_group_layout",
@@ -5319,6 +5319,10 @@
     {
       "name": "comment_translation_prompt_profile_hint",
       "value": "コメントとタイトルで共有；AIパスでのみ有効"
+    },
+    {
+      "name": "settings_reader_group_implementation",
+      "value": "リーダー実装"
     }
   ]
 }

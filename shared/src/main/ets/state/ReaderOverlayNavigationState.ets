@@ -1,6 +1,7 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { ReaderParams } from '../model/RouteParams'
 import { NextEReaderBackend, connectNextEReaderBackendSelection } from './NextEReaderBackendSelectionState'
+import { connectReadMode, ReaderImplementation } from './ReadModeState'
 import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionState'
 
 /** Host-owned route envelope; reader-kit never chooses the app implementation. */
@@ -38,7 +39,12 @@ export class ReaderOverlayNavigationState {
     // existing thumbnail-flight coordinator still speaks the legacy Reader's
     // readiness/close protocol, so that active path remains on legacy until a
     // neutral transition host is connected to the shared production route.
-    const requested = connectNextEReaderBackendSelection().current()
+    const selection = connectNextEReaderBackendSelection()
+    const requested = selection.version > 0
+      ? selection.current()
+      : (connectReadMode().readerImplementation === ReaderImplementation.LEGACY
+        ? NextEReaderBackend.LEGACY
+        : NextEReaderBackend.SHARED)
     const backend = requested === NextEReaderBackend.SHARED && connectReaderThumbnailTransition().active()
       ? NextEReaderBackend.LEGACY
       : requested

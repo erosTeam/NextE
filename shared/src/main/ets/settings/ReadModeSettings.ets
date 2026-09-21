@@ -5,6 +5,7 @@ import {
   ReadColumnMode,
   ReadMode,
   ReaderBackgroundMode,
+  ReaderImplementation,
   ReaderImageScalingQuality,
   ReaderSuperResolutionBackend,
   ReaderSuperResolutionModel,
@@ -211,6 +212,10 @@ export class ReadModeSettings {
         StorageKeys.READING_PAGE_TURN_ANIMATION,
         true,
       ) as boolean
+      const readerImplementation: string = store.getSync(
+        StorageKeys.READER_IMPLEMENTATION,
+        ReaderImplementation.SHARED,
+      ) as string
       connectReadMode().mode = mode
       connectReadMode().doublePageEnabled = ReadModeSettings.restoreDoublePageEnabled(rawDoublePage)
       connectReadMode().columnMode = ReadColumnMode.ODD_LEFT
@@ -239,6 +244,9 @@ export class ReadModeSettings {
       connectReadMode().fullscreen = fullscreen
       connectReadMode().keepScreenOn = keepScreenOn
       connectReadMode().pageTurnAnimation = pageTurnAnimation
+      connectReadMode().readerImplementation = readerImplementation === ReaderImplementation.LEGACY
+        ? ReaderImplementation.LEGACY
+        : ReaderImplementation.SHARED
       connectReadMode().hadSuccessfulRestore = true
       connectReadMode().restoreResult = 'applied'
     } catch (error) {
@@ -578,6 +586,26 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_fullscreen_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setReaderImplementation(
+    context: common.UIAbilityContext,
+    implementation: ReaderImplementation,
+  ): Promise<void> {
+    const normalized = implementation === ReaderImplementation.LEGACY
+      ? ReaderImplementation.LEGACY
+      : ReaderImplementation.SHARED
+    connectReadMode().readerImplementation = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READER_IMPLEMENTATION, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'reader_implementation_save_failed', (error as Error).message)
     }
   }
 

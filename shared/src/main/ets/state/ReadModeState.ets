@@ -10,6 +10,12 @@ export enum ReadMode {
   VERTICAL = 'vertical', // top-to-bottom continuous scroll (webtoon)
 }
 
+/** Which reader implementation opens the ordinary production Reader route. */
+export enum ReaderImplementation {
+  SHARED = 'shared',
+  LEGACY = 'legacy',
+}
+
 export enum ReadColumnMode {
   SINGLE = 'single',
   ODD_LEFT = 'oddLeft',
@@ -92,6 +98,7 @@ export class ReadModeState {
   @Trace superResolutionMaxHeight: number = READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT
   @Trace showPageNumber: boolean = true
   @Trace fullscreen: boolean = true
+  @Trace readerImplementation: ReaderImplementation = ReaderImplementation.SHARED
   @Trace keepScreenOn: boolean = true
   @Trace pageTurnAnimation: boolean = true
 }

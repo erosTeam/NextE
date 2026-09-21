@@ -2838,11 +2838,11 @@
     },
     {
       "name": "settings_reader_backend_legacy",
-      "value": "Existing reader"
+      "value": "Legacy reader"
     },
     {
       "name": "settings_reader_backend_shared",
-      "value": "Shared reader"
+      "value": "New reader (default)"
     },
     {
       "name": "settings_reader_group_layout",
@@ -5319,6 +5319,10 @@
     {
       "name": "comment_translation_prompt_profile_hint",
       "value": "Shared for comments and titles; AI path only"
+    },
+    {
+      "name": "settings_reader_group_implementation",
+      "value": "Reader implementation"
     }
   ]
 }

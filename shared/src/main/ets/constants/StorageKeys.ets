@@ -67,6 +67,7 @@ export class StorageKeys {
   static readonly READING_SUPER_RESOLUTION_MAX_HEIGHT: string = 'reading.superResolutionMaxHeight'
   static readonly READING_SHOW_PAGE_NUMBER: string = 'reading.showPageNumber'
   static readonly READING_FULLSCREEN: string = 'reading.fullscreen'
+  static readonly READER_IMPLEMENTATION: string = 'reader.implementation'
   static readonly READING_KEEP_SCREEN_ON: string = 'reading.keepScreenOn'
   static readonly READING_PAGE_TURN_ANIMATION: string = 'reading.pageTurnAnimation'
   static readonly READER_IMAGE_CACHE_LIMIT_MB: string = 'cache.readerImageLimitMb'

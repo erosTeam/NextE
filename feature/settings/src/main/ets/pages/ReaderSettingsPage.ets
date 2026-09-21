@@ -9,6 +9,7 @@ import {
   ReadModeState,
   ReadMode,
   ReaderBackgroundMode,
+  ReaderImplementation,
   ReaderImageScalingQuality,
   ReaderPageCropStrength,
   READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
@@ -57,9 +58,6 @@ export struct ReaderSettingsPage {
 
   aboutToAppear(): void {
     this.readerBackendRehearsalAvailable = this.context().applicationInfo.debug
-    if (!this.readerBackendRehearsalAvailable) {
-      this.readerBackendSelection.selectForRehearsal(NextEReaderBackend.LEGACY, false)
-    }
     this.refreshSuperResolutionModels()
   }
 
@@ -809,14 +807,19 @@ export struct ReaderSettingsPage {
   }
 
   private readerBackendLabel(): Resource {
-    const revision = this.readerBackendSelection.version
-    return revision >= 0 && this.readerBackendSelection.current() === NextEReaderBackend.SHARED
-      ? $r('app.string.settings_reader_backend_shared')
-      : $r('app.string.settings_reader_backend_legacy')
+    return this.readMode.readerImplementation === ReaderImplementation.LEGACY
+      ? $r('app.string.settings_reader_backend_legacy')
+      : $r('app.string.settings_reader_backend_shared')
   }
 
   private selectReaderBackend(backend: NextEReaderBackend): void {
     this.readerBackendSelection.selectForRehearsal(backend, this.readerBackendRehearsalAvailable)
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setReaderImplementation(ctx,
+      backend === NextEReaderBackend.LEGACY
+        ? ReaderImplementation.LEGACY
+        : ReaderImplementation.SHARED)
   }
 
   @Builder
@@ -840,10 +843,10 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  private ReaderBackendRehearsalGroup() {
+  private ReaderImplementationGroup() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
-        SectionHeader({ title: $r('app.string.settings_reader_group_rehearsal') })
+        SectionHeader({ title: $r('app.string.settings_reader_group_implementation') })
         GroupedListSection() {
           ConciseListRow({
             title: $r('app.string.settings_reader_backend'),
@@ -854,7 +857,7 @@ export struct ReaderSettingsPage {
               this.ReaderBackendMenu(select)
             },
           })
-          .id('nexte-reader-backend-rehearsal-row')
+          .id('nexte-reader-implementation-row')
         }
       }
     }
@@ -1012,9 +1015,6 @@ export struct ReaderSettingsPage {
 
   @Builder
   private SettingsListItems() {
-    if (this.readerBackendRehearsalAvailable && !this.sheetPresentation) {
-      this.ReaderBackendRehearsalGroup()
-    }
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_layout') })
@@ -1210,6 +1210,7 @@ export struct ReaderSettingsPage {
         }
       }
     }
+    this.ReaderImplementationGroup()
   }
 
   @Builder
