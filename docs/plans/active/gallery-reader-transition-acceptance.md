@@ -58,6 +58,49 @@
   源码映射及匹配证据；不会建立一个没有实施价值的全新大矩阵。
 
 ## 2026-09-14 平板 Split 源卡片修复（DEVICE PASS，限定所报路径）
+## 2026-09-21 标准非H测试内容（监督指令，后续设备链统一使用）
+
+- **内容策略**：自本日起，后续所有设备链（含交接给验收任务的链）只使用本节登记的标准非H
+  测试内容。历史已闭合的 H 内容证据（含 `4200057` 各链）不重开、不改写；旧 H 画廊断点一律作废，
+  不续跑。非H判据以布局 dump 的文本元数据为准（标题／标签／分类，无成人标记），不以看图判断。
+- **device237 标准画廊**：`e-hentai.org/g/4203217/ff4ccabae3/`（gid `4203217`，token
+  `ff4ccabae3`）。标题 `[正八面体展開図 (somori)] RE:Dawn (Fate/Grand Order) [DL版]`；分类徽章
+  `Non-H`；标签 `原作:Fate/Grand Order`、`角色:Archer`；日文、124 页、186.4 MiB、上传者 `useroo`、
+  发布 `2026-09-21 08:08`。证据：`.hvigor/outputs/nexte-237-nonh-gallery-20260921/`
+  `04-gallery-info-url/info.json`（URL 行 `[72,713][1236,755]`）与 `03-open-candidate-detail/detail.json`
+  （分类徽章 `[1040,990][1202,1062]`）。
+- **入口语义锚点（237）**：shared 首页顶栏「Non-H」分类页签 → 结果卡按标题文本定位（当前标准卡
+  标题文本见上行）→ 详情页信息栏（含 `Non-H` 徽章，整栏可点）→ 「画廊信息」页 Gid/Token/链接行。
+  Reader 直启统一走既有 readerLab want：`--pi readerLabWork 4203217 --ps readerLabChrome true
+  --ps readerLabProgressReadWrite true`。坐标一律从当次新鲜 dump 推导，禁止复用历史坐标。
+- **device197 标准画廊**：未定。须在 197 下一次租约内按同一文本元数据流程实测确定后回填本节，
+  不得预先指派。
+
+### 2026-09-21 全屏设置运行时证据（非H链，DEVICE PASS，限定本文所述路径）
+
+- **链路**：标准非H画廊 `4203217`（见上节）+ 候选 `536212b5…`（host `831eb925`、reader-kit
+  `c2c528d`），readerLab 直启参数
+  `--ps readerLabWork 4203217 --ps readerLabUnit ff4ccabae3 --ps readerLabPage 0 --pb readerLabChrome
+  true --pb readerLabProgressReadWrite true --pb readerLabPreferencesReadWrite true`。证据工件在
+  `.hvigor/outputs/nexte-237-nonh-gallery-20260921/` 与
+  `.hvigor/outputs/nexte-237-fullscreen-nonh-20260921/`（01–18 号 manifest + dump/截图）。
+- **结论**：原值 全屏=开（run 09 dump Switch checked=true）；切为关后（run 10 Switch=false），
+  chrome 隐藏时系统状态栏保持可见（run 12 dump：rkit chrome 节点全无、`status_bar_clock`/
+  `battery` 节点仍在；同帧截图一致）——与 `NextEReaderLabPage.ets:864` 的
+  `statusVisible = !fullscreen || visible` 相符。force-stop + 同参重直启后再次隐藏 chrome，
+  状态栏仍可见（run 14 dump），重开后 sheet 内 Switch 仍为 false（run 16），持久化成立。
+  恢复点击后（run 17）chrome 与系统状态栏节点同时消失，回到 原值=开 的行为签名；偏好已还原。
+- **代码级事实（后续直启类链必须遵守）**：1) `readerLabWork` 只接受字符串 want 参数，`--pi` 会被
+  `reader-kit ReaderLabLaunch.ets captureReaderLabWant` 静默丢弃（停留在首页；本日 run 01 与此前
+  `nexte-237-fullscreen-setup-gate` 的「无 rkit 节点」即此因）；2) 宿主设置齿轮只有在
+  `readerLabPreferencesReadWrite=true` 时才是 `rkit-host-settings`，否则同一位置回退为
+  `rkit-runtime-settings` 运行时菜单，`全屏` 行不可达（`ReaderChrome.ets` 双态按钮）；3) 不带
+  `readerLabUnit`+`readerLabPage` 时新画廊可能出现「页面目录加载失败」，应用内重试按钮不在本链
+  允许动作内，改以补全参数的纠正分支解决；4) `bm dump`：bundle `com.erosteam.nexte`、
+  versionName `1.3.4`，shared 首页 QuickBackText 显示「NextN」（label 发现项，不影响包身份）。
+- **边界**：本节只覆盖上述直启路径的全屏设置读写与状态栏联动；缩略图入口、F2、其他设置项不在
+  其内。237 租约已释放，屏幕超时覆盖已还原。
+
 
 - 依据：用户在 NextN 报告瀑布流竖屏打开 A、横屏 Split 后 A 隐藏，选择 B 替换详情后 A 持续隐藏。
   源码对照确认 NextE 两种转场具有相同清理缺口，用户授权两项目修复并在103验证。
