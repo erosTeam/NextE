@@ -107,8 +107,8 @@ export class NextEReaderTranslationProvider implements ReaderAssetProvider {
   }
 
   async load(page: ReaderPage, kind: ReaderAssetKind, cancellation: ReaderCancellation,
-    forceReload: boolean): Promise<ReaderAsset> {
-    const asset = await this.provider.load(page, kind, cancellation, forceReload)
+    forceReload: boolean, onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
+    const asset = await this.provider.load(page, kind, cancellation, forceReload, onProgress)
     if (kind === 'original') {
       const path = NextEReaderTranslationProvider.localPath(asset.uri)
       if (path.length > 0) this.sourcePaths.set(this.pageIdentity(page), path)

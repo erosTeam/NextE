@@ -352,6 +352,8 @@ export class ReaderThumbnailTransitionState {
   setOpeningTarget(x: number, y: number, width: number, height: number): boolean {
     if (!this.waitingReader() || !Number.isFinite(x) || !Number.isFinite(y) ||
       !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      console.info('[ThumbTransition] setOpeningTarget rejected waiting=' + this.waitingReader() +
+        ' rect=' + x + ',' + y + ',' + width + ',' + height)
       return false
     }
     this.openTargetX = x
@@ -368,6 +370,7 @@ export class ReaderThumbnailTransitionState {
       // copy stays opaque for one frame, so the two render trees can exchange ownership without a
       // blank frame. Reader chrome is independent of the full-image decode after this handoff.
       this.phase = ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF
+      console.info('[ThumbTransition] phase=open->proxyHandoff gallery=' + this.galleryId + ' page=' + this.currentIndex)
       return true
     }
     return false
@@ -378,11 +381,16 @@ export class ReaderThumbnailTransitionState {
       return false
     }
     this.phase = ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT
-    return this.completeOpeningIfReady()
+    const completed = this.completeOpeningIfReady()
+    console.info('[ThumbTransition] phase=proxyHandoff->waitingContent ready=' + this.readerImageReady +
+      ' completed=' + completed)
+    return completed
   }
 
   markReaderImageReady(page: number): boolean {
     if (!this.active() || page <= 0 || this.image.page !== page) {
+      console.info('[ThumbTransition] readerImageReady rejected active=' + this.active() +
+        ' page=' + page + ' current=' + this.image.page)
       return false
     }
     this.readerImageReady = true
@@ -400,6 +408,7 @@ export class ReaderThumbnailTransitionState {
     // a short opacity handoff instead of replacing low-resolution thumbnail pixels in one frame.
     this.overlayOpacity = 1
     this.phase = ReaderThumbnailTransitionPhase.OPEN_HANDOFF
+    console.info('[ThumbTransition] phase=waitingContent->handoff gallery=' + this.galleryId)
     return true
   }
 

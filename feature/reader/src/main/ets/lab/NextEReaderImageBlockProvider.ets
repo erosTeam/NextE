@@ -19,8 +19,9 @@ class NextEReaderImageBlockOriginalPlan implements ReaderOriginalAssetPlan {
     this.page = delegate.page.copy()
   }
 
-  async load(cancellation: ReaderCancellation, forceReload: boolean): Promise<ReaderAsset> {
-    const asset = await this.delegate.load(cancellation, forceReload)
+  async load(cancellation: ReaderCancellation, forceReload: boolean,
+    onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
+    const asset = await this.delegate.load(cancellation, forceReload, onProgress)
     return await this.owner.applyDecision(this.page, asset, cancellation)
   }
 }
@@ -67,8 +68,8 @@ export class NextEReaderImageBlockProvider implements ReaderAssetProvider {
   }
 
   async load(page: ReaderPage, kind: ReaderAssetKind, cancellation: ReaderCancellation,
-    forceReload: boolean): Promise<ReaderAsset> {
-    const asset = await this.provider.load(page, kind, cancellation, forceReload)
+    forceReload: boolean, onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
+    const asset = await this.provider.load(page, kind, cancellation, forceReload, onProgress)
     if (kind !== 'original') return asset
     return await this.applyDecision(page, asset, cancellation)
   }

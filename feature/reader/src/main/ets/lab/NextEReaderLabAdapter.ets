@@ -3,7 +3,7 @@ import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import {
-  DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
+  CachedImageProgress, DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
   ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
@@ -34,14 +34,18 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     this.cropStrength = cropStrength
   }
 
-  async load(request: ReaderCancellation, forceReload: boolean): Promise<ReaderAsset> {
+  async load(request: ReaderCancellation, forceReload: boolean,
+    onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
     request.check()
     const source = this.source.copy()
     const url = forceReload ? await ImageResolveService.getInstance().resolveOriginal(source, true) : this.url
     request.check()
     this.source = source
     this.url = url
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, 100, undefined, forceReload)
+    const result = await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, 100,
+      onProgress !== undefined
+        ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
+        : undefined, forceReload)
     request.check()
     const facts = new ReaderImageInformation()
     facts.bytes = result.bytes
@@ -301,7 +305,8 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     })
   }
 
-  async load(page: ReaderPage, kind: ReaderAssetKind, cancellation: ReaderCancellation, forceReload: boolean): Promise<ReaderAsset> {
+  async load(page: ReaderPage, kind: ReaderAssetKind, cancellation: ReaderCancellation, forceReload: boolean,
+    onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
     cancellation.check()
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
@@ -326,7 +331,10 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     this.pages.set(page.key, source.copy())
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, 100, undefined, forceReload)
+    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, 100,
+      onProgress !== undefined
+        ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
+        : undefined, forceReload)
     const facts = new ReaderImageInformation()
     facts.bytes = result.bytes
     facts.variant = 'resampled'

@@ -803,6 +803,9 @@ struct Index {
       viewport = this.readerEntryRect('nexte-reader-entry-host')
     } catch (_) {}
     if (!sourceRect.valid() || !viewport.valid() || source.snapshot === null || !source.snapshot.isCurrent()) {
+      console.info('[ReaderEntry] fallback=invalid_rect gallery=' + source.galleryId + ' page=' + source.pageIndex +
+        ' rect=' + sourceRect.valid() + ' viewport=' + viewport.valid() +
+        ' snapshot=' + (source.snapshot !== null ? source.snapshot.isCurrent() : false))
       this.presentProductionThumbnail(source, null, epoch)
       return
     }
@@ -816,6 +819,11 @@ struct Index {
     if (epoch !== this.productionReaderEntryEpoch || navigation !== this.navStackHolder.navigationRevision ||
       !this.readerEntryVisibility.foreground || this.readerOverlay.visible || this.securitySettings.locked ||
       this.safeMode.restricted() || !source.isCurrent()) {
+      console.info('[ReaderEntry] fallback=stale_after_capture epoch=' + (epoch !== this.productionReaderEntryEpoch) +
+        ' nav=' + (navigation !== this.navStackHolder.navigationRevision) +
+        ' fg=' + !this.readerEntryVisibility.foreground + ' overlay=' + this.readerOverlay.visible +
+        ' locked=' + this.securitySettings.locked + ' restricted=' + this.safeMode.restricted() +
+        ' current=' + !source.isCurrent())
       preview?.release()
       if (this.productionReaderEntryClaim === claim) this.retireProductionReaderEntry()
       return
@@ -854,7 +862,10 @@ struct Index {
         this.readerOverlay.openSharedTransition(source.params, animated)
       },
     )
-    if (preview === null) this.finishProductionReaderEntry()
+    if (preview === null) {
+      console.info('[ReaderEntry] fallback=preview_null gallery=' + source.galleryId + ' page=' + source.pageIndex)
+      this.finishProductionReaderEntry()
+    }
   }
 
   private readerEntryRect(componentId: string): ReaderEntryRect {
@@ -2234,6 +2245,8 @@ struct Index {
         },
         onShown: (): void => {
           if (!this.productionReaderEntryMatches(param as ReaderOverlayRoute)) {
+            console.info('[ReaderEntry] fallback=on_shown_not_matches gid=' + (param as ReaderOverlayRoute).params.gid +
+              ' transition=' + (this.productionReaderEntryTransition !== null))
             ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(),
               (param as ReaderOverlayRoute).params.gid)
           }
