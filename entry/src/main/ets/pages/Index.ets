@@ -87,7 +87,7 @@ import {
   ReaderOverlayNavigationState,
   ReaderOverlayRoute,
   NextEReaderBackend,
-  connectNextEReaderBackendSelection,
+  resolveNextEReaderBackendSelection,
   connectReaderOverlayNavigation,
   TabletLayoutSettings,
   TabletLayoutState,
@@ -774,8 +774,11 @@ struct Index {
   }
 
   private tryOpenProductionThumbnail(source: ReaderTrialEntrySource): boolean {
-    const accepted = this.ctx().applicationInfo.debug &&
-      connectNextEReaderBackendSelection().current() === NextEReaderBackend.SHARED &&
+    // Production thumbnail entry is a release capability: admission follows the
+    // durable user backend authority (rehearsal override only when explicitly
+    // set), never the process-local default alone. All lifecycle guards below
+    // and the preview-failure fallback chain stay unchanged.
+    const accepted = resolveNextEReaderBackendSelection() === NextEReaderBackend.SHARED &&
       this.readerTrialHostAlive && this.readerEntryVisibility.foreground && !this.securitySettings.locked &&
       !this.safeMode.restricted() && !this.readerOverlay.visible && this.readerTrialRequest === null &&
       this.readerTrialClosing === null && this.readerEntryClaim === null && source.isCurrent()

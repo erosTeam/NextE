@@ -1,7 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { ReaderParams } from '../model/RouteParams'
-import { NextEReaderBackend, connectNextEReaderBackendSelection } from './NextEReaderBackendSelectionState'
-import { connectReadMode, ReaderImplementation } from './ReadModeState'
+import { NextEReaderBackend, resolveNextEReaderBackendSelection } from './NextEReaderBackendSelectionState'
 import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionState'
 
 /** Host-owned route envelope; reader-kit never chooses the app implementation. */
@@ -34,21 +33,14 @@ export class ReaderOverlayNavigationState {
   open(params: ReaderParams, animated: boolean = true): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
-    // Snapshot the Debug-only rehearsal choice at admission. An open session
-    // cannot switch implementation when the settings row changes later. The
-    // existing thumbnail-flight coordinator still speaks the legacy Reader's
-    // readiness/close protocol, so that active path remains on legacy until a
-    // neutral transition host is connected to the shared production route.
-    const selection = connectNextEReaderBackendSelection()
-    const requested = selection.version > 0
-      ? selection.current()
-      : (connectReadMode().readerImplementation === ReaderImplementation.LEGACY
-        ? NextEReaderBackend.LEGACY
-        : NextEReaderBackend.SHARED)
-    const backend = requested === NextEReaderBackend.SHARED && connectReaderThumbnailTransition().active()
-      ? NextEReaderBackend.LEGACY
-      : requested
-    this.pendingReader = new ReaderOverlayRoute(params, backend)
+    // Snapshot the admission-time authority (durable user choice, or an active
+    // rehearsal override) so an open session cannot switch implementation when
+    // the settings row changes later. An explicit durable legacy choice stays
+    // legacy; durable shared is no longer silently downgraded to legacy just
+    // because a thumbnail flight is active (that implicit downgrade was the
+    // release tile-entry defect). Claimed production entries, preview-failure
+    // fallbacks and their entry logs keep their existing chains unchanged.
+    this.pendingReader = new ReaderOverlayRoute(params, resolveNextEReaderBackendSelection())
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true

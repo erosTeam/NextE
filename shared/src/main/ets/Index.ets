@@ -948,6 +948,7 @@ export {
   NextEReaderBackendSelectionState,
   captureNextEReaderBackendWant,
   connectNextEReaderBackendSelection,
+  resolveNextEReaderBackendSelection,
 } from './state/NextEReaderBackendSelectionState'
 export {
   ReaderThumbnailTransitionPhase,

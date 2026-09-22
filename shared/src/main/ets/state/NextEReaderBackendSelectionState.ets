@@ -1,5 +1,6 @@
 import { Want } from '@kit.AbilityKit'
 import { AppStorageV2 } from '@kit.ArkUI'
+import { connectReadMode, ReaderImplementation } from './ReadModeState'
 
 export enum NextEReaderBackend {
   LEGACY = 'legacy',
@@ -44,6 +45,22 @@ export function connectNextEReaderBackendSelection(): NextEReaderBackendSelectio
     NEXT_E_READER_BACKEND_SELECTION_KEY,
     (): NextEReaderBackendSelectionState => new NextEReaderBackendSelectionState(),
   )!
+}
+
+/**
+ * Admission-time backend authority shared by the production thumbnail entry
+ * and the overlay route. The durable user choice (readerImplementation) is the
+ * production authority; a process-local rehearsal override wins only after it
+ * has been explicitly set (version > 0). The process-local default value alone
+ * can never override an explicit durable legacy choice.
+ */
+export function resolveNextEReaderBackendSelection(): NextEReaderBackend {
+  const selection = connectNextEReaderBackendSelection()
+  return selection.version > 0
+    ? selection.current()
+    : (connectReadMode().readerImplementation === ReaderImplementation.LEGACY
+      ? NextEReaderBackend.LEGACY
+      : NextEReaderBackend.SHARED)
 }
 
 /**
