@@ -4033,9 +4033,27 @@ export struct ReaderPage {
     if (!this.canTurnOnePageInDoublePage()) {
       return
     }
-    const targetStart: number = this.currentDoublePageStart() + 1
-    this.setCurrentGalleryColumnMode(this.columnModeForSpreadStart(targetStart))
-    this.turnTo(targetStart)
+    // User spec (2026-09-22): the button steps the pairing offset only.
+    // Single cell: flip the pairing and keep the current page index.
+    // Double cell: left slot advances to its right sibling, right slot keeps
+    // its source index — the same branch semantics as the shared shiftSpread
+    // fix (reader-kit 80656c8/d763d26). The old form
+    // turnTo(spreadStart+1) in every branch was itself the defect.
+    const start: number = this.currentDoublePageStart()
+    const singleCell: boolean = !this.spreadSecondVisible(start)
+    const target: number = singleCell ? start : start + 1
+    const columnMode: string = singleCell
+      ? (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT
+        ? ReadColumnMode.ODD_LEFT
+        : ReadColumnMode.EVEN_LEFT)
+      : this.columnModeForSpreadStart(target)
+    this.setCurrentGalleryColumnMode(columnMode)
+    if (!singleCell && this.vm.currentIndex === start) {
+      this.turnTo(target)
+      return
+    }
+    this.clearZoomGate()
+    this.syncReaderPagerToIndex(this.vm.currentIndex, false)
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),
