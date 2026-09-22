@@ -29,6 +29,16 @@ export class EhGalleryImageParser {
   private static readonly RE_PTT: RegExp = /<table class="ptt"[^>]*>([\s\S]*?)<\/table>/
   private static readonly RE_PAGE_LABEL: string = '<a[^>]*>(\\d+)</a>'
 
+  /**
+   * The parser's sole attestation rule: a parsed preview represents one page only when
+   * the HTML supplied a positive page number and a positive per-page preview rectangle.
+   * Callers must still preserve the parser provenance; this predicate does not turn an
+   * arbitrary URL or reader crop into a whole-page preview.
+   */
+  static previewGeometryCoversWholePage(image: EhGalleryImage): boolean {
+    return image.page > 0 && image.thumbWidth > 0 && image.thumbHeight > 0
+  }
+
   static parse(html: string): EhGalleryImage[] {
     const images: EhGalleryImage[] = []
     const re: RegExp = new RegExp(EhGalleryImageParser.RE_PREVIEW.source, 'g')
@@ -42,7 +52,7 @@ export class EhGalleryImageParser {
         img.thumbWidth = m[5] !== undefined ? Number.parseInt(m[5], 10) : 0
         img.thumbHeight = m[6] !== undefined ? Number.parseInt(m[6], 10) : 0
         img.thumbOffsetX = m[8] !== undefined ? Number.parseInt(m[8], 10) : 0
-        img.previewGeometryWholePage = img.page > 0 && img.thumbWidth > 0 && img.thumbHeight > 0
+        img.previewGeometryWholePage = EhGalleryImageParser.previewGeometryCoversWholePage(img)
         images.push(img)
       }
       m = re.exec(html)
@@ -84,7 +94,7 @@ export class EhGalleryImageParser {
         img.thumbWidth = m[1] !== undefined ? Number.parseInt(m[1], 10) : 0
         img.thumbHeight = m[2] !== undefined ? Number.parseInt(m[2], 10) : 0
         img.thumbOffsetX = m[4] !== undefined ? Number.parseInt(m[4], 10) : 0
-        img.previewGeometryWholePage = img.page > 0 && img.thumbWidth > 0 && img.thumbHeight > 0
+        img.previewGeometryWholePage = EhGalleryImageParser.previewGeometryCoversWholePage(img)
         images.push(img)
       }
       m = re.exec(html)
@@ -112,7 +122,7 @@ export class EhGalleryImageParser {
         const dims: number[] = EhGalleryImageParser.parseLargeThumbDims(m[6])
         img.thumbWidth = dims[0]
         img.thumbHeight = dims[1]
-        img.previewGeometryWholePage = img.page > 0 && img.thumbWidth > 0 && img.thumbHeight > 0
+        img.previewGeometryWholePage = EhGalleryImageParser.previewGeometryCoversWholePage(img)
         images.push(img)
       }
       m = re.exec(html)

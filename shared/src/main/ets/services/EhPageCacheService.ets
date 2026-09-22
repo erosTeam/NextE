@@ -10,6 +10,7 @@ import {
   EhGalleryCommentTextSpan,
 } from '../model/EhGalleryComment'
 import { EhGalleryImage } from '../model/EhGalleryImage'
+import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
 import { Favcat } from '../model/Favcat'
 import { GalleryList } from '../model/GalleryList'
 import { SimpleTag } from '../model/SimpleTag'
@@ -320,14 +321,19 @@ export class EhPageCacheService {
       return null
     }
     try {
-      const raw: GalleryDetailResult = JSON.parse(payload) as GalleryDetailResult
-      const detail: GalleryDetailResult = EhPageCacheService.reviveGalleryDetail(raw)
+      const detail: GalleryDetailResult = EhPageCacheService.decodeGalleryDetailPayload(payload)
       EhPageCacheService.recentGalleryDetails.put(cacheKey, detail)
       return detail
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'gallery_detail_decode_failed', (error as Error).message)
       return null
     }
+  }
+
+  /** Decodes one persisted gallery-detail payload so codec migration remains directly testable. */
+  static decodeGalleryDetailPayload(payload: string): GalleryDetailResult {
+    const raw: GalleryDetailResult = JSON.parse(payload) as GalleryDetailResult
+    return EhPageCacheService.reviveGalleryDetail(raw)
   }
 
   static async saveGalleryDetail(
@@ -635,6 +641,7 @@ export class EhPageCacheService {
 
   private static reviveImages(raw: EhGalleryImage[]): EhGalleryImage[] {
     const images: EhGalleryImage[] = []
+    let restoredLegacyPreviewGeometry: number = 0
     if (raw === undefined || raw === null) {
       return images
     }
@@ -648,13 +655,32 @@ export class EhPageCacheService {
       next.thumbOffsetX = EhPageCacheService.safeNumber(image.thumbOffsetX)
       next.spriteWidth = EhPageCacheService.safeNumber(image.spriteWidth)
       next.spriteHeight = EhPageCacheService.safeNumber(image.spriteHeight)
-      next.previewGeometryWholePage = EhPageCacheService.safeBoolean(image.previewGeometryWholePage)
+      // This is deliberately a cache-schema migration, not a URL/dimension heuristic. Before
+      // `previewGeometryWholePage` existed, gallery_detail payloads could only be written through
+      // GalleryDetailViewModel from EhApiService.getGalleryDetail(), whose images come from
+      // EhGalleryImageParser. Reapply the exact parser predicate only when that serialized
+      // attestation is absent. Explicit false remains authoritative, and local/download/image-page
+      // seeds never pass through this gallery-detail cache decoder.
+      const legacyParserAttestationMissing: boolean = image.previewGeometryWholePage === undefined
+      next.previewGeometryWholePage = legacyParserAttestationMissing
+        ? EhGalleryImageParser.previewGeometryCoversWholePage(next)
+        : EhPageCacheService.safeBoolean(image.previewGeometryWholePage)
+      if (legacyParserAttestationMissing && next.previewGeometryWholePage) {
+        restoredLegacyPreviewGeometry = restoredLegacyPreviewGeometry + 1
+      }
       next.imageUrl = EhPageCacheService.safeString(image.imageUrl)
       next.originImageUrl = EhPageCacheService.safeString(image.originImageUrl)
       next.showKey = EhPageCacheService.safeString(image.showKey)
       next.reloadKey = EhPageCacheService.safeString(image.reloadKey)
       images.push(next)
     })
+    if (restoredLegacyPreviewGeometry > 0) {
+      DiagnosticLogger.info(
+        'page-cache',
+        'legacy_detail_preview_geometry_restored',
+        `origin=gallery_detail_parser_cache images=${restoredLegacyPreviewGeometry}`,
+      )
+    }
     return images
   }
 
