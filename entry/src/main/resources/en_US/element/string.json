@@ -5335,6 +5335,10 @@
     {
       "name": "comment_translation_prompt_profile_hint",
       "value": "Shared for comments and titles; AI path only"
+    },
+    {
+      "name": "settings_reader_group_implementation",
+      "value": "Reader implementation"
     }
   ]
 }
