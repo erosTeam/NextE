@@ -88,6 +88,7 @@ export struct NextEReaderLabPage {
   private rootEntryFlightStarted: boolean = false
   private rootEntryRevealStarted: boolean = false
   private rootEntryGateLoggedKey: string = ''
+  private rootEntryPartLoggedKey: string = ''
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
@@ -638,6 +639,21 @@ export struct NextEReaderLabPage {
       `placeholder=${describe('nexte-reader-opening-placeholder')}`)
   }
 
+  private recordProductionEntryPartPresentation(slotId: number, requestId: number,
+    success: boolean, width: number, height: number): void {
+    const entry = this.entryTransition
+    const frame = this.session?.snapshot().frames.find((candidate: ReaderPagedFrame): boolean =>
+      candidate.slotId === slotId && candidate.asset.assetRequestId === requestId)
+    if (!this.rootOwnedEntryTarget || entry === null || !entry.pending() || frame === undefined ||
+      frame.asset.kind !== 'original') return
+    const key = `${entry.entryId}:${slotId}:${requestId}:${success}:${width}:${height}`
+    if (this.rootEntryPartLoggedKey === key) return
+    this.rootEntryPartLoggedKey = key
+    DiagnosticLogger.info('reader-entry', 'production_part_presented',
+      `id=${entry.entryId} gid=${this.request.work} page=${this.request.pageIndex} ` +
+      `part=${frame.part.sourceIndex} slot=${slotId} request=${requestId} success=${success} width=${width} height=${height}`)
+  }
+
   private observeReaderPosition(position: ReaderObservedPosition): void {
     this.logNormalEntryGeometry('content-ready')
     const sourceIndex = position.anchor.sourceIndexHint
@@ -995,6 +1011,9 @@ export struct NextEReaderLabPage {
                 },
                 (enabled: boolean, policy: ReaderDisplayPolicy): void => { this.persistCrop(enabled, policy) }),
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
+              onAssetPresented: (slotId: number, requestId: number, success: boolean, width: number, height: number): void => {
+                this.recordProductionEntryPartPresentation(slotId, requestId, success, width, height)
+              },
               // Match the legacy split: the canvas fades during close while the
               // root proxy owns the moving image; only live Reader content is
               // removed before that proxy begins to shrink.
