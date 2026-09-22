@@ -87,6 +87,7 @@ export struct NextEReaderLabPage {
   private entrySettledNotified: boolean = false
   private rootEntryFlightStarted: boolean = false
   private rootEntryRevealStarted: boolean = false
+  private rootEntryGateLoggedKey: string = ''
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
@@ -796,7 +797,17 @@ export struct NextEReaderLabPage {
     const target = this.rootEntryTarget
     const phase = this.rootEntryPhase
     if (phase === 'layout') {
-      if (target === null || !target.geometryReady || !target.contentRect.valid()) {
+      const geometryReady = target?.geometryReady === true
+      const contentRectValid = target?.contentRect.valid() === true
+      const gateKey = `${entry.entryId}:${geometryReady}:${contentRectValid}`
+      if (this.rootEntryGateLoggedKey !== gateKey) {
+        this.rootEntryGateLoggedKey = gateKey
+        DiagnosticLogger.info('reader-entry',
+          geometryReady && contentRectValid ? 'production_layout_gate_pass' : 'production_layout_gate_block',
+          `id=${entry.entryId} gid=${this.request.work} page=${this.request.pageIndex} ` +
+          `geometryReady=${geometryReady} contentRectValid=${contentRectValid}`)
+      }
+      if (!geometryReady || !contentRectValid) {
         return
       }
       if (this.rootEntryFlightStarted) {
@@ -818,7 +829,7 @@ export struct NextEReaderLabPage {
         if (this.entryTransition === entry && entry.phase === 'moving') {
           entry.arrived()
         }
-      })
+      }, `id=${entry.entryId} gid=${this.request.work} page=${this.request.pageIndex}`)
       return
     }
     if (phase !== 'waiting' || target === null || !target.decodedReady ||

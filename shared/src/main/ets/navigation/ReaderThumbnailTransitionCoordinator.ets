@@ -477,7 +477,7 @@ export class ReaderThumbnailTransitionCoordinator {
   }
 
   static startOpening(uiContext: UIContext, galleryId: string,
-    onProxyAtTarget: (() => void) | null = null): void {
+    onProxyAtTarget: (() => void) | null = null, diagnosticTrace: string = ''): void {
     const transition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
     if (transition.waitingReader() && transition.galleryId !== galleryId) {
       DiagnosticLogger.info(
@@ -547,6 +547,8 @@ export class ReaderThumbnailTransitionCoordinator {
         },
       }, () => {
         transition.startOpeningFlight()
+        DiagnosticLogger.info('reader-transition', 'open_flight_started',
+          `index=${transition.currentIndex}${diagnosticTrace.length > 0 ? ` ${diagnosticTrace}` : ''}`)
       })
     }))
   }

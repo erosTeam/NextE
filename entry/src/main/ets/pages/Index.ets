@@ -675,6 +675,10 @@ struct Index {
 
   @Computed
   private get readerEntryPhase(): ReaderEntryPhase { return this.readerEntryTransition?.phase ?? 'finished' }
+  @Computed
+  private get productionReaderEntryPhase(): ReaderEntryPhase {
+    return this.productionReaderEntryTransition?.phase ?? 'finished'
+  }
   private readerEntryEpoch: number = 0
   private readerEntryToken: number = 0
   private productionReaderEntryToken: number = 0
@@ -695,6 +699,8 @@ struct Index {
   private productionReaderEntryPendingGalleryId: string = ''
   private productionReaderEntryGalleryId: string = ''
   private productionReaderEntryPageIndex: number = -1
+  private productionReaderEntryLoggedId: number = 0
+  private productionReaderEntryLoggedPhase: string = ''
 
   @Monitor('readerEntryVisibility.foreground', 'readerEntrySite.isEx', 'navStackHolder.navigationRevision',
     'securitySettings.locked', 'safeMode.unlocked')
@@ -785,6 +791,8 @@ struct Index {
     if (!accepted) return false
     if (this.productionReaderEntryActive()) return true
     this.productionReaderEntryPendingGalleryId = source.galleryId
+    DiagnosticLogger.info('reader-entry', 'production_admitted',
+      `gid=${source.galleryId} page=${source.pageIndex}`)
     void this.openProductionThumbnail(source)
     return true
   }
@@ -793,6 +801,8 @@ struct Index {
     const epoch = ++this.productionReaderEntryEpoch
     const navigation = this.navStackHolder.navigationRevision
     if (!source.isCurrent()) { this.retireProductionReaderEntry(); return }
+    DiagnosticLogger.info('reader-entry', 'production_capture_start',
+      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex}`)
     this.productionReaderEntryGuardToken = ReaderTrialEntryRelay.holdPending(source.site, source.galleryId,
       (): boolean => {
         if (epoch !== this.productionReaderEntryEpoch || !this.productionReaderEntryActive()) return false
@@ -819,6 +829,8 @@ struct Index {
     const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
       source.snapshotComponentId, wholePage ? 'whole-page' : 'unknown',
       (entryId: number): boolean => this.authorizeProductionReaderEntryDeparture(claim, entryId))
+    DiagnosticLogger.info('reader-entry', 'production_capture_complete',
+      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex} preview=${preview !== null}`)
     if (epoch !== this.productionReaderEntryEpoch || navigation !== this.navStackHolder.navigationRevision ||
       !this.readerEntryVisibility.foreground || this.readerOverlay.visible || this.securitySettings.locked ||
       this.safeMode.restricted() || !source.isCurrent()) {
@@ -852,6 +864,8 @@ struct Index {
     this.productionReaderEntryPreview = preview
     this.productionReaderEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
       new ReaderDisplayPart(new ReaderUnitKey(source.site, source.galleryId, source.galleryId), null, source.pageIndex))
+    DiagnosticLogger.info('reader-entry', 'production_overlay_open',
+      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex} preview=${preview !== null}`)
     if (preview === null) this.productionReaderEntryClaim = null
     ReaderThumbnailTransitionCoordinator.openClaimed(
       this.getUIContext(),
@@ -906,6 +920,20 @@ struct Index {
       if (claim !== null && !this.authorizeReaderEntryDeparture(claim, claim.epoch)) return
       this.readerEntryClaim = null
     }
+  }
+
+  @Monitor('productionReaderEntryPhase')
+  private recordProductionReaderEntryPhase(): void {
+    const transition = this.productionReaderEntryTransition
+    if (transition === null) return
+    const phase = this.productionReaderEntryPhase
+    if (this.productionReaderEntryLoggedId === transition.entryId &&
+      this.productionReaderEntryLoggedPhase === phase) return
+    this.productionReaderEntryLoggedId = transition.entryId
+    this.productionReaderEntryLoggedPhase = phase
+    DiagnosticLogger.info('reader-entry', 'production_phase',
+      `id=${transition.entryId} gid=${this.productionReaderEntryGalleryId}` +
+      ` page=${this.productionReaderEntryPageIndex} phase=${phase}`)
   }
 
   @Monitor('readerEntryPhase', 'readerEntryVisibility.foreground')
