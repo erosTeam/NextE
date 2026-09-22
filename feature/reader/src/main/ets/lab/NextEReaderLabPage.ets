@@ -1020,8 +1020,10 @@ export struct NextEReaderLabPage {
               // removed before that proxy begins to shrink.
               canvasBackdropOpacity: this.readerThumbnailTransition.backdropOpacity,
               bodyOpacity: this.readerThumbnailTransition.readerBodyOpacity(),
-              contentOpacity: this.rootOwnedEntryTarget || this.rootEntryHandoff.revealStartedForEntry() ? 1 :
-                this.readerThumbnailTransition.readerImageOpacity(this.request.pageIndex + 1),
+              // The root proxy and the Reader-owned opening placeholder keep the selected image
+              // visible until the state machine starts its image handoff.  Do not expose the
+              // live pager (or its decode feedback) merely because the root route mounted.
+              contentOpacity: this.readerThumbnailTransition.readerImageOpacity(this.request.pageIndex + 1),
               openingPlaceholder: (): void => { this.ReaderOpeningPlaceholder() },
               chromeRepublishToken: this.chromeRepublishToken,
               active: this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown,

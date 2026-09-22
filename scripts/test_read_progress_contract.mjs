@@ -610,6 +610,10 @@ const ok = (name, cond) => {
     /\.opacity\(this\.canvasBackdropOpacity\)/.test(readerSurfaceSrc) &&
     /\.opacity\(this\.bodyOpacity\)/.test(readerSurfaceSrc) &&
     !/readerBodyOpacity: this\.readerThumbnailTransition\.readerBodyOpacity\(\)/.test(indexPageSrc))
+  ok('root-owned entry never exposes the live pager or decode feedback before image handoff',
+    /contentOpacity: this\.readerThumbnailTransition\.readerImageOpacity\(this\.request\.pageIndex \+ 1\)/.test(sharedReaderPageSrc) &&
+      !/contentOpacity: this\.rootOwnedEntryTarget/.test(sharedReaderPageSrc) &&
+      !/contentOpacity: this\.rootEntryHandoff\.revealStartedForEntry/.test(sharedReaderPageSrc))
   const letterboxedCloseRegion = snapshotCrop(
     { windowX: 420, windowY: 300, width: 900, height: 1000 },
     2,
