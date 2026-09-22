@@ -11,12 +11,18 @@ MANIFEST=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --device)
-      [[ $# -ge 2 ]] || { usage; exit 2; }
+      if [[ $# -lt 2 ]]; then
+        usage
+        exit 2
+      fi
       DEVICE="$2"
       shift 2
       ;;
     --lease)
-      [[ $# -ge 2 ]] || { usage; exit 2; }
+      if [[ $# -lt 2 ]]; then
+        usage
+        exit 2
+      fi
       LEASE="$2"
       shift 2
       ;;
@@ -29,14 +35,20 @@ while [[ $# -gt 0 ]]; do
       exit 2
       ;;
     *)
-      [[ -z "$MANIFEST" ]] || { usage; exit 2; }
+      if [[ -n "$MANIFEST" ]]; then
+        usage
+        exit 2
+      fi
       MANIFEST="$1"
       shift
       ;;
   esac
 done
 
-[[ -n "$DEVICE" && -n "$LEASE" && -n "$MANIFEST" ]] || { usage; exit 2; }
+if [[ -z "$DEVICE" || -z "$LEASE" || -z "$MANIFEST" ]]; then
+  usage
+  exit 2
+fi
 [[ -f "$MANIFEST" ]] || { echo "manifest not found: $MANIFEST" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,6 +71,18 @@ MANIFEST_AUTHORIZED_TARGET="$(python3 -c 'import json,sys; print(json.load(open(
 }
 RUNNER="${CODEX_HOME:-$HOME/.codex}/skills/harmony-run-device-diagnostics/scripts/run_device_protocol.py"
 [[ -f "$RUNNER" ]] || { echo "device protocol runner not found: $RUNNER" >&2; exit 2; }
+RECORDING_RUNNER="${CODEX_HOME:-$HOME/.codex}/skills/harmony-run-device-diagnostics/scripts/capture_transition_recording.mjs"
+IS_RECORDING="$(python3 -c 'import json,sys; print("1" if "recordingFileName" in json.load(open(sys.argv[1], encoding="utf-8")) else "0")' "$MANIFEST_REAL")"
+
+if [[ "$IS_RECORDING" == "1" ]]; then
+  [[ -f "$RECORDING_RUNNER" ]] || {
+    echo "transition recording runner not found: $RECORDING_RUNNER" >&2
+    exit 2
+  }
+  node "$RECORDING_RUNNER" "$MANIFEST_REAL" --validate-only
+  exec "$SCRIPT_DIR/device-lease" --device "$DEVICE" run --lease "$LEASE" -- \
+    node "$RECORDING_RUNNER" "$MANIFEST_REAL"
+fi
 
 python3 "$RUNNER" "$MANIFEST_REAL" --dry-run
 "$SCRIPT_DIR/device-lease" --device "$DEVICE" run --lease "$LEASE" -- \
