@@ -279,18 +279,22 @@ export class ReaderThumbnailTransitionCoordinator {
     }
     if (transition.closeProxyOwnedByRoot()) {
       // The normal shared route has already held the source snapshot through a
-      // root-flight/Reader-placeholder handoff. Its final Image reported after
-      // a composed frame, so blend-free replacement is safe here. Do not fade
-      // different source pixels together: even aligned thumbnail/original
-      // geometry produces a visibly doubled image during that overlap.
+      // root-flight/Reader-placeholder handoff. Do not fade different source
+      // pixels together: even aligned thumbnail/original geometry produces a
+      // visibly doubled image during that overlap. First expose the already
+      // decoded Reader image below the opaque placeholder, then retire that
+      // placeholder on the following compositor frame. A single commit can
+      // otherwise reveal the dark Reader canvas before the image is composed.
       uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
         if (!transition.openingHandoff()) {
           return
         }
         transition.startOpeningHandoff()
-        if (transition.finishOpeningHandoff()) {
-          DiagnosticLogger.info('reader-transition', 'open_finished_atomic', `index=${transition.currentIndex}`)
-        }
+        uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
+          if (transition.finishOpeningHandoff()) {
+            DiagnosticLogger.info('reader-transition', 'open_finished_composited', `index=${transition.currentIndex}`)
+          }
+        }))
       }))
       return
     }

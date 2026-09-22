@@ -570,8 +570,8 @@ const ok = (name, cond) => {
   ok('opening transition entry and image-level loading calls opt into the optional background',
     (readerPageSrc.match(/showTransitionBackground: this\.readerThumbnailTransition\.readerOpeningProxyVisible\(\)/g) ?? [])
       .length === 4)
-  ok('the root-owned shared route atomically transfers an already composed image while legacy keeps its fade',
-    /if \(transition\.closeProxyOwnedByRoot\(\)\) \{[\s\S]*?postFrameCallback\([\s\S]*?transition\.startOpeningHandoff\(\)[\s\S]*?transition\.finishOpeningHandoff\(\)/.test(
+  ok('the root-owned shared route composes under its opaque placeholder before the next-frame release while legacy keeps its fade',
+    /if \(transition\.closeProxyOwnedByRoot\(\)\) \{[\s\S]*?postFrameCallback\([\s\S]*?transition\.startOpeningHandoff\(\)[\s\S]*?postFrameCallback\([\s\S]*?transition\.finishOpeningHandoff\(\)/.test(
       readerTransitionCoordinatorSrc,
     ) &&
     /if \(transition\.closeProxyOwnedByRoot\(\)\)[\s\S]*?return[\s\S]*?animateTo\([\s\S]*?transition\.startOpeningHandoff\(\)/.test(
