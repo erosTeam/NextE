@@ -88,6 +88,7 @@ struct GalleryPreviewHorizontalSource {
           imageKey: this.image.imgkey,
           spriteWidth: this.image.spriteWidth,
           spriteHeight: this.image.spriteHeight,
+          previewGeometryWholePage: this.image.previewGeometryWholePage,
           fitHeight: true,
           displayHeight: PREVIEW_H,
           loadDuringDetailPush: true,

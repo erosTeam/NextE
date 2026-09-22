@@ -648,6 +648,7 @@ export class EhPageCacheService {
       next.thumbOffsetX = EhPageCacheService.safeNumber(image.thumbOffsetX)
       next.spriteWidth = EhPageCacheService.safeNumber(image.spriteWidth)
       next.spriteHeight = EhPageCacheService.safeNumber(image.spriteHeight)
+      next.previewGeometryWholePage = EhPageCacheService.safeBoolean(image.previewGeometryWholePage)
       next.imageUrl = EhPageCacheService.safeString(image.imageUrl)
       next.originImageUrl = EhPageCacheService.safeString(image.originImageUrl)
       next.showKey = EhPageCacheService.safeString(image.showKey)

@@ -185,6 +185,12 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     page.thumbnail.spriteWidth = source.spriteWidth
     page.thumbnail.spriteHeight = source.spriteHeight
     page.thumbnail.offsetX = source.thumbOffsetX
+    // Only the parser can attest that this individual sprite sub-rectangle (or
+    // standalone thumbnail) depicts one gallery page. Keep its geometry
+    // separate from original dimensions, which arrive after presentation.
+    page.previewWidth = source.thumbWidth
+    page.previewHeight = source.thumbHeight
+    page.previewCoversWholePage = source.previewGeometryWholePage
     this.pages.set(page.key, source)
     return page
   }

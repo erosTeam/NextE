@@ -19,6 +19,10 @@ export class EhGalleryImage {
   thumbOffsetX: number = 0
   spriteWidth: number = 0
   spriteHeight: number = 0
+  // Set only by EhGalleryImageParser when one parsed preview entry is known to
+  // depict this gallery page. It may be a region of a transport sprite sheet,
+  // but it is never a Reader crop or an arbitrary sheet-sized image.
+  previewGeometryWholePage: boolean = false
 
   // resolved by the reader (M2 reader / ImageResolveService)
   imageUrl: string = '' // direct full-image URL (one-shot per-IP token)
@@ -40,6 +44,7 @@ export class EhGalleryImage {
     i.thumbOffsetX = this.thumbOffsetX
     i.spriteWidth = this.spriteWidth
     i.spriteHeight = this.spriteHeight
+    i.previewGeometryWholePage = this.previewGeometryWholePage
     i.imageUrl = this.imageUrl
     i.originImageUrl = this.originImageUrl
     i.showKey = this.showKey

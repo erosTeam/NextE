@@ -47,6 +47,8 @@ export struct EhSpriteThumbnail {
   @Param imageKey: string = '';
   @Param spriteWidth: number = 0;
   @Param spriteHeight: number = 0;
+  /** Passed through from the parser; transport sprite cropping alone is insufficient. */
+  @Param previewGeometryWholePage: boolean = false;
   @Param displayWidth: number = 78;
   @Param displayHeight: number = 0;
   @Param enableImageBlock: boolean = false;
@@ -88,7 +90,7 @@ export struct EhSpriteThumbnail {
   private snapshotContent: EhImageContentSource | null = null;
 
   @Monitor('url', 'imageKey', 'thumbWidth', 'thumbHeight', 'offsetX', 'spriteWidth', 'spriteHeight',
-    'activeReloadToken', 'fitHeight', 'displayWidth', 'displayHeight', 'radius',
+    'activeReloadToken', 'fitHeight', 'displayWidth', 'displayHeight', 'radius', 'previewGeometryWholePage',
     'loaded', 'failed', 'imageBlocked', 'forceImageBlocked')
   onSnapshotInputChanged(): void {
     this.snapshotEpoch++
@@ -98,7 +100,8 @@ export struct EhSpriteThumbnail {
   private snapshotIdentity(): string {
     return JSON.stringify([this.url, this.imageKey, `${this.thumbWidth}`, `${this.thumbHeight}`,
       `${this.offsetX}`, `${this.spriteWidth}`, `${this.spriteHeight}`, `${this.activeReloadToken}`,
-      `${this.fitHeight}`, `${this.displayWidth}`, `${this.displayHeight}`, `${this.radius}`])
+      `${this.fitHeight}`, `${this.displayWidth}`, `${this.displayHeight}`, `${this.radius}`,
+      `${this.previewGeometryWholePage}`])
   }
 
   private snapshotEligible(content: EhImageContentSource): boolean {
@@ -133,6 +136,7 @@ export struct EhSpriteThumbnail {
     const identity: string = this.snapshotIdentity()
     this.onSnapshotSourceChange(new EhThumbnailSnapshotSource(this.url, this.imageKey,
       this.thumbWidth, this.thumbHeight, this.offsetX, this.spriteWidth, this.spriteHeight,
+      this.previewGeometryWholePage,
       (): boolean => epoch === this.snapshotEpoch && identity === this.snapshotIdentity() &&
         content === this.snapshotContent && this.snapshotEligible(content)))
   }

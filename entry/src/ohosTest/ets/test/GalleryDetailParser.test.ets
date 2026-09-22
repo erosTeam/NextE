@@ -55,6 +55,22 @@ export default function galleryDetailParserTest(): void {
       done()
     })
 
+    it('attests per-page preview geometry only in the parser branches that identify one page', 0, () => {
+      const unified = '<a href="https://e-hentai.org/s/abcdef/1-1"><div title="Page 1" ' +
+        'style="width:100px; height:200px; background:url(https://thumb.test/u.jpg) -0px 0"></div></a>'
+      const small = '<div class="gdtm"><div style="width:110px; height:210px; ' +
+        'background:url(https://thumb.test/s.jpg) -0px 0"><a href="https://e-hentai.org/s/bcdefa/1-2">' +
+        '<img alt="2"></a></div></div>'
+      const large = '<div class="gdtl"><a href="https://e-hentai.org/s/cdefab/1-3">' +
+        '<img alt="3" src="https://thumb.test/l-120-220-tail.jpg"></a></div>'
+      const images = EhGalleryImageParser.parse(unified + small + large)
+
+      expect(images.length).assertEqual(3)
+      expect(images[0].previewGeometryWholePage).assertEqual(true)
+      expect(images[1].previewGeometryWholePage).assertEqual(true)
+      expect(images[2].previewGeometryWholePage).assertEqual(true)
+    })
+
     it('prefers the explicit content-language tag over the source-work info row', 0, () => {
       const gallery: EhGallery = new EhGallery()
       gallery.language = 'Japanese'

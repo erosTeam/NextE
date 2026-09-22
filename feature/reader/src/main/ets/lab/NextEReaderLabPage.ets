@@ -16,7 +16,8 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
   ReaderAssetProvider, ReaderImageInformation,
   ReaderPage } from '@reader-kit/core'
-import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase, ReaderEntryPreviewSource } from '@reader-kit/ui'
+import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase, ReaderEntryPreviewSource,
+  ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
 import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
@@ -41,6 +42,32 @@ import {
   NextEReaderImageBlockProvider,
 } from './NextEReaderImageBlockProvider'
 import { NextEReaderHostRequest } from './NextEReaderHostRequest'
+
+class NextERootEntryHandoffHost implements ReaderRootEntryHandoffHost {
+  private authorize: (entry: ReaderEntryTransition) => boolean
+  private setTarget: (target: ReaderEntryTarget) => boolean
+  private start: (arrived: (() => void) | null) => void
+  private reveal: (commitReveal: () => void, finished: () => void) => void
+  private notify: (page: number) => void
+
+  constructor(authorize: (entry: ReaderEntryTransition) => boolean,
+    setTarget: (target: ReaderEntryTarget) => boolean,
+    start: (arrived: (() => void) | null) => void,
+    reveal: (commitReveal: () => void, finished: () => void) => void,
+    notify: (page: number) => void) {
+    this.authorize = authorize
+    this.setTarget = setTarget
+    this.start = start
+    this.reveal = reveal
+    this.notify = notify
+  }
+
+  authorizeDeparture(entry: ReaderEntryTransition): boolean { return this.authorize(entry) }
+  setOpeningTarget(target: ReaderEntryTarget): boolean { return this.setTarget(target) }
+  startOpening(arrived: (() => void) | null): void { this.start(arrived) }
+  revealOriginal(commitReveal: () => void, finished: () => void): void { this.reveal(commitReveal, finished) }
+  notifyReaderImageReady(page: number): void { this.notify(page) }
+}
 
 @ComponentV2
 export struct NextEReaderLabPage {
@@ -85,8 +112,7 @@ export struct NextEReaderLabPage {
   @Local private readerSettingsSheetShown: boolean = false
   private volumeDisposed: boolean = false
   private entrySettledNotified: boolean = false
-  private rootEntryFlightStarted: boolean = false
-  private rootEntryRevealStarted: boolean = false
+  private rootEntryHandoff: ReaderRootEntryHandoff = new ReaderRootEntryHandoff()
   private rootEntryGateLoggedKey: string = ''
   private rootEntryPartLoggedKey: string = ''
   private input: ReaderInputPort = new ReaderInputPort()
@@ -113,8 +139,7 @@ export struct NextEReaderLabPage {
     const forcedImageBlockSourceIndex = lab === null
       ? -1 : connectNextEReaderLabContextProbe().deliver(this.request.work, context)
     this.volumeDisposed = false
-    this.rootEntryFlightStarted = false
-    this.rootEntryRevealStarted = false
+    this.rootEntryHandoff.reset()
     this.keepScreenOn = new ReaderKeepScreenOn(context)
     if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
     const isEx = this.entrySite.length > 0 ? this.entrySite === 'ex' : connectSiteMode().isEx
@@ -789,10 +814,8 @@ export struct NextEReaderLabPage {
       // existing root flight alive, but never turn that cancellation into an
       // image-ready signal: only Reader's real visible-content observation may
       // release the opening placeholder.
-      if (!this.rootEntryFlightStarted) {
-        this.rootEntryFlightStarted = true
-        ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.request.work)
-      }
+      this.rootEntryHandoff.startCancelledFlight(this.entryTransition, this.routeActive && !this.closeRequested &&
+        !this.hostClosing, this.rootEntryHandoffHost())
     }
     this.entrySettledNotified = true
     this.onEntrySettled()
@@ -804,6 +827,26 @@ export struct NextEReaderLabPage {
   @Computed
   private get rootEntryPhase(): ReaderEntryPhase { return this.entryTransition?.phase ?? 'finished' }
 
+  private rootEntryHandoffHost(): ReaderRootEntryHandoffHost {
+    return new NextERootEntryHandoffHost((entry: ReaderEntryTransition): boolean => this.entryDeparturePreview !== null &&
+        this.entryDeparturePreview.authorizeDeparture(entry.entryId),
+      (target: ReaderEntryTarget): boolean => ReaderThumbnailTransitionCoordinator.setOpeningTarget(
+        this.getUIContext(), this.request.work, target.contentRect.x, target.contentRect.y,
+        target.contentRect.width, target.contentRect.height,
+      ),
+      (arrived: (() => void) | null): void => {
+        ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.request.work,
+          arrived ?? undefined, `id=${this.entryTransition?.entryId ?? 0} gid=${this.request.work} page=${this.request.pageIndex}`)
+      },
+      (commitReveal: () => void, finished: () => void): void => {
+        this.getUIContext().animateTo({ duration: 140, curve: Curve.Linear, onFinish: finished }, commitReveal)
+      },
+      (page: number): void => {
+        ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(this.getUIContext(), this.request.work, page)
+      },
+    )
+  }
+
   @Monitor('rootEntryTarget', 'rootEntryPhase', 'readerThumbnailTransition.phase', 'routeActive')
   private syncRootOwnedEntryTarget(): void {
     const entry = this.entryTransition
@@ -811,8 +854,7 @@ export struct NextEReaderLabPage {
       return
     }
     const target = this.rootEntryTarget
-    const phase = this.rootEntryPhase
-    if (phase === 'layout') {
+    if (this.rootEntryPhase === 'layout') {
       const geometryReady = target?.geometryReady === true
       const contentRectValid = target?.contentRect.valid() === true
       const gateKey = `${entry.entryId}:${geometryReady}:${contentRectValid}`
@@ -823,50 +865,9 @@ export struct NextEReaderLabPage {
           `id=${entry.entryId} gid=${this.request.work} page=${this.request.pageIndex} ` +
           `geometryReady=${geometryReady} contentRectValid=${contentRectValid}`)
       }
-      if (!geometryReady || !contentRectValid) {
-        return
-      }
-      if (this.rootEntryFlightStarted) {
-        return
-      }
-      this.rootEntryFlightStarted = true
-      if (this.entryDeparturePreview === null ||
-        !this.entryDeparturePreview.authorizeDeparture(entry.entryId) ||
-        !ReaderThumbnailTransitionCoordinator.setOpeningTarget(
-          this.getUIContext(), this.request.work, target.contentRect.x, target.contentRect.y,
-          target.contentRect.width, target.contentRect.height,
-        )) {
-        entry.cancel()
-        ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.request.work)
-        return
-      }
-      entry.beginMove()
-      ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.request.work, (): void => {
-        if (this.entryTransition === entry && entry.phase === 'moving') {
-          entry.arrived()
-        }
-      }, `id=${entry.entryId} gid=${this.request.work} page=${this.request.pageIndex}`)
-      return
     }
-    if (phase !== 'waiting' || target === null || !target.decodedReady ||
-      !this.readerThumbnailTransition.waitingReaderContent() || this.rootEntryRevealStarted) {
-      return
-    }
-    this.rootEntryRevealStarted = true
-    this.getUIContext().animateTo({
-      duration: 140,
-      curve: Curve.Linear,
-      onFinish: (): void => {
-        if (this.entryTransition !== entry || entry.phase !== 'revealing') {
-          return
-        }
-        entry.finish()
-        ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(
-          this.getUIContext(), this.request.work, target.part.sourceIndex + 1)
-      },
-    }, (): void => {
-      entry.reveal()
-    })
+    this.rootEntryHandoff.sync(entry, this.routeActive && !this.closeRequested && !this.hostClosing,
+      this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost())
   }
 
   aboutToDisappear(): void {
@@ -1019,7 +1020,7 @@ export struct NextEReaderLabPage {
               // removed before that proxy begins to shrink.
               canvasBackdropOpacity: this.readerThumbnailTransition.backdropOpacity,
               bodyOpacity: this.readerThumbnailTransition.readerBodyOpacity(),
-              contentOpacity: this.rootOwnedEntryTarget || this.rootEntryRevealStarted ? 1 :
+              contentOpacity: this.rootOwnedEntryTarget || this.rootEntryHandoff.revealStartedForEntry() ? 1 :
                 this.readerThumbnailTransition.readerImageOpacity(this.request.pageIndex + 1),
               openingPlaceholder: (): void => { this.ReaderOpeningPlaceholder() },
               chromeRepublishToken: this.chromeRepublishToken,

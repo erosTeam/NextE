@@ -28,10 +28,13 @@ export class EhThumbnailSnapshotSource {
   readonly offsetX: number
   readonly spriteWidth: number
   readonly spriteHeight: number
+  /** Parser evidence that this displayed preview is one complete gallery page. */
+  readonly previewGeometryWholePage: boolean
   private current: () => boolean
 
   constructor(url: string, imageKey: string, thumbWidth: number, thumbHeight: number,
-    offsetX: number, spriteWidth: number, spriteHeight: number, current: () => boolean) {
+    offsetX: number, spriteWidth: number, spriteHeight: number, previewGeometryWholePage: boolean,
+    current: () => boolean) {
     this.url = url
     this.imageKey = imageKey
     this.thumbWidth = thumbWidth
@@ -39,6 +42,7 @@ export class EhThumbnailSnapshotSource {
     this.offsetX = offsetX
     this.spriteWidth = spriteWidth
     this.spriteHeight = spriteHeight
+    this.previewGeometryWholePage = previewGeometryWholePage
     this.current = current
   }
 

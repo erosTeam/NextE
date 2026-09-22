@@ -334,6 +334,7 @@ struct IndexReaderThumbnailTransitionProxy {
             imageKey: this.state.image.imgkey,
             spriteWidth: this.state.image.spriteWidth,
             spriteHeight: this.state.image.spriteHeight,
+            previewGeometryWholePage: this.state.image.previewGeometryWholePage,
             displayWidth: this.state.proxyWidth,
             radius: 0,
           })
@@ -824,8 +825,9 @@ struct Index {
     }
     const claim = new IndexReaderEntryClaim(epoch, navigation, source, sourceRect, viewport)
     this.productionReaderEntryClaim = claim
-    const wholePage = source.snapshot.spriteWidth > 0 && source.snapshot.thumbWidth > 0 &&
-      source.snapshot.thumbHeight > 0
+    // This source-level capture may use a sprite sub-rectangle, but only the
+    // production parser can attest that it represents exactly one gallery page.
+    const wholePage = source.snapshot.previewGeometryWholePage
     const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
       source.snapshotComponentId, wholePage ? 'whole-page' : 'unknown',
       (entryId: number): boolean => this.authorizeProductionReaderEntryDeparture(claim, entryId))
@@ -3077,8 +3079,7 @@ struct Index {
         IndexReaderEntryPendingOverlay({ sourceRect: this.readerEntryClaim.sourceRect,
           onViewportChanged: (): void => { if (this.readerEntryClaim !== null) this.closeReaderTrial() } })
       }
-      if (this.productionReaderEntryClaim !== null &&
-        (this.productionReaderEntryTransition === null || this.productionReaderEntryTransition.phase === 'layout')) {
+      if (this.productionReaderEntryClaim !== null && this.productionReaderEntryTransition === null) {
         IndexReaderEntryPendingOverlay({ sourceRect: this.productionReaderEntryClaim.sourceRect,
           onViewportChanged: (): void => {
             if (this.productionReaderEntryClaim !== null) this.retireProductionReaderEntry()
