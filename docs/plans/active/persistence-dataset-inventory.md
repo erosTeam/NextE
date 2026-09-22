@@ -30,6 +30,7 @@ Allowed `Sync` values:
 | StorageKeys.GALLERY_DETAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Legacy gallery-detail transition compatibility switch |
 | StorageKeys.GALLERY_DETAIL_TRANSITION_MODE | setting | plaintext | excluded | Selected gallery-detail transition mode |
 | StorageKeys.READER_THUMBNAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Reader thumbnail transition enabled |
+| StorageKeys.READER_IMPLEMENTATION | setting | plaintext | excluded | Reader implementation choice (shared default, legacy fallback) |
 | StorageKeys.LIST_ITEM_FIXED_HEIGHT | setting | plaintext | excluded | List-row height mode |
 | StorageKeys.GRID_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.WATERFALL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
