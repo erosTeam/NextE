@@ -369,6 +369,22 @@ test('optional thumbnail entry reuses the exact host ReaderParams instead of ref
   assert.equal(inits.length, 2)
   assert.equal(inits[1][5], entry.seedImages)
   assert.equal(inits[1][9], entry.seedImagePageUrl)
+
+  // A Detail preview page already carries this exact /s/ link. The shared
+  // startup can use it without waiting for image-page HTML resolution.
+  const seeded = { ...entry, seedLoadedPages: 1, seedPerPage: 1 }
+  const seededAdapter = new context.exports.NextEReaderLabAdapter({}, 'token', false, seeded)
+  const seededUnit = await seededAdapter.open({ scope: 'eh', work: 'gallery', unit: 'gallery' }, cancellation)
+  await seededAdapter.page(seededUnit, 3, cancellation)
+  assert.equal(inits[2][9], '')
+  assert.equal(inits[3][9], '')
+
+  // If the selected URL differs from the loaded preview, preserve the exact
+  // image-page seed instead of trusting unrelated thumbnail metadata.
+  const unmatched = { ...seeded, seedImages: [copyable({ ...selected, sUrl: 'https://e-hentai.org/s/other/fixture-4' })] }
+  const unmatchedAdapter = new context.exports.NextEReaderLabAdapter({}, 'token', false, unmatched)
+  await unmatchedAdapter.open({ scope: 'eh', work: 'gallery', unit: 'gallery' }, cancellation)
+  assert.equal(inits[4][9], entry.seedImagePageUrl)
 })
 
 const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/NextEReaderLabPage.ets', import.meta.url), 'utf8')

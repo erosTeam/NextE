@@ -103,6 +103,18 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     return this.pages.get(page.key)?.imageUrl ?? ''
   }
 
+  private startupImagePageUrl(params: ReaderParams, index: number): string {
+    if (params.index !== index || params.seedImagePageUrl.length === 0 || params.seedLoadedPages <= 0) {
+      return params.index === index ? params.seedImagePageUrl : ''
+    }
+    // Detail already supplied the selected page's exact /s/ link in its loaded preview page.
+    // ReaderViewModel applies that seed before ensureLoaded. Let the asset load resolve /s/
+    // when needed, without serializing the first Reader layout behind that HTML request.
+    const selected: EhGalleryImage | undefined = params.seedImages.find((image: EhGalleryImage): boolean =>
+      image.page === index + 1 && image.sUrl === params.seedImagePageUrl)
+    return selected === undefined ? params.seedImagePageUrl : ''
+  }
+
   async open(key: ReaderUnitKey, cancellation: ReaderCancellation): Promise<ReaderUnit> {
     cancellation.check()
     if (key.unit !== key.work || this.token.length === 0) throw new Error('invalid_eh_unit')
@@ -124,7 +136,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
         const vm = new ReaderViewModel()
         await vm.init(key.work, this.token, this.isEx, local.fileCount, local.index,
           local.seedImages, local.seedLoadedPages, local.seedPerPage, local.seedPreviewPages,
-          local.seedImagePageUrl, local.source.kind, local.source.sourceKey)
+          this.startupImagePageUrl(local, local.index), local.source.kind, local.source.sourceKey)
         cancellation.check()
         this.entryUnits.set(key.unit, local)
         const language = local.sourceLanguage.trim()
@@ -170,7 +182,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const entry = this.entryUnits.get(unit.key.unit)
     await vm.init(unit.key.work, this.token, this.isEx, unit.pageCount, index,
       entry?.seedImages ?? [], entry?.seedLoadedPages ?? 0, entry?.seedPerPage ?? 0,
-      entry?.seedPreviewPages ?? [], entry !== undefined && entry.index === index ? entry.seedImagePageUrl : '')
+      entry?.seedPreviewPages ?? [], entry === undefined ? '' : this.startupImagePageUrl(entry, index))
     cancellation.check()
     const source = vm.imageAt(index).copy()
     if (source.sUrl.length === 0) throw new Error('missing_eh_preview')
