@@ -1285,6 +1285,10 @@
       "value": "%s · queued"
     },
     {
+      "name": "reader_image_info_enhancement_height_limit",
+      "value": "%s · exceeds height limit %d, original retained"
+    },
+    {
       "name": "reader_image_info_enhancement_not_applied",
       "value": "%s · not applied"
     },

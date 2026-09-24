@@ -1285,6 +1285,10 @@
       "value": "%s · 排队中"
     },
     {
+      "name": "reader_image_info_enhancement_height_limit",
+      "value": "%s · 超过高度上限 %d，保留原图"
+    },
+    {
       "name": "reader_image_info_enhancement_not_applied",
       "value": "%s · 未应用"
     },

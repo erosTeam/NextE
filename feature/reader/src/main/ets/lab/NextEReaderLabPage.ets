@@ -127,6 +127,7 @@ export struct NextEReaderLabPage {
   @Local private translationBusyPage: number = -1
   @Local private translationErrorPage: number = -1
   @Local private translationPreferenceRevision: number = 0
+  @Local private enhancementEligibilityRevision: number = 0
   @Local private imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings()
   @Local private imageBlockRuleSaving: boolean = false
   private translationAutoScheduleEpoch: number = 0
@@ -165,7 +166,8 @@ export struct NextEReaderLabPage {
     const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration(),
       (): string => this.cropStrength(),
-      (page: ReaderPage): string => adapter.saveUri(page))
+      (page: ReaderPage): string => adapter.saveUri(page),
+      (): void => { this.enhancementEligibilityRevision += 1 })
     this.superResolutionProvider = variantProvider
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page),
@@ -310,6 +312,13 @@ export struct NextEReaderLabPage {
     }
     const information: NextEReaderSuperResolutionInformation | null =
       this.superResolutionProvider?.information(frame.asset.page, configuration.identity()) ?? null
+    if (value.variant !== 'enhanced' &&
+      this.superResolutionProvider?.heightLimited(frame.asset.page.unit, frame.asset.page.sourceIndex,
+        configuration.maxSourceHeight) === true) {
+      const detail = AppStrings.get('reader_image_info_enhancement_height_limit')
+        .replace('%s', modelLabel).replace('%d', String(configuration.maxSourceHeight))
+      return AppStrings.get('reader_image_info_enhancement').replace('%s', detail)
+    }
     const applied = value.variant === 'enhanced' || information?.applied === true
     const reason = information?.reason ?? 'queued'
     let detail = ''
@@ -400,7 +409,8 @@ export struct NextEReaderLabPage {
       return new ReaderVariantPreference('translated', identity)
     }
     const enhancement = this.superResolutionConfiguration()
-    return enhancement.enabled
+    return enhancement.enabled &&
+      this.superResolutionProvider?.mayPrepare(this.unitKey, sourceIndex, enhancement.maxSourceHeight) === true
       ? new ReaderVariantPreference('enhanced', enhancement.identity())
       : new ReaderVariantPreference()
   }
@@ -978,7 +988,7 @@ export struct NextEReaderLabPage {
               preloadDepth: this.readMode.preloadPages,
               variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
                 this.superResolutionAvailable() ? 'enhanced' : 'default', this.superResolutionIdentity()),
-                this.translationPreferenceRevision,
+                this.translationPreferenceRevision + this.enhancementEligibilityRevision,
                 (sourceIndex: number): ReaderVariantPreference => this.variantPreference(sourceIndex),
                 (sourceIndex: number, preference: ReaderVariantPreference,
                   result: 'changed' | 'unchanged' | 'unavailable' | 'stale'): void => {

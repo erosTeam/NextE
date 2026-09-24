@@ -1,7 +1,8 @@
 import { common } from '@kit.AbilityKit'
+import { image } from '@kit.ImageKit'
 import {
   ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
-  ReaderOriginalAssetPlan, ReaderPage,
+  ReaderOriginalAssetPlan, ReaderPage, ReaderUnitKey,
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
@@ -41,6 +42,20 @@ export class NextEReaderSuperResolutionConfiguration {
 
   identity(): string {
     return `nexte-super-resolution:${this.model}:${this.backend}:${this.maxSourceHeight}`
+  }
+}
+
+type NextEReaderSourceEligibility = 'pending' | 'applicable' | 'height-limit'
+
+class NextEReaderEligibilityRecord {
+  path: string
+  maxHeight: number
+  status: NextEReaderSourceEligibility
+
+  constructor(path: string, maxHeight: number, status: NextEReaderSourceEligibility) {
+    this.path = path
+    this.maxHeight = maxHeight
+    this.status = status
   }
 }
 
@@ -94,21 +109,27 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private configuration: () => NextEReaderSuperResolutionConfiguration
   private sourcePaths: Map<string, string> = new Map<string, string>()
   private saveUris: Map<string, string> = new Map<string, string>()
+  private sourcePathsBySource: Map<string, string> = new Map<string, string>()
+  private eligibilityBySource: Map<string, NextEReaderEligibilityRecord> =
+    new Map<string, NextEReaderEligibilityRecord>()
   private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
   private cropStrength: () => string
   private saveUriForPage: (page: ReaderPage) => string
+  private onEligibilityChanged: () => void
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: () => NextEReaderSuperResolutionConfiguration,
     cropStrength: () => string = (): string => '',
-    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '') {
+    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '',
+    onEligibilityChanged: () => void = (): void => {}) {
     this.context = context
     this.provider = provider
     this.configuration = configuration
     this.cropStrength = cropStrength
     this.saveUriForPage = saveUriForPage
+    this.onEligibilityChanged = onEligibilityChanged
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     this.ownerPrefix = `reader-shared:${++NextEReaderSuperResolutionProvider.sequence}`
@@ -129,10 +150,76 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
       if (asset.saveUri.length > 0) this.saveUris.set(pageKey, asset.saveUri)
       else this.saveUris.delete(pageKey)
       const path = NextEReaderSuperResolutionProvider.localPath(asset.uri)
-      if (path.length > 0) this.sourcePaths.set(this.pageIdentity(page), path)
-      else this.sourcePaths.delete(this.pageIdentity(page))
+      const sourceKey = this.sourceIdentity(page.unit, page.sourceIndex)
+      this.sourcePathsBySource.set(sourceKey, path)
+      if (path.length > 0) this.sourcePaths.set(pageKey, path)
+      else this.sourcePaths.delete(pageKey)
+      if (path.length > 0) {
+        if (this.configuration().enabled) {
+          this.probeEligibility(page, path, this.configuration().maxSourceHeight)
+        } else if (this.eligibilityBySource.get(sourceKey)?.path !== path) {
+          this.eligibilityBySource.delete(sourceKey)
+        }
+      } else {
+        // Missing local metadata must retain the processor's real source-unavailable report.
+        this.eligibilityBySource.set(sourceKey,
+          new NextEReaderEligibilityRecord(path, this.configuration().maxSourceHeight, 'applicable'))
+        this.onEligibilityChanged()
+      }
     }
     return asset
+  }
+
+  /** The processor's height limit is an inapplicable variant, not a failed image. */
+  mayPrepare(unit: ReaderUnitKey, sourceIndex: number, maxHeight: number): boolean {
+    const key = this.sourceIdentity(unit, sourceIndex)
+    const record = this.eligibilityBySource.get(key)
+    if (record === undefined) {
+      const path = this.sourcePathsBySource.get(key)
+      if (path !== undefined && path.length > 0) this.probeSource(key, path, maxHeight)
+      return false
+    }
+    if (record.maxHeight !== maxHeight) {
+      this.probeSource(key, record.path, maxHeight)
+      return false
+    }
+    return record.status === 'applicable'
+  }
+
+  heightLimited(unit: ReaderUnitKey, sourceIndex: number, maxHeight: number): boolean {
+    const record = this.eligibilityBySource.get(this.sourceIdentity(unit, sourceIndex))
+    return record !== undefined && record.maxHeight === maxHeight && record.status === 'height-limit'
+  }
+
+  private probeEligibility(page: ReaderPage, path: string, maxHeight: number): void {
+    this.probeSource(this.sourceIdentity(page.unit, page.sourceIndex), path, maxHeight)
+  }
+
+  private probeSource(key: string, path: string, maxHeight: number): void {
+    const previous = this.eligibilityBySource.get(key)
+    if (previous?.path === path && previous.maxHeight === maxHeight) return
+    const record = new NextEReaderEligibilityRecord(path, maxHeight, 'pending')
+    this.eligibilityBySource.set(key, record)
+    void this.readSourceEligibility(key, record)
+  }
+
+  private async readSourceEligibility(key: string, record: NextEReaderEligibilityRecord): Promise<void> {
+    let source: image.ImageSource | undefined
+    let status: NextEReaderSourceEligibility = 'applicable'
+    try {
+      source = image.createImageSource(record.path)
+      const info: image.ImageInfo = await source.getImageInfo()
+      if (info.size.height > record.maxHeight) status = 'height-limit'
+    } catch (_error) {
+      // Unknown dimensions still go through the processor and retain its real failure reporting.
+    } finally {
+      if (source !== undefined) {
+        try { await source.release() } catch (_error) {}
+      }
+    }
+    if (this.eligibilityBySource.get(key) !== record) return
+    record.status = status
+    this.onEligibilityChanged()
   }
 
   async prepareVariant(page: ReaderPage, variant: ReaderProcessedAssetVariant, identity: string,
@@ -196,6 +283,10 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
 
   private pageIdentity(page: ReaderPage): string {
     return JSON.stringify([page.unit.scope, page.unit.work, page.unit.unit, page.key, page.sourceIndex])
+  }
+
+  private sourceIdentity(unit: ReaderUnitKey, sourceIndex: number): string {
+    return JSON.stringify([unit.scope, unit.work, unit.unit, sourceIndex])
   }
 
   private static localPath(uri: string): string {

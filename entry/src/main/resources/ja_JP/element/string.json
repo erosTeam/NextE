@@ -1285,6 +1285,10 @@
       "value": "%s・待機中"
     },
     {
+      "name": "reader_image_info_enhancement_height_limit",
+      "value": "%s・高さ上限 %d を超過、元画像を表示"
+    },
+    {
       "name": "reader_image_info_enhancement_not_applied",
       "value": "%s・未適用"
     },
