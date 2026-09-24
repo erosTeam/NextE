@@ -29,6 +29,8 @@ import {
   AppModalScaffold,
   SectionHeader,
   SettingsCheckedMenuItem,
+  SettingsChoiceRow,
+  SettingsChoiceOption,
   NextEReaderBackend,
   NextEReaderBackendSelectionState,
   connectNextEReaderBackendSelection,
@@ -806,12 +808,6 @@ export struct ReaderSettingsPage {
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
   }
 
-  private readerBackendLabel(): Resource {
-    return this.readMode.readerImplementation === ReaderImplementation.LEGACY
-      ? $r('app.string.settings_reader_backend_legacy')
-      : $r('app.string.settings_reader_backend_shared')
-  }
-
   private selectReaderBackend(backend: NextEReaderBackend): void {
     this.readerBackendSelection.selectForRehearsal(backend, this.readerBackendRehearsalAvailable)
     const ctx: common.UIAbilityContext =
@@ -823,38 +819,21 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  private ReaderBackendMenu(select: (action: () => void) => void) {
-    Menu() {
-      SettingsCheckedMenuItem({
-        label: $r('app.string.settings_reader_backend_legacy'),
-        selected: this.readerBackendSelection.current() === NextEReaderBackend.LEGACY,
-        selectAction: (): void => {
-          select((): void => this.selectReaderBackend(NextEReaderBackend.LEGACY))
-        },
-      })
-      SettingsCheckedMenuItem({
-        label: $r('app.string.settings_reader_backend_shared'),
-        selected: this.readerBackendSelection.current() === NextEReaderBackend.SHARED,
-        selectAction: (): void => {
-          select((): void => this.selectReaderBackend(NextEReaderBackend.SHARED))
-        },
-      })
-    }
-  }
-
-  @Builder
   private ReaderImplementationGroup() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_implementation') })
         GroupedListSection() {
-          ConciseListRow({
+          SettingsChoiceRow({
             title: $r('app.string.settings_reader_backend'),
-            trailingText: this.readerBackendLabel(),
-            trailingDropdown: true,
-            dropdownMenuEnabled: true,
-            dropdownMenuBuilder: (select: (action: () => void) => void): void => {
-              this.ReaderBackendMenu(select)
+            value: this.readMode.readerImplementation,
+            options: [
+              new SettingsChoiceOption(ReaderImplementation.LEGACY, $r('app.string.settings_reader_backend_legacy')),
+              new SettingsChoiceOption(ReaderImplementation.SHARED, $r('app.string.settings_reader_backend_shared')),
+            ],
+            onSelect: (value: string): void => {
+              this.selectReaderBackend(value === ReaderImplementation.LEGACY
+                ? NextEReaderBackend.LEGACY : NextEReaderBackend.SHARED)
             },
           })
           .id('nexte-reader-implementation-row')
