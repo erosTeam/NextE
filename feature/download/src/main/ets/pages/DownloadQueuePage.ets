@@ -1270,7 +1270,7 @@ export struct DownloadQueuePage {
       'gallery_open_local_reader',
       `gid=${task.gid} images=${params.fileCount} index=${params.index} sourceHash=${DiagnosticLogger.ownerHash(params.source.sourceKey)}`,
     )
-    connectReaderOverlayNavigation().open(params)
+    connectReaderOverlayNavigation().open(params, true)
   }
 
   private async openArchiverTask(task: DownloadArchiverTask): Promise<void> {
@@ -1292,7 +1292,7 @@ export struct DownloadQueuePage {
         'archiver_open_local_reader',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} images=${params.fileCount} index=${params.index} sourceHash=${DiagnosticLogger.ownerHash(params.source.sourceKey)}`,
       )
-      connectReaderOverlayNavigation().open(params)
+      connectReaderOverlayNavigation().open(params, true)
     } catch (error) {
       this.getUIContext().getPromptAction().showToast({ message: (error as Error).message })
     } finally {
