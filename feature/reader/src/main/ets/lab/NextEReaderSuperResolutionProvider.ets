@@ -93,6 +93,7 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private context: common.UIAbilityContext
   private configuration: () => NextEReaderSuperResolutionConfiguration
   private sourcePaths: Map<string, string> = new Map<string, string>()
+  private saveUris: Map<string, string> = new Map<string, string>()
   private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
@@ -124,6 +125,9 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     forceReload: boolean, onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
     const asset = await this.provider.load(page, kind, cancellation, forceReload, onProgress)
     if (kind === 'original') {
+      const pageKey = this.pageIdentity(page)
+      if (asset.saveUri.length > 0) this.saveUris.set(pageKey, asset.saveUri)
+      else this.saveUris.delete(pageKey)
       const path = NextEReaderSuperResolutionProvider.localPath(asset.uri)
       if (path.length > 0) this.sourcePaths.set(this.pageIdentity(page), path)
       else this.sourcePaths.delete(this.pageIdentity(page))
@@ -161,7 +165,7 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
         ? result.filePath
         : NextEReaderSuperResolutionProvider.localPath(result.displayUri)
       if (path.length === 0) throw new Error('reader_variant_output_unavailable')
-      const saveUri = this.saveUriForPage(page)
+      const saveUri = this.saveUris.get(this.pageIdentity(page)) ?? this.saveUriForPage(page)
       if (saveUri.length === 0) throw new Error('reader_variant_save_source_unavailable')
       retained = true
       return new NextEReaderSuperResolutionPlan(page, identity, path, ownerKey,
