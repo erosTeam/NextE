@@ -12,7 +12,8 @@ import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea,
   GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
   ReaderThumbnailTransitionCoordinator, connectReaderThumbnailTransition, ReaderThumbnailTransitionState,
-  connectImageBlockSettings, DiagnosticLogger, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
+  connectImageBlockSettings, DiagnosticLogger, EhGalleryImage, ReaderParams, ReaderSourceKind,
+  ReaderSuperResolutionModel } from 'shared'
 import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
@@ -20,7 +21,8 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase, ReaderEntryPreviewSource,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
-import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility,
+import { ReaderLabSurface, ReaderSurface, ReaderSelectedDrawable, ReaderTrialWindow,
+  ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
@@ -80,15 +82,22 @@ export struct NextEReaderLabPage {
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
   @Param entryPreview: ReaderEntryPreviewSource | null = null
-  /** The root proxy uses this capture only to re-check its live source before departure. */
-  @Param entryDeparturePreview: ReaderEntryPreviewSource | null = null
+  /** The root proxy re-checks the exact live source before departure. */
+  @Param entryDepartureGuard: ((entryId: number) => boolean) | null = null
   /** Production forward flight: root proxy lands on reader-kit's selected image part. */
   @Param rootOwnedEntryTarget: boolean = false
+  @Param liveSourceEntry: boolean = false
+  @Param routeEpoch: number = 0
+  @Param liveSourceEntryCurrent: (() => boolean) | null = null
+  @Event onLiveSourceEntryCancel: () => void = () => {}
   @Param entrySite: string = ''
   @Param entryParams: ReaderParams | null = null
   @Param managesTrialWindow: boolean = true
   @Param hostClosing: boolean = false
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
+  /** A production Back can synchronously return the opening proxy to its source. */
+  @Event onTryReverseOpening: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => boolean =
+    (): boolean => false
   @Event onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => void = () => {}
   @Event onShown: () => void = () => {}
   @Event onDisappeared: () => void = () => {}
@@ -121,6 +130,11 @@ export struct NextEReaderLabPage {
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
+  private chromeVisible: boolean = false
+  private readerBodyVisible: boolean = false
+  private pendingLiveSourceClaim: ReaderSelectedDrawable | null = null
+  @Local private liveSourceEntryReleased: boolean = false
+  private archiveEntryShownLogged: boolean = false
   @Local private currentSourceIndex: number = -1
   @Local private translationRequestedPages: number[] = []
   @Local private translationAppliedPages: number[] = []
@@ -145,7 +159,12 @@ export struct NextEReaderLabPage {
     this.volumeDisposed = false
     this.rootEntryHandoff.reset()
     this.keepScreenOn = new ReaderKeepScreenOn(context)
-    if (this.request.readingChrome && this.managesTrialWindow) this.trialWindow.open(context)
+    // A live local source or root thumbnail proxy still owns the visible entry
+    // frame. Keep its status-bar colors until Reader takes over that frame.
+    if (this.request.readingChrome && this.managesTrialWindow && !this.liveSourceEntry &&
+      !this.rootOwnedEntryTarget) {
+      this.trialWindow.open(context)
+    }
     const isEx = this.entrySite.length > 0 ? this.entrySite === 'ex' : connectSiteMode().isEx
     this.unitKey = new ReaderUnitKey(isEx ? 'ex' : 'eh', this.request.work, this.request.work)
     const adapter = new NextEReaderLabAdapter(context, this.request.unit, isEx, this.entryParams,
@@ -416,6 +435,12 @@ export struct NextEReaderLabPage {
       this.superResolutionProvider?.mayPrepare(this.unitKey, sourceIndex, enhancement.maxSourceHeight) === true
       ? new ReaderVariantPreference('enhanced', enhancement.identity())
       : new ReaderVariantPreference()
+  }
+
+  private archiveEntryOwnershipDiagnostic(): boolean {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    return context.applicationInfo.debug && this.liveSourceEntry &&
+      this.entryParams?.source.kind === ReaderSourceKind.ARCHIVE
   }
 
   /** Mirrors the legacy reader's comic-translation failure copy for the same classified codes. */
@@ -693,6 +718,11 @@ export struct NextEReaderLabPage {
   }
 
   private observeReaderPosition(position: ReaderObservedPosition): void {
+    // The selected original reported native visibility after presentation.
+    // Native visibility does not prove that an overlapping root layer has retired.
+    // Keep the source status bar until the route's entry gates also finish.
+    this.readerBodyVisible = true
+    this.syncStatusBarAfterTakeover()
     this.logNormalEntryGeometry('content-ready')
     const sourceIndex = position.anchor.sourceIndexHint
     if (!this.rootOwnedEntryTarget || this.entryTransition === null || !this.entryTransition.pending()) {
@@ -736,6 +766,9 @@ export struct NextEReaderLabPage {
         .id('nexte-reader-opening-placeholder')
         .onAreaChange((): void => { this.logNormalEntryGeometry('proxy-handoff') })
         .opacity(this.readerThumbnailTransition.openingProxyOpacity)
+        // Keep the click-time pixels above the selected image's entry-opacity
+        // animation until the root handoff releases this placeholder.
+        .zIndex(1)
         .hitTestBehavior(HitTestMode.None)
     }
   }
@@ -860,8 +893,8 @@ export struct NextEReaderLabPage {
   private get rootEntryPhase(): ReaderEntryPhase { return this.entryTransition?.phase ?? 'finished' }
 
   private rootEntryHandoffHost(): ReaderRootEntryHandoffHost {
-    return new NextERootEntryHandoffHost((entry: ReaderEntryTransition): boolean => this.entryDeparturePreview !== null &&
-        this.entryDeparturePreview.authorizeDeparture(entry.entryId),
+    return new NextERootEntryHandoffHost((entry: ReaderEntryTransition): boolean => this.entryDepartureGuard !== null &&
+        this.entryDepartureGuard(entry.entryId),
       (target: ReaderEntryTarget): boolean => ReaderThumbnailTransitionCoordinator.setOpeningTarget(
         this.getUIContext(), this.request.work, target.contentRect.x, target.contentRect.y,
         target.contentRect.width, target.contentRect.height,
@@ -871,7 +904,11 @@ export struct NextEReaderLabPage {
           arrived ?? undefined, `id=${this.entryTransition?.entryId ?? 0} gid=${this.request.work} page=${this.request.pageIndex}`)
       },
       (commitReveal: () => void, finished: () => void): void => {
-        this.getUIContext().animateTo({ duration: 140, curve: Curve.Linear, onFinish: finished }, commitReveal)
+        if (this.rootOwnedEntryTarget) {
+          ReaderThumbnailTransitionCoordinator.revealRootOwnedOriginal(this.getUIContext(), commitReveal, finished)
+        } else {
+          this.getUIContext().animateTo({ duration: 140, curve: Curve.Linear, onFinish: finished }, commitReveal)
+        }
       },
       (page: number): void => {
         ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(this.getUIContext(), this.request.work, page)
@@ -905,6 +942,7 @@ export struct NextEReaderLabPage {
   }
 
   aboutToDisappear(): void {
+    if (!this.managesTrialWindow && this.request.readingChrome) this.onStatusBarVisible(true)
     this.volumeDisposed = true
     this.translationAutoScheduleEpoch += 1
     this.translationAutoEnabled = false
@@ -922,10 +960,77 @@ export struct NextEReaderLabPage {
   }
 
   private syncChromeVisible(visible: boolean): void {
+    this.chromeVisible = visible
     if (visible) return // The before-show gate already applied host visibility.
-    const statusVisible = !connectReadMode().fullscreen || visible
-    if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible)
-    else this.onStatusBarVisible(statusVisible)
+    this.syncStatusBarAfterTakeover()
+  }
+
+  private retireLiveSourceAfterReveal(claim: ReaderSelectedDrawable): void {
+    this.pendingLiveSourceClaim = claim
+    this.tryRetireLiveSource()
+  }
+
+  @Monitor('routeActive', 'labVisibility.foreground')
+  private tryRetireLiveSource(): void {
+    const claim = this.pendingLiveSourceClaim
+    if (!this.liveSourceEntry || claim === null || this.liveSourceEntryReleased ||
+      !this.routeActive || !this.labVisibility.foreground || this.closeRequested || this.hostClosing ||
+      this.liveSourceEntryCurrent?.() !== true || this.session === null) return
+    if (!claim.unit.equals(this.unitKey) || !claim.current(this.session.snapshot())) {
+      this.failLiveSourceEntry()
+      return
+    }
+    // Reader-kit reported the exact selected drawable after its reveal frame.
+    // Keep Downloads mounted below; only this destination becomes opaque here.
+    // The app frame callback is not a physical compositor fence; device QA still
+    // has to inspect the source-to-reader handoff.
+    this.liveSourceEntryReleased = true
+    if (this.request.readingChrome && this.managesTrialWindow) {
+      // Set the first queued window write to the Reader's current chrome state.
+      // Otherwise open() may briefly restore the visible source status bar in fullscreen.
+      this.trialWindow.setStatusBarVisible(!this.readMode.fullscreen || this.chromeVisible)
+      this.trialWindow.open(this.getUIContext().getHostContext() as common.UIAbilityContext)
+    }
+    if (this.entryParams?.source.kind === ReaderSourceKind.ARCHIVE) {
+      DiagnosticLogger.info('reader-entry', 'archive_live_source_released',
+        `gid=${this.request.work} page=${this.request.pageIndex} epoch=${this.routeEpoch} ` +
+        `liveSourceEntry=${this.liveSourceEntry} routeActive=${this.routeActive} ` +
+        `liveSourceEntryReleased=${this.liveSourceEntryReleased}`)
+    }
+    this.syncStatusBarAfterTakeover()
+  }
+
+  private failLiveSourceEntry(): void {
+    if (!this.liveSourceEntry || this.liveSourceEntryReleased || !this.routeActive ||
+      this.liveSourceEntryCurrent?.() !== true || this.closeRequested) return
+    this.closeRequested = true
+    this.onLiveSourceEntryCancel()
+  }
+
+  private checkLiveSourceEntryFailure(): void {
+    if (!this.liveSourceEntry || this.session === null) return
+    const snapshot = this.session.snapshot()
+    if (snapshot.phase === 'failed' || snapshot.frames.some((frame: ReaderPagedFrame): boolean =>
+      frame.asset.phase === 'failed')) this.failLiveSourceEntry()
+  }
+
+  @Monitor('entryPhase', 'readerThumbnailTransition.phase', 'routeActive', 'labVisibility.foreground')
+  private syncStatusBarAfterTakeover(): void {
+    if (!this.readerBodyVisible || !this.routeActive || !this.labVisibility.foreground ||
+      this.closeRequested || this.hostClosing || this.chromeVisible || !this.request.readingChrome) return
+    if (this.liveSourceEntry && !this.liveSourceEntryReleased) return
+    if (this.entryTransition !== null && this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled') return
+    if (this.rootOwnedEntryTarget && !this.readerThumbnailTransition.opened()) return
+    const statusVisible = !this.readMode.fullscreen
+    if (this.managesTrialWindow) {
+      // Root-owned thumbnail entry keeps the source bar until both the exact
+      // Reader image and the opening flight have handed off. Queue visibility
+      // before open() writes Reader's white status-bar content color.
+      this.trialWindow.setStatusBarVisible(statusVisible)
+      if (this.rootOwnedEntryTarget) {
+        this.trialWindow.open(this.getUIContext().getHostContext() as common.UIAbilityContext)
+      }
+    } else this.onStatusBarVisible(statusVisible)
   }
 
   private async prepareChromeShow(isCurrent: () => boolean): Promise<boolean> {
@@ -941,9 +1046,21 @@ export struct NextEReaderLabPage {
   private closeTrial(initializationFailed: boolean = false, suppliedContext: ReaderCloseContext | null = null): void {
     if (this.closeRequested) return
     this.closeRequested = true
+    if (this.liveSourceEntry && !this.liveSourceEntryReleased) {
+      this.onLiveSourceEntryCancel()
+      return
+    }
     const context: ReaderCloseContext | null = suppliedContext ?? (initializationFailed || this.session === null
       ? null : ReaderCloseContext.from(this.session.snapshot()))
     const image: EhGalleryImage | null = context === null ? null : this.adapter?.transitionImage(context.part.pageKey) ?? null
+    if (this.rootEntryHandoff.requestReverse(this.entryTransition,
+      this.rootOwnedEntryTarget && this.routeActive && !this.hostClosing,
+      (): boolean => this.onTryReverseOpening(context, image))) {
+      // Match legacy: begin the reverse before waiting for system-bar repair.
+      // The root callback removes this route only after the proxy lands.
+      if (this.managesTrialWindow) void this.trialWindow.close()
+      return
+    }
     if (this.managesTrialWindow) this.trialWindow.close(async (): Promise<boolean> => {
       if (this.trialWindow.getCloseSystemAvoidAreaResult() === 'ready') {
         const ready = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
@@ -996,6 +1113,12 @@ export struct NextEReaderLabPage {
         if (this.session !== null) {
           if (this.request.readingChrome) {
             ReaderSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
+              liveSourceEntry: this.liveSourceEntry,
+              entryOwnershipDiagnostic: this.archiveEntryOwnershipDiagnostic(),
+              onLiveSourceEntryRevealFrame: (claim: ReaderSelectedDrawable): void => {
+                this.retireLiveSourceAfterReveal(claim)
+              },
+              onLiveSourceEntryFailed: (): void => { this.failLiveSourceEntry() },
               imageInterpolation: this.readMode.imageScalingQuality === 'low' ? ImageInterpolation.Low :
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
@@ -1085,6 +1208,8 @@ export struct NextEReaderLabPage {
       .width('100%').height('100%')
       .padding({ top: this.request.readingChrome ? 0 : this.safeArea.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT,
         bottom: this.request.readingChrome ? 0 : this.safeArea.bottomAvoidHeight })
+      .backgroundColor(this.liveSourceEntry && !this.liveSourceEntryReleased
+        ? Color.Transparent : this.readerCanvasBackground())
       .bindSheet(
         $$this.readerSettingsSheetShown,
         this.settingsSheetContent((): void => { this.closeHostSettings() }),
@@ -1096,13 +1221,37 @@ export struct NextEReaderLabPage {
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
     .hideTitleBar(this.request.readingChrome)
+    .backgroundColor(this.liveSourceEntry && !this.liveSourceEntryReleased
+      ? Color.Transparent : this.readerCanvasBackground())
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false
       this.closeTrial()
       return true
     })
-    .onShown((): void => { this.routeActive = true; this.onShown() })
-    .onHidden((): void => { this.routeActive = false })
-    .onDisAppear((): void => { this.routeActive = false; this.onDisappeared() })
+    .onShown((): void => {
+      this.routeActive = true
+      if (this.entryParams?.source.kind === ReaderSourceKind.ARCHIVE && !this.archiveEntryShownLogged) {
+        this.archiveEntryShownLogged = true
+        DiagnosticLogger.info('reader-entry', 'archive_lab_shown',
+          `gid=${this.request.work} page=${this.request.pageIndex} epoch=${this.routeEpoch} ` +
+          `liveSourceEntry=${this.liveSourceEntry} routeActive=${this.routeActive} ` +
+          `liveSourceEntryReleased=${this.liveSourceEntryReleased}`)
+      }
+      this.checkLiveSourceEntryFailure()
+      if (this.closeRequested) return
+      this.syncStatusBarAfterTakeover()
+      this.onShown()
+    })
+    .onHidden((): void => {
+      this.routeActive = false
+      if (!this.closeRequested && !this.hostClosing && this.request.readingChrome) {
+        if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(true)
+        else this.onStatusBarVisible(true)
+      }
+    })
+    .onDisAppear((): void => {
+      this.routeActive = false
+      this.onDisappeared()
+    })
   }
 }

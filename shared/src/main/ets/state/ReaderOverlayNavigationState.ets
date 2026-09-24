@@ -7,10 +7,15 @@ import { connectReaderThumbnailTransition } from './ReaderThumbnailTransitionSta
 export class ReaderOverlayRoute {
   params: ReaderParams
   backend: NextEReaderBackend
+  liveSourceEntry: boolean
+  epoch: number
 
-  constructor(params: ReaderParams, backend: NextEReaderBackend) {
+  constructor(params: ReaderParams, backend: NextEReaderBackend, liveSourceEntry: boolean = false,
+    epoch: number = 0) {
     this.params = params
     this.backend = backend
+    this.liveSourceEntry = liveSourceEntry
+    this.epoch = epoch
   }
 }
 
@@ -29,8 +34,10 @@ export class ReaderOverlayNavigationState {
   @Trace closing: boolean = false
   private pendingReader: ReaderOverlayRoute | null = null
   private pendingReaderAnimated: boolean = true
+  private routeEpoch: number = 0
+  private currentReaderEpoch: number = 0
 
-  open(params: ReaderParams, animated: boolean = true): void {
+  open(params: ReaderParams, animated: boolean = true, liveSourceEntry: boolean = false): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
     // Snapshot the admission-time authority (durable user choice, or an active
@@ -40,7 +47,12 @@ export class ReaderOverlayNavigationState {
     // because a thumbnail flight is active (that implicit downgrade was the
     // release tile-entry defect). Claimed production entries, preview-failure
     // fallbacks and their entry logs keep their existing chains unchanged.
-    this.pendingReader = new ReaderOverlayRoute(params, resolveNextEReaderBackendSelection())
+    const backend = resolveNextEReaderBackendSelection()
+    const liveSource = backend === NextEReaderBackend.SHARED && liveSourceEntry && params.source.isLocal()
+    this.currentReaderEpoch = ++this.routeEpoch
+    this.pendingReader = new ReaderOverlayRoute(params, backend, liveSource, this.currentReaderEpoch)
+    // A retained local source supplies pixels during the default destination push.
+    // The Reader's own reveal gate still decides when its original replaces that source.
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
@@ -50,7 +62,9 @@ export class ReaderOverlayNavigationState {
   openSharedTransition(params: ReaderParams, animated: boolean = false): void {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
-    this.pendingReader = new ReaderOverlayRoute(params, NextEReaderBackend.SHARED)
+    this.currentReaderEpoch = ++this.routeEpoch
+    this.pendingReader = new ReaderOverlayRoute(params, NextEReaderBackend.SHARED, false,
+      this.currentReaderEpoch)
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
@@ -76,6 +90,7 @@ export class ReaderOverlayNavigationState {
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderGestureProbe', null, false)
     this.pendingReader = null
+    this.currentReaderEpoch = 0
     this.pendingReaderAnimated = true
     this.closing = false
     this.visible = true
@@ -94,12 +109,17 @@ export class ReaderOverlayNavigationState {
     this.stack.pop(animated)
   }
 
+  owns(route: ReaderOverlayRoute): boolean {
+    return this.visible && !this.closing && route.epoch > 0 && this.currentReaderEpoch === route.epoch
+  }
+
   finishClose(): void {
     if (!this.closing) {
       return
     }
     this.closing = false
     this.visible = false
+    this.currentReaderEpoch = 0
     this.stack.clear(false)
     this.pendingReaderAnimated = true
     connectReaderThumbnailTransition().reset()
@@ -110,6 +130,7 @@ export class ReaderOverlayNavigationState {
     this.pendingReaderAnimated = true
     this.closing = false
     this.visible = false
+    this.currentReaderEpoch = 0
     this.stack.clear(false)
     connectReaderThumbnailTransition().reset()
   }

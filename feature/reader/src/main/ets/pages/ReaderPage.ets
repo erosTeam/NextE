@@ -350,6 +350,7 @@ export struct ReaderPage {
   private lastPublishedProgressIndex: number = -1;
   private readerStatusBarHideTimerId: number = -1;
   private readerRouteEpoch: number = 0;
+  private readerSnapshotEpoch: number = 0;
   private readerSnapshotScope: string = ReaderThumbnailTransitionCoordinator.allocateScope('reader-surface');
   private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
@@ -584,6 +585,7 @@ export struct ReaderPage {
     .onReady((context: NavDestinationContext) => {
       const routeEpoch: number = this.readerRouteEpoch + 1
       this.readerRouteEpoch = routeEpoch
+      this.readerSnapshotEpoch = routeEpoch
       this.sliderSyncToken++
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
@@ -1028,14 +1030,29 @@ export struct ReaderPage {
     if (this.readerClosing) {
       return
     }
+    const closeIndex: number = this.vm.currentIndex
+    const openingImage: EhGalleryImage | null = this.currentImage()
+    const closePage: number = openingImage?.page ?? -1
+    const closeSnapshotId: string = openingImage === null ? '' : this.readerPageSnapshotId(closePage)
+    const closeSnapshotWidth: number = openingImage === null ? 0 : this.readerSnapshotWidth(openingImage)
+    const closeSnapshotHeight: number = openingImage === null ? 0 : this.readerSnapshotHeight(openingImage)
     this.readerRouteEpoch++
+    const closeEpoch: number = this.readerRouteEpoch
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    const openingImage: EhGalleryImage | null = this.currentImage()
+    const sameClose = (): boolean => this.readerClosing && this.readerRouteEpoch === closeEpoch
+    const samePage = (): boolean => sameClose() && this.vm.currentIndex === closeIndex &&
+      this.currentImage()?.page === closePage
     const normalCloseCandidate: boolean = openingImage !== null &&
       !this.imageZoomed &&
       this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)
+    DiagnosticLogger.info('reader-transition', 'legacy_close_branch',
+      `gidHash=${DiagnosticLogger.ownerHash(this.params.gid)} source=${this.params.source.kind} ` +
+        `index=${closeIndex} phase=${this.readerThumbnailTransition.phase} ` +
+        `reverse=${this.readerThumbnailTransition.openingCanReverse()} ` +
+        `normal=${normalCloseCandidate} ready=${this.isPageImageLoaded(closeIndex)} ` +
+        `snapshot=${closeSnapshotId} intrinsic=${closeSnapshotWidth}x${closeSnapshotHeight}`)
     const requireVisibleSystemAvoidArea: boolean = normalCloseCandidate &&
       this.readMode.fullscreen && !this.showChrome
     const statusBarRestore: Promise<boolean> = this.restoreStatusBarForClose(
@@ -1044,18 +1061,18 @@ export struct ReaderPage {
     if (ReaderThumbnailTransitionCoordinator.reverseOpening(
       this.getUIContext(),
       this.params.gid,
-      openingImage === null ? '' : this.readerPageSnapshotId(openingImage.page),
-      openingImage === null ? 0 : this.readerSnapshotWidth(openingImage),
-      openingImage === null ? 0 : this.readerSnapshotHeight(openingImage),
+      closeSnapshotId,
+      closeSnapshotWidth,
+      closeSnapshotHeight,
       (animated: boolean) => {
-        connectReaderOverlayNavigation().close(animated)
+        if (sameClose()) connectReaderOverlayNavigation().close(animated)
       },
     )) {
       return
     }
     statusBarRestore
       .then((statusBarReady: boolean): Promise<boolean> => {
-        if (!statusBarReady || !normalCloseCandidate ||
+        if (!samePage() || !statusBarReady || !normalCloseCandidate ||
           !this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)) {
           return Promise.resolve(false)
         }
@@ -1064,7 +1081,8 @@ export struct ReaderPage {
         )
       })
       .then((targetReady: boolean) => {
-        if (!targetReady) {
+        if (!sameClose()) return
+        if (!targetReady || !samePage()) {
           connectReaderOverlayNavigation().close()
           return
         }
@@ -1081,14 +1099,14 @@ export struct ReaderPage {
           ReaderThumbnailTransitionCoordinator.close(
             this.getUIContext(),
             this.params.gid,
-            this.vm.currentIndex,
+            closeIndex,
             currentImage,
-            this.isPageImageLoaded(this.vm.currentIndex),
-            this.readerPageSnapshotId(currentImage.page),
-            this.readerSnapshotWidth(currentImage),
-            this.readerSnapshotHeight(currentImage),
+            this.isPageImageLoaded(closeIndex),
+            closeSnapshotId,
+            closeSnapshotWidth,
+            closeSnapshotHeight,
             (animated: boolean) => {
-              connectReaderOverlayNavigation().close(animated)
+              if (sameClose()) connectReaderOverlayNavigation().close(animated)
             },
           )
         ) {
@@ -1254,7 +1272,7 @@ export struct ReaderPage {
   }
 
   private readerSnapshotPrefix(): string {
-    return `${this.readerSnapshotScope}-route-${this.readerRouteEpoch}`
+    return `${this.readerSnapshotScope}-route-${this.readerSnapshotEpoch}`
   }
 
   private rememberImageEnhancement(

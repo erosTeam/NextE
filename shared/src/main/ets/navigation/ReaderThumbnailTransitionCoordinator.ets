@@ -278,13 +278,10 @@ export class ReaderThumbnailTransitionCoordinator {
       return
     }
     if (transition.closeProxyOwnedByRoot()) {
-      // The normal shared route has already held the source snapshot through a
-      // root-flight/Reader-placeholder handoff. Do not fade different source
-      // pixels together: even aligned thumbnail/original geometry produces a
-      // visibly doubled image during that overlap. First expose the already
-      // decoded Reader image below the opaque placeholder, then retire that
-      // placeholder on the following compositor frame. A single commit can
-      // otherwise reveal the dark Reader canvas before the image is composed.
+      // onComplete can precede the first painted original. Compose the full
+      // opacity Reader image for one frame under the still-opaque outer
+      // placeholder, then remove that placeholder on the following frame.
+      // Do not crossfade unlike source/original pixels into a doubled image.
       uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
         if (!transition.openingHandoff()) {
           return
@@ -292,7 +289,7 @@ export class ReaderThumbnailTransitionCoordinator {
         transition.startOpeningHandoff()
         uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => {
           if (transition.finishOpeningHandoff()) {
-            DiagnosticLogger.info('reader-transition', 'open_finished_composited', `index=${transition.currentIndex}`)
+            DiagnosticLogger.info('reader-transition', 'open_finished_composed', `index=${transition.currentIndex}`)
           }
         }))
       }))
@@ -312,6 +309,17 @@ export class ReaderThumbnailTransitionCoordinator {
     }, () => {
       transition.startOpeningHandoff()
     })
+  }
+
+  /** Paint the selected original at full opacity underneath the root-owned placeholder. */
+  static revealRootOwnedOriginal(uiContext: UIContext, commitReveal: () => void, finished: () => void): void {
+    // The normal ReaderEntryTransition fade changes selectedOpacity during
+    // animateTo. A completed decode does not prove those intermediate pixels
+    // have composited, so removing the placeholder can expose a dark blend.
+    // Commit opaque content outside animation and require one painted frame
+    // before the handoff state is notified.
+    commitReveal()
+    uiContext.postFrameCallback(new ReaderThumbnailTransitionFrameCallback((): void => { finished() }))
   }
 
   static open(

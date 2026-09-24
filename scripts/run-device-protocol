@@ -71,7 +71,7 @@ MANIFEST_AUTHORIZED_TARGET="$(python3 -c 'import json,sys; print(json.load(open(
 }
 RUNNER="${CODEX_HOME:-$HOME/.codex}/skills/harmony-run-device-diagnostics/scripts/run_device_protocol.py"
 [[ -f "$RUNNER" ]] || { echo "device protocol runner not found: $RUNNER" >&2; exit 2; }
-RECORDING_RUNNER="${CODEX_HOME:-$HOME/.codex}/skills/harmony-run-device-diagnostics/scripts/capture_transition_recording.mjs"
+RECORDING_RUNNER="$SCRIPT_DIR/capture_transition_recording_checked.mjs"
 IS_RECORDING="$(python3 -c 'import json,sys; print("1" if "recordingFileName" in json.load(open(sys.argv[1], encoding="utf-8")) else "0")' "$MANIFEST_REAL")"
 
 if [[ "$IS_RECORDING" == "1" ]]; then

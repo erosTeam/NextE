@@ -116,6 +116,12 @@ export class ReaderThumbnailTransitionState {
   }
 
   readerOpeningProxyVisible(): boolean {
+    // The root-owned path can keep its top-level source proxy above Reader
+    // while the selected original composes; its inner placeholder must yield
+    // first, otherwise both proxies disappear in the same handoff frame.
+    if (this.rootCloseProxy) {
+      return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF
+    }
     return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
       this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
       this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF
@@ -139,7 +145,9 @@ export class ReaderThumbnailTransitionState {
   }
 
   rootProxyVisible(): boolean {
-    return this.targetVisible() || (this.rootCloseProxy && this.closingProxyVisible())
+    return this.targetVisible() || (this.rootCloseProxy &&
+      (this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
+        this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF || this.closingProxyVisible()))
   }
 
   closeProxyOwnedByRoot(): boolean {
@@ -190,6 +198,13 @@ export class ReaderThumbnailTransitionState {
 
   readerImageOpacity(page: number): number {
     if (page <= 0 || page !== this.image.page) {
+      return 1
+    }
+    if (this.rootCloseProxy && (this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
+      this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF)) {
+      // ReaderEntryTransition still hides the selected part until its decode
+      // and exact-page guards commit reveal. The root proxy covers it while
+      // the fully opaque native image has a chance to paint underneath.
       return 1
     }
     if (this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF) {
