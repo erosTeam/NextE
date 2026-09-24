@@ -69,3 +69,11 @@ user explicitly reopens the entry after reviewing its failure evidence.
 - **Rejected approach:** start a thumbnail flight using the host's prepared fullscreen rectangle when the reader has not published its selected-part target.
 - **Why rejected:** this bypasses the new reader's correct left/right endpoint and visibly expands fullscreen before switching to two pages. Portrait local-file latency QA missed the regression.
 - **Evidence:** user counterexample after baseline c94b43fa; changes28f5b92c/core4e50b79; repair and matched-device scope in `docs/plans/active/reader-thumbnail-departure.md`.
+
+## REJ-READER-006 — Recreate a decoded native Image to recover a layout receipt
+
+- **Status:** `REJECTED`
+- **Lookup keys:** `ReaderPagedImage`, `completed`, `schedulePresentation`, `originalGeometryIdentity`, `ForEach`, image key, native presentation receipt.
+- **Rejected approach:** key native Image children by mutable allocated geometry to force another onComplete after sibling metadata refines spread dimensions.
+- **Why rejected:** the native image was already decoded and visible. Recreating it destroyed visible pixels and reintroduced blank/loading frames. The lost post-frame acknowledgment must be reconciled on the existing drawable with request and stable-layout guards.
+- **Evidence:** user reports of severe local switching jumps; installed HAP7570ea6, continuous `local-full-route-counterexample` frames420–445 and662–668; frozen source and recording under `.hvigor/outputs/reader-loading-shared-component-20260925/`. Replacement retains native nodes; candidate75a38669 has matching920-frame local and400/334-frame online evidence recorded in reader-settings-runtime-audit.md. Acceptance is scoped to those paths.

@@ -1,3 +1,4 @@
+import { ReaderLoadingStage, readerBackgroundIsDark, readerForegroundColor } from '../components/ReaderLoadingStage'
 import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
@@ -88,18 +89,8 @@ const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_PROGRESS_ANIM_DURATION: number = 160
 const READER_ZOOM_ANIM_DURATION: number = 180
-const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
-const READER_LOADING_COMPLETION_HOLD_MS: number = 160
-const READER_LOADING_INDETERMINATE_ANIM_DURATION: number = 900
-const READER_LOADING_BAR_HEIGHT: number = 4
-const READER_LOADING_BAR_WIDTH_PERCENT: string = '80%'
-const READER_LOADING_BAR_MAX_WIDTH: number = 180
-const READER_LOADING_SLIDER_WIDTH_RATIO: number = 0.3
-const READER_LOADING_BAR_RADIUS: number = 2
 const READER_TRANSITION_LOADING_PANEL_COLOR: ResourceColor = '#665F6368'
-const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
-const READER_LOADING_BAR_LIGHT_BG: ResourceColor = '#33000000'
-const READER_LOADING_BAR_FG: ResourceColor = Color.White
+const READER_LOADING_COMPLETION_HOLD_MS: number = 160
 const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
 const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
 const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
@@ -120,15 +111,6 @@ const READER_FAILURE_HINT_LIGHT: ResourceColor = '#AA000000'
 const READER_FAILURE_PAGE_DARK: ResourceColor = '#88FFFFFF'
 const READER_FAILURE_PAGE_LIGHT: ResourceColor = '#88000000'
 
-function readerBackgroundIsDark(mode: string, effectiveDark: boolean): boolean {
-  if (mode === ReaderBackgroundMode.WHITE) {
-    return false
-  }
-  if (mode === ReaderBackgroundMode.AUTO) {
-    return effectiveDark
-  }
-  return true
-}
 
 function readerBackgroundColor(mode: string, effectiveDark: boolean): ResourceColor {
   if (mode === ReaderBackgroundMode.GRAY) {
@@ -145,11 +127,6 @@ function readerBackgroundColor(mode: string, effectiveDark: boolean): ResourceCo
   return ThemeConstants.READER_BACKGROUND_BLACK
 }
 
-function readerForegroundColor(mode: string, effectiveDark: boolean): ResourceColor {
-  return readerBackgroundIsDark(mode, effectiveDark)
-    ? ThemeConstants.READER_FOREGROUND_LIGHT
-    : ThemeConstants.READER_FOREGROUND_DARK
-}
 
 function readerSecondaryForegroundColor(mode: string, effectiveDark: boolean): ResourceColor {
   return readerBackgroundIsDark(mode, effectiveDark)
@@ -8802,244 +8779,6 @@ struct ReaderVerticalImage {
           }),
       ),
     )
-  }
-}
-
-@ComponentV2
-struct ReaderLoadingBar {
-  @Param compact: boolean = false;
-  @Param determinate: boolean = false;
-  @Param ratio: number = 0;
-  @Param barFillColor: ResourceColor = READER_LOADING_BAR_FG;
-  @Param barTrackColor: ResourceColor = READER_LOADING_BAR_BG;
-  @Local indeterminatePosition: number = 0;
-  @Local trackWidth: number = 0;
-
-  private indeterminateStartTimer: number = -1
-  private indeterminateTimer: number = -1
-
-  aboutToAppear(): void {
-    this.syncIndeterminateAnimation()
-  }
-
-  aboutToDisappear(): void {
-    this.stopIndeterminateAnimation()
-  }
-
-  @Monitor('determinate')
-  private onDeterminateChanged(): void {
-    this.syncIndeterminateAnimation()
-  }
-
-  private syncIndeterminateAnimation(): void {
-    if (this.determinate) {
-      this.stopIndeterminateAnimation()
-      this.indeterminatePosition = 0
-      return
-    }
-    this.startIndeterminateAnimation()
-  }
-
-  private startIndeterminateAnimation(): void {
-    if (this.trackWidth <= 0 || this.indeterminateStartTimer >= 0 || this.indeterminateTimer >= 0) {
-      return
-    }
-    // Keep the first rendered frame at the leading edge. Small images can cross several loading
-    // stages before one 900 ms cycle finishes, so moving to the trailing edge during mount makes
-    // every short-lived stage look frozen on the right.
-    this.indeterminatePosition = 0
-    this.indeterminateStartTimer = setTimeout(() => {
-      this.indeterminateStartTimer = -1
-      if (this.determinate) {
-        return
-      }
-      this.moveIndeterminateSlider()
-      this.indeterminateTimer = setInterval(() => {
-        this.moveIndeterminateSlider()
-      }, READER_LOADING_INDETERMINATE_ANIM_DURATION)
-    }, 0)
-  }
-
-  private stopIndeterminateAnimation(): void {
-    if (this.indeterminateStartTimer >= 0) {
-      clearTimeout(this.indeterminateStartTimer)
-      this.indeterminateStartTimer = -1
-    }
-    if (this.indeterminateTimer >= 0) {
-      clearInterval(this.indeterminateTimer)
-      this.indeterminateTimer = -1
-    }
-  }
-
-  private moveIndeterminateSlider(): void {
-    const next: number = this.indeterminatePosition > 0 ? 0 : 1
-    // The fill node already declares the same transition below. Starting another imperative
-    // transaction as the Reader destination mounts can leave the previous animation node alive
-    // through a rapid close/reopen on API 24.
-    this.indeterminatePosition = next
-  }
-
-  private barWidth(): number {
-    if (this.trackWidth > 0) {
-      return this.trackWidth
-    }
-    return READER_LOADING_BAR_MAX_WIDTH
-  }
-
-  private sliderWidth(): number {
-    return this.barWidth() * READER_LOADING_SLIDER_WIDTH_RATIO
-  }
-
-  private clampedRatio(): number {
-    if (this.ratio < 0) {
-      return 0
-    }
-    if (this.ratio > 1) {
-      return 1
-    }
-    return this.ratio
-  }
-
-  private fillWidth(): number {
-    if (this.determinate) {
-      return this.barWidth() * this.clampedRatio()
-    }
-    return this.sliderWidth()
-  }
-
-  private sliderX(): number {
-    if (this.determinate) {
-      return 0
-    }
-    return (this.barWidth() - this.sliderWidth()) * this.indeterminatePosition
-  }
-
-  build() {
-    Stack({ alignContent: Alignment.Start }) {
-      if (this.determinate) {
-        Row()
-          .width(this.fillWidth())
-          .height(READER_LOADING_BAR_HEIGHT)
-          .backgroundColor(this.barFillColor)
-          .borderRadius(READER_LOADING_BAR_RADIUS)
-          .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
-      } else {
-        Row()
-          .width(this.sliderWidth())
-          .height(READER_LOADING_BAR_HEIGHT)
-          .backgroundColor(this.barFillColor)
-          .borderRadius(READER_LOADING_BAR_RADIUS)
-          .translate({ x: this.sliderX() })
-          .animation({ duration: READER_LOADING_INDETERMINATE_ANIM_DURATION, curve: Curve.EaseInOut })
-      }
-    }
-    .width(READER_LOADING_BAR_WIDTH_PERCENT)
-    .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH })
-    .height(READER_LOADING_BAR_HEIGHT)
-    .backgroundColor(this.barTrackColor)
-    .borderRadius(READER_LOADING_BAR_RADIUS)
-    .clip(true)
-    .onAreaChange((_oldArea: Area, area: Area) => {
-      this.trackWidth = area.width as number
-      this.syncIndeterminateAnimation()
-    })
-  }
-}
-
-@ComponentV2
-struct ReaderLoadingStage {
-  @Param label: ResourceStr = '';
-  @Param compact: boolean = false;
-  @Param loaded: number = 0;
-  @Param total: number = 0;
-  @Param showTransitionBackground: boolean = false;
-  @Local readMode: ReadModeState = connectReadMode();
-  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
-
-  private contentColor(): ResourceColor {
-    return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
-  }
-
-  private trackColor(): ResourceColor {
-    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
-      ? READER_LOADING_BAR_BG
-      : READER_LOADING_BAR_LIGHT_BG
-  }
-
-  private hasProgress(): boolean {
-    return this.total > 0
-  }
-
-  private progressRatio(): number {
-    if (!this.hasProgress()) {
-      return 0
-    }
-    const ratio: number = this.loaded / this.total
-    if (ratio < 0) {
-      return 0
-    }
-    if (ratio > 1) {
-      return 1
-    }
-    return ratio
-  }
-
-  private progressPercent(): string {
-    return `${Math.round(this.progressRatio() * 100)}%`
-  }
-
-  @Builder
-  private LoadingElements() {
-    ReaderLoadingBar({
-      compact: this.compact,
-      determinate: this.hasProgress(),
-      ratio: this.progressRatio(),
-      barFillColor: this.contentColor(),
-      barTrackColor: this.trackColor(),
-    })
-    Text(this.hasProgress() ? this.progressPercent() : this.label)
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor(this.contentColor())
-      .textAlign(TextAlign.Center)
-  }
-
-  @Builder
-  private LoadingContent() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      this.LoadingElements()
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .padding(ThemeConstants.SPACE_XL)
-  }
-
-  build() {
-    Stack({ alignContent: Alignment.Center }) {
-      if (this.showTransitionBackground) {
-        Column({ space: ThemeConstants.SPACE_SM }) {
-          this.LoadingElements()
-        }
-        .width(READER_LOADING_BAR_WIDTH_PERCENT)
-        .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH + ThemeConstants.SPACE_XL * 2 })
-        .alignItems(HorizontalAlign.Center)
-        .padding({
-          top: ThemeConstants.SPACE_XL + ThemeConstants.SPACE_LG,
-          bottom: ThemeConstants.SPACE_LG,
-          left: ThemeConstants.SPACE_XL,
-          right: ThemeConstants.SPACE_XL,
-        })
-        .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-        .backgroundColor(READER_TRANSITION_LOADING_PANEL_COLOR)
-        .borderRadius(ThemeConstants.RADIUS_CARD)
-        .clip(true)
-      } else {
-        this.LoadingContent()
-      }
-    }
-    .width('100%')
-    .height('100%')
   }
 }
 

@@ -3076,7 +3076,9 @@ struct Index {
         .width('100%')
         .height('100%')
         .backgroundColor(Color.Transparent)
-        .opacity(this.readerThumbnailTransition.overlayOpacity)
+        .opacity(this.readerThumbnailTransition.closeProxyOwnedByRoot() &&
+          this.readerThumbnailTransition.readerOpeningProxyVisible()
+          ? 1 : this.readerThumbnailTransition.overlayOpacity)
         .onAppear(() => {
           this.readerOverlay.presentPendingReader()
         })

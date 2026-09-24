@@ -1,3 +1,4 @@
+import { ReaderLoadingPresentation } from '@reader-kit/ui'
 import { ReaderTapZonePreviewRegion } from '@reader-kit/ui'
 import { ReaderTapZoneRegion } from 'shared'
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy,
@@ -125,6 +126,7 @@ export struct NextEReaderLabPage {
   private volumeDisposed: boolean = false
   private entrySettledNotified: boolean = false
   private rootEntryHandoff: ReaderRootEntryHandoff = new ReaderRootEntryHandoff()
+  private rootOpeningNavigation: number = -1
   private rootEntryGateLoggedKey: string = ''
   private rootEntryPartLoggedKey: string = ''
   private input: ReaderInputPort = new ReaderInputPort()
@@ -437,10 +439,22 @@ export struct NextEReaderLabPage {
       : new ReaderVariantPreference()
   }
 
+  @Computed
+  private get readerLoadingPresentation(): ReaderLoadingPresentation {
+    const value = new ReaderLoadingPresentation()
+    value.resolving = $r('app.string.reader_loading_resolving')
+    value.downloading = $r('app.string.reader_loading_image')
+    value.decoding = $r('app.string.reader_loading_decoding')
+    value.foreground = this.readerCanvasForeground()
+    value.track = this.readerCanvasDark() ? '#33FFFFFF' : '#33000000'
+    value.transitionBackdrop = this.readerThumbnailTransition.readerOpeningProxyVisible()
+    return value
+  }
+
   private archiveEntryOwnershipDiagnostic(): boolean {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    return context.applicationInfo.debug && this.liveSourceEntry &&
-      this.entryParams?.source.kind === ReaderSourceKind.ARCHIVE
+    return context.applicationInfo.debug && (this.rootOwnedEntryTarget || (this.liveSourceEntry &&
+      this.entryParams?.source.kind === ReaderSourceKind.ARCHIVE))
   }
 
   /** Mirrors the legacy reader's comic-translation failure copy for the same classified codes. */
@@ -759,6 +773,8 @@ export struct NextEReaderLabPage {
         .height(this.readerThumbnailTransition.proxyHeight)
         .objectFit(ImageFit.Fill)
         .syncLoad(true)
+        .borderRadius(this.readerThumbnailTransition.proxyRadius)
+        .clip(true)
         .position({
           x: this.readerThumbnailTransition.proxyX,
           y: this.readerThumbnailTransition.proxyY,
@@ -794,6 +810,23 @@ export struct NextEReaderLabPage {
       this.request.work,
       position.anchor.sourceIndexHint,
     )
+  }
+
+  @Monitor('readMode.mode', 'readMode.doublePageEnabled', 'readMode.spreadLayoutMode')
+  private syncHostLayoutPreferences(): void {
+    if (!this.request.preferencesReadWrite || this.session === null || this.closeRequested || this.hostClosing) return
+    const mapped = NextEReaderInitialPolicy.resolve(this.readMode,
+      connectGalleryReadProgress().getColumnMode(this.request.work),
+      this.labRequest?.entryLayoutOverride ?? null, this.labRequest?.entryDirectionOverride ?? null)
+    const current = this.session.snapshot().policy
+    if (current.layout === mapped.layout && current.pagingAxis === mapped.pagingAxis &&
+      current.direction === mapped.direction && current.spreadLayout === mapped.spreadLayout) return
+    const next = current.copy()
+    next.layout = mapped.layout
+    next.pagingAxis = mapped.pagingAxis
+    next.direction = mapped.direction
+    next.spreadLayout = mapped.spreadLayout
+    this.session.setPolicy(next)
   }
 
   private persistRuntimePolicy(policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void {
@@ -897,6 +930,7 @@ export struct NextEReaderLabPage {
         target.contentRect.width, target.contentRect.height,
       ),
       (arrived: (() => void) | null): void => {
+        this.rootOpeningNavigation = this.session?.snapshot().navigationRevision ?? -1
         ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.request.work,
           arrived ?? undefined, `id=${this.entryTransition?.entryId ?? 0} gid=${this.request.work} page=${this.request.pageIndex}`)
       },
@@ -936,7 +970,22 @@ export struct NextEReaderLabPage {
       this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost())
     // A page turn or terminal failure retires the entry overlay, not the
     // current page's image loading state. Never report a fabricated decode.
-    if (entry.phase === 'cancelled') this.readerThumbnailTransition.releaseCancelledOpening()
+    this.retireAbandonedOpening()
+  }
+
+  private retireAbandonedOpening(): void {
+    const entry = this.entryTransition
+    if (this.rootOwnedEntryTarget && entry?.phase === 'cancelled') {
+      const state = this.session?.snapshot()
+      const frame = state?.frames.find((value: ReaderPagedFrame): boolean => entry.matches(value.part))
+      // Geometry cancellation retires the custom original reveal, not the still
+      // loading source preview. Selection/terminal changes do relinquish it.
+      if (state === undefined || state.phase !== 'ready' || frame === undefined ||
+        frame.asset.phase === 'failed' || frame.asset.phase === 'suppressed' ||
+        (this.rootOpeningNavigation >= 0 && state.navigationRevision !== this.rootOpeningNavigation)) {
+        this.readerThumbnailTransition.releaseCancelledOpening()
+      }
+    }
   }
 
   aboutToDisappear(): void {
@@ -1110,7 +1159,7 @@ export struct NextEReaderLabPage {
       Column() {
         if (this.session !== null) {
           if (this.request.readingChrome) {
-            ReaderSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
+            ReaderSurface({ loadingPresentation: this.readerLoadingPresentation, session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
               liveSourceEntry: this.liveSourceEntry,
               entryOwnershipDiagnostic: this.archiveEntryOwnershipDiagnostic(),
               onLiveSourceEntryRevealFrame: (claim: ReaderSelectedDrawable): void => {
@@ -1168,17 +1217,19 @@ export struct NextEReaderLabPage {
                 },
                 (enabled: boolean, policy: ReaderDisplayPolicy): void => { this.persistCrop(enabled, policy) }),
               entryTransition: this.entryTransition, entryPreview: this.entryPreview,
+              onSnapshotChanged: (): void => { this.retireAbandonedOpening() },
               onAssetPresented: (slotId: number, requestId: number, success: boolean, width: number, height: number): void => {
                 this.recordProductionEntryPartPresentation(slotId, requestId, success, width, height)
               },
               // Match the legacy split: the canvas fades during close while the
               // root proxy owns the moving image; only live Reader content is
               // removed before that proxy begins to shrink.
-              canvasBackdropOpacity: this.readerThumbnailTransition.backdropOpacity,
+              canvasBackdropOpacity: this.readerThumbnailTransition.closeProxyOwnedByRoot() &&
+                this.readerThumbnailTransition.readerOpeningProxyVisible()
+                ? this.readerThumbnailTransition.overlayOpacity : this.readerThumbnailTransition.backdropOpacity,
               bodyOpacity: this.readerThumbnailTransition.readerBodyOpacity(),
-              // The root proxy and the Reader-owned opening placeholder keep the selected image
-              // visible until the state machine starts its image handoff.  Do not expose the
-              // live pager (or its decode feedback) merely because the root route mounted.
+              // One Reader-owned preview remains from departure through loading.
+              // The selected original has its own guarded reveal beneath it.
               contentOpacity: this.readerThumbnailTransition.readerImageOpacity(this.request.pageIndex + 1),
               openingPlaceholder: (): void => { this.ReaderOpeningPlaceholder() },
               chromeRepublishToken: this.chromeRepublishToken,
@@ -1206,7 +1257,7 @@ export struct NextEReaderLabPage {
       .width('100%').height('100%')
       .padding({ top: this.request.readingChrome ? 0 : this.safeArea.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT,
         bottom: this.request.readingChrome ? 0 : this.safeArea.bottomAvoidHeight })
-      .backgroundColor(this.liveSourceEntry && !this.liveSourceEntryReleased
+      .backgroundColor(this.request.readingChrome || (this.liveSourceEntry && !this.liveSourceEntryReleased)
         ? Color.Transparent : this.readerCanvasBackground())
       .bindSheet(
         $$this.readerSettingsSheetShown,
@@ -1219,7 +1270,7 @@ export struct NextEReaderLabPage {
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
     .hideTitleBar(this.request.readingChrome)
-    .backgroundColor(this.liveSourceEntry && !this.liveSourceEntryReleased
+    .backgroundColor(this.request.readingChrome || (this.liveSourceEntry && !this.liveSourceEntryReleased)
       ? Color.Transparent : this.readerCanvasBackground())
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false

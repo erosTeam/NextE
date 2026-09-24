@@ -116,8 +116,10 @@ export class ReaderThumbnailTransitionState {
   }
 
   readerOpeningProxyVisible(): boolean {
-    // After flight, the reader owns this preview below its loading/error UI.
-    return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
+    // Shared forward entry keeps one Reader-owned native Image from departure
+    // through loading. Legacy retains its existing root-to-Reader handoff.
+    return (this.rootCloseProxy && this.phase === ReaderThumbnailTransitionPhase.OPENING) ||
+      this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
       this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
       this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF
   }
@@ -140,7 +142,8 @@ export class ReaderThumbnailTransitionState {
   }
 
   rootProxyVisible(): boolean {
-    return this.targetVisible() || (this.rootCloseProxy && this.closingProxyVisible())
+    return (!this.rootCloseProxy && this.targetVisible()) ||
+      (this.rootCloseProxy && (this.openingReverse() || this.closingProxyVisible()))
   }
 
   closeProxyOwnedByRoot(): boolean {
