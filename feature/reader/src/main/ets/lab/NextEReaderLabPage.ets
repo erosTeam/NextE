@@ -766,9 +766,6 @@ export struct NextEReaderLabPage {
         .id('nexte-reader-opening-placeholder')
         .onAreaChange((): void => { this.logNormalEntryGeometry('proxy-handoff') })
         .opacity(this.readerThumbnailTransition.openingProxyOpacity)
-        // Keep the click-time pixels above the selected image's entry-opacity
-        // animation until the root handoff releases this placeholder.
-        .zIndex(1)
         .hitTestBehavior(HitTestMode.None)
     }
   }
@@ -936,9 +933,10 @@ export struct NextEReaderLabPage {
       }
     }
     this.rootEntryHandoff.sync(entry, this.routeActive && !this.closeRequested && !this.hostClosing,
-      this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost(),
-      this.readerThumbnailTransition.waitingReader() &&
-        this.readerThumbnailTransition.galleryId === this.request.work)
+      this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost())
+    // A page turn or terminal failure retires the entry overlay, not the
+    // current page's image loading state. Never report a fabricated decode.
+    if (entry.phase === 'cancelled') this.readerThumbnailTransition.releaseCancelledOpening()
   }
 
   aboutToDisappear(): void {

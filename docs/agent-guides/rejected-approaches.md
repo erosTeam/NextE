@@ -60,3 +60,12 @@ user explicitly reopens the entry after reviewing its failure evidence.
   and discontinuous corner-radius morphs without proving the landing defect.
 - **Evidence:** failed 2026-08-30 candidate sequence recorded in
   `docs/plans/active/gallery-reader-transition-acceptance.md`.
+
+
+## REJ-READER-005 — Substitute fullscreen proxy geometry for a spread part
+
+- **Status:** `REJECTED`
+- **Lookup keys:** `ReaderRootEntryHandoff.sync`, `preparedOpening`, `setOpeningTarget`, `ReaderThumbnailTransitionState`, spread entry.
+- **Rejected approach:** start a thumbnail flight using the host's prepared fullscreen rectangle when the reader has not published its selected-part target.
+- **Why rejected:** this bypasses the new reader's correct left/right endpoint and visibly expands fullscreen before switching to two pages. Portrait local-file latency QA missed the regression.
+- **Evidence:** user counterexample after baseline c94b43fa; changes28f5b92c/core4e50b79; repair and matched-device scope in `docs/plans/active/reader-thumbnail-departure.md`.

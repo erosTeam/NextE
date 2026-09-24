@@ -172,6 +172,14 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
       if (source === undefined || !source.imageUrl.startsWith('file://')) throw new Error('missing_eh_local_page')
       const page = new ReaderPage(unit.key, `${unit.key.work}:${source.page}`, index)
       page.thumbnail.kind = 'image'
+      // Detail-entry seeds retain parser-attested full-page geometry even when
+      // the original resolves locally. Layout need not wait for bitmap decode.
+      const preview = this.entryParams?.gid === unit.key.work
+        ? this.entryParams.seedImages.find((value: EhGalleryImage): boolean =>
+          value.page === source.page && value.previewGeometryWholePage) ?? source : source
+      page.previewWidth = preview.thumbWidth
+      page.previewHeight = preview.thumbHeight
+      page.previewCoversWholePage = preview.previewGeometryWholePage
       page.bodySourceReady = true
       this.pages.set(page.key, source)
       return page

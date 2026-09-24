@@ -116,12 +116,7 @@ export class ReaderThumbnailTransitionState {
   }
 
   readerOpeningProxyVisible(): boolean {
-    // The root-owned path can keep its top-level source proxy above Reader
-    // while the selected original composes; its inner placeholder must yield
-    // first, otherwise both proxies disappear in the same handoff frame.
-    if (this.rootCloseProxy) {
-      return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF
-    }
+    // After flight, the reader owns this preview below its loading/error UI.
     return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
       this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
       this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF
@@ -145,9 +140,7 @@ export class ReaderThumbnailTransitionState {
   }
 
   rootProxyVisible(): boolean {
-    return this.targetVisible() || (this.rootCloseProxy &&
-      (this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
-        this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF || this.closingProxyVisible()))
+    return this.targetVisible() || (this.rootCloseProxy && this.closingProxyVisible())
   }
 
   closeProxyOwnedByRoot(): boolean {
@@ -444,6 +437,15 @@ export class ReaderThumbnailTransitionState {
     this.openingProxyOpacity = 1
     this.openingReaderImageOpacity = 1
     return true
+  }
+
+  /** Retire an abandoned entry without claiming that any original decoded. */
+  releaseCancelledOpening(): void {
+    if (!this.rootCloseProxy ||
+      (this.phase !== ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT &&
+        this.phase !== ReaderThumbnailTransitionPhase.OPEN_HANDOFF)) return
+    this.phase = ReaderThumbnailTransitionPhase.OPEN
+    this.openingReaderImageOpacity = 1
   }
 
   prepareOpeningReverse(reverseSnapshot: image.PixelMap | undefined = undefined): boolean {
