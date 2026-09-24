@@ -1,3 +1,5 @@
+import { ReaderTapZonePreviewRegion } from '@reader-kit/ui'
+import { ReaderTapZoneRegion } from 'shared'
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
@@ -102,6 +104,7 @@ export struct NextEReaderLabPage {
   @Local private readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
   @Local private chromeRepublishToken: number = 0
   @Local private readMode: ReadModeState = connectReadMode()
+  @Local private tapZonePreviewRevision: number = 0
   @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay()
   @Local private routeActive: boolean = false
   @Local private safeArea: LayoutSafeAreaState = connectLayoutSafeArea()
@@ -803,6 +806,25 @@ export struct NextEReaderLabPage {
     return this.cropStrength()
   }
 
+  @Monitor('readMode.tapZoneLayoutPaged', 'readMode.tapZoneLayoutContinuous',
+    'readMode.tapZoneInvertPaged', 'readMode.tapZoneInvertContinuous')
+  private onTapZoneSettingsChanged(): void {
+    if (this.session?.snapshot().phase === 'ready') this.tapZonePreviewRevision += 1
+  }
+
+  private tapZonePreviewRegions(): ReaderTapZonePreviewRegion[] {
+    const continuous = this.readMode.mode === ReadMode.VERTICAL
+    const regions = ReaderTapZoneResolver.regions(
+      continuous ? this.readMode.tapZoneLayoutContinuous : this.readMode.tapZoneLayoutPaged,
+      continuous ? this.readMode.tapZoneInvertContinuous : this.readMode.tapZoneInvertPaged)
+    return regions.map((region: ReaderTapZoneRegion): ReaderTapZonePreviewRegion => {
+      const action = region.action
+      const previewAction: ReaderTapAction = action === 'previous' || action === 'next' ||
+        action === 'left' || action === 'right' ? action : 'menu'
+      return new ReaderTapZonePreviewRegion(previewAction, region.left, region.top, region.right, region.bottom)
+    })
+  }
+
   private resolveTapZone(x: number, y: number, layout: ReaderLayout): ReaderTapAction {
     if (this.readMode.restoreResult !== 'applied' || this.volumeDisposed || this.closeRequested || this.hostClosing ||
       !this.routeActive || !this.labVisibility.foreground || this.session === null) return 'none'
@@ -977,7 +999,8 @@ export struct NextEReaderLabPage {
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
               input: this.input, mediaActions: this.mediaActions,
               tapPolicy: new ReaderTapPolicy(
-                (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout)),
+                (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
+                this.tapZonePreviewRegions(), this.tapZonePreviewRevision),
               // Legacy advances only once the next page has preview/source readiness; Reader-kit owns timing.
               autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds, 'source'),
               // Production entries open chrome-hidden exactly like the legacy

@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
-import { util } from '@kit.ArkTS'
+import { taskpool, util } from '@kit.ArkTS'
+import { validateReaderModelFile } from './ReaderModelFileValidationTask'
 import { deviceInfo, zlib } from '@kit.BasicServicesKit'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { fileIo } from '@kit.CoreFileKit'
@@ -108,7 +109,7 @@ export class ReaderSuperResolutionModelService {
     return definition === null ? 0 : definition.bytes()
   }
 
-  static remainingDownloadBytes(context: common.UIAbilityContext, model: string): number {
+  static async remainingDownloadBytes(context: common.UIAbilityContext, model: string): Promise<number> {
     const definition: ReaderSuperResolutionModelDefinition | null =
       ReaderSuperResolutionModelRegistry.find(model)
     if (definition === null) {
@@ -119,11 +120,11 @@ export class ReaderSuperResolutionModelService {
     }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.paths(context, definition)
-    const runtimeInstalled: boolean = ReaderSuperResolutionModelService.validateFile(
+    const runtimeInstalled: boolean = await ReaderSuperResolutionModelService.validateFileAsync(
       paths.paramPath,
       definition.paramBytes,
       definition.paramSha256,
-    ) && ReaderSuperResolutionModelService.validateFile(
+    ) && await ReaderSuperResolutionModelService.validateFileAsync(
       paths.modelPath,
       definition.modelBytes,
       definition.modelSha256,
@@ -133,7 +134,7 @@ export class ReaderSuperResolutionModelService {
       const fullDownloadBytes: number = definition.downloadBytes()
       bytes += Math.max(0, fullDownloadBytes - definition.acceleratedModelBytes)
     }
-    if (!ReaderSuperResolutionModelService.acceleratedAssetInstalled(paths, definition)) {
+    if (!(await ReaderSuperResolutionModelService.acceleratedAssetInstalledAsync(paths, definition))) {
       bytes += definition.acceleratedModelBytes
     }
     return bytes
@@ -150,16 +151,16 @@ export class ReaderSuperResolutionModelService {
     }
     const paths: ReaderSuperResolutionModelPaths =
       ReaderSuperResolutionModelService.paths(context, definition)
-    const runtimeInstalled: boolean = ReaderSuperResolutionModelService.validateFile(
+    const runtimeInstalled: boolean = await ReaderSuperResolutionModelService.validateFileAsync(
       paths.paramPath,
       definition.paramBytes,
       definition.paramSha256,
-    ) && ReaderSuperResolutionModelService.validateFile(
+    ) && await ReaderSuperResolutionModelService.validateFileAsync(
       paths.modelPath,
       definition.modelBytes,
       definition.modelSha256,
     )
-    return runtimeInstalled && ReaderSuperResolutionModelService.acceleratedAssetInstalled(
+    return runtimeInstalled && await ReaderSuperResolutionModelService.acceleratedAssetInstalledAsync(
       paths,
       definition,
     )
@@ -1177,6 +1178,33 @@ export class ReaderSuperResolutionModelService {
       `https://huggingface.co/${REAL_ESRGAN_SOURCE_REPOSITORY}/resolve/` +
         `${REAL_ESRGAN_SOURCE_REVISION}/${fileName}`,
     ]
+  }
+
+  private static pendingFileChecks: Map<string, Promise<boolean>> = new Map<string, Promise<boolean>>()
+
+  private static async validateFileAsync(path: string, bytes: number, sha256: string): Promise<boolean> {
+    const key: string = `${path}:${bytes}:${sha256}`
+    const pending: Promise<boolean> | undefined = ReaderSuperResolutionModelService.pendingFileChecks.get(key)
+    if (pending !== undefined) {
+      return pending
+    }
+    const task: Promise<boolean> = taskpool.execute<[string, number, string], boolean>(
+      validateReaderModelFile, path, bytes, sha256)
+    ReaderSuperResolutionModelService.pendingFileChecks.set(key, task)
+    try {
+      return await task
+    } finally {
+      ReaderSuperResolutionModelService.pendingFileChecks.delete(key)
+    }
+  }
+
+  private static async acceleratedAssetInstalledAsync(
+    paths: ReaderSuperResolutionModelPaths,
+    definition: ReaderSuperResolutionModelDefinition,
+  ): Promise<boolean> {
+    return definition.acceleratedModelFileName.length === 0 ||
+      await ReaderSuperResolutionModelService.validateFileAsync(paths.acceleratedModelPath,
+        definition.acceleratedModelBytes, definition.acceleratedModelSha256)
   }
 
   private static validateFile(path: string, expectedBytes: number, expectedSha256: string): boolean {

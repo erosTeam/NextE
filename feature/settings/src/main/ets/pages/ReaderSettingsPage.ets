@@ -60,7 +60,9 @@ export struct ReaderSettingsPage {
 
   aboutToAppear(): void {
     this.readerBackendRehearsalAvailable = this.context().applicationInfo.debug
-    this.refreshSuperResolutionModels()
+    if (this.sheetPresentation) {
+      this.refreshSuperResolutionModels()
+    }
   }
 
   private context(): common.UIAbilityContext {
@@ -155,8 +157,13 @@ export struct ReaderSettingsPage {
   }
 
   private async refreshSuperResolutionModels(): Promise<void> {
-    this.installedSuperResolutionModels =
-      await ReaderSuperResolutionModelService.installedModels(this.context())
+    try {
+      this.installedSuperResolutionModels =
+        await ReaderSuperResolutionModelService.installedModels(this.context())
+    } catch (_error) {
+      console.error('ReaderSettings: model verification task failed; preserving selection')
+      return
+    }
     let selectedInstalled: boolean = false
     for (let i: number = 0; i < this.installedSuperResolutionModels.length; i++) {
       if (this.installedSuperResolutionModels[i] === this.readMode.superResolutionModel) {
@@ -1211,6 +1218,7 @@ export struct ReaderSettingsPage {
   private SuperResolutionModelsSheetPage() {
     ReaderSuperResolutionModelsPage({
       modal: true,
+      active: this.superResolutionModelsPanelShown,
       modalCloseIcon: $r('sys.media.ohos_ic_compnent_titlebar_back'),
       modalCloseIconStyle: IconStyleMode.NORMAL,
       closeAction: () => {

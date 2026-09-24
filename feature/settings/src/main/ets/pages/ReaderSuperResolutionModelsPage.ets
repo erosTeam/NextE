@@ -33,6 +33,7 @@ class ReaderSuperResolutionModelFileState {
 /** Local model-file management. Active-model selection remains in ReaderSettingsPage. */
 @ComponentV2
 export struct ReaderSuperResolutionModelsPage {
+  @Param active: boolean = true
   @Param modal: boolean = false
   @Param modalCloseIcon: Resource = $r('sys.symbol.xmark')
   @Param modalCloseIconStyle: IconStyleMode = IconStyleMode.SMALL
@@ -52,8 +53,24 @@ export struct ReaderSuperResolutionModelsPage {
       }
       this.modelStates = states
     }
-    this.refreshInstallState()
-    this.appendInstalledLegacyModels()
+    this.refreshWhenActive()
+  }
+
+  @Monitor('active')
+  private onActiveChanged(): void {
+    this.refreshWhenActive()
+  }
+
+  private async refreshWhenActive(): Promise<void> {
+    if (!this.active) {
+      return
+    }
+    try {
+      await this.refreshInstallState()
+      await this.appendInstalledLegacyModels()
+    } catch (_error) {
+      console.error('ReaderModels: model verification task failed; preserving current state')
+    }
   }
 
   private context(): common.UIAbilityContext {
@@ -71,7 +88,7 @@ export struct ReaderSuperResolutionModelsPage {
         this.modelStates[i].definition.id,
       )
       this.modelStates[i].remainingDownloadBytes =
-        ReaderSuperResolutionModelService.remainingDownloadBytes(
+        await ReaderSuperResolutionModelService.remainingDownloadBytes(
           this.context(),
           this.modelStates[i].definition.id,
         )
