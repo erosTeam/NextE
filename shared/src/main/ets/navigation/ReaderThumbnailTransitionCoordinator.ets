@@ -754,22 +754,16 @@ export class ReaderThumbnailTransitionCoordinator {
       : targetId
     const closeTargetSnapshot: image.PixelMap | undefined =
       ReaderThumbnailTransitionCoordinator.captureSourceImage(uiContext, closeTargetSnapshotId)
-    if (readerSnapshot === undefined && closeTargetSnapshot === undefined) {
-      DiagnosticLogger.info(
-        'reader-transition',
-        'close_snapshots_unavailable',
-        `index=${currentIndex} component=${readerSnapshotComponentId} target=${targetId}`,
-      )
+    if (readerSnapshot === undefined) {
+      // A close flight must begin with the current Reader pixels. Even when the
+      // loaded-page flag lags, a target thumbnail must not become a fullscreen
+      // proxy before shrinking back to its own tile.
+      if (closeTargetSnapshot !== undefined) closeTargetSnapshot.release().catch((_error: Error) => {})
+      DiagnosticLogger.info('reader-transition', 'close_reader_snapshot_required',
+        `index=${currentIndex} component=${readerSnapshotComponentId} ready=${readerImageReady} ` +
+          `targetSnapshot=${closeTargetSnapshot !== undefined}`)
       transition.reset()
       return false
-    }
-    if (readerSnapshot === undefined) {
-      DiagnosticLogger.info(
-        'reader-transition',
-        'close_snapshot_fallback',
-        `index=${currentIndex} component=${readerSnapshotComponentId} ready=${readerImageReady} ` +
-          `targetSnapshot=${closeTargetSnapshot !== undefined}`,
-      )
     }
     transition.prepareClose(
       targetId,
