@@ -1,6 +1,32 @@
 # Reader settings runtime audit
 
-## Current disposition — 2026-09-26 00:15
+## Reopened — source parity and sustained downloaded reading, 2026-09-26
+
+The user reports repeated loading after the initial window in downloaded archives and black frames during continued page turns in ordinary downloads. Both routes are OPEN. Earlier short entry/next/back recordings do not establish sustained local reading or reader-wide parity; any broader conclusion drawn from them is withdrawn. Test counts, frame counts and build success do not close these reports.
+
+The source-only comparison phase is complete; repair remains OPEN. A bounded lifecycle diagnostic on authorized device197 has now isolated deferred native Image construction at the moving cache frontier. The current candidate enables rendering of the existing Swiper cache (`cachedCount(depth, true)`), without replacing nodes or adding a separate cache. No test-driven development or new test suite was used. See [the detailed comparison](reader-legacy-shared-behavior-comparison.md) for ownership, lifecycle, actual semantic differences, exclusions and unresolved causes. The comparison is not an equivalence certificate and does not close repair work. User prohibition on test-driven development remains in effect.
+
+## Installed repair checkpoint — 2026-09-26 01:34
+
+Shared fix commit `8dc64fb`: only `ReaderPagerSurface.ets` cache rendering changes (one property plus its explanatory comment). The authoritative kit and NextE mirror are identical. All temporary host/viewport diagnostics were removed. Installed HAP `76b301e6b62a7c9be1c8d7edddec427b48a97d7ccf536108c376ae83bf177033` is bound to exact pre-commit source patches in `.hvigor/outputs/reader-source-diagnosis/final/`; committing the same content does not change this build identity. Build and required V2 inventory pass; no new tests or test-driven patch loop.
+
+Final recording `.hvigor/outputs/reader-source-diagnosis/final-local-archive/final-local-archive.mp4` starts before entry, contains ordinary download12 fast backward turns and archive12 fast forward turns, and ends back in the archive list. Both use6000px/s swipes. Actual persisted progress was ordinary18→6 and archive6→18 (the two sources share the gallery's saved progress); the manifest's planned starting-page note must not be substituted for these observed values. All1510 encoded frames and their original PTS are retained. Representative continuous transitions beyond the initial cache were visually reviewed (including sheets14,31,39); no missing incoming image or loading overlay was observed in those reviewed spans. This is not a claim that every visual property in every frame or every reader route was accepted.
+
+The diagnosed deferred-cache-construction failure is repaired: before/after per-slot traces show URI-ready cached cells now instantiate their Image before navigation rather than at the revealing gesture. The larger archive candidate also decoded newly admitted pages while inactive; its18 actual page changes comprise6 forward turns to the boundary and12 backward turns. The final no-probe build confirms ordinary routes and preserved entry/return with sustained turns. Device197 was returned to Downloads and its lease released. No NextN/Koma device work or push occurred.
+
+Full parity matrix remains OPEN. This checkpoint closes the specific cache-frontier cause, not automatic-reading timing differences, complete gesture arbitration, rotation/fold behavior, every enhancement/translation failure path, or long-idle behavior. Those unresolved items remain agent work; they are not assigned to the user and are not waived by this fix.
+
+## Active repair — 2026-09-26 01:20
+
+Device197 only. Installed diagnostic candidate HAP `f95038c8e7b2636ce4d360888b85476854253daeaf3a838448477974ba4bb1e2`; bound host/core patches and artifact are under `.hvigor/outputs/reader-source-diagnosis/render-cache-candidate/`. This supersedes the installed artifact named in the historical section below.
+
+Observed before the repair: in `sustained-local-both`, source24/slot6 had a resource-backed cell at 01:13:51.264, but its Image mounted only at 01:13:54.786 after the swipe toward it started; decode completed at 01:13:54.819. Subsequent new window pages repeat this delay. Resource-window advancement was present; native cached branches were not being drawn. Official Swiper API documentation defines `cachedCount(count, true)` as rendering cached nodes, while the one-argument/default behavior does not render them.
+
+Observed with the candidate: `render-cache-local-both` traverses 24 fast turns in the same ordinary completed gallery. New window slots mount 4–6 ms after the cell receives its URI; source16 mounts at 01:18:51.717 and decodes at 01:18:51.789, before its navigation at 01:18:55.971. The exact before/after per-slot data is in `timing-comparison.json`. Both recordings start before opening the ordinary gallery. The first insufficient run (`sustained-local-forward`) started at saved page22 and lacked the new diagnostic flag; it is not promoted as acceptance.
+
+This diagnostic checkpoint is superseded by the installed repair checkpoint above; candidate frames, archive route and diagnostic removal have now been processed. Neither source timing nor this build closes reader-wide parity, archive visual acceptance, entry transitions, or other matrix rows. No menu or backend-default change is included.
+
+## Historical disposition — 2026-09-26 00:15 (superseded for sustained local reading)
 
 Scope: NextE legacy/shared behavior and authorized device197. Baseline `c94b43fa` preserved. No NextN/Koma device acceptance or push. Source checkpoints before this final slice: NextE `e35e189`, reader-kit `854c8be`; final reader-kit slice `ccf472dcd2fd7899d584061b8b8fc31722481bd0` contains layout retention, crop/entry ordering and physical-pixel rounding repair; authoritative and NextE mirror trees match exactly.
 
