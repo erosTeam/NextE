@@ -29,3 +29,8 @@ Host da08f1da + preserved WIP + core78bb2be; signed HAP SHA256 `09c73ee76b198c70
 `final-full-exact/final-full-exact.mp4` contains all930 native frames over34.253s; all reviewed in12 sequential contact sheets. Ordinary archive page1, fast830px gestures at6000px/s:1→2→3→2; right/right/left taps:2→3→4→3; slider38→130→38; Back and ordinary re-entry38. Logs confirm zero-based selections1,2,1,2,3,2,37,129,37 and re-entry37. Foreground/viewport are NextE,1260×2720 portrait. Current tap inversion is NONE; earlier scripts assuming BOTH and far targets129/131 were rejected as route mismatches and retained separately.
 
 Observed: adjacent pages remain clear through the tested fast gestures and taps, default push/pop visible, correct far destination and retained re-entry progress, no prior 1×1 low-detail phase. First entry and far jumps still show loading; page130 and return38 wait substantially for content. This does not claim zero loading, all-reader performance acceptance, other hosts, network images, or thumbnail latency. Thumbnail entry timing remains OPEN; next action is tracing its layout-gated root flight separately from decode and navigation.
+
+
+## 2026-09-25 final audit disposition
+
+Current regression: hoste5625bd0/corea433017/HAPbd4f95be on197, second-spread-default-final all592 frames reviewed. Task-body native push/pop preserved, original indicators retire per-image, double OFF retains source3. Thumbnail timing and part-specific entry/companion fade accepted for the named local and fresh online routes in reader-settings-runtime-audit.md; no all-gallery zero-loading claim.

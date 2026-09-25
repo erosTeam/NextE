@@ -32,3 +32,8 @@ Candidate: baseline c94b43fa plus frozen `host.patch`, reader-kit126fc08. Signed
 ## Open boundaries
 
 The second spread return used the system POP rather than thumbnail return; it remains **OPEN** and is not included in entry acceptance. Physical Back during flight, rotation/split variants and complete three-host replacement remain unaccepted. The two requested repairs are accepted only for the named ordinary online waiting/input and left/right joined-spread entry paths above. No Koma or device200 operation; no push. The temporary screen timeout is restored to120000ms after this session.
+
+
+## 2026-09-25 final audit disposition
+
+Historical second-spread return OPEN is closed for current NextE/device197 EX Machi thumbnail3 route: hoste5625bd0/corea433017, HAPbd4f95be, second-spread-default-final all592 frames reviewed, both index2 thumbnail returns prepared/finished and visible; left-part entry/companion fade preserved. See reader-settings-runtime-audit.md final regression. Other untested boundaries above remain unclaimed.

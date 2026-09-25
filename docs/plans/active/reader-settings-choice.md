@@ -37,3 +37,8 @@ Tap preview: NextEReaderLabPage previously supplied only the resolver to ReaderT
 Normal Settings → Reading final recording: `settings-opening/settings-opening.mp4`; device log touch-up02:26:34.225, native push start34.287 (62ms), end34.881. Frames show the ordinary navigation transition and final settings page. This single sample is not a controlled performance benchmark or proof of the historical delay cause.
 
 Reading-sheet hidden model pane was additionally opened on final allocation HAP09c73, device197. `reader-allocation-final-20260925/hidden-model-pane-confirm/view.png` shows system ready, installed photo model removable and absent models downloadable after activation. No model download/removal or value change. The first route tapped the height-menu row after scrolling; it was dismissed without selection and is rejected as a model-opening result. The corrected terminal route confirms on-demand activation.
+
+
+## 2026-09-25 final audit disposition
+
+Remaining follow-up disposition: current waiting-menu, tap-preview, continuous preload/entry and final local/default regressions are recorded with exact candidate and frames in reader-settings-runtime-audit.md. This supersedes old OPEN labels for those named paths only; original user-perceived settings latency cause was not established by the two short scan measurements.
