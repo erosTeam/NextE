@@ -2417,7 +2417,8 @@ export struct ReaderPage {
     }
     const image: EhGalleryImage = this.vm.imageAt(index)
     return image.originImageUrl.length > 0 ||
-      this.originalAvailablePages.indexOf(this.originalToken(image.page)) >= 0
+      this.originalAvailablePages.indexOf(this.originalToken(image.page)) >= 0 ||
+      this.hasCachedOriginal(image)
   }
 
   private anyOriginalAvailableForIndexes(indexes: number[]): boolean {
@@ -6891,6 +6892,35 @@ struct ReaderSpreadImageLayer {
 
   build() {
     Stack() {
+      // Source changes update the existing image; loading must not dispose its native owner.
+      ReaderInterpolatedImage({
+        src: this.imageUrl,
+        widthValue: '100%',
+        heightValue: '100%',
+        cropBounds: this.cropBounds,
+        onComplete: (event?: ReaderImageLoadEvent) => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          if (event && event.width && event.height) {
+            this.onImageDecoded(event.width, event.height)
+          } else {
+            this.markImageLoaded()
+          }
+        },
+        onError: () => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
+          this.imageLoaded = false
+          this.retrySourceAutomatically()
+        },
+      })
+        .id(this.snapshotId)
+        // A system Image can paint its light decode placeholder after the file URI is assigned.
+        // Keep that surface transparent until the bitmap is ready so the Reader background and
+        // loading chrome remain continuous behind a slow thumbnail-to-Reader handoff.
+        .opacity(
+          this.imageUrl.length > 0 && this.imageLoaded && !this.failed && !this.imageBlocked
+            ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
+        )
       if (this.failed) {
         ReaderFailureOverlay({
           page: this.image.page,
@@ -6900,33 +6930,8 @@ struct ReaderSpreadImageLayer {
             this.retrySource()
           },
         })
-      } else if (this.imageUrl.length > 0) {
-        ReaderInterpolatedImage({
-          src: this.imageUrl,
-          widthValue: '100%',
-          heightValue: '100%',
-          cropBounds: this.cropBounds,
-          onComplete: (event?: ReaderImageLoadEvent) => {
-            if (event && event.width && event.height) {
-              this.onImageDecoded(event.width, event.height)
-            } else {
-              this.markImageLoaded()
-            }
-          },
-          onError: () => {
-            DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
-            this.imageLoaded = false
-            this.retrySourceAutomatically()
-          },
-        })
-          .id(this.snapshotId)
-          // A system Image can paint its light decode placeholder after the file URI is assigned.
-          // Keep that surface transparent until the bitmap is ready so the Reader background and
-          // loading chrome remain continuous behind a slow thumbnail-to-Reader handoff.
-          .opacity(
-            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
-          )
-      } else if (this.imageBlocked) {
+      }
+      if (!this.failed && this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
           previewUri: this.imageBlockPreviewUri,
@@ -7653,8 +7658,36 @@ struct ReaderImagePage {
 
   build() {
     Stack() {
-      // `failed` first: a resolve error OR an Image fetch error (dead one-shot token / 509) shows the
-      // re-source retry even if a (broken) URL is set.
+      // Source changes update the existing image; loading must not dispose its native owner.
+      ReaderInterpolatedImage({
+        src: this.imageUrl,
+        widthValue: '100%',
+        heightValue: '100%',
+        cropBounds: this.cropBounds,
+        onComplete: (event?: ReaderImageLoadEvent) => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          if (event && event.width && event.height) {
+            this.onImageDecoded(event.width, event.height)
+          } else {
+            this.markImageLoaded()
+            this.clampOffset()
+          }
+        },
+        onError: () => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+          this.imageLoaded = false
+          this.retrySourceAutomatically()
+        },
+      })
+        .id(this.snapshotId)
+        .opacity(
+          this.imageUrl.length > 0 && this.imageLoaded && !this.failed && !this.imageBlocked
+            ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
+        )
+        .scale({ x: this.zoomScale, y: this.zoomScale })
+        .translate({ x: this.offsetX, y: this.offsetY })
+        .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
       if (this.failed) {
         ReaderFailureOverlay({
           page: this.image.page,
@@ -7663,34 +7696,8 @@ struct ReaderImagePage {
             this.retrySource()
           },
         })
-      } else if (this.imageUrl.length > 0) {
-        ReaderInterpolatedImage({
-          src: this.imageUrl,
-          widthValue: '100%',
-          heightValue: '100%',
-          cropBounds: this.cropBounds,
-          onComplete: (event?: ReaderImageLoadEvent) => {
-            if (event && event.width && event.height) {
-              this.onImageDecoded(event.width, event.height)
-            } else {
-              this.markImageLoaded()
-              this.clampOffset()
-            }
-          },
-          onError: () => {
-            DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
-            this.imageLoaded = false
-            this.retrySourceAutomatically()
-          },
-        })
-          .id(this.snapshotId)
-          .opacity(
-            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
-          )
-          .scale({ x: this.zoomScale, y: this.zoomScale })
-          .translate({ x: this.offsetX, y: this.offsetY })
-          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-      } else if (this.imageBlocked) {
+      }
+      if (!this.failed && this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
           previewUri: this.imageBlockPreviewUri,
@@ -8596,7 +8603,38 @@ struct ReaderVerticalImage {
 
   build() {
     Stack() {
-      // `failed` first so an Image fetch error (dead token / 509) shows the re-source retry.
+      // Source changes update the existing image; loading must not dispose its native owner.
+      ReaderInterpolatedImage({
+        src: this.imageUrl,
+        widthValue: '100%',
+        heightValue: '100%',
+        cropBounds: this.cropBounds,
+        onComplete: (event?: ReaderImageLoadEvent) => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          if (event && event.width && event.height) {
+            this.onImageDecoded(event.width, event.height)
+          } else {
+            this.markImageLoaded()
+            this.clampOffset()
+          }
+        },
+        onError: () => {
+          if (this.imageUrl.length === 0 || this.failed || this.imageBlocked) return
+          DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+          this.imageLoaded = false
+          this.retrySourceAutomatically()
+        },
+      })
+        .id(this.snapshotId)
+        .opacity(
+          this.imageUrl.length > 0 && this.imageLoaded && !this.failed && !this.imageBlocked
+            ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
+        )
+        .width('100%')
+        .aspectRatio(this.ratio)
+        .scale({ x: this.zoomScale, y: this.zoomScale })
+        .translate({ x: this.offsetX, y: this.offsetY })
+        .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
       if (this.failed) {
         ReaderFailureOverlay({
           page: this.image.page,
@@ -8606,36 +8644,8 @@ struct ReaderVerticalImage {
             this.retrySource()
           },
         })
-      } else if (this.imageUrl.length > 0) {
-        ReaderInterpolatedImage({
-          src: this.imageUrl,
-          widthValue: '100%',
-          heightValue: '100%',
-          cropBounds: this.cropBounds,
-          onComplete: (event?: ReaderImageLoadEvent) => {
-            if (event && event.width && event.height) {
-              this.onImageDecoded(event.width, event.height)
-            } else {
-              this.markImageLoaded()
-              this.clampOffset()
-            }
-          },
-          onError: () => {
-            DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
-            this.imageLoaded = false
-            this.retrySourceAutomatically()
-          },
-        })
-          .id(this.snapshotId)
-          .opacity(
-            this.imageLoaded ? this.readerThumbnailTransition.readerImageOpacity(this.image.page) : 0,
-          )
-          .width('100%')
-          .aspectRatio(this.ratio)
-          .scale({ x: this.zoomScale, y: this.zoomScale })
-          .translate({ x: this.offsetX, y: this.offsetY })
-          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-      } else if (this.imageBlocked) {
+      }
+      if (!this.failed && this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
           compact: true,

@@ -52,7 +52,7 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     facts.variant = 'original'
     facts.originalAvailable = true
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
-    asset.saveUri = this.url
+    asset.saveUri = result.filePath
     asset.originalAvailable = true
     if (result.filePath.length > 0) {
       asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-original', this.cropStrength)
@@ -69,6 +69,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   private token: string
   private isEx: boolean
   private pages: Map<string, EhGalleryImage> = new Map()
+  private sourceFiles: Map<string, string> = new Map()
   private localUnits: Map<string, ReaderParams> = new Map()
   private entryUnits: Map<string, ReaderParams> = new Map()
   private gallerySourceLanguage: string = 'auto'
@@ -98,9 +99,9 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     return this.pages.get(pageKey)?.copy() ?? null
   }
 
-  /** Legacy save exports the resolved source choice, never a generated reader variant. */
+  /** Export the loaded source bytes, never a generated variant or an expiring CDN URL. */
   saveUri(page: ReaderPage): string {
-    return this.pages.get(page.key)?.imageUrl ?? ''
+    return this.sourceFiles.get(page.key) ?? this.pages.get(page.key)?.imageUrl ?? ''
   }
 
   private startupImagePageUrl(params: ReaderParams, index: number): string {
@@ -366,7 +367,9 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     facts.variant = 'resampled'
     facts.originalAvailable = source.originImageUrl.length > 0
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
-    asset.saveUri = url
+    cancellation.check()
+    this.sourceFiles.set(page.key, result.filePath)
+    asset.saveUri = result.filePath
     asset.originalAvailable = facts.originalAvailable
     if (result.filePath.length > 0) {
       asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-asset', this.cropStrength)

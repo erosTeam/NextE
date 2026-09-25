@@ -25,6 +25,14 @@ export class NextEReaderRuntimePreferences {
     }
   }
 
+  /** Direction menu changes the reading mode without changing the independent double-page preference. */
+  static async applyReadingMode(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
+    const mode = policy.layout === 'continuous' ? ReadMode.VERTICAL :
+      policy.pagingAxis === 'vertical' ? ReadMode.TOP_TO_BOTTOM :
+      policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR
+    if (connectReadMode().mode !== mode) await ReadModeSettings.setMode(context, mode)
+  }
+
   static async applyDirection(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
     if (policy.layout === 'continuous' || policy.pagingAxis === 'vertical') return
     const mode = policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR

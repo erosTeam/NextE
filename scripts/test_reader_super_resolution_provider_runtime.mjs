@@ -14,6 +14,16 @@ const core = { ...load('ReaderContent'), ...load('ReaderSession'), ...load('Read
   ...load('ReaderImageInformation') }
 const released = []
 const calls = []
+const imageProbes = []
+let sourceHeight = 1500
+let nextImageInfo = null
+const image = { createImageSource(path) {
+  const probe = { path, released: false }; imageProbes.push(probe)
+  const result = nextImageInfo ?? Promise.resolve({ size: { width: 1000, height: sourceHeight } })
+  nextImageInfo = null
+  return { getImageInfo: () => result, async release() { probe.released = true } }
+} }
+const settle = () => new Promise(resolve => setImmediate(resolve))
 let processResult = { filePath: '/cache/enhanced.jpg', displayUri: 'file:///cache/enhanced.jpg',
   applied: true, reason: '' }
 let processPromise = null
@@ -33,6 +43,7 @@ vm.runInNewContext(ts.transpileModule(source, {
   exports,
   require: name => {
     if (name === '@kit.AbilityKit') return {}
+    if (name === '@kit.ImageKit') return { image }
     if (name === '@reader-kit/core') return core
     if (name === '@reader-kit/ui') return { ReaderFileInformation: class { constructor(filePath, facts) {
       this.path = filePath; this.facts = facts
@@ -58,6 +69,26 @@ const provider = new NextEReaderSuperResolutionProvider({}, backend, () => confi
   () => '', (candidate) => candidate === page ? 'https://ehgt.org/original-page.jpg?token=fixture' : '')
 const cancellation = new core.ReaderCancellation()
 await provider.load(page, 'original', cancellation, false)
+await settle()
+assert.equal(provider.mayPrepare(unit, 0, 2000), true)
+assert.equal(provider.heightLimited(unit, 0, 2000), false)
+assert.equal(provider.mayPrepare(unit, 0, 1000), false)
+await settle()
+assert.equal(provider.heightLimited(unit, 0, 1000), true)
+assert.equal(provider.mayPrepare(unit, 0, 1000), false)
+assert.equal(provider.mayPrepare(unit, 0, 1500), false)
+await settle()
+assert.equal(provider.mayPrepare(unit, 0, 1500), true, 'equal height remains eligible')
+let resolveOldProbe
+nextImageInfo = new Promise(resolve => { resolveOldProbe = resolve })
+assert.equal(provider.mayPrepare(unit, 0, 1000), false)
+assert.equal(provider.mayPrepare(unit, 0, 2000), false)
+await settle()
+assert.equal(provider.mayPrepare(unit, 0, 2000), true)
+resolveOldProbe({ size: { width: 1000, height: 3000 } })
+await settle()
+assert.equal(provider.mayPrepare(unit, 0, 2000), true, 'late old limit cannot overwrite current result')
+assert.ok(imageProbes.every(probe => probe.released), 'all image metadata handles released')
 const identity = configuration.identity()
 const plan = await provider.prepareVariant(page, 'enhanced', identity, cancellation)
 assert.equal(calls.length, 1)
@@ -69,7 +100,7 @@ assert.equal(provider.information(page, identity).applied, true)
 assert.equal(provider.information(page, identity).reason, '')
 const enhanced = await plan.load(new core.ReaderCancellation(), false)
 assert.equal(enhanced.uri, 'file:///cache/enhanced.jpg')
-assert.equal(enhanced.saveUri, 'https://ehgt.org/original-page.jpg?token=fixture')
+assert.equal(enhanced.saveUri, 'file:///cache/source.jpg')
 assert.equal(enhanced.originalAvailable, true)
 enhanced.release(); enhanced.release()
 assert.equal(released.length, 1)

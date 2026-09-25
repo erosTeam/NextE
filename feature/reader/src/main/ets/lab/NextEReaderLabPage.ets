@@ -835,6 +835,7 @@ export struct NextEReaderLabPage {
       this.closeRequested || this.hostClosing) return
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     if (intent === 'layout') void NextEReaderRuntimePreferences.applyLayout(context, policy)
+    else if (intent === 'reading_mode') void NextEReaderRuntimePreferences.applyReadingMode(context, policy)
     else if (intent === 'direction') void NextEReaderRuntimePreferences.applyDirection(context, policy)
     else if (intent === 'spread_layout') void NextEReaderRuntimePreferences.applySpreadLayout(context, policy)
     else if (intent === 'first_page_alone') {
@@ -1178,6 +1179,8 @@ export struct NextEReaderLabPage {
           if (this.request.readingChrome) {
             ReaderSurface({ loadingPresentation: this.readerLoadingPresentation, session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
               liveSourceEntry: this.liveSourceEntry,
+              horizontalSpreadEnabled: this.readMode.doublePageEnabled,
+              zoomResetActionVisible: !this.request.preferencesReadWrite,
               entryOwnershipDiagnostic: this.archiveEntryOwnershipDiagnostic(),
               onLiveSourceEntryRevealFrame: (claim: ReaderSelectedDrawable): void => {
                 this.retireLiveSourceAfterReveal(claim)

@@ -44,6 +44,7 @@ test('successful retry retains refreshed original URL for later normal loads', a
     { url: 'fresh', key: 'original-cache', force: false },
   ])
   assert.equal(result.information.facts.variant, 'original')
+  assert.equal(result.saveUri, 'local-file', 'export the loaded original bytes without another CDN request')
 })
 test('cancelled old resolver cannot overwrite a newer successful plan source or URL', async () => {
   const old = deferred(); let calls = 0
@@ -112,11 +113,11 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
 
   const initial = await adapter.load(page, 'original', token(), false)
   assert.equal(initial.uri, 'file:///cache/old-display.webp')
-  assert.equal(initial.saveUri, 'https://fixture.invalid/old.webp')
+  assert.equal(initial.saveUri, '/cache/old-display.webp')
   const refreshed = await adapter.load(page, 'original', token(), true)
   assert.equal(refreshed.uri, 'file:///cache/fresh-display.webp')
-  assert.equal(refreshed.saveUri, 'https://fixture.invalid/fresh.webp')
-  assert.equal(adapter.saveUri(page), 'https://fixture.invalid/fresh.webp')
+  assert.equal(refreshed.saveUri, '/cache/fresh-display.webp')
+  assert.equal(adapter.saveUri(page), '/cache/fresh-display.webp')
   await adapter.load(page, 'original', token(), true)
 
   assert.deepEqual(resolutions, [
@@ -393,4 +394,25 @@ test('optional host passes its cache warmer and persisted depth into reader-kit'
   assert.match(pageSource, /const autoReadSourceHost = lab\?\.autoReadSourceProbe === 'delay-once'[\s\S]*?new NextEReaderAutoReadSourceProbe\(adapter, lab\.autoReadSourceProbe\)[\s\S]*?: adapter/)
   assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter, autoReadSourceHost\)/)
   assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
+})
+
+test('legacy original eligibility survives cold-cache entry without resolver memory metadata', () => {
+  const reader = fs.readFileSync(new URL('../feature/reader/src/main/ets/pages/ReaderPage.ets', import.meta.url), 'utf8')
+  const sourceFile = ts.createSourceFile('ReaderPage.ts', reader.replace('export struct ReaderPage', 'export class ReaderPage'), ts.ScriptTarget.Latest, true)
+  const cls = sourceFile.statements.find(n => ts.isClassDeclaration(n) && n.name?.getText(sourceFile) === 'ReaderPage')
+  const method = cls.members.find(n => n.name?.getText(sourceFile) === 'originalAvailableForIndex')
+  const context = { exports: {} }
+  vm.runInNewContext(ts.transpileModule(`export class Subject { ${method.getText(sourceFile)} }`, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText, context)
+  const subject = new context.exports.Subject()
+  let local = false, cached = true, preview = true
+  Object.assign(subject, { isLocalReaderSource: () => local,
+    vm: { hasPreviewAt: () => preview, imageAt: () => ({ page: 1, originImageUrl: '' }) },
+    originalAvailablePages: '', originalToken: page => `|${page}|`, hasCachedOriginal: () => cached })
+  assert.equal(subject.originalAvailableForIndex(0), true)
+  cached = false; assert.equal(subject.originalAvailableForIndex(0), false)
+  subject.originalAvailablePages = '|1|'; assert.equal(subject.originalAvailableForIndex(0), true)
+  local = true; assert.equal(subject.originalAvailableForIndex(0), false)
+  local = false; preview = false; assert.equal(subject.originalAvailableForIndex(0), false)
 })

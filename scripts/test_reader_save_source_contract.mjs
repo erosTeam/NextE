@@ -29,11 +29,10 @@ assert.match(sharedSave, /asset\.kind !== 'original' \|\| asset\.phase !== 'disp
 assert.match(sharedSave, /new ReaderImageSaveItem\(index, page\.key, frame\.slotId, asset\.assetRequestId, asset\.saveUri\)/)
 
 const adapter = read('feature/reader/src/main/ets/lab/NextEReaderLabAdapter.ets')
-assert.match(adapter, /ImagePipelineService\.loadReaderFile\(this\.context, url, key, 100, undefined, forceReload\)/)
+assert.match(adapter, /ImagePipelineService\.loadReaderFile\(this\.context, url, key, 100,/)
 assert.match(adapter, /new ReaderAsset\(result\.displayUri, \(\) => \{\}, new ReaderFileInformation\(result\.filePath, facts\)\)/)
-assert.match(adapter, /asset\.saveUri = this\.url/)
-assert.match(adapter, /asset\.saveUri = url/)
-assert.match(adapter, /saveUri\(page: ReaderPage\): string \{\s*return this\.pages\.get\(page\.key\)\?\.imageUrl \?\? ''/)
+assert.equal((adapter.match(/asset\.saveUri = result\.filePath/g) ?? []).length, 2)
+assert.match(adapter, /saveUri\(page: ReaderPage\): string \{\s*return this\.sourceFiles\.get\(page\.key\) \?\? this\.pages\.get\(page\.key\)\?\.imageUrl \?\? ''/)
 
 const enhanced = read('feature/reader/src/main/ets/lab/NextEReaderSuperResolutionProvider.ets')
 const translated = read('feature/reader/src/main/ets/lab/NextEReaderTranslationProvider.ets')

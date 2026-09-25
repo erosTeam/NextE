@@ -90,6 +90,21 @@ await Runtime.applyDirection({}, policy({ layout: 'single', pagingAxis: 'vertica
 assert.deepEqual(events, [])
 assert.equal(state.mode, 'topToBottom')
 
+for (const doublePageEnabled of [false, true]) {
+  for (const [mode, display] of [
+    ['ltr', { layout: 'single', pagingAxis: 'horizontal', direction: 'ltr' }],
+    ['rtl', { layout: 'spread', pagingAxis: 'horizontal', direction: 'rtl' }],
+    ['topToBottom', { layout: 'single', pagingAxis: 'vertical' }],
+    ['vertical', { layout: 'continuous' }],
+  ]) {
+    reset({ mode: 'other', doublePageEnabled })
+    await Runtime.applyReadingMode({}, policy(display))
+    assert.equal(state.mode, mode)
+    assert.equal(state.doublePageEnabled, doublePageEnabled)
+    assert.deepEqual(events, [`mode:${mode}`])
+  }
+}
+
 reset()
 await Runtime.applySpreadLayout({}, policy({ spreadLayout: 'split' }))
 assert.equal(state.spreadLayoutMode, 'split')
