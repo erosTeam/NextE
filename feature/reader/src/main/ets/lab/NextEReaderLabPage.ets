@@ -133,6 +133,7 @@ export struct NextEReaderLabPage {
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
   private chromeVisible: boolean = false
+  private chromeShowPreparing: boolean = false
   private readerBodyVisible: boolean = false
   private pendingLiveSourceClaim: ReaderSelectedDrawable | null = null
   @Local private liveSourceEntryReleased: boolean = false
@@ -1008,6 +1009,7 @@ export struct NextEReaderLabPage {
 
   private syncChromeVisible(visible: boolean): void {
     this.chromeVisible = visible
+    this.chromeShowPreparing = false
     if (visible) return // The before-show gate already applied host visibility.
     this.syncStatusBarAfterTakeover()
   }
@@ -1064,7 +1066,7 @@ export struct NextEReaderLabPage {
   @Monitor('entryPhase', 'readerThumbnailTransition.phase', 'routeActive', 'labVisibility.foreground')
   private syncStatusBarAfterTakeover(): void {
     if (!this.readerBodyVisible || !this.routeActive || !this.labVisibility.foreground ||
-      this.closeRequested || this.hostClosing || this.chromeVisible || !this.request.readingChrome) return
+      this.closeRequested || this.hostClosing || this.chromeVisible || this.chromeShowPreparing || !this.request.readingChrome) return
     if (this.liveSourceEntry && !this.liveSourceEntryReleased) return
     if (this.entryTransition !== null && this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled') return
     if (this.rootOwnedEntryTarget && !this.readerThumbnailTransition.opened()) return
@@ -1085,9 +1087,24 @@ export struct NextEReaderLabPage {
       this.routeActive && this.labVisibility.foreground
     if (!current()) return false
     if (!this.managesTrialWindow) return this.prepareChrome === null ? false : this.prepareChrome(current)
-    if (!await this.trialWindow.prepareStatusBarVisible() || !current()) return false
-    return ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
-      this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '', current)
+    // A thumbnail flight can finish while its original is still loading. An
+    // explicit menu request owns chrome now; it must not await image readiness.
+    this.chromeShowPreparing = true
+    let ready: boolean = false
+    try {
+      this.trialWindow.setStatusBarVisible(true)
+      this.trialWindow.open(this.getUIContext().getHostContext() as common.UIAbilityContext)
+      if (!await this.trialWindow.prepareStatusBarVisible() || !current()) return false
+      ready = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
+        this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '', current)
+      return ready && current()
+    } finally {
+      // Successful preparation stays claimed until Surface publishes visible.
+      if (!ready || !current()) {
+        this.chromeShowPreparing = false
+        this.syncStatusBarAfterTakeover()
+      }
+    }
   }
 
   private closeTrial(initializationFailed: boolean = false, suppliedContext: ReaderCloseContext | null = null): void {
