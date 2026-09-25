@@ -8,11 +8,14 @@ const transition = readFileSync(
   new URL('../third_party/reader-kit/reader-ui/src/main/ets/ReaderEntryTransition.ets', import.meta.url), 'utf8',
 )
 
-function rootSync(phase, target, waitingReaderContent = true) {
-  if (phase === 'layout') return target?.geometryReady === true ? 'start-moving' : 'idle'
-  if (phase !== 'waiting' || target === null || !target.decodedReady || !waitingReaderContent) return 'idle'
-  return 'reveal'
-}
+// Execute the shared handoff rather than maintaining a duplicate phase algorithm.
+import vm from 'node:vm'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const ts = require('/Applications/DevEco-Studio.app/Contents/tools/hvigor/hvigor/node_modules/typescript')
+const source = readFileSync(new URL('../third_party/reader-kit/reader-ui/src/main/ets/ReaderRootEntryHandoff.ets', import.meta.url), 'utf8')
+const runtime = { exports: {} }
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, runtime)
 
 function method(source, name, next) {
   const start = source.indexOf(`private ${name}()`)
@@ -32,19 +35,27 @@ test('NextE root entry observes legal computed target and phase projections', ()
 
 test('NextE root entry reacts when publishTarget replaces decoded readiness at the same layout revision', () => {
   const sync = host.slice(host.indexOf('private syncRootOwnedEntryTarget'), host.indexOf('  aboutToDisappear'))
-  assert.match(sync, /const target = this\.rootEntryTarget/)
-  assert.match(sync, /const phase = this\.rootEntryPhase/)
-  assert.match(sync, /if \(phase === 'layout'\)/)
-  assert.match(sync, /if \(phase !== 'waiting' \|\| target === null \|\| !target\.decodedReady/)
+  assert.match(sync, /this\.rootEntryHandoff\.sync\(entry, /)
   assert.match(transition, /publishTarget\(value: ReaderEntryTarget\): void \{[\s\S]*?this\.target = value\.copy\(\)/)
+  const events = []
+  const handoff = new runtime.exports.ReaderRootEntryHandoff()
+  const entry = { entryId: 1, phase: 'layout',
+    target: { layoutRevision: 7, geometryReady: true, decodedReady: false, contentRect: { valid: () => true }, part: { sourceIndex: 1 } },
+    holdNeighborUntilArrival() {}, beginMove() { this.phase = 'moving' }, arrived() { this.phase = 'waiting' },
+    reveal() { this.phase = 'revealing'; events.push('reveal') }, finish() { this.phase = 'finished' } }
+  const bridge = { authorizeDeparture: () => true, setOpeningTarget: () => true,
+    startOpening: done => { events.push('start'); done() },
+    revealOriginal: (commit, done) => { commit(); done() }, notifyReaderImageReady: page => events.push(page) }
+  handoff.sync(entry, true, true, bridge)
+  assert.deepEqual(events, ['start'])
+  handoff.sync(entry, true, true, bridge)
+  assert.deepEqual(events, ['start'])
+  entry.target = { ...entry.target, decodedReady: true }
+  handoff.sync(entry, true, true, bridge)
+  assert.deepEqual(events, ['start', 'reveal', 2])
+  handoff.sync(entry, true, true, bridge)
+  assert.equal(events.length, 3)
 
-  const measured = { layoutRevision: 7, geometryReady: true, decodedReady: false }
-  const decoded = { layoutRevision: 7, geometryReady: true, decodedReady: true }
-  assert.equal(rootSync('layout', measured), 'start-moving')
-  assert.equal(rootSync('waiting', measured), 'idle')
-  assert.notEqual(decoded, measured)
-  assert.equal(decoded.layoutRevision, measured.layoutRevision)
-  assert.equal(rootSync('waiting', decoded), 'reveal')
 })
 
 test('NextE root Index projects nullable entry phase for both root monitors', () => {

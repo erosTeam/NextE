@@ -1212,8 +1212,7 @@ export struct NextEReaderLabPage {
               temporaryVariantControl: new ReaderTemporaryVariantControl(this.superResolutionAvailable(),
                 (enabled: boolean): void => { this.showTemporarySuperResolutionToast(enabled) }),
               showPageNumber: this.readMode.showPageNumber,
-              // The entry transition already cancels when cropped geometry cannot be mapped.
-              // Keep the reader feature available and sacrifice only the optional flight.
+              // Reader-kit detects crop normally and applies it after the entry phase settles.
               cropPolicy: new ReaderCropPolicy(this.initialCropBorders(),
                 this.request.preferencesReadWrite || this.labRequest?.cropBorders === true,
                 this.cropSourceRevision()),
