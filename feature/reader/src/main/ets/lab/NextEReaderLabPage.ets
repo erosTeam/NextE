@@ -1115,7 +1115,7 @@ export struct NextEReaderLabPage {
       return
     }
     const context: ReaderCloseContext | null = suppliedContext ?? (initializationFailed || this.session === null
-      ? null : ReaderCloseContext.from(this.session.snapshot()))
+      ? null : ReaderCloseContext.fromViewport(this.session.snapshot(), this.getUIContext()))
     const image: EhGalleryImage | null = context === null ? null : this.adapter?.transitionImage(context.part.pageKey) ?? null
     if (this.rootEntryHandoff.requestReverse(this.entryTransition,
       this.rootOwnedEntryTarget && this.routeActive && !this.hostClosing,
