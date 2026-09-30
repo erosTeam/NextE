@@ -49,13 +49,13 @@ export function immersiveTitleBarOpts(content: Record<string, Object>): Record<s
     'scrollEffectType': ScrollEffectType.GRADIENT_BLUR,
   }
   const style: Record<string, Object> = {
+    'blurStrategy': BlurStrategy.ENABLE,
     'systemMaterialEffect': mat,
     'scrollEffectOpts': scrollOpts,
   }
   return {
     'avoidLayoutSafeArea': true,
     'enableComponentSafeArea': false,
-    'blurStrategy': BlurStrategy.ENABLE,
     'content': content,
     'style': style,
   }
