@@ -78,8 +78,8 @@ export struct NextEReaderLabPage {
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
   @Param entryPreview: ReaderEntryPreviewSource | null = null
-  /** The root proxy uses this capture only to re-check its live source before departure. */
-  @Param entryDeparturePreview: ReaderEntryPreviewSource | null = null
+  /** The root proxy re-checks the exact live source before departure. */
+  @Param entryDepartureGuard: ((entryId: number) => boolean) | null = null
   /** Production forward flight: root proxy lands on reader-kit's selected image part. */
   @Param rootOwnedEntryTarget: boolean = false
   @Param entrySite: string = ''
@@ -87,6 +87,9 @@ export struct NextEReaderLabPage {
   @Param managesTrialWindow: boolean = true
   @Param hostClosing: boolean = false
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
+  /** A production Back can synchronously return the opening proxy to its source. */
+  @Event onTryReverseOpening: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => boolean =
+    (): boolean => false
   @Event onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => void = () => {}
   @Event onShown: () => void = () => {}
   @Event onDisappeared: () => void = () => {}
@@ -723,6 +726,9 @@ export struct NextEReaderLabPage {
         .id('nexte-reader-opening-placeholder')
         .onAreaChange((): void => { this.logNormalEntryGeometry('proxy-handoff') })
         .opacity(this.readerThumbnailTransition.openingProxyOpacity)
+        // Keep the click-time pixels above the selected image's entry-opacity
+        // animation until the root handoff releases this placeholder.
+        .zIndex(1)
         .hitTestBehavior(HitTestMode.None)
     }
   }
@@ -828,8 +834,8 @@ export struct NextEReaderLabPage {
   private get rootEntryPhase(): ReaderEntryPhase { return this.entryTransition?.phase ?? 'finished' }
 
   private rootEntryHandoffHost(): ReaderRootEntryHandoffHost {
-    return new NextERootEntryHandoffHost((entry: ReaderEntryTransition): boolean => this.entryDeparturePreview !== null &&
-        this.entryDeparturePreview.authorizeDeparture(entry.entryId),
+    return new NextERootEntryHandoffHost((entry: ReaderEntryTransition): boolean => this.entryDepartureGuard !== null &&
+        this.entryDepartureGuard(entry.entryId),
       (target: ReaderEntryTarget): boolean => ReaderThumbnailTransitionCoordinator.setOpeningTarget(
         this.getUIContext(), this.request.work, target.contentRect.x, target.contentRect.y,
         target.contentRect.width, target.contentRect.height,
@@ -839,7 +845,11 @@ export struct NextEReaderLabPage {
           arrived ?? undefined, `id=${this.entryTransition?.entryId ?? 0} gid=${this.request.work} page=${this.request.pageIndex}`)
       },
       (commitReveal: () => void, finished: () => void): void => {
-        this.getUIContext().animateTo({ duration: 140, curve: Curve.Linear, onFinish: finished }, commitReveal)
+        if (this.rootOwnedEntryTarget) {
+          ReaderThumbnailTransitionCoordinator.revealRootOwnedOriginal(this.getUIContext(), commitReveal, finished)
+        } else {
+          this.getUIContext().animateTo({ duration: 140, curve: Curve.Linear, onFinish: finished }, commitReveal)
+        }
       },
       (page: number): void => {
         ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(this.getUIContext(), this.request.work, page)
@@ -910,6 +920,14 @@ export struct NextEReaderLabPage {
     const context: ReaderCloseContext | null = suppliedContext ?? (initializationFailed || this.session === null
       ? null : ReaderCloseContext.from(this.session.snapshot()))
     const image: EhGalleryImage | null = context === null ? null : this.adapter?.transitionImage(context.part.pageKey) ?? null
+    if (this.rootEntryHandoff.requestReverse(this.entryTransition,
+      this.rootOwnedEntryTarget && this.routeActive && !this.hostClosing,
+      (): boolean => this.onTryReverseOpening(context, image))) {
+      // Match legacy: begin the reverse before waiting for system-bar repair.
+      // The root callback removes this route only after the proxy lands.
+      if (this.managesTrialWindow) void this.trialWindow.close()
+      return
+    }
     if (this.managesTrialWindow) this.trialWindow.close(async (): Promise<boolean> => {
       if (this.trialWindow.getCloseSystemAvoidAreaResult() === 'ready') {
         const ready = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>

@@ -694,7 +694,6 @@ struct Index {
   private readerTrialLaunchEpoch: number = 0
   private readerTrialHostAlive: boolean = true
   @Local private productionReaderEntryTransition: ReaderEntryTransition | null = null
-  @Local private productionReaderEntryPreview: ReaderEntryPreviewSource | null = null
   @Local private productionReaderEntryClaim: IndexReaderEntryClaim | null = null
   private productionReaderEntryEpoch: number = 0
   private productionReaderEntryPendingGalleryId: string = ''
@@ -722,7 +721,7 @@ struct Index {
 
   private productionReaderEntryActive(): boolean {
     return this.productionReaderEntryPendingGalleryId.length > 0 || this.productionReaderEntryClaim !== null ||
-      this.productionReaderEntryTransition !== null || this.productionReaderEntryPreview !== null
+      this.productionReaderEntryTransition !== null
   }
 
   private retireProductionReaderEntryGuard(): void {
@@ -739,9 +738,7 @@ struct Index {
     this.productionReaderEntryPageIndex = -1
     this.productionReaderEntryClaim = null
     this.productionReaderEntryTransition?.cancel()
-    this.productionReaderEntryPreview?.release()
     this.productionReaderEntryTransition = null
-    this.productionReaderEntryPreview = null
   }
 
   private finishProductionReaderEntry(): void {
@@ -749,11 +746,10 @@ struct Index {
     if (transition !== null && transition.phase !== 'finished' && transition.phase !== 'cancelled') return
     this.productionReaderEntryPendingGalleryId = ''
     this.productionReaderEntryClaim = null
-    this.productionReaderEntryPreview?.release()
-    this.productionReaderEntryPreview = null
-    this.productionReaderEntryTransition = null
-    this.productionReaderEntryGalleryId = ''
-    this.productionReaderEntryPageIndex = -1
+    // ReaderPagedImage includes entryId in its native image/content IDs. Keep
+    // the terminal transition through this Reader route so the selected
+    // bitmap is not remounted on the first fully revealed frame. onDisappeared
+    // retires it along with the route.
     this.retireProductionReaderEntryGuard()
   }
 
@@ -774,6 +770,11 @@ struct Index {
     return valid
   }
 
+  private authorizeCurrentProductionReaderEntryDeparture(entryId: number): boolean {
+    const claim = this.productionReaderEntryClaim
+    return claim !== null && this.authorizeProductionReaderEntryDeparture(claim, entryId)
+  }
+
   private productionReaderEntryMatches(route: ReaderOverlayRoute): boolean {
     return route.backend === NextEReaderBackend.SHARED && this.productionReaderEntryTransition !== null &&
       this.productionReaderEntryGalleryId === route.params.gid &&
@@ -784,7 +785,7 @@ struct Index {
     // Production thumbnail entry is a release capability: admission follows the
     // durable user backend authority (rehearsal override only when explicitly
     // set), never the process-local default alone. All lifecycle guards below
-    // and the preview-failure fallback chain stay unchanged.
+    // and the root-snapshot failure fallback chain stay unchanged.
     const accepted = resolveNextEReaderBackendSelection() === NextEReaderBackend.SHARED &&
       this.readerTrialHostAlive && this.readerEntryVisibility.foreground && !this.securitySettings.locked &&
       !this.safeMode.restricted() && !this.readerOverlay.visible && this.readerTrialRequest === null &&
@@ -794,15 +795,15 @@ struct Index {
     this.productionReaderEntryPendingGalleryId = source.galleryId
     DiagnosticLogger.info('reader-entry', 'production_admitted',
       `gid=${source.galleryId} page=${source.pageIndex}`)
-    void this.openProductionThumbnail(source)
+    this.openProductionThumbnail(source)
     return true
   }
 
-  private async openProductionThumbnail(source: ReaderTrialEntrySource): Promise<void> {
+  private openProductionThumbnail(source: ReaderTrialEntrySource): void {
     const epoch = ++this.productionReaderEntryEpoch
     const navigation = this.navStackHolder.navigationRevision
     if (!source.isCurrent()) { this.retireProductionReaderEntry(); return }
-    DiagnosticLogger.info('reader-entry', 'production_capture_start',
+    DiagnosticLogger.info('reader-entry', 'production_entry_start',
       `id=${epoch} gid=${source.galleryId} page=${source.pageIndex}`)
     this.productionReaderEntryGuardToken = ReaderTrialEntryRelay.holdPending(source.site, source.galleryId,
       (): boolean => {
@@ -820,39 +821,20 @@ struct Index {
       console.info('[ReaderEntry] fallback=invalid_rect gallery=' + source.galleryId + ' page=' + source.pageIndex +
         ' rect=' + sourceRect.valid() + ' viewport=' + viewport.valid() +
         ' snapshot=' + (source.snapshot !== null ? source.snapshot.isCurrent() : false))
-      this.presentProductionThumbnail(source, null, epoch)
+      this.presentProductionThumbnail(source, epoch)
       return
     }
     const claim = new IndexReaderEntryClaim(epoch, navigation, source, sourceRect, viewport)
     this.productionReaderEntryClaim = claim
-    // This source-level capture may use a sprite sub-rectangle, but only the
-    // production parser can attest that it represents exactly one gallery page.
-    const wholePage = source.snapshot.previewGeometryWholePage
-    const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
-      source.snapshotComponentId, wholePage ? 'whole-page' : 'unknown',
-      (entryId: number): boolean => this.authorizeProductionReaderEntryDeparture(claim, entryId))
-    DiagnosticLogger.info('reader-entry', 'production_capture_complete',
-      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex} preview=${preview !== null}`)
-    if (epoch !== this.productionReaderEntryEpoch || navigation !== this.navStackHolder.navigationRevision ||
-      !this.readerEntryVisibility.foreground || this.readerOverlay.visible || this.securitySettings.locked ||
-      this.safeMode.restricted() || !source.isCurrent()) {
-      console.info('[ReaderEntry] fallback=stale_after_capture epoch=' + (epoch !== this.productionReaderEntryEpoch) +
-        ' nav=' + (navigation !== this.navStackHolder.navigationRevision) +
-        ' fg=' + !this.readerEntryVisibility.foreground + ' overlay=' + this.readerOverlay.visible +
-        ' locked=' + this.securitySettings.locked + ' restricted=' + this.safeMode.restricted() +
-        ' current=' + !source.isCurrent())
-      preview?.release()
-      if (this.productionReaderEntryClaim === claim) this.retireProductionReaderEntry()
-      return
-    }
-    this.presentProductionThumbnail(source, preview, epoch)
+    // The root transition captures this same live source synchronously.
+    // Retain the exact claim as its departure guard without waiting for a
+    // second PixelMap before the route can open.
+    this.presentProductionThumbnail(source, epoch)
   }
 
-  private presentProductionThumbnail(source: ReaderTrialEntrySource,
-    preview: ReaderEntryPreviewSource | null, epoch: number): void {
+  private presentProductionThumbnail(source: ReaderTrialEntrySource, epoch: number): void {
     if (epoch !== this.productionReaderEntryEpoch || !source.isCurrent() || this.readerOverlay.visible ||
       this.securitySettings.locked || this.safeMode.restricted()) {
-      preview?.release()
       this.retireProductionReaderEntry()
       return
     }
@@ -863,12 +845,10 @@ struct Index {
     this.retireProductionReaderEntryGuard()
     this.productionReaderEntryGalleryId = source.galleryId
     this.productionReaderEntryPageIndex = source.pageIndex
-    this.productionReaderEntryPreview = preview
-    this.productionReaderEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
+    this.productionReaderEntryTransition = this.productionReaderEntryClaim === null ? null : new ReaderEntryTransition(epoch,
       new ReaderDisplayPart(new ReaderUnitKey(source.site, source.galleryId, source.galleryId), null, source.pageIndex))
     DiagnosticLogger.info('reader-entry', 'production_overlay_open',
-      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex} preview=${preview !== null}`)
-    if (preview === null) this.productionReaderEntryClaim = null
+      `id=${epoch} gid=${source.galleryId} page=${source.pageIndex} claimed=${this.productionReaderEntryClaim !== null}`)
     ReaderThumbnailTransitionCoordinator.openClaimed(
       this.getUIContext(),
       source.sourceScope(),
@@ -881,9 +861,10 @@ struct Index {
         this.readerOverlay.openSharedTransition(source.params, animated)
       },
     )
-    if (preview === null) {
-      console.info('[ReaderEntry] fallback=preview_null gallery=' + source.galleryId + ' page=' + source.pageIndex)
-      this.finishProductionReaderEntry()
+    if (!this.readerThumbnailTransition.waitingReader()) {
+      console.info('[ReaderEntry] fallback=root_proxy_unavailable gallery=' + source.galleryId +
+        ' page=' + source.pageIndex)
+      this.retireProductionReaderEntry()
     }
   }
 
@@ -2219,6 +2200,12 @@ struct Index {
       ` phase=${transition.phase} armedGid=${transition.galleryId} index=${transition.currentIndex}` +
       ` scopeId=${transition.sourceScope} normalCloseReady=${transition.normalCloseReadyFor(galleryId)}`,
     )
+    // Back during the opening flight belongs to the existing root proxy, not
+    // the Reader route's default slide-out. Claim reversal before the normal
+    // close/layout gate, which accepts only the settled OPEN phase.
+    if (ReaderThumbnailTransitionCoordinator.reverseOpening(this.getUIContext(), galleryId,
+      context?.captureComponentId ?? '', context?.contentAspectRatio ?? 0, 1,
+      (animated: boolean): void => { this.readerOverlay.close(animated) })) return
     if (context !== null && image !== null && context.unit.scope === this.currentReaderEntrySite() &&
       context.unit.work === galleryId) {
       this.readerThumbnailTransition.updateCurrent(galleryId, context.part.sourceIndex, image)
@@ -2257,11 +2244,11 @@ struct Index {
         entryParams: (param as ReaderOverlayRoute).params,
         entryTransition: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
           ? this.productionReaderEntryTransition : null,
-        // The root proxy paints the source snapshot. This retained capture is
-        // only the departure guard; do not mount a second in-content preview.
+        // The root proxy owns the sole source snapshot. The live claim guards
+        // departure without a second in-content or asynchronous capture.
         entryPreview: null,
-        entryDeparturePreview: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
-          ? this.productionReaderEntryPreview : null,
+        entryDepartureGuard: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
+          ? (entryId: number): boolean => this.authorizeCurrentProductionReaderEntryDeparture(entryId) : null,
         rootOwnedEntryTarget: this.productionReaderEntryMatches(param as ReaderOverlayRoute),
         entryPhase: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
           ? this.productionReaderEntryTransition?.phase ?? 'finished' : 'finished',
@@ -2269,6 +2256,12 @@ struct Index {
           this.ReaderSettingsSheet(dismiss)
         },
         onEntrySettled: (): void => { this.finishProductionReaderEntry() },
+        onTryReverseOpening: (context: ReaderCloseContext | null, _image: EhGalleryImage | null): boolean => {
+          const galleryId = (param as ReaderOverlayRoute).params.gid
+          return ReaderThumbnailTransitionCoordinator.reverseOpening(this.getUIContext(), galleryId,
+            context?.captureComponentId ?? '', context?.contentAspectRatio ?? 0, 1,
+            (animated: boolean): void => { this.readerOverlay.close(animated) })
+        },
         onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {
           this.closeSharedReader(param as ReaderOverlayRoute, context, image)
         },
