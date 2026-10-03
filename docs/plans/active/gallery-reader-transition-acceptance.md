@@ -336,7 +336,7 @@ OPEN in the single cross-host work order. No new full replacement claim.
 
 ### Shared navigation and thumbnail checkpoint — 2026-10-03
 
-Current common kit1ef28d39863868b17b6f51ecb48f2c7aad1ccb3e retains animated
+Common kit1ef28d39863868b17b6f51ecb48f2c7aad1ccb3e retains animated
 rail following, repairs native interaction stamps through their own page
 commits/echoes, and removes the redundant arbitrary-chrome animation owner.
 Current Native NextN Slider/thumbnail call turnToReaderPage(target,false);
@@ -346,14 +346,29 @@ existing separate animation path. Shared now directly invokes existing
 seekSource for both chrome callbacks. No new interface/app branch, host
 menu, entry, geometry, cache or default change.
 
-Signed NextE HAP437116df112b6ab06f5185c4a47dd9a4fcafa289412d86eebe4bfd2d926ff1bf
-compiles with the clean full pin; it is not yet installed/runtime-accepted.
-The initial abbreviated fetch failed and the old-pin build is excluded;
-full-SHA fetch and rebuilt artifact are recorded in direct-seek-binding.json
-in the NextN controller-owned ignored artifact root. Current same-HAP NextN
-Native/Shared rapid gestures return the same logical pages (bounded accepted,
-not FPS); Shared slider black-body shrank from29 to4 captured frames, while
-Native also has4. The remaining mount interval is unaccepted; no Shared-only
-retention cause is established. This is not consumer runtime acceptance here.
-The single cross-host work order governs the current simulator continuation;
-full replacement remains OPEN.
+Historical NextE HAP437116df112b6ab06f5185c4a47dd9a4fcafa289412d86eebe4bfd2d926ff1bf
+compiled with that clean pin and was installed by install-r.
+Ordinary production Read source1/124 -> direct Slider63 -> six alternating40000 body swipes63/64 -> restore1 -> Back Detail1. Movie79515540891d2eaa296c8a73dd087679b11ed42075559a631c3952ae6611149f; ordered frames0-431 reviewed through settled Detail. Current root63 com.erosteam.nexte [0,117][1320,2232]. Bounded logical navigation accepted; loading/visual continuity FAILED: image63 and100% overlay coexist231-232; source1 return black+100%345-347 then image348. Prior short-drag routeee03710 did not leave source1 and remains rejected for cross-page evidence; the fresh gate proved Slider geometry unchanged and no moving preview, not a product cause.
+
+Current manifests, layout, screen, original movie/PTS and binding are retained
+under the NextN controller ignored artifact root `.hvigor/outputs/emulator-reader-20261003/`
+(`direct-seek-nexte-corrected-live` and `host-recording/`).
+Initial abbreviated fetch failed and the old-pin build remains excluded.
+Full replacement remains OPEN in the single cross-host work order; existing
+entry/menu/default ownership is unchanged.
+
+The final2026-10-04 common pin is370064c95a5f8f6245afad16117726f33b1d5be7,
+which prepares the bounded current-epoch native animation target before page
+commit. No host-specific branch, selection/progress change or cache-depth
+change. Temporary observation logs removed; failed microtask/cached-drawing
+candidates remain withdrawn. Final signed Debug HAP
+ed607902a6335b44e903f016bada28a4aff99e8bdd44a0cd2d116ac28f0f8780 is installed.
+Ordinary Read1→fast gestures2→3→2→1→Back→reentry1→Back retains Detail1.
+Movie862671040a023bea0f133822d6e52d9332ebe4147b87efb0c183990f61c1f1ea,
+all ordered0-587/17sheets and raw90/205/339 reviewed. Current terminal
+layout/screen proves com.erosteam.nexte [0,117][1320,2232], same Read action.
+Logical route accepted only; image+progress bar90/339 and incoming black205
+remain OPEN. Source preparation was separately observed in the preceding
+diagnostic artifact; it is not a no-black/FPS/Native parity conclusion. The
+single work order now traces the shared image/presentation/loading handoff,
+without changing native menus, entry ownership, defaults or host cache policy.
