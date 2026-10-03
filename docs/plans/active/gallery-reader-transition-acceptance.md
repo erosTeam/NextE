@@ -333,3 +333,14 @@ ON/OFF and skips unchanged writes. Current vertical/continuous motion and
 physical-device FPS are not accepted by these menu/state observations. The
 shared continuous/paged black-body counterexample found in NextN/Koma remains
 OPEN in the single cross-host work order. No new full replacement claim.
+
+### Shared thumbnail page-follow checkpoint — 2026-10-03
+
+Kit286ccdda52e846e024a6d849b009ee6e348b1a38 restores the lost List animation
+and duplicate-target guard in ReaderThumbnailRail only. Signed NextE HAP
+SHA256 ab8c487bfa2af82b90f4418b70ca030eef7a41d5733c8bc6fb4d12fc763bc58b
+compiles; this pin has not been installed/runtime-accepted in NextE. The
+current NextN same-HAP pair observes animated committed-page following but
+rejects rapid alternating navigation (Shared32 versus Native30). The shared
+owner remains active in the single cross-host work order. No NextE-specific
+source, geometry, menu, entry or default change. Full replacement stays OPEN.
