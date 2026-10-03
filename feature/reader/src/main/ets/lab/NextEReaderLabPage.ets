@@ -1,13 +1,14 @@
+import { ReaderModeControl } from '../components/ReaderModeControl'
 import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
   ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy,
-  ReaderTemporaryVariantControl } from '@reader-kit/ui'
+  ReaderTemporaryVariantControl, ReaderModeControlParams } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
-  GalleryReadProgressSettings, ReadMode, readerSuperResolutionSetInteractionPaused, AppStrings,
+  GalleryReadProgressSettings, ReadMode, ReadSpreadLayout, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
   ReaderThumbnailTransitionCoordinator, connectReaderThumbnailTransition, ReaderThumbnailTransitionState,
   connectImageBlockSettings, DiagnosticLogger, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
@@ -764,11 +765,54 @@ export struct NextEReaderLabPage {
       this.closeRequested || this.hostClosing) return
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     if (intent === 'layout') void NextEReaderRuntimePreferences.applyLayout(context, policy)
+    else if (intent === 'reading_mode') void NextEReaderRuntimePreferences.applyReadingMode(context, policy)
     else if (intent === 'direction') void NextEReaderRuntimePreferences.applyDirection(context, policy)
     else if (intent === 'spread_layout') void NextEReaderRuntimePreferences.applySpreadLayout(context, policy)
     else if (intent === 'first_page_alone') {
       NextEReaderRuntimePreferences.applyFirstPageAlone(context, this.request.work, policy)
     }
+  }
+
+  /** Publish canonical settings into the existing session without replacing its surface. */
+  @Monitor('readMode.mode', 'readMode.doublePageEnabled', 'readMode.spreadLayoutMode')
+  private syncHostModePreferences(): void {
+    if (!this.request.productionSources || this.session === null || this.closeRequested || this.hostClosing ||
+      this.labRequest?.entryLayoutOverride || this.labRequest?.entryDirectionOverride) return
+    const current = this.session.snapshot().policy
+    const mode = this.readMode.mode
+    const horizontal = mode === ReadMode.LTR || mode === ReadMode.RTL
+    const layout = mode === ReadMode.VERTICAL ? 'continuous' :
+      horizontal && this.readMode.doublePageEnabled ? 'spread' : 'single'
+    const axis = mode === ReadMode.TOP_TO_BOTTOM ? 'vertical' : 'horizontal'
+    const direction = mode === ReadMode.RTL ? 'rtl' : 'ltr'
+    const spreadLayout = this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT ? 'split' : 'joined'
+    if (current.layout === layout && current.pagingAxis === axis && current.direction === direction &&
+      current.spreadLayout === spreadLayout) return
+    const next = current.copy()
+    next.layout = layout
+    next.pagingAxis = axis
+    next.direction = direction
+    next.spreadLayout = spreadLayout
+    this.session.setPolicy(next)
+  }
+
+  @Builder
+  private HostModeControl(params: ReaderModeControlParams) {
+    ReaderModeControl({
+      readerMode: params.policy.layout === 'continuous' ? ReadMode.VERTICAL :
+        params.policy.pagingAxis === 'vertical' ? ReadMode.TOP_TO_BOTTOM :
+          params.policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR,
+      controlEnabled: params.enabled,
+      onModeChange: (mode: string): void => {
+        const policy = params.policy.copy()
+        policy.layout = mode === ReadMode.VERTICAL ? 'continuous' :
+          mode === ReadMode.TOP_TO_BOTTOM ? 'single' : this.readMode.doublePageEnabled ? 'spread' : 'single'
+        policy.pagingAxis = mode === ReadMode.TOP_TO_BOTTOM ? 'vertical' : 'horizontal'
+        policy.direction = mode === ReadMode.RTL ? 'rtl' : 'ltr'
+        params.onChange(policy)
+      },
+      onMenuVisible: (visible: boolean): void => { params.onMenuVisible(visible) },
+    })
   }
 
   private persistCrop(enabled: boolean, policy: ReaderDisplayPolicy): void {
@@ -980,6 +1024,7 @@ export struct NextEReaderLabPage {
         if (this.session !== null) {
           if (this.request.readingChrome) {
             ReaderSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
+              modeControl: (params: ReaderModeControlParams): void => { this.HostModeControl(params) },
               imageInterpolation: this.readMode.imageScalingQuality === 'low' ? ImageInterpolation.Low :
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),

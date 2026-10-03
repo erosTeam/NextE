@@ -31,6 +31,14 @@ export class NextEReaderRuntimePreferences {
     if (connectReadMode().mode !== mode) await ReadModeSettings.setMode(context, mode)
   }
 
+  /** A direction choice never changes the independent double-page preference. */
+  static async applyReadingMode(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
+    const mode = policy.layout === 'continuous' ? ReadMode.VERTICAL :
+      policy.pagingAxis === 'vertical' ? ReadMode.TOP_TO_BOTTOM :
+        policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR
+    if (connectReadMode().mode !== mode) await ReadModeSettings.setMode(context, mode)
+  }
+
   static async applySpreadLayout(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
     const layout = policy.spreadLayout === 'split' ? ReadSpreadLayout.SPLIT : ReadSpreadLayout.JOINED
     if (connectReadMode().spreadLayoutMode !== layout) {

@@ -304,3 +304,32 @@
 6. 打开中途逆向、详情滚动后的回程。
 7. 重复当前路径，再执行适用的布局与入口矩阵。
 8. 最终反证复查：主动寻找任何违反既有约束的帧。证据缺失或含糊时不得宣布通过。
+
+
+## 2026-10-03 — native mode control reuse — menu accepted, replacement OPEN
+
+Current clean kitbd392c0 lost the old kit1afe5e7 host modeControl port and
+ReadingModeMenu when NextNf34b0732 selected a48e119. The current NextN
+same-state ordinary source38 capture proves the bottom control opens a mixed
+RuntimeMenu; earlier capability mapping is not menu parity. This slice restores
+only the existing host mode port and reuses each app's exact native button/menu
+between its Legacy and Shared backends. No core/pager/rail/image/loading/entry
+change. N/E four absolute directions retain independent double-page preference;
+Koma retains its four page modes. Source candidate and three-consumer builds
+precede finite same-state emulator menu/live-update/return acceptance. Full
+replacement remains OPEN; no physical target or defaults changed.
+
+Current kitbcac6b8 and signed HAP
+`a98574c813a8264ce97b3c62af59d36035829845133569c72b10b782f285ef00`
+were installed with install-r. The ordinary Non-H Detail4203217 -> Read1
+shared gate and same-HAP process-local Legacy1 reference both show exactly
+four native direction labels/icons/LTR check, same1320x2232 viewport. Shared
+RTL selection updates its button, check and reverse slider without re-entry;
+LTR was restored before return to Detail1. Raw evidence is under the existing
+`.hvigor/outputs/emulator-reader-20261003/` mode-control gates and binding.
+Native controls remain host-owned; no navigation/pager/loading/image/rail change.
+The preference method preserves all non-mode fields for independent spread
+ON/OFF and skips unchanged writes. Current vertical/continuous motion and
+physical-device FPS are not accepted by these menu/state observations. The
+shared continuous/paged black-body counterexample found in NextN/Koma remains
+OPEN in the single cross-host work order. No new full replacement claim.

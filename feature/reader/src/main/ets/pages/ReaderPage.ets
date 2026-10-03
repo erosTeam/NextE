@@ -1,3 +1,4 @@
+import { ReaderModeControl } from '../components/ReaderModeControl'
 import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
@@ -292,7 +293,6 @@ export struct ReaderPage {
   @Local currentImageBlocked: boolean = false;
   @Local imageBlockRuleVersion: number = 0;
   @Local imageBlockActionMenuShown: boolean = false;
-  @Local readModeMenuShown: boolean = false;
   @Local readerTopMoreMenuShown: boolean = false;
   @Local comicTranslationRunning: boolean = false;
   @Local comicTranslationPrefetchRunning: boolean = false;
@@ -3939,41 +3939,10 @@ export struct ReaderPage {
     return index >= this.verticalVisibleStart && index <= this.verticalVisibleEnd
   }
 
-  private modeLabel(): Resource {
-    if (this.readMode.mode === ReadMode.RTL) {
-      return $r('app.string.read_mode_rtl')
-    }
-    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('app.string.read_mode_ttb')
-    }
-    if (this.readMode.mode === ReadMode.VERTICAL) {
-      return $r('app.string.read_mode_vertical')
-    }
-    return $r('app.string.read_mode_ltr')
-  }
-
-  private modeIconFor(mode: string): Resource {
-    if (mode === ReadMode.RTL) {
-      return $r('sys.symbol.arrow_left_and_square')
-    }
-    if (mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('sys.symbol.square_and_arrow_down_1')
-    }
-    if (mode === ReadMode.VERTICAL) {
-      return $r('sys.symbol.scroll_vertical')
-    }
-    return $r('sys.symbol.arrow_right_and_square')
-  }
-
-  private modeIcon(): Resource {
-    return this.modeIconFor(this.readMode.mode)
-  }
-
   private setReaderMode(mode: string): void {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setMode(ctx, mode)
-    this.readModeMenuShown = false
   }
 
   private doublePageIconColor(): ResourceColor {
@@ -4379,52 +4348,6 @@ export struct ReaderPage {
   }
 
   @Builder
-  ReaderModeMenu() {
-    Menu() {
-      MenuItem({
-        content: $r('app.string.read_mode_ltr'),
-        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.LTR)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.LTR
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setReaderMode(ReadMode.LTR)
-      })
-      MenuItem({
-        content: $r('app.string.read_mode_rtl'),
-        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.RTL)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.RTL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setReaderMode(ReadMode.RTL)
-      })
-      MenuItem({
-        content: $r('app.string.read_mode_ttb'),
-        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.TOP_TO_BOTTOM)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.TOP_TO_BOTTOM
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setReaderMode(ReadMode.TOP_TO_BOTTOM)
-      })
-      MenuItem({
-        content: $r('app.string.read_mode_vertical'),
-        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.VERTICAL)),
-        symbolEndIcon:
-          this.readMode.mode === ReadMode.VERTICAL
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-      }).onClick(() => {
-        this.setReaderMode(ReadMode.VERTICAL)
-      })
-    }
-  }
-
-  @Builder
   ReaderImageBlockActionMenu() {
     Menu() {
       MenuItem({ content: $r('app.string.reader_image_block_mark') })
@@ -4764,24 +4687,9 @@ export struct ReaderPage {
           .onClick(() => {
             this.toggleDoublePage()
           })
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph(this.modeIcon())
-              .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([Color.White])
-          }
-          .width(READER_CHROME_ACTION_SIZE)
-          .height(READER_CHROME_ACTION_SIZE)
-          .backgroundColor(Color.Transparent)
-          .accessibilityText(this.modeLabel())
-          .onClick(() => {
-            this.readModeMenuShown = true
+          ReaderModeControl({ readerMode: this.readMode.mode,
+            onModeChange: (mode: string): void => { this.setReaderMode(mode) },
           })
-          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, appMenuOptions({
-            placement: Placement.TopRight,
-            onDisappear: () => {
-              this.readModeMenuShown = false
-            },
-          }))
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
