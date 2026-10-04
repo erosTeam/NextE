@@ -713,7 +713,8 @@ export struct NextEReaderLabPage {
 
   @Builder
   private ReaderOpeningPlaceholder() {
-    if (this.readerThumbnailTransition.readerOpeningProxyVisible() &&
+    if ((this.readerThumbnailTransition.readerOpeningProxyVisible() ||
+      (this.rootOwnedEntryTarget && this.readerThumbnailTransition.opening())) &&
       this.readerThumbnailTransition.sourceSnapshot !== undefined) {
       Image(this.readerThumbnailTransition.sourceSnapshot)
         .width(this.readerThumbnailTransition.proxyWidth)
@@ -727,9 +728,6 @@ export struct NextEReaderLabPage {
         .id('nexte-reader-opening-placeholder')
         .onAreaChange((): void => { this.logNormalEntryGeometry('proxy-handoff') })
         .opacity(this.readerThumbnailTransition.openingProxyOpacity)
-        // Keep the click-time pixels above the selected image's entry-opacity
-        // animation until the root handoff releases this placeholder.
-        .zIndex(1)
         .hitTestBehavior(HitTestMode.None)
     }
   }

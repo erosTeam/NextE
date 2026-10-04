@@ -116,12 +116,6 @@ export class ReaderThumbnailTransitionState {
   }
 
   readerOpeningProxyVisible(): boolean {
-    // The root-owned path can keep its top-level source proxy above Reader
-    // while the selected original composes; its inner placeholder must yield
-    // first, otherwise both proxies disappear in the same handoff frame.
-    if (this.rootCloseProxy) {
-      return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF
-    }
     return this.phase === ReaderThumbnailTransitionPhase.OPEN_PROXY_HANDOFF ||
       this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
       this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF
@@ -145,9 +139,10 @@ export class ReaderThumbnailTransitionState {
   }
 
   rootProxyVisible(): boolean {
-    return this.targetVisible() || (this.rootCloseProxy &&
-      (this.phase === ReaderThumbnailTransitionPhase.WAITING_READER_CONTENT ||
-        this.phase === ReaderThumbnailTransitionPhase.OPEN_HANDOFF || this.closingProxyVisible()))
+    // The Reader placeholder is already mounted at OPEN_PROXY_HANDOFF. After
+    // that frame, it owns waiting pixels below loading/chrome, as in Legacy.
+    // Root ownership of the independent return proxy is unchanged.
+    return this.targetVisible() || (this.rootCloseProxy && this.closingProxyVisible())
   }
 
   closeProxyOwnedByRoot(): boolean {
