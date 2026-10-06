@@ -971,7 +971,7 @@ struct Index {
     if (context !== null && image !== null && context.unit.work === readerGalleryId) {
       this.readerThumbnailTransition.updateCurrent(readerGalleryId, context.part.sourceIndex, image)
     }
-    const sourceId = context !== null && image !== null
+    const sourceId = request?.thumbnailEntry === true && context !== null && image !== null
       ? ReaderThumbnailTransitionCoordinator.sourceId(this.readerThumbnailTransition.sourceScope,
         context.part.sourceIndex)
       : this.readerEntryClaim?.source.snapshotComponentId ?? 'nexte-reader-entry-host'
@@ -1112,8 +1112,12 @@ struct Index {
   }
 
   private readerTrialRootPresentationSettled(): boolean {
+    const request = this.readerTrialRequest
+    if (!this.readerTrialHostAlive || this.readerTrialCloseRequested || this.readerTrialClosing !== null ||
+      request === null || !request.readingChrome || !this.readerEntryVisibility.foreground ||
+      (!request.thumbnailEntry && !this.readerTrialDestinationShown)) return false
     const root = this.readerThumbnailTransition
-    const galleryId = this.readerTrialRequest?.work ?? ''
+    const galleryId = request.work
     return root.galleryId !== galleryId || !root.active() || root.presentationSettledFor(galleryId)
   }
 
@@ -1161,7 +1165,7 @@ struct Index {
         prepareChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareReaderTrialChrome(isCurrent),
         onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible, (): boolean =>
           this.readerTrialRequest === _param && this.readerTrialHostAlive &&
-          !this.readerTrialCloseRequested && this.readerEntryVisibility.foreground) },
+          !this.readerTrialCloseRequested) },
         entryTransition: this.readerEntryTransition, entryPreview: this.readerEntryPreview,
         entryPhase: this.readerEntryTransition?.phase ?? 'finished',
         onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {

@@ -986,7 +986,7 @@ export struct NextEReaderLabPage {
     const statusVisible = !connectReadMode().fullscreen || visible
     if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible, (): boolean =>
       !this.volumeDisposed && !this.closeRequested && !this.hostClosing)
-    else if (this.entryWindowReady()) this.onStatusBarVisible(statusVisible)
+    else this.onStatusBarVisible(statusVisible)
   }
 
   private async prepareChromeShow(isCurrent: () => boolean): Promise<boolean> {
