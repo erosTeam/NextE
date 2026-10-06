@@ -960,7 +960,8 @@ export struct NextEReaderLabPage {
   }
 
   private rootWindowPresentationSettled(): boolean {
-    if (this.volumeDisposed || this.closeRequested || this.hostClosing) return false
+    if (this.volumeDisposed || this.closeRequested || this.hostClosing ||
+      !this.routeActive || !this.labVisibility.foreground) return false
     const root = this.readerThumbnailTransition
     return root.galleryId !== this.request.work || !root.active() || root.presentationSettledFor(this.request.work)
   }
@@ -982,11 +983,10 @@ export struct NextEReaderLabPage {
 
   private syncChromeVisible(visible: boolean): void {
     if (visible) return // The before-show gate already applied host visibility.
-    if (!this.entryWindowReady()) return
     const statusVisible = !connectReadMode().fullscreen || visible
     if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible, (): boolean =>
-      !this.volumeDisposed && !this.closeRequested && !this.hostClosing && this.routeActive && this.labVisibility.foreground)
-    else this.onStatusBarVisible(statusVisible)
+      !this.volumeDisposed && !this.closeRequested && !this.hostClosing)
+    else if (this.entryWindowReady()) this.onStatusBarVisible(statusVisible)
   }
 
   private async prepareChromeShow(isCurrent: () => boolean): Promise<boolean> {
@@ -1166,9 +1166,9 @@ export struct NextEReaderLabPage {
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
     .systemBarStyle(readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF'),
+      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible()),
       readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF'))
+        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible()))
     .hideTitleBar(this.request.readingChrome)
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false

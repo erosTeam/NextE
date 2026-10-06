@@ -1125,7 +1125,8 @@ struct Index {
   private readerTrialNavigationSystemBarStyle(): window.SystemBarStyle {
     return readerEntryStatusBarStyle(this.readerEntryTransition,
       this.readerTrialHostAlive && !this.readerTrialCloseRequested && this.readerTrialRootPresentationSettled(),
-      connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF')
+      connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF',
+      this.readerTrialWindow?.statusBarVisible() ?? true)
   }
 
   private prepareReaderTrialWindow(): void {
