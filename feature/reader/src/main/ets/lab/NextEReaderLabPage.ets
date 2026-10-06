@@ -939,7 +939,7 @@ export struct NextEReaderLabPage {
       }
     }
     this.rootEntryHandoff.sync(entry, this.routeActive && !this.closeRequested && !this.hostClosing,
-      this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost())
+      this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost(), this.session?.snapshot() ?? null)
   }
 
   aboutToDisappear(): void {
