@@ -400,3 +400,36 @@ remain OPEN. Source preparation was separately observed in the preceding
 diagnostic artifact; it is not a no-black/FPS/Native parity conclusion. The
 single work order now traces the shared image/presentation/loading handoff,
 without changing native menus, entry ownership, defaults or host cache policy.
+
+## Current embedded Debug root-owner correction (2026-10-07)
+
+The bounded consistency work order remains in NextN
+`docs/plans/active/shared-reader-replacement-work-order.md`. Current E
+source0b526d3f/HAP56692845 full Debug thumbnail movie d54b59d7
+(original0–574, all16 sheets, raw73/109/235/236) is failed QA:
+source spinner72–90, internal zoom94–107, white icons109 and black return235–236.
+Same DetailP3/root1320x2232 and current close-layout success do not accept it.
+
+Before edit, the source map identifies Debug's awaited second snapshot and
+ReaderSurface entryPreview, while ordinary entry uses synchronous openClaimed
+and ReaderRootEntryHandoff. The Debug navigation is opaque and drawn above
+the root return proxy, with an independent140ms opacity animation. Remove
+that duplicate E preview path; reuse the existing root handoff and its
+overlayOpacity, drawing the proxy after either reader navigation. No root
+size, radius, eligibility, shared source or return measurement changes.
+Fallback reuses the existing destinationShown gate. Keep the parent Window
+lease, initial hidden intent, background-cancels guard and system-area/color
+restoration before measuring the current return target. No native pending
+cancel/fallback acceptance inferred.
+
+The exact three source files and required existing V1 inventory were reviewed;
+current d7cdffba signed build succeeded. The non-owned destination now reads
+parent SystemBarStyle; owned ordinary style is unchanged. Fallback reuses
+ordinary startOpening/destinationShown without copied intent or an extra writer.
+Initial728/0960cf47 is retained FAILED QA: root intentionally hides source, but
+old finishSourceEntryPending re-authorized after departure and closed. Remove
+only that redundant check; sole root authorization remains before departure,
+with source identity/epoch/environment guards retained. Ordinary N embedded
+content has no child destination color writer and is unaffected.
+
+Current Ed7cdffba/e4a626f5 full original0–574/all16 reviewed (stale0–3 excluded): source4–107/root108+/proxy130–132/original133; icons189 before tools192/hide243; retained body279–281/reverse282–300/same DetailP3 from301. Both actual chrome events and hidden close_layout_ready=true precede restored colors. Current entry cancelled during moving; no current reason log, so only named cancelled-entry handoff accepted, not normal-finished geometry. Current same-HAP no-thumbnail0c1c5719 full0–668/all19 (stale0–2 excluded): source3–74/loading75–136/original137, icons202/tools206/hide279/body324–325/same DetailP3 from326; current07:07 ready14.995 before restored14.997. This accepts only explicit Debug loading/body/chrome/current-root return, not ordinary animation/FPS/unhit branches. Actual source/root/ContinueP3 retained; original timeout30000 read back07:12:51. No further pause tuning, frozen replay or new capability queue. Exact scoped checkpoint and existing-row disposition follow.

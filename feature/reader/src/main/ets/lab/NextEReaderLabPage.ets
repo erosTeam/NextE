@@ -5,6 +5,7 @@ import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn,
   ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy,
   ReaderTemporaryVariantControl, ReaderModeControlParams } from '@reader-kit/ui'
 import { common } from '@kit.AbilityKit'
+import { window } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
@@ -17,7 +18,7 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
   ReaderAssetProvider, ReaderImageInformation,
   ReaderPage } from '@reader-kit/core'
-import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase, ReaderEntryPreviewSource,
+import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
 import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle, ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
@@ -78,14 +79,15 @@ export struct NextEReaderLabPage {
   @BuilderParam settingsSheetContent: (dismiss: () => void) => void
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
-  @Param entryPreview: ReaderEntryPreviewSource | null = null
   /** The root proxy re-checks the exact live source before departure. */
   @Param entryDepartureGuard: ((entryId: number) => boolean) | null = null
-  /** Production forward flight: root proxy lands on reader-kit's selected image part. */
+  /** Root forward flight lands on reader-kit's selected image part. */
   @Param rootOwnedEntryTarget: boolean = false
   @Param entrySite: string = ''
   @Param entryParams: ReaderParams | null = null
   @Param managesTrialWindow: boolean = true
+  /** A delegated destination consumes its sole Window owner's style. */
+  @Param delegatedSystemBarStyle: window.SystemBarStyle | undefined = undefined
   @Param hostClosing: boolean = false
   @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
   /** A production Back can synchronously return the opening proxy to its source. */
@@ -951,7 +953,7 @@ export struct NextEReaderLabPage {
     this.enhancementInteractionTimer = -1
     readerSuperResolutionSetInteractionPaused(false)
     this.keepScreenOn?.close()
-    this.entryTransition?.cancel(); this.entryPreview?.release()
+    this.entryTransition?.cancel()
     this.volumeKeys.close()
     if (this.request.progressReadWrite) {
       GalleryReadProgressSettings.flush(this.getUIContext().getHostContext() as common.UIAbilityContext)
@@ -1116,7 +1118,7 @@ export struct NextEReaderLabPage {
                   this.persistRuntimePolicy(policy, intent)
                 },
                 (enabled: boolean, policy: ReaderDisplayPolicy): void => { this.persistCrop(enabled, policy) }),
-              entryTransition: this.entryTransition, entryPreview: this.entryPreview,
+              entryTransition: this.entryTransition,
               onAssetPresented: (slotId: number, requestId: number, success: boolean, width: number, height: number): void => {
                 this.recordProductionEntryPartPresentation(slotId, requestId, success, width, height)
               },
@@ -1165,10 +1167,12 @@ export struct NextEReaderLabPage {
         }),
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
-    .systemBarStyle(readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible()),
-      readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible()))
+    .systemBarStyle(this.managesTrialWindow ? readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
+      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible())
+        : this.delegatedSystemBarStyle,
+      this.managesTrialWindow ? readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
+        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible())
+        : this.delegatedSystemBarStyle)
     .hideTitleBar(this.request.readingChrome)
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false

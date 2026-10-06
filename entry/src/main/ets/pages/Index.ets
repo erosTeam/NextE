@@ -2,7 +2,7 @@ import { ReaderTrialLayoutCommit, ReaderCloseContext } from '@reader-kit/ui'
 import { AppStrings } from 'shared'
 import { NextEProductionReaderRequest, NextEReaderLabPage } from 'reader'
 import { ReaderLabLaunchState, ReaderLabRequest, connectReaderLabLaunch } from '@reader-kit/ui'
-import { ReaderEntryTransition, ReaderEntryPhase, ReaderEntryPreviewSource, ReaderEntryRect, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle,
+import { ReaderEntryTransition, ReaderEntryPhase, ReaderEntryRect, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle,
   ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
 import { ReaderDisplayPart, ReaderUnitKey } from '@reader-kit/core'
 import { ReaderTrialEntryRelay, ReaderTrialEntrySource, ReaderTrialEntryProbe, SiteModeState } from 'shared'
@@ -669,7 +669,6 @@ struct Index {
   @Local private readerTrialEpoch: number = 0
   private readerTrialStack: NavPathStack = new NavPathStack()
   @Local private readerEntryTransition: ReaderEntryTransition | null = null
-  @Local private readerEntryPreview: ReaderEntryPreviewSource | null = null
   @Local private readerEntryClaim: IndexReaderEntryClaim | null = null
   private readerEntryParams: ReaderParams | null = null
   @Local private readerEntryVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
@@ -907,8 +906,8 @@ struct Index {
       ReaderTrialEntryProbe.phase(this.readerEntryTransition.entryId, phase)
     }
     if (this.readerEntryTransition !== null && phase !== 'layout') {
-      const claim = this.readerEntryClaim
-      if (claim !== null && !this.authorizeReaderEntryDeparture(claim, claim.epoch)) return
+      // Root handoff authorized before hiding the source. Its intentional
+      // sourceHidden state is no longer a departure eligibility check.
       this.readerEntryClaim = null
     }
   }
@@ -939,7 +938,7 @@ struct Index {
       this.readerTrialRequest === null || !this.readerTrialRequest.readingChrome ||
       !this.readerEntryVisibility.foreground ||
       !readerEntryWindowReady(this.readerEntryTransition, this.readerTrialRootPresentationSettled())) return
-    if (!this.readerTrialRequest.thumbnailEntry && !this.readerTrialDestinationShown) return
+    if (this.readerEntryTransition === null && !this.readerTrialDestinationShown) return
     if (!this.ctx().applicationInfo.debug) return
     this.readerTrialWindowOpened = true
     lease.open(this.ctx())
@@ -1042,16 +1041,14 @@ struct Index {
     ReaderTrialEntryProbe.hostRemoved()
     this.readerTrialRequest = null
     this.readerEntryTransition?.cancel()
-    this.readerEntryPreview?.release()
     this.readerTrialStack.clear(false)
     this.readerEntryTransition = null
-    this.readerEntryPreview = null
     this.readerEntryParams = null
     this.readerTrialSite = ''
     this.readerThumbnailTransition.reset()
   }
 
-  private async openThumbnailTrial(request: ReaderLabRequest, source: ReaderTrialEntrySource): Promise<void> {
+  private openThumbnailTrial(request: ReaderLabRequest, source: ReaderTrialEntrySource): void {
     const epoch = ++this.readerEntryEpoch
     if (!source.isCurrent() || source.site !== this.currentReaderEntrySite()) return
     this.readerTrialEntryGuardToken = ReaderTrialEntryRelay.holdPending(source.site, source.galleryId, (): boolean => {
@@ -1063,7 +1060,7 @@ struct Index {
     ReaderTrialEntryProbe.begin(epoch, source.site, source.galleryId, source.pageIndex,
       source.sourceComponentId, snapshotSource !== null && snapshotSource.isCurrent())
     if (snapshotSource === null || !snapshotSource.isCurrent()) {
-      this.presentThumbnailTrial(request, source, null, epoch)
+      this.presentThumbnailTrial(request, source, epoch)
       return
     }
     let sourceRect = new ReaderEntryRect()
@@ -1073,49 +1070,46 @@ struct Index {
       viewport = this.readerEntryRect('nexte-reader-entry-host')
     } catch (_) {}
     if (!sourceRect.valid() || !viewport.valid()) {
-      this.presentThumbnailTrial(request, source, null, epoch)
+      this.presentThumbnailTrial(request, source, epoch)
       return
     }
     const claim = new IndexReaderEntryClaim(epoch, this.navStackHolder.navigationRevision, source, sourceRect, viewport)
     this.readerEntryClaim = claim
-    // Sprite cells are complete EH page thumbnails. The legacy whole-image Cover
-    // branch may still be cropped, so it must not claim whole-page geometry.
-    const contentKind = snapshotSource.spriteWidth > 0 && snapshotSource.thumbWidth > 0 &&
-      snapshotSource.thumbHeight > 0 ? 'whole-page' : 'unknown'
-    const preview = await NextEReaderEntryPreviewCapture.capture(this.getUIContext(),
-      source.snapshotComponentId, contentKind,
-      (entryId: number): boolean => this.authorizeReaderEntryDeparture(claim, entryId))
-    if (!this.authorizeReaderEntryDeparture(claim, epoch)) {
-      preview?.release()
-      return
-    }
-    this.presentThumbnailTrial(request, source, preview, epoch)
+    this.presentThumbnailTrial(request, source, epoch)
   }
 
   private presentThumbnailTrial(request: ReaderLabRequest, source: ReaderTrialEntrySource,
-    preview: ReaderEntryPreviewSource | null, epoch: number): void {
-    ReaderTrialEntryProbe.captured(epoch, preview !== null)
-    ReaderTrialEntryProbe.phase(epoch, preview === null ? 'fallback' : 'layout')
+    epoch: number): void {
     this.retireReaderTrialWindow()
     request.pageIndex = source.pageIndex
     this.readerTrialSite = source.site
     this.readerEntryParams = source.params
-    this.readerEntryPreview = preview
-    this.readerEntryTransition = preview === null ? null : new ReaderEntryTransition(epoch,
+    this.readerEntryTransition = this.readerEntryClaim === null ? null : new ReaderEntryTransition(epoch,
       new ReaderDisplayPart(new ReaderUnitKey(source.site, request.work, request.work), null, source.pageIndex))
-    if (preview === null) this.readerEntryClaim = null
-    ReaderThumbnailTransitionCoordinator.armSharedReturn(this.getUIContext(), source)
-    this.readerTrialStack.clear(false)
-    this.readerTrialRequest = request
-    this.readerTrialEpoch += 1
-    this.prepareReaderTrialWindow()
+    // Ordinary and embedded entry share one synchronous source snapshot and
+    // the same root flight. Reader only reports the selected part's geometry.
+    ReaderThumbnailTransitionCoordinator.openClaimed(this.getUIContext(), source.sourceScope(),
+      source.galleryId, source.pageIndex, source.identity.image(), source.params, true,
+      (_animated: boolean): void => {
+        const captured = this.readerThumbnailTransition.waitingReader()
+        if (!captured) {
+          this.readerEntryTransition = null
+          this.readerEntryClaim = null
+        }
+        ReaderTrialEntryProbe.captured(epoch, captured)
+        ReaderTrialEntryProbe.phase(epoch, this.readerEntryTransition === null ? 'fallback' : 'layout')
+        this.readerTrialStack.clear(false)
+        this.readerTrialRequest = request
+        this.readerTrialEpoch += 1
+        this.prepareReaderTrialWindow()
+      })
   }
 
   private readerTrialRootPresentationSettled(): boolean {
     const request = this.readerTrialRequest
     if (!this.readerTrialHostAlive || this.readerTrialCloseRequested || this.readerTrialClosing !== null ||
       request === null || !request.readingChrome || !this.readerEntryVisibility.foreground ||
-      (!request.thumbnailEntry && !this.readerTrialDestinationShown)) return false
+      (this.readerEntryTransition === null && !this.readerTrialDestinationShown)) return false
     const root = this.readerThumbnailTransition
     const galleryId = request.work
     return root.galleryId !== galleryId || !root.active() || root.presentationSettledFor(galleryId)
@@ -1155,10 +1149,14 @@ struct Index {
       NextEReaderLabPage({ request: _param as ReaderLabRequest, labRequest: _param as ReaderLabRequest,
         settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
         managesTrialWindow: false, entrySite: this.readerTrialSite,
+        delegatedSystemBarStyle: this.readerTrialNavigationSystemBarStyle(),
         entryParams: this.readerEntryParams,
         onShown: (): void => {
           if (this.readerTrialRequest !== _param) return
           this.readerTrialDestinationShown = true
+          if (this.readerEntryTransition === null) {
+            ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), (_param as ReaderLabRequest).work)
+          }
           this.syncReaderTrialWindow()
         },
         hostClosing: this.readerTrialCloseRequested,
@@ -1166,7 +1164,10 @@ struct Index {
         onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible, (): boolean =>
           this.readerTrialRequest === _param && this.readerTrialHostAlive &&
           !this.readerTrialCloseRequested) },
-        entryTransition: this.readerEntryTransition, entryPreview: this.readerEntryPreview,
+        entryTransition: this.readerEntryTransition,
+        rootOwnedEntryTarget: this.readerEntryTransition !== null,
+        entryDepartureGuard: (entryId: number): boolean => this.readerEntryClaim !== null &&
+          this.authorizeReaderEntryDeparture(this.readerEntryClaim, entryId),
         entryPhase: this.readerEntryTransition?.phase ?? 'finished',
         onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {
           this.closeReaderTrial(context, image)
@@ -1203,7 +1204,7 @@ struct Index {
             !this.readerEntryVisibility.foreground || launchSite !== this.currentReaderEntrySite() ||
             this.readerTrialClosing !== null || this.readerTrialRequest !== null ||
             this.readerOverlay.visible || this.securitySettings.locked || this.safeMode.restricted()) return false
-          void this.openThumbnailTrial(request, source)
+          this.openThumbnailTrial(request, source)
           return true
         })
       this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(request.work, request.unit))
@@ -1369,7 +1370,6 @@ struct Index {
     this.readerEntryClaim = null
     this.retireReaderTrialEntryGuard()
     this.readerEntryEpoch += 1
-    this.readerEntryPreview?.release()
     ReaderTrialEntryRelay.clear(this.readerEntryToken)
     ReaderTrialEntryRelay.clearProduction(this.productionReaderEntryToken)
     this.productionReaderEntryToken = 0
@@ -2284,7 +2284,6 @@ struct Index {
           ? this.productionReaderEntryTransition : null,
         // The root proxy owns the sole source snapshot. The live claim guards
         // departure without a second in-content or asynchronous capture.
-        entryPreview: null,
         entryDepartureGuard: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
           ? (entryId: number): boolean => this.authorizeCurrentProductionReaderEntryDeparture(entryId) : null,
         rootOwnedEntryTarget: this.productionReaderEntryMatches(param as ReaderOverlayRoute),
@@ -3091,27 +3090,20 @@ struct Index {
         })
         .id('reader-overlay-navigation')
       }
-      IndexReaderThumbnailTransitionProxy({ state: this.readerThumbnailTransition })
       if (this.readerTrialRequest !== null) {
         ForEach([this.readerTrialEpoch], (_epoch: number) => {
           HdsNavigation(this.readerTrialStack) { Column() {} }
             .navDestination(this.readerTrialRouter).hideNavBar(true)
             .systemBarStyle(this.readerTrialNavigationSystemBarStyle(), this.readerTrialNavigationSystemBarStyle())
-            .width('100%').height('100%').backgroundColor(Color.Black)
-            .opacity(this.readerThumbnailTransition.closingProxyVisible()
-              ? this.readerThumbnailTransition.overlayOpacity
-              : this.readerEntryTransition !== null && this.readerEntryTransition.phase === 'layout' ? 0 : 1)
+            .width('100%').height('100%').backgroundColor(Color.Transparent)
+            .opacity(this.readerThumbnailTransition.overlayOpacity)
             .hitTestBehavior(this.readerEntryTransition !== null && this.readerEntryTransition.phase === 'layout'
               ? HitTestMode.None : HitTestMode.Default)
-            .animation({ duration: 140, curve: Curve.EaseOut })
             .onAppear((): void => { this.readerTrialStack.pushPathByName('ReaderTrial', this.readerTrialRequest as ReaderLabRequest, false) })
             .id('rkit-trial-navigation')
         }, (epoch: number): string => `${epoch}`)
       }
-      if (this.readerEntryClaim !== null) {
-        IndexReaderEntryPendingOverlay({ sourceRect: this.readerEntryClaim.sourceRect,
-          onViewportChanged: (): void => { if (this.readerEntryClaim !== null) this.closeReaderTrial() } })
-      }
+      IndexReaderThumbnailTransitionProxy({ state: this.readerThumbnailTransition })
       if (this.productionReaderEntryClaim !== null && this.productionReaderEntryTransition === null) {
         IndexReaderEntryPendingOverlay({ sourceRect: this.productionReaderEntryClaim.sourceRect,
           onViewportChanged: (): void => {
