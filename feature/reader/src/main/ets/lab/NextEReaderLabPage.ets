@@ -1,5 +1,5 @@
 import { ReaderModeControl } from '../components/ReaderModeControl'
-import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy,
+import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy, ReaderTapZonePreviewRegion,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
   ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy,
@@ -105,6 +105,7 @@ export struct NextEReaderLabPage {
   @Local private labVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
   @Local private readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
   @Local private chromeRepublishToken: number = 0
+  @Local private tapZonePreviewRevision: number = 0
   @Local private readMode: ReadModeState = connectReadMode()
   @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay()
   @Local private routeActive: boolean = false
@@ -855,6 +856,23 @@ export struct NextEReaderLabPage {
     return 'menu'
   }
 
+  private tapZonePreviewRegions(): ReaderTapZonePreviewRegion[] {
+    const continuous = this.session?.snapshot().policy.layout === 'continuous'
+    return ReaderTapZoneResolver.regions(
+      continuous ? this.readMode.tapZoneLayoutContinuous : this.readMode.tapZoneLayoutPaged,
+      continuous ? this.readMode.tapZoneInvertContinuous : this.readMode.tapZoneInvertPaged,
+    ).map((region): ReaderTapZonePreviewRegion => new ReaderTapZonePreviewRegion(
+      region.action as ReaderTapAction, region.left, region.top, region.right, region.bottom))
+  }
+
+  @Monitor('readMode.tapZoneLayoutPaged', 'readMode.tapZoneInvertPaged',
+    'readMode.tapZoneLayoutContinuous', 'readMode.tapZoneInvertContinuous')
+  private onTapZoneSettingsChanged(): void {
+    if (this.volumeDisposed || this.closeRequested || this.hostClosing ||
+      this.session?.snapshot().phase !== 'ready') return
+    this.tapZonePreviewRevision += 1
+  }
+
   @Monitor('entryPhase')
   private notifyEntrySettled(): void {
     if (this.entrySettledNotified || (this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled')) return
@@ -1053,7 +1071,8 @@ export struct NextEReaderLabPage {
               canvasBackground: this.readerCanvasBackground(), canvasForeground: this.readerCanvasForeground(),
               input: this.input, mediaActions: this.mediaActions,
               tapPolicy: new ReaderTapPolicy(
-                (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout)),
+                (x: number, y: number, layout: ReaderLayout): ReaderTapAction => this.resolveTapZone(x, y, layout),
+                this.tapZonePreviewRegions(), this.tapZonePreviewRevision),
               // Legacy advances only once the next page has preview/source readiness; Reader-kit owns timing.
               autoReadPolicy: new ReaderAutoReadPolicy(true, this.readMode.autoPageSeconds, 'source'),
               // Production entries open chrome-hidden exactly like the legacy
