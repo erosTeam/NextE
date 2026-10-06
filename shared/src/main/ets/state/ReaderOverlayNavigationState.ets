@@ -81,6 +81,13 @@ export class ReaderOverlayNavigationState {
     this.visible = true
   }
 
+  /** Cancel an unpresented route before a late Navigation onAppear can admit it. */
+  cancelPendingReader(): boolean {
+    if (!this.visible || this.closing || this.pendingReader === null) return false
+    this.reset()
+    return true
+  }
+
   close(animated: boolean = true): void {
     if (!this.visible || this.closing) {
       return

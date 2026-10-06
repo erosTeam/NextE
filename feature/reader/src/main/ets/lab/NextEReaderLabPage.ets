@@ -19,7 +19,7 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase, ReaderEntryPreviewSource,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
-import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderLabVisibilityState, connectReaderLabVisibility,
+import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle, ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
@@ -110,7 +110,9 @@ export struct NextEReaderLabPage {
   @Local private routeActive: boolean = false
   @Local private safeArea: LayoutSafeAreaState = connectLayoutSafeArea()
   private unitKey: ReaderUnitKey = new ReaderUnitKey('', '', '')
-  private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, true)
+  private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, true,
+    (): ReaderEntryTransition | null => this.entryTransition,
+    (): boolean => this.rootWindowPresentationSettled())
   private keepScreenOn: ReaderKeepScreenOn | null = null
   @Local private closeRequested: boolean = false
   @Local private readerSettingsSheetShown: boolean = false
@@ -939,19 +941,42 @@ export struct NextEReaderLabPage {
     if (this.managesTrialWindow) this.trialWindow.close()
   }
 
+  private rootWindowPresentationSettled(): boolean {
+    if (this.volumeDisposed || this.closeRequested || this.hostClosing) return false
+    const root = this.readerThumbnailTransition
+    return root.galleryId !== this.request.work || !root.active() || root.presentationSettledFor(this.request.work)
+  }
+
+  private entryWindowReady(): boolean {
+    return readerEntryWindowReady(this.entryTransition, this.rootWindowPresentationSettled())
+  }
+
+  @Monitor('entryPhase', 'readerThumbnailTransition.presentationEpoch', 'routeActive')
+  private replayEntryWindowPresentation(): void {
+    if (!this.routeActive || !this.entryWindowReady() || !this.request.readingChrome) return
+    if (this.managesTrialWindow) {
+      this.trialWindow.open(this.getUIContext().getHostContext() as common.UIAbilityContext)
+    }
+    // ReaderSurface retains the authoritative chrome state while entry owns
+    // the source window; reuse its existing event instead of copying state.
+    this.chromeRepublishToken += 1
+  }
+
   private syncChromeVisible(visible: boolean): void {
     if (visible) return // The before-show gate already applied host visibility.
+    if (!this.entryWindowReady()) return
     const statusVisible = !connectReadMode().fullscreen || visible
-    if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible)
+    if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible, (): boolean =>
+      !this.volumeDisposed && !this.closeRequested && !this.hostClosing && this.routeActive && this.labVisibility.foreground)
     else this.onStatusBarVisible(statusVisible)
   }
 
   private async prepareChromeShow(isCurrent: () => boolean): Promise<boolean> {
     const current = (): boolean => isCurrent() && !this.closeRequested && !this.hostClosing &&
       this.routeActive && this.labVisibility.foreground
-    if (!current()) return false
+    if (!current() || !this.entryWindowReady()) return false
     if (!this.managesTrialWindow) return this.prepareChrome === null ? false : this.prepareChrome(current)
-    if (!await this.trialWindow.prepareStatusBarVisible() || !current()) return false
+    if (!await this.trialWindow.prepareStatusBarVisible(current) || !current()) return false
     return ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
       this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '', current)
   }
@@ -1121,6 +1146,10 @@ export struct NextEReaderLabPage {
         }),
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
+    .systemBarStyle(readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
+      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF'),
+      readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
+        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF'))
     .hideTitleBar(this.request.readingChrome)
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false

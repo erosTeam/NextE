@@ -2,7 +2,7 @@ import { ReaderTrialLayoutCommit, ReaderCloseContext } from '@reader-kit/ui'
 import { AppStrings } from 'shared'
 import { NextEProductionReaderRequest, NextEReaderLabPage } from 'reader'
 import { ReaderLabLaunchState, ReaderLabRequest, connectReaderLabLaunch } from '@reader-kit/ui'
-import { ReaderEntryTransition, ReaderEntryPhase, ReaderEntryPreviewSource, ReaderEntryRect, ReaderTrialWindow,
+import { ReaderEntryTransition, ReaderEntryPhase, ReaderEntryPreviewSource, ReaderEntryRect, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle,
   ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
 import { ReaderDisplayPart, ReaderUnitKey } from '@reader-kit/core'
 import { ReaderTrialEntryRelay, ReaderTrialEntrySource, ReaderTrialEntryProbe, SiteModeState } from 'shared'
@@ -24,7 +24,7 @@ import {
   SnackBarOperationType,
   SnackBarStyleOptions,
 } from '@kit.UIDesignKit'
-import { ComponentContent, curves } from '@kit.ArkUI'
+import { ComponentContent, curves, window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
   connectNavStack,
@@ -267,7 +267,7 @@ function IndexSearchRoute() {
 }
 
 @Builder
-function IndexReaderOverlayBackdropRoute() {
+function IndexReaderOverlayBackdropRoute(style: window.SystemBarStyle | undefined, onBack: () => boolean) {
   HdsNavDestination() {
     Column() {}
       .id('reader-overlay-backdrop')
@@ -276,6 +276,8 @@ function IndexReaderOverlayBackdropRoute() {
       .backgroundColor(Color.Transparent)
   }
   .hideTitleBar(true)
+  .systemBarStyle(style, style)
+  .onBackPressed(onBack)
   .backgroundColor(Color.Transparent)
 }
 
@@ -730,6 +732,12 @@ struct Index {
     ReaderTrialEntryRelay.releasePending(guard)
   }
 
+  private cancelPendingReaderPresentation(): boolean {
+    if (!this.readerOverlay.cancelPendingReader()) return false
+    this.retireProductionReaderEntry()
+    return true
+  }
+
   private retireProductionReaderEntry(): void {
     this.retireProductionReaderEntryGuard()
     this.productionReaderEntryEpoch += 1
@@ -919,7 +927,7 @@ struct Index {
       ` page=${this.productionReaderEntryPageIndex} phase=${phase}`)
   }
 
-  @Monitor('readerEntryPhase', 'readerEntryVisibility.foreground')
+  @Monitor('readerEntryPhase', 'readerEntryVisibility.foreground', 'readerThumbnailTransition.presentationEpoch')
   private syncReaderTrialWindow(): void {
     const phase = this.readerEntryPhase
     if (!this.readerTrialHostAlive || this.readerTrialClosing !== null) return
@@ -929,7 +937,8 @@ struct Index {
     const lease = this.readerTrialWindow
     if (lease === null || this.readerTrialWindowOpened || this.readerTrialWindowEpoch !== this.readerTrialEpoch ||
       this.readerTrialRequest === null || !this.readerTrialRequest.readingChrome ||
-      !this.readerEntryVisibility.foreground || phase === 'layout') return
+      !this.readerEntryVisibility.foreground ||
+      !readerEntryWindowReady(this.readerEntryTransition, this.readerTrialRootPresentationSettled())) return
     if (!this.readerTrialRequest.thumbnailEntry && !this.readerTrialDestinationShown) return
     if (!this.ctx().applicationInfo.debug) return
     this.readerTrialWindowOpened = true
@@ -1023,7 +1032,7 @@ struct Index {
       this.readerTrialHostAlive && this.readerTrialWindow === lease && this.readerTrialRequest === request &&
       this.readerTrialEpoch === epoch && this.readerEntryVisibility.foreground
     if (lease === null || request === null || !current()) return false
-    if (!await lease.prepareStatusBarVisible() || !current()) return false
+    if (!await lease.prepareStatusBarVisible(current) || !current()) return false
     return ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
       this.layoutSafeArea.topAvoidHeight > 0 ?
         `${this.layoutSafeArea.topAvoidHeight}:${this.layoutSafeArea.bottomAvoidHeight}` : '', current)
@@ -1102,15 +1111,35 @@ struct Index {
     this.prepareReaderTrialWindow()
   }
 
+  private readerTrialRootPresentationSettled(): boolean {
+    const root = this.readerThumbnailTransition
+    const galleryId = this.readerTrialRequest?.work ?? ''
+    return root.galleryId !== galleryId || !root.active() || root.presentationSettledFor(galleryId)
+  }
+
+  private readerSourceSystemBarStyle(): window.SystemBarStyle | undefined {
+    if (this.productionReaderEntryTransition === null) return undefined
+    return { statusBarContentColor: connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000' }
+  }
+
+  private readerTrialNavigationSystemBarStyle(): window.SystemBarStyle {
+    return readerEntryStatusBarStyle(this.readerEntryTransition,
+      this.readerTrialHostAlive && !this.readerTrialCloseRequested && this.readerTrialRootPresentationSettled(),
+      connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF')
+  }
+
   private prepareReaderTrialWindow(): void {
     this.readerTrialCloseRequested = false
     const epoch = this.readerEntryEpoch
     this.readerTrialWindow = new ReaderTrialWindow((event: string): void => {
       ReaderTrialEntryProbe.windowEvent(epoch, event)
-    }, true)
+    }, true, (): ReaderEntryTransition | null => this.readerEntryTransition,
+      (): boolean => this.readerTrialRootPresentationSettled())
     this.readerTrialWindowEpoch = this.readerTrialEpoch
     this.readerTrialWindowOpened = false
     this.readerTrialDestinationShown = false
+    // A pending entry captures colors only; presentation is fenced inside the lease.
+    this.readerTrialWindow.open(this.getUIContext().getHostContext() as common.UIAbilityContext)
     this.syncReaderTrialWindow()
   }
 
@@ -1129,7 +1158,9 @@ struct Index {
         },
         hostClosing: this.readerTrialCloseRequested,
         prepareChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareReaderTrialChrome(isCurrent),
-        onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible) },
+        onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible, (): boolean =>
+          this.readerTrialRequest === _param && this.readerTrialHostAlive &&
+          !this.readerTrialCloseRequested && this.readerEntryVisibility.foreground) },
         entryTransition: this.readerEntryTransition, entryPreview: this.readerEntryPreview,
         entryPhase: this.readerEntryTransition?.phase ?? 'finished',
         onClose: (context: ReaderCloseContext | null, image: EhGalleryImage | null): void => {
@@ -1289,6 +1320,7 @@ struct Index {
   private readonly IMAGE_BLOCK_QA_TITLE: string = '[pulpawoelbo] D.VA advertisement (Overwatch)';
 
   onBackPress(): boolean {
+    if (this.cancelPendingReaderPresentation()) return true
     if (this.logicalCurrentTab() === 3 && this.stack.getAllPathName().length === 0 && this.downloadView.selectionMode) {
       this.downloadSelectionCommand('cancelSelection')
       return true
@@ -2231,7 +2263,8 @@ struct Index {
     if (!SafeModeGate.routeAllowed(name)) {
       Column() {}
     } else if (name === 'ReaderOverlayBackdrop') {
-      IndexReaderOverlayBackdropRoute()
+      IndexReaderOverlayBackdropRoute(this.readerSourceSystemBarStyle(),
+        (): boolean => this.cancelPendingReaderPresentation())
     } else if (name === 'Reader') {
       ReaderPage({
         settingsSheetContent: (dismiss: () => void) => {
@@ -3042,6 +3075,7 @@ struct Index {
           Column() {}
         }
         .navDestination(this.readerOverlayRouterMap)
+        .systemBarStyle(this.readerSourceSystemBarStyle(), this.readerSourceSystemBarStyle())
         .hideNavBar(true)
         .width('100%')
         .height('100%')
@@ -3057,6 +3091,7 @@ struct Index {
         ForEach([this.readerTrialEpoch], (_epoch: number) => {
           HdsNavigation(this.readerTrialStack) { Column() {} }
             .navDestination(this.readerTrialRouter).hideNavBar(true)
+            .systemBarStyle(this.readerTrialNavigationSystemBarStyle(), this.readerTrialNavigationSystemBarStyle())
             .width('100%').height('100%').backgroundColor(Color.Black)
             .opacity(this.readerThumbnailTransition.closingProxyVisible()
               ? this.readerThumbnailTransition.overlayOpacity
