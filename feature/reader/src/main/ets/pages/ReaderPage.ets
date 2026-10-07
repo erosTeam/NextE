@@ -856,21 +856,24 @@ export struct ReaderPage {
     return this.themeDisplay.effectiveDark ? READER_STATUS_BAR_LIGHT_CONTENT : READER_STATUS_BAR_DARK_CONTENT
   }
 
-  private applyStatusBarVisible(visible: boolean, contentColor: string, lightIcon: boolean): Promise<void> {
+  private applyStatusBarVisible(visible: boolean, contentColor: string, lightIcon: boolean,
+    restoringSource: boolean = false): Promise<void> {
     const epoch: number = this.readerRouteEpoch
-    const current = (): boolean => epoch === this.readerRouteEpoch && !this.readerClosing
+    const current = (): boolean => epoch === this.readerRouteEpoch && !this.readerClosing &&
+      (restoringSource ? !this.readerRouteVisible : this.readerRouteVisible)
     return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
         if (!current()) return Promise.resolve()
-        if (visible) {
+        if (visible || restoringSource) {
           return win.setWindowSystemBarProperties({
             statusBarContentColor: contentColor,
             isStatusBarLightIcon: lightIcon,
           })
             .catch((_e: Error) => {})
             .then(() => {
-              return writeReaderSystemBarVisibility(win, true, true, current)
+              return writeReaderSystemBarVisibility(win,
+                restoringSource ? readerSourceStatusBarVisible() : visible, !restoringSource, current)
             })
         }
         return writeReaderSystemBarVisibility(win, false, true, current)
@@ -993,9 +996,10 @@ export struct ReaderPage {
 
   private restoreAppStatusBar(): void {
     this.applyStatusBarVisible(
-      true,
+      readerSourceStatusBarVisible(),
       this.appStatusBarContentColor(),
       this.themeDisplay.effectiveDark,
+      true,
     )
   }
 
