@@ -20,7 +20,7 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderPage } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
-import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, readerEntryStatusBarStyle, ReaderLabVisibilityState, connectReaderLabVisibility,
+import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
@@ -1180,12 +1180,10 @@ export struct NextEReaderLabPage {
         }),
       )
     }.titleBar(immersiveTitleBar($r('app.string.rkit_lab_title')))
-    .systemBarStyle(this.managesTrialWindow ? readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-      this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible())
-        : this.delegatedSystemBarStyle,
-      this.managesTrialWindow ? readerEntryStatusBarStyle(this.entryTransition, this.rootWindowPresentationSettled(),
-        this.themeDisplay.effectiveDark ? '#FFFFFFFF' : '#FF000000', '#FFFFFFFF', this.trialWindow.statusBarVisible())
-        : this.delegatedSystemBarStyle)
+    // Managed Window owns colors and visibility together. A navigation color
+    // writer can discard its explicit native enable flag in landscape.
+    .systemBarStyle(this.managesTrialWindow ? undefined : this.delegatedSystemBarStyle,
+      this.managesTrialWindow ? undefined : this.delegatedSystemBarStyle)
     .hideTitleBar(this.request.readingChrome)
     .onBackPressed((): boolean => {
       if (!this.request.readingChrome) return false
