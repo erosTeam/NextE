@@ -1,5 +1,6 @@
 import { AbilityConstant, UIAbility, Want, Configuration, common } from '@kit.AbilityKit'
-import { captureReaderLabWant, updateReaderLabForeground } from '@reader-kit/ui'
+import { captureReaderLabWant, updateReaderLabForeground, bindReaderSourceWindow, unbindReaderSourceWindow,
+  updateReaderSourceConfiguration } from '@reader-kit/ui'
 import { webview } from '@kit.ArkWeb'
 import { window } from '@kit.ArkUI'
 import {
@@ -87,6 +88,7 @@ export default class EntryAbility extends UIAbility {
     let win: window.Window | null = null
     try {
       win = windowStage.getMainWindowSync()
+      bindReaderSourceWindow(this.context, win)
       win.setWindowLayoutFullScreen(true)
       win.setWindowSystemBarProperties({
         statusBarColor: TRANSPARENT_COLOR,
@@ -138,7 +140,12 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
+  onConfigurationUpdate(config: Configuration): void {
+    updateReaderSourceConfiguration(config)
+  }
+
   onDestroy(): void {
+    unbindReaderSourceWindow()
     this.safeAreaUiContext = null
     if (this.mainWindow) {
       this.unwatch(this.mainWindow)

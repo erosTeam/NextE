@@ -1,3 +1,4 @@
+import { readerSourceStatusBarVisible, writeReaderSystemBarVisibility } from '@reader-kit/ui'
 import { ReaderModeControl } from '../components/ReaderModeControl'
 import { appMenuOptions } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
@@ -856,9 +857,12 @@ export struct ReaderPage {
   }
 
   private applyStatusBarVisible(visible: boolean, contentColor: string, lightIcon: boolean): Promise<void> {
+    const epoch: number = this.readerRouteEpoch
+    const current = (): boolean => epoch === this.readerRouteEpoch && !this.readerClosing
     return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
+        if (!current()) return Promise.resolve()
         if (visible) {
           return win.setWindowSystemBarProperties({
             statusBarContentColor: contentColor,
@@ -866,15 +870,15 @@ export struct ReaderPage {
           })
             .catch((_e: Error) => {})
             .then(() => {
-              return win.setSpecificSystemBarEnabled('status', true, false)
+              return writeReaderSystemBarVisibility(win, true, true, current)
             })
         }
-        return win.setSpecificSystemBarEnabled('status', false, false)
+        return writeReaderSystemBarVisibility(win, false, true, current)
       })
       .catch((_e: Error) => {})
   }
 
-  private restoreStatusBarForClose(requireVisibleSystemAvoidArea: boolean): Promise<boolean> {
+  private restoreStatusBarForClose(requireSourceSystemAvoidArea: boolean): Promise<boolean> {
     return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window): Promise<boolean> => {
@@ -887,7 +891,7 @@ export struct ReaderPage {
               DiagnosticLogger.warn('reader-transition', 'close_status_bar_properties_failed', error.message)
             })
             .then((): Promise<void> => {
-              return win.setSpecificSystemBarEnabled('status', true, false)
+              return writeReaderSystemBarVisibility(win, readerSourceStatusBarVisible(), false)
             })
             .then((): boolean => true)
             .catch((error: Error): boolean => {
@@ -895,11 +899,11 @@ export struct ReaderPage {
               return false
             })
         }
-        if (!requireVisibleSystemAvoidArea) {
+        if (!requireSourceSystemAvoidArea) {
           return requestVisible()
         }
         try {
-          if (win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height > 0) {
+          if ((win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height > 0) === readerSourceStatusBarVisible()) {
             return requestVisible()
           }
         } catch (error) {
@@ -937,7 +941,7 @@ export struct ReaderPage {
           avoidAreaChangeCallback = (data: window.AvoidAreaOptions): void => {
             if (
               data.type !== window.AvoidAreaType.TYPE_SYSTEM ||
-              data.area.topRect.height <= 0
+              (data.area.topRect.height > 0) !== readerSourceStatusBarVisible()
             ) {
               return
             }
@@ -1036,10 +1040,8 @@ export struct ReaderPage {
     const normalCloseCandidate: boolean = openingImage !== null &&
       !this.imageZoomed &&
       this.readerThumbnailTransition.normalCloseReadyFor(this.params.gid)
-    const requireVisibleSystemAvoidArea: boolean = normalCloseCandidate &&
-      this.readMode.fullscreen && !this.showChrome
     const statusBarRestore: Promise<boolean> = this.restoreStatusBarForClose(
-      requireVisibleSystemAvoidArea,
+      normalCloseCandidate,
     )
     if (ReaderThumbnailTransitionCoordinator.reverseOpening(
       this.getUIContext(),

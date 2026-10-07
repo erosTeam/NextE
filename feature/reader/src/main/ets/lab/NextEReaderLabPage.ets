@@ -1,5 +1,5 @@
 import { ReaderModeControl } from '../components/ReaderModeControl'
-import { ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy, ReaderTapZonePreviewRegion,
+import { readerSourceStatusBarVisible, ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy, ReaderTapZonePreviewRegion,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
   ReaderObservationSink, ReaderPreferenceSink, ReaderActivitySink, ReaderHostSettings,
   ReaderHostActions, ReaderVariantPolicy, ReaderCropPolicy, ReaderAutoReadPolicy,
@@ -113,7 +113,7 @@ export struct NextEReaderLabPage {
   @Local private routeActive: boolean = false
   @Local private safeArea: LayoutSafeAreaState = connectLayoutSafeArea()
   private unitKey: ReaderUnitKey = new ReaderUnitKey('', '', '')
-  private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, true,
+  private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, (): boolean => this.labRequest !== null || readerSourceStatusBarVisible(),
     (): ReaderEntryTransition | null => this.entryTransition,
     (): boolean => this.rootWindowPresentationSettled())
   private keepScreenOn: ReaderKeepScreenOn | null = null
@@ -1031,7 +1031,8 @@ export struct NextEReaderLabPage {
     if (this.managesTrialWindow) this.trialWindow.close(async (): Promise<boolean> => {
       if (this.trialWindow.getCloseSystemAvoidAreaResult() === 'ready') {
         const ready = await ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
-          this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '',
+          ((this.safeArea.topAvoidHeight > 0) === (this.labRequest !== null || readerSourceStatusBarVisible()))
+            ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '',
           (): boolean => this.routeActive && this.labVisibility.foreground)
         console.info(`[ReaderTrialHost] standalone_close_layout_ready=${ready}`)
         return ready
