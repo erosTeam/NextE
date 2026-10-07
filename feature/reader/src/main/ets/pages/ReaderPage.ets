@@ -859,8 +859,13 @@ export struct ReaderPage {
   private applyStatusBarVisible(visible: boolean, contentColor: string, lightIcon: boolean,
     restoringSource: boolean = false): Promise<void> {
     const epoch: number = this.readerRouteEpoch
-    const current = (): boolean => epoch === this.readerRouteEpoch && !this.readerClosing &&
-      (restoringSource ? !this.readerRouteVisible : this.readerRouteVisible)
+    const current = (): boolean => {
+      const routes: string[] = connectReaderOverlayNavigation().stack.getAllPathName()
+      const top: string = routes.length > 0 ? routes[routes.length - 1] : ''
+      return epoch === this.readerRouteEpoch && !this.readerClosing &&
+        (restoringSource ? !this.readerRouteVisible && top !== 'Reader' && top !== 'ReaderShared' :
+          this.readerRouteVisible)
+    }
     return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {

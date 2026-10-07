@@ -31,6 +31,7 @@ export class ReaderOverlayNavigationState {
   private pendingReaderAnimated: boolean = true
 
   open(params: ReaderParams, animated: boolean = true): void {
+    const navigationVisible: boolean = this.visible
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
     // Snapshot the admission-time authority (durable user choice, or an active
@@ -44,16 +45,19 @@ export class ReaderOverlayNavigationState {
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
+    if (navigationVisible) this.presentPendingReader()
   }
 
   /** Root-host-only entry after a live shared thumbnail source was claimed. */
   openSharedTransition(params: ReaderParams, animated: boolean = false): void {
+    const navigationVisible: boolean = this.visible
     this.stack.clear(false)
     this.stack.pushPathByName('ReaderOverlayBackdrop', null, false)
     this.pendingReader = new ReaderOverlayRoute(params, NextEReaderBackend.SHARED)
     this.pendingReaderAnimated = animated
     this.closing = false
     this.visible = true
+    if (navigationVisible) this.presentPendingReader()
   }
 
   presentPendingReader(): void {
