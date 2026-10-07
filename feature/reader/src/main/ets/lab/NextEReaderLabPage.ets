@@ -875,9 +875,10 @@ export struct NextEReaderLabPage {
     this.tapZonePreviewRevision += 1
   }
 
-  @Monitor('entryPhase')
+  @Monitor('entryPhase', 'labVisibility.foreground')
   private notifyEntrySettled(): void {
-    if (this.entrySettledNotified || (this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled')) return
+    if (!this.labVisibility.foreground || this.entrySettledNotified ||
+      (this.entryPhase !== 'finished' && this.entryPhase !== 'cancelled')) return
     if (this.entryPhase === 'cancelled' && this.rootOwnedEntryTarget && this.routeActive &&
       !this.closeRequested && !this.hostClosing) {
       // reader-kit can cancel after a deferred layout/asset check. Keep the
@@ -921,10 +922,22 @@ export struct NextEReaderLabPage {
     )
   }
 
-  @Monitor('rootEntryTarget', 'rootEntryPhase', 'readerThumbnailTransition.phase', 'routeActive')
+  @Monitor('rootEntryTarget', 'rootEntryPhase', 'readerThumbnailTransition.phase', 'routeActive',
+    'labVisibility.foreground')
   private syncRootOwnedEntryTarget(): void {
     const entry = this.entryTransition
-    if (!this.rootOwnedEntryTarget || entry === null || !this.routeActive || this.closeRequested || this.hostClosing) {
+    if (this.rootOwnedEntryTarget && entry !== null) {
+      const state = this.session?.snapshot()
+      const frame = state?.frames.find((value): boolean => entry.matches(value.part))
+      console.info(`[NextEReaderEntry] handoff id=${entry.entryId} phase=${entry.phase} ` +
+        `root=${this.readerThumbnailTransition.phase} foreground=${this.labVisibility.foreground} ` +
+        `active=${this.routeActive} selected=${state?.selectionId ?? -1} ` +
+        `slot=${frame?.slotId ?? -1} request=${frame?.asset.requestId ?? -1} ` +
+        `asset=${frame?.asset.assetRequestId ?? -1} assetPhase=${frame?.asset.phase ?? 'none'} ` +
+        `observed=${state?.observedSelectionId ?? -1}`)
+    }
+    if (!this.labVisibility.foreground || !this.rootOwnedEntryTarget || entry === null || !this.routeActive ||
+      this.closeRequested || this.hostClosing) {
       return
     }
     const target = this.rootEntryTarget
