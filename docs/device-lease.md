@@ -110,6 +110,15 @@ scripts/device-lease --device "$TARGET" run --lease "$LEASE_ID" -- \
 scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 ```
 
+## 协议入口与租约的分工
+
+状态操作和取证必须通过项目已有 `scripts/run-device-protocol --device <完整target>
+--lease <有效lease> <项目manifest>` 执行；该入口先 dry-run，再在租约内执行协议。直接
+租约包装的传输命令仅用于目标发现/重连、echo、启动完成读回和产物接收。
+安装、启动、输入、唤醒/超时、截图/layout/日志不因已有 lease 就允许绕过 manifest。
+一个已知用户操作链保持连续，原始输入 manifest 与证据同存于忽略产物目录；不按每次点击
+追加受版本控制的运行记录。租约和示例地址均不构成目标选择或用户授权。
+
 ## 哪些命令需要 lease
 
 - `hdc tconn` / `hdc install` / 卸载 / 清应用数据；
@@ -118,8 +127,8 @@ scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 - 截图、录屏、依赖前台状态的布局或日志采集；
 - 其他会改变设备、应用、账号或页面状态的命令。
 
-本地文件、git 状态、构建和 `hdc list targets -v` 不需要 lease。不依赖前台状态的只读设备探针
-可不加锁；一旦验证依赖当前 UI/前台状态，就先获取 lease。
+本地文件、git 状态和构建不需要 lease。目标列表查询仅作发现；其余设备读取也按对应
+协议与租约执行，不以“只读”绕过有状态或取证流程。
 
 ## 释放与抢占
 

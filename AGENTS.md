@@ -46,6 +46,11 @@ Actions run for the exact pushed commit; local builds or partial checks are not 
 
 ## Working boundaries
 
+- Shared Reader changes also follow the common
+  [consumer contract](third_party/reader-kit/README.md#consumer-contract).
+  Use the current cross-host work order identified by the active task; per-app
+  plans and historical receipts must not create a competing Reader queue.
+
 - Preserve unrelated user changes and do not commit, push, tag, merge or clean worktrees unless explicitly asked.
 - Keep UI fixes narrow; do not add custom controls or new contracts for ordinary layout, copy or visual taste.
 - Do not guess uncertain HarmonyOS APIs or runtime behavior; use `harmony-next` or official Huawei docs.
