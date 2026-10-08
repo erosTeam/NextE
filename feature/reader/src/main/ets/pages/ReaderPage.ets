@@ -2422,7 +2422,7 @@ export struct ReaderPage {
       return
     }
     ImageResolveService.getInstance().restoreCachedMetadata(image)
-    this.setOriginalAvailableForPage(page, image.originImageUrl.length > 0)
+    this.setOriginalAvailableForPage(page, image.originImageUrl.length > 0 || this.hasCachedOriginal(image))
   }
 
   private originalAvailableForIndex(index: number): boolean {
