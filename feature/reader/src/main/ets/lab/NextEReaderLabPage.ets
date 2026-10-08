@@ -8,7 +8,7 @@ import { common } from '@kit.AbilityKit'
 import { window } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
-  connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar, EhHttpClient,
+  connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar,
   GalleryReadProgressSettings, ReadMode, ReadSpreadLayout, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
   ReaderThumbnailTransitionCoordinator, connectReaderThumbnailTransition, ReaderThumbnailTransitionState,
@@ -162,7 +162,7 @@ export struct NextEReaderLabPage {
     this.adapter = adapter
     const imageShare = lab === null ? adapter : new ReaderLabShareProbe(adapter, lab.shareProbe)
     const imageSave = new ReaderSystemImageSaveHost(context, async (uri: string, path: string): Promise<void> => {
-      await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
+      await adapter.saveImageFile(this.request.work, uri, path)
     })
     this.mediaActions = new ReaderMediaActions(imageShare, imageSave,
       (frame: ReaderPagedFrame, value: ReaderImageInformation): string[] =>

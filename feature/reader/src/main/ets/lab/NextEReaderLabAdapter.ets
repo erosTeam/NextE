@@ -1,9 +1,11 @@
 import { common } from '@kit.AbilityKit'
+import { fileIo } from '@kit.CoreFileKit'
 import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import {
-  CachedImageProgress, DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, ImageResolveService, ImagePipelineService,
+  CachedImageFileResult, CachedImageProgress, DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, EhHttpClient,
+  ImageResolveService, ImagePipelineService,
   ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
@@ -101,6 +103,36 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   /** Legacy save exports the resolved source choice, never a generated reader variant. */
   saveUri(page: ReaderPage): string {
     return this.pages.get(page.key)?.imageUrl ?? ''
+  }
+
+  /** Preserve the selected source URI while avoiding a second download of its readable cache. */
+  async saveImageFile(work: string, uri: string, path: string): Promise<void> {
+    let cached: CachedImageFileResult | null = null
+    for (const value of this.pages.values()) {
+      const source = value.copy()
+      ImageResolveService.getInstance().restoreCachedMetadata(source)
+      const original = source.originImageUrl === uri
+      if (!original && source.imageUrl !== uri) continue
+      const key = ImagePipelineService.readerFileCacheKey(work, this.token, source.page, original)
+      cached = ImagePipelineService.cachedReaderFile(this.context, key)
+      if (cached !== null) break
+    }
+    let sourceFile: fileIo.File | null = null
+    if (cached !== null) {
+      // Open before the first await: cache maintenance may unlink the path while the copy runs.
+      try { sourceFile = fileIo.openSync(cached.filePath, fileIo.OpenMode.READ_ONLY) } catch (_) {}
+    }
+    if (sourceFile === null) {
+      await EhHttpClient.getInstance().downloadBinaryToFile(uri, path)
+      return
+    }
+    try {
+      await fileIo.copyFile(sourceFile.fd, path)
+    } finally {
+      try { fileIo.closeSync(sourceFile) } catch (_) {
+        DiagnosticLogger.warn('reader', 'save_cache_close_failed', 'source file close failed')
+      }
+    }
   }
 
   async open(key: ReaderUnitKey, cancellation: ReaderCancellation): Promise<ReaderUnit> {
