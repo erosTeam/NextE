@@ -102,7 +102,11 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
 
   /** Legacy save exports the resolved source choice, never a generated reader variant. */
   saveUri(page: ReaderPage): string {
-    return this.pages.get(page.key)?.imageUrl ?? ''
+    const source = this.pages.get(page.key)
+    if (source === undefined) return ''
+    if (source.imageUrl.length > 0) return source.imageUrl
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
+    return ImagePipelineService.cachedReaderFile(this.context, key)?.displayUri ?? ''
   }
 
   /** Preserve the selected source URI while avoiding a second download of its readable cache. */
@@ -237,10 +241,11 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     }
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_preload_asset')
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
+    if (ImagePipelineService.cachedReaderFile(this.context, key) !== null) return
     const url = await ImageResolveService.getInstance().resolve(source)
     cancellation.check()
     this.pages.set(page.key, source.copy())
-    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
     await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_LOW)
     cancellation.check()
     console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=ready`)
@@ -258,10 +263,15 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     }
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_auto_read_source')
-    await ImageResolveService.getInstance().resolve(source)
-    cancellation.check()
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
+    if (ImagePipelineService.cachedReaderFile(this.context, key) === null) {
+      await ImageResolveService.getInstance().resolve(source)
+      cancellation.check()
+      if (source.imageUrl.length === 0) throw new Error('missing_eh_resolved_body_source')
+    } else {
+      ImageResolveService.getInstance().restoreCachedMetadata(source)
+    }
     this.pages.set(page.key, source.copy())
-    if (source.imageUrl.length === 0) throw new Error('missing_eh_resolved_body_source')
     const resolved = page.copy()
     resolved.bodySourceReady = true
     return resolved
@@ -365,20 +375,34 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     // already selected CDN URL again. Persist the refreshed reload key only
     // after this request is still current so a cancelled older resolve cannot
     // overwrite the next manual reload's source state.
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
+    const cached = forceReload ? null : ImagePipelineService.cachedReaderFile(this.context, key)
+    if (cached !== null) {
+      // Match Legacy: readable body bytes do not depend on fetching their /s/ metadata again.
+      ImageResolveService.getInstance().restoreCachedMetadata(source)
+      this.pages.set(page.key, source.copy())
+      return this.fileAsset(page, source, cached)
+    }
     const url = await ImageResolveService.getInstance().resolve(source, forceReload)
     cancellation.check()
     this.pages.set(page.key, source.copy())
-    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
     const result = await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_MEDIUM,
       onProgress !== undefined
         ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
         : undefined, forceReload)
+    return this.fileAsset(page, source, result)
+  }
+
+  private fileAsset(page: ReaderPage, source: EhGalleryImage, result: CachedImageFileResult): ReaderAsset {
     const facts = new ReaderImageInformation()
     facts.bytes = result.bytes
     facts.variant = 'resampled'
-    facts.originalAvailable = source.originImageUrl.length > 0
+    const originalKey = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, true)
+    facts.originalAvailable = source.originImageUrl.length > 0 ||
+      ImagePipelineService.cachedReaderFile(this.context, originalKey) !== null
     const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
-    asset.saveUri = url
+    // Metadata may be absent after a cold start; the existing save host owns local-file copies.
+    asset.saveUri = source.imageUrl.length > 0 ? source.imageUrl : result.displayUri
     asset.originalAvailable = facts.originalAvailable
     if (result.filePath.length > 0) {
       asset.crop = new NextEReaderCropSource(result.filePath, 'reader-lab-asset', this.cropStrength)
