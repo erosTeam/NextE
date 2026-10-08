@@ -92,6 +92,10 @@ export class ImagePipelineService {
     return ReaderImageFileCacheService.cached(context, cacheKey)
   }
 
+  static retainReaderFile(context: common.UIAbilityContext, filePath: string): () => void {
+    return ReaderImageFileCacheService.retain(context, filePath)
+  }
+
   static removeReaderFile(context: common.UIAbilityContext, cacheKey: string): void {
     ReaderImageFileCacheService.remove(context, cacheKey)
   }

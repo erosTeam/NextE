@@ -17,9 +17,9 @@ const cropModule = { NextEReaderCropSource: class {
 } }
 function fixture(resolveOriginal) {
   const downloads = []
-  const context = { exports: {},
+  const context = { exports: {}, EH_IMAGE_PRIORITY_HIGH: 0,
     ImageResolveService: { getInstance: () => ({ resolveOriginal }) },
-    ImagePipelineService: { async loadReaderFile(_context, url, key, _priority, _unused, force) {
+    ImagePipelineService: { cachedReaderFile: () => null, retainReaderFile: () => () => {}, async loadReaderFile(_context, url, key, _priority, _unused, force) {
       downloads.push({ url, key, force }); return { displayUri: url, filePath: 'local-file', bytes: 42 }
     } },
     ReaderImageInformation: class {}, ReaderFileInformation: class { constructor(path, facts) { this.facts = facts } },
@@ -74,6 +74,7 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
   }
   const context = { exports: {}, require: name => {
     if (name === 'shared') return {
+      EH_IMAGE_PRIORITY_HIGH: 0, EH_IMAGE_PRIORITY_MEDIUM: 1, EH_IMAGE_PRIORITY_LOW: 2,
       ImageResolveService: { getInstance: () => ({ resolve: async (source, changeSource) => {
         resolutions.push({ changeSource, reloadKey: source.reloadKey })
         source.imageUrl = changeSource ? 'https://fixture.invalid/fresh.webp' : 'https://fixture.invalid/old.webp'
@@ -81,6 +82,7 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
         return source.imageUrl
       } }) },
       ImagePipelineService: {
+        cachedReaderFile: () => null, retainReaderFile: () => () => {},
         readerFileCacheKey: () => 'resampled-cache',
         loadReaderFile: async (_context, url, key, _priority, _unused, force) => {
           downloads.push({ url, key, force })
@@ -135,12 +137,14 @@ test('shared preload resolves and warms the default cache without creating a Rea
   const resolutions = [], downloads = []
   const context = { exports: {}, require: name => {
     if (name === 'shared') return {
+      EH_IMAGE_PRIORITY_HIGH: 0, EH_IMAGE_PRIORITY_MEDIUM: 1, EH_IMAGE_PRIORITY_LOW: 2,
       ImageResolveService: { getInstance: () => ({ resolve: async (source, force) => {
         resolutions.push({ page: source.page, force })
         source.imageUrl = 'https://fixture.invalid/preloaded.webp'
         return source.imageUrl
       } }) },
       ImagePipelineService: {
+        cachedReaderFile: () => null, retainReaderFile: () => () => {},
         readerFileCacheKey: (_work, _token, page, original) => `${page}:${original}`,
         loadReaderFile: async (_context, url, key, priority) => {
           downloads.push({ url, key, priority })
@@ -165,7 +169,7 @@ test('shared preload resolves and warms the default cache without creating a Rea
   await adapter.preload({ key: 'page', unit: { work: 'gallery' }, sourceIndex: 6 }, token())
   assert.deepEqual(resolutions, [{ page: 7, force: undefined }])
   assert.deepEqual(downloads, [{
-    url: 'https://fixture.invalid/preloaded.webp', key: '7:false', priority: 100,
+    url: 'https://fixture.invalid/preloaded.webp', key: '7:false', priority: 2,
   }])
 })
 

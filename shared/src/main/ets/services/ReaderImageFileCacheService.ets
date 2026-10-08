@@ -267,6 +267,9 @@ export class ReaderImageFileCacheService {
   >()
   private static readonly scheduler: ReaderImagePriorityScheduler = new ReaderImagePriorityScheduler()
   private static pruneChain: Promise<void> = Promise.resolve()
+  private static reloadEpoch: number = 0
+  private static localLeases: Map<string, number> = new Map<string, number>()
+  private static deferredRemovals: Set<string> = new Set<string>()
   // A fresh process prunes its first stored image; later writes amortize the full directory scan.
   private static maintenanceWritesSincePrune: number = -1
   private static maintenanceBytesSincePrune: number = 0
@@ -282,7 +285,10 @@ export class ReaderImageFileCacheService {
     if (cacheKey.length === 0) {
       return null
     }
-    const filePath: string = ReaderImageFileCacheService.filePath(context, cacheKey)
+    const filePath: string = ReaderImageFileCacheService.latestPath(
+      ReaderImageFileCacheService.filePath(context, cacheKey),
+    )
+    if (ReaderImageFileCacheService.deferredRemovals.has(filePath)) return null
     const bytes: number = ReaderImageFileCacheService.fileSize(filePath)
     if (bytes <= 0) {
       return null
@@ -298,6 +304,26 @@ export class ReaderImageFileCacheService {
       displayUri: CachedImageFileService.displayUri(filePath),
       bytes,
       fromCache: true,
+    }
+  }
+
+  /** Protect only this service's private bytes; downloaded/archive files remain host-owned. */
+  static retain(context: common.UIAbilityContext, filePath: string): () => void {
+    if (!filePath.startsWith(`${ReaderImageFileCacheService.cacheDir(context)}/`)) return () => {}
+    const count: number = ReaderImageFileCacheService.localLeases.get(filePath) ?? 0
+    ReaderImageFileCacheService.localLeases.set(filePath, count + 1)
+    let released: boolean = false
+    return (): void => {
+      if (released) return
+      released = true
+      const remaining: number = ReaderImageFileCacheService.localLeases.get(filePath) ?? 0
+      if (remaining > 1) ReaderImageFileCacheService.localLeases.set(filePath, remaining - 1)
+      else {
+        ReaderImageFileCacheService.localLeases.delete(filePath)
+        if (ReaderImageFileCacheService.deferredRemovals.delete(filePath)) {
+          ReaderImageFileCacheService.removeIfExists(filePath)
+        }
+      }
     }
   }
 
@@ -466,11 +492,18 @@ export class ReaderImageFileCacheService {
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
-    filePath: string,
+    familyPath: string,
     limitBytes: number,
     priority: number,
     onProgress: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult> {
+    // The previous file may still be the displayed or retiring native source.
+    // A complete replacement gets its own short URI, never a renamed live URI.
+    const latest: string = ReaderImageFileCacheService.latestPath(familyPath)
+    const filePath: string = ReaderImageFileCacheService.fileSize(latest) > 0 ||
+      ReaderImageFileCacheService.fileSize(familyPath) > 0 ||
+      (ReaderImageFileCacheService.localLeases.get(familyPath) ?? 0) > 0
+      ? ReaderImageFileCacheService.reloadPath(familyPath, latest) : familyPath
     const tmpPath: string = `${filePath}.part`
     ReaderImageFileCacheService.removeIfExists(tmpPath)
     let lastLoggedPercent: number = -20
@@ -511,20 +544,25 @@ export class ReaderImageFileCacheService {
         READER_IMAGE_CONNECT_TIMEOUT_MS,
         READER_IMAGE_NO_PROGRESS_TIMEOUT_MS,
       )
-      ReaderImageFileCacheService.removeIfExists(filePath)
       fileIo.renameSync(tmpPath, filePath)
       const finalBytes: number = bytes > 0 ? bytes : ReaderImageFileCacheService.fileSize(filePath)
       if (finalBytes <= 0) {
         ReaderImageFileCacheService.removeIfExists(filePath)
         throw new Error('downloaded image file is empty')
       }
+      ReaderImageFileCacheService.publishLatest(familyPath, filePath)
       onProgress({ loaded: finalBytes, total: finalBytes })
       DiagnosticLogger.info(
         'image-cache',
         'reader_disk_stored',
         `bytes=${finalBytes} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
-      await ReaderImageFileCacheService.pruneAfterStore(context, limitBytes, finalBytes)
+      const release: () => void = ReaderImageFileCacheService.retain(context, filePath)
+      try {
+        await ReaderImageFileCacheService.pruneAfterStore(context, limitBytes, finalBytes)
+      } finally {
+        release()
+      }
       return {
         filePath,
         displayUri: CachedImageFileService.displayUri(filePath),
@@ -586,7 +624,19 @@ export class ReaderImageFileCacheService {
       return
     }
     ReaderImageFileCacheService.cancelQueued(context, cacheKey)
-    ReaderImageFileCacheService.removeIfExists(ReaderImageFileCacheService.filePath(context, cacheKey))
+    const familyPath: string = ReaderImageFileCacheService.filePath(context, cacheKey)
+    const prefix: string = familyPath.substring(familyPath.lastIndexOf('/') + 1).replace(/\.img$/, '-r')
+    ReaderImageFileCacheService.removeIfExists(familyPath)
+    ReaderImageFileCacheService.removeIfExists(`${familyPath}.latest`)
+    const directory: string = ReaderImageFileCacheService.cacheDir(context)
+    try {
+      const names: string[] = fileIo.listFileSync(directory)
+      for (const name of names) {
+        if (name.startsWith(prefix) && name.endsWith('.img')) {
+          ReaderImageFileCacheService.removeIfExists(`${directory}/${name}`)
+        }
+      }
+    } catch (_error) {}
     DiagnosticLogger.info(
       'image-cache',
       'reader_disk_removed',
@@ -648,6 +698,7 @@ export class ReaderImageFileCacheService {
       if ((totalBytes <= normalizedLimit && remaining <= MAX_CACHE_FILE_COUNT) || remaining <= 1) {
         break
       }
+      if ((ReaderImageFileCacheService.localLeases.get(entries[i].path) ?? 0) > 0) continue
       ReaderImageFileCacheService.removeIfExists(entries[i].path)
       totalBytes -= entries[i].bytes
       remaining--
@@ -671,7 +722,7 @@ export class ReaderImageFileCacheService {
       }
       const names: string[] = fileIo.listFileSync(dir)
       for (let i: number = 0; i < names.length; i++) {
-        if (names[i].endsWith('.part')) {
+        if (!names[i].endsWith(`.${CACHE_FILE_EXTENSION}`)) {
           continue
         }
         const path: string = `${dir}/${names[i]}`
@@ -694,6 +745,50 @@ export class ReaderImageFileCacheService {
     const dir: string = ReaderImageFileCacheService.cacheDir(context)
     ReaderImageFileCacheService.ensureDir(dir)
     return `${dir}/${ReaderImageFileCacheService.hashKey(cacheKey)}.${CACHE_FILE_EXTENSION}`
+  }
+
+  /** O(1) page lookup: only explicit replacements need a tiny latest-file pointer. */
+  private static latestPath(familyPath: string): string {
+    try {
+      const name: string = fileIo.readTextSync(`${familyPath}.latest`).trim()
+      const slash: number = familyPath.lastIndexOf('/')
+      const stem: string = familyPath.substring(slash + 1).replace(/\.img$/, '')
+      if (name.startsWith(`${stem}-r`) && name.endsWith('.img')) {
+        const epoch: number = Number(name.substring(stem.length + 2, name.length - 4))
+        if (Number.isSafeInteger(epoch) && epoch > 0) return `${familyPath.substring(0, slash)}/${name}`
+      }
+    } catch (_error) {}
+    return familyPath
+  }
+
+  private static reloadPath(familyPath: string, latest: string): string {
+    const marker: number = latest.lastIndexOf('-r')
+    const previous: number = marker < 0 ? 0 : Number(latest.substring(marker + 2, latest.length - 4))
+    if (Number.isSafeInteger(previous)) {
+      ReaderImageFileCacheService.reloadEpoch = Math.max(ReaderImageFileCacheService.reloadEpoch, previous)
+    }
+    let candidate: string = ''
+    do {
+      ReaderImageFileCacheService.reloadEpoch++
+      candidate = `${familyPath.replace(/\.img$/, '')}-r${ReaderImageFileCacheService.reloadEpoch}.img`
+    } while (fileIo.accessSync(candidate))
+    return candidate
+  }
+
+  private static publishLatest(familyPath: string, filePath: string): void {
+    if (familyPath === filePath) return
+    const pointerPath: string = `${familyPath}.latest`
+    const tmpPath: string = `${pointerPath}.part`
+    const file: fileIo.File = fileIo.openSync(tmpPath,
+      fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC | fileIo.OpenMode.READ_WRITE)
+    try {
+      fileIo.writeSync(file.fd, filePath.substring(filePath.lastIndexOf('/') + 1))
+      fileIo.fsyncSync(file.fd)
+    } finally {
+      fileIo.closeSync(file)
+    }
+    // Rename replaces only the pointer. No native image ever uses that metadata URI.
+    fileIo.renameSync(tmpPath, pointerPath)
   }
 
   private static cacheDir(context: common.UIAbilityContext): string {
@@ -729,6 +824,10 @@ export class ReaderImageFileCacheService {
   }
 
   private static removeIfExists(path: string): void {
+    if ((ReaderImageFileCacheService.localLeases.get(path) ?? 0) > 0) {
+      ReaderImageFileCacheService.deferredRemovals.add(path)
+      return
+    }
     try {
       fileIo.unlinkSync(path)
     } catch (_error) {}

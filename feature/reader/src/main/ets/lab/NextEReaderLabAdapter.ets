@@ -56,7 +56,8 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     facts.bytes = result.bytes
     facts.variant = 'original'
     facts.originalAvailable = true
-    const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
+    const asset = new ReaderAsset(result.displayUri, ImagePipelineService.retainReaderFile(this.context, result.filePath),
+      new ReaderFileInformation(result.filePath, facts))
     asset.saveUri = this.url
     asset.originalAvailable = true
     if (result.filePath.length > 0) {
@@ -409,7 +410,8 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const originalKey = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, true)
     facts.originalAvailable = source.originImageUrl.length > 0 ||
       ImagePipelineService.cachedReaderFile(this.context, originalKey) !== null
-    const asset = new ReaderAsset(result.displayUri, () => {}, new ReaderFileInformation(result.filePath, facts))
+    const asset = new ReaderAsset(result.displayUri, ImagePipelineService.retainReaderFile(this.context, result.filePath),
+      new ReaderFileInformation(result.filePath, facts))
     // Metadata may be absent after a cold start; the existing save host owns local-file copies.
     asset.saveUri = source.imageUrl.length > 0 ? source.imageUrl : result.displayUri
     asset.originalAvailable = facts.originalAvailable
