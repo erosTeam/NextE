@@ -985,7 +985,7 @@ export struct NextEReaderLabPage {
     return readerEntryWindowReady(this.entryTransition, this.rootWindowPresentationSettled())
   }
 
-  @Monitor('entryPhase', 'readerThumbnailTransition.presentationEpoch', 'routeActive')
+  @Monitor('entryPhase', 'readerThumbnailTransition.presentationEpoch', 'routeActive', 'labVisibility.foreground')
   private replayEntryWindowPresentation(): void {
     if (!this.routeActive || !this.entryWindowReady() || !this.request.readingChrome) return
     if (this.managesTrialWindow) {
@@ -997,7 +997,14 @@ export struct NextEReaderLabPage {
   }
 
   private syncChromeVisible(visible: boolean): void {
-    if (visible) return // The before-show gate already applied host visibility.
+    if (visible) {
+      // Foreground replay republishes the retained Surface's actual chrome.
+      // Reuse its Window gate without taking a new backup or replacing UI state.
+      if (this.managesTrialWindow) void this.trialWindow.prepareStatusBarVisible((): boolean =>
+        !this.volumeDisposed && !this.closeRequested && !this.hostClosing &&
+        this.routeActive && this.labVisibility.foreground)
+      return
+    }
     const statusVisible = !connectReadMode().fullscreen || visible
     if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible, (): boolean =>
       !this.volumeDisposed && !this.closeRequested && !this.hostClosing)
