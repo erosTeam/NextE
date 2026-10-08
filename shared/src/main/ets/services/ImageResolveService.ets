@@ -191,6 +191,16 @@ export class ImageResolveService {
     return ImageResolveService.instance
   }
 
+  /** Restore already-resolved page facts without delaying a disk-cache hit or fetching its /s/ page. */
+  restoreCachedMetadata(image: EhGalleryImage): boolean {
+    const cached: ImagePageResult | undefined = this.cache.getResolved(image.sUrl)
+    if (cached === undefined) {
+      return false
+    }
+    this.applyResult(image, cached)
+    return true
+  }
+
   private static is509(url: string): boolean {
     return ImageResolveService.RE_509.test(url)
   }

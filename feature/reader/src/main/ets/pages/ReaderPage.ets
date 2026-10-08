@@ -2421,6 +2421,7 @@ export struct ReaderPage {
     if (image.page !== page) {
       return
     }
+    ImageResolveService.getInstance().restoreCachedMetadata(image)
     this.setOriginalAvailableForPage(page, image.originImageUrl.length > 0)
   }
 
@@ -7082,7 +7083,6 @@ struct ReaderImagePage {
     }
     if (source.preferOriginal) {
       try {
-        this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
@@ -7118,7 +7118,6 @@ struct ReaderImagePage {
       return
     }
     try {
-      this.imageUrl = ''
       this.imageLoaded = false
       this.sourceImageUrl = ''
       this.imageBlocked = false
@@ -7161,7 +7160,7 @@ struct ReaderImagePage {
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     this.sourceImageUrl = resolved
-    this.imageUrl = ''
+    // Same page keeps its Image node; publish the new URI through src after it is ready.
     this.resolvedFilePath = ''
     this.resolvedDisplayUri = ''
     this.imageLoaded = false
@@ -7390,7 +7389,6 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
-    this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
