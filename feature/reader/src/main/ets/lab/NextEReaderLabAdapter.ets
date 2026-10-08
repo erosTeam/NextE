@@ -40,11 +40,14 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
     request.check()
     const source = this.source.copy()
-    const url = forceReload ? await ImageResolveService.getInstance().resolveOriginal(source, true) : this.url
+    const cached = forceReload ? null : ImagePipelineService.cachedReaderFile(this.context, this.cacheKey)
+    // A prepared local source can be evicted before load; resolve only that miss or an explicit reload.
+    const url = forceReload || (cached === null && this.url.startsWith('file://'))
+      ? await ImageResolveService.getInstance().resolveOriginal(source, forceReload) : this.url
     request.check()
     this.source = source
     this.url = url
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, EH_IMAGE_PRIORITY_HIGH,
+    const result = cached ?? await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, EH_IMAGE_PRIORITY_HIGH,
       onProgress !== undefined
         ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
         : undefined, forceReload)
@@ -308,9 +311,15 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     if (this.localUnits.has(page.unit.unit)) throw new Error('eh_local_original_already_selected')
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
+    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, true)
+    const cached = ImagePipelineService.cachedReaderFile(this.context, key)
+    if (cached !== null) {
+      ImageResolveService.getInstance().restoreCachedMetadata(source)
+      const uri = source.originImageUrl.length > 0 ? source.originImageUrl : cached.displayUri
+      return new NextEOriginalAssetPlan(page, this.context, source, uri, key, this.cropStrength)
+    }
     const url = await ImageResolveService.getInstance().resolveOriginal(source)
     cancellation.check()
-    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, true)
     return new NextEOriginalAssetPlan(page, this.context, source, url, key, this.cropStrength)
   }
 
