@@ -5,7 +5,7 @@ import { systemShare } from '@kit.ShareKit'
 import { ReaderSystemSharePresentation, ReaderFileInformation } from '@reader-kit/ui'
 import {
   CachedImageFileResult, CachedImageProgress, DiagnosticLogger, EhApiService, EhConstants, EhGalleryImage, EhHttpClient,
-  ImageResolveService, ImagePipelineService,
+  ImageResolveService, ImagePipelineService, EH_IMAGE_PRIORITY_HIGH, EH_IMAGE_PRIORITY_MEDIUM, EH_IMAGE_PRIORITY_LOW,
   ReaderLocalSourceService, ReaderParams, ReaderSourceKind, AppStrings,
 } from 'shared'
 import {
@@ -44,7 +44,7 @@ class NextEOriginalAssetPlan implements ReaderOriginalAssetPlan {
     request.check()
     this.source = source
     this.url = url
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, 100,
+    const result = await ImagePipelineService.loadReaderFile(this.context, url, this.cacheKey, EH_IMAGE_PRIORITY_HIGH,
       onProgress !== undefined
         ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
         : undefined, forceReload)
@@ -241,7 +241,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     this.pages.set(page.key, source.copy())
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
-    await ImagePipelineService.loadReaderFile(this.context, url, key, 100)
+    await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_LOW)
     cancellation.check()
     console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=ready`)
   }
@@ -369,7 +369,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     cancellation.check()
     this.pages.set(page.key, source.copy())
     const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, 100,
+    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_MEDIUM,
       onProgress !== undefined
         ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
         : undefined, forceReload)
