@@ -238,21 +238,19 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   adjacent(_unit: ReaderUnit, _direction: 'next' | 'previous'): ReaderUnitKey | null { return null }
 
   async preload(page: ReaderPage, cancellation: ReaderCancellation): Promise<void> {
-    cancellation.check()
-    if (this.localUnits.has(page.unit.unit)) {
-      console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=local-skip`)
-      return
-    }
-    const source = this.pages.get(page.key)?.copy()
-    if (source === undefined) throw new Error('missing_eh_preload_asset')
-    const key = ImagePipelineService.readerFileCacheKey(page.unit.work, this.token, source.page, false)
-    if (ImagePipelineService.cachedReaderFile(this.context, key) !== null) return
-    const url = await ImageResolveService.getInstance().resolve(source)
-    cancellation.check()
-    this.pages.set(page.key, source.copy())
-    await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_LOW)
-    cancellation.check()
+    const asset = await this.preloadAsset(page, cancellation)
+    asset.release()
     console.info(`[NextEReaderPreload] source=${page.sourceIndex} result=ready`)
+  }
+
+  /** File readiness and a cache lease, without creating an off-screen image/decode owner. */
+  async preloadAsset(page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderAsset> {
+    const asset = await this.load(page, 'original', cancellation, false, undefined, EH_IMAGE_PRIORITY_LOW)
+    if (cancellation.isCancelled()) {
+      asset.release()
+      cancellation.check()
+    }
+    return asset
   }
 
   /** Resolve one automatic-reading target without changing thumbnail availability. */
@@ -364,7 +362,8 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
   }
 
   async load(page: ReaderPage, kind: ReaderAssetKind, cancellation: ReaderCancellation, forceReload: boolean,
-    onProgress?: (loaded: number, total: number) => void): Promise<ReaderAsset> {
+    onProgress?: (loaded: number, total: number) => void,
+    priority: number = EH_IMAGE_PRIORITY_MEDIUM): Promise<ReaderAsset> {
     cancellation.check()
     const source = this.pages.get(page.key)?.copy()
     if (source === undefined) throw new Error('missing_eh_asset')
@@ -396,7 +395,7 @@ export class NextEReaderLabAdapter implements ReaderCatalog, ReaderAssetProvider
     const url = await ImageResolveService.getInstance().resolve(source, forceReload)
     cancellation.check()
     this.pages.set(page.key, source.copy())
-    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, EH_IMAGE_PRIORITY_MEDIUM,
+    const result = await ImagePipelineService.loadReaderFile(this.context, url, key, priority,
       onProgress !== undefined
         ? (progress: CachedImageProgress): void => { onProgress(progress.loaded, progress.total) }
         : undefined, forceReload)

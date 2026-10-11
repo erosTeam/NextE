@@ -10,7 +10,8 @@ const start = text.indexOf('class NextEOriginalAssetPlan ')
 const end = text.indexOf('export class NextEReaderLabAdapter', start)
 const source = text.slice(start, end).replace('class NextEOriginalAssetPlan', 'export class NextEOriginalAssetPlan')
 const copyable = values => ({ ...values, copy() { return copyable(this) } })
-const token = () => ({ cancelled: false, check() { if (this.cancelled) throw new Error('cancelled') } })
+const token = () => ({ cancelled: false, isCancelled() { return this.cancelled },
+  check() { if (this.cancelled) throw new Error('cancelled') } })
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 const cropModule = { NextEReaderCropSource: class {
   constructor(path, identity, strength) { Object.assign(this, { path, identity, strength }) }
@@ -133,28 +134,34 @@ test('default asset manual reload re-sources before replacing cached bytes', asy
   ])
 })
 
-test('shared preload resolves and warms the default cache without creating a Reader asset', async () => {
+test('shared preload retains cached source bytes without native presentation or repeat downloads', async () => {
   const resolutions = [], downloads = []
+  let cached = null, releases = 0
   const context = { exports: {}, require: name => {
     if (name === 'shared') return {
       EH_IMAGE_PRIORITY_HIGH: 0, EH_IMAGE_PRIORITY_MEDIUM: 1, EH_IMAGE_PRIORITY_LOW: 2,
-      ImageResolveService: { getInstance: () => ({ resolve: async (source, force) => {
+      ImageResolveService: { getInstance: () => ({ restoreCachedMetadata() {}, resolve: async (source, force) => {
         resolutions.push({ page: source.page, force })
         source.imageUrl = 'https://fixture.invalid/preloaded.webp'
         return source.imageUrl
       } }) },
       ImagePipelineService: {
-        cachedReaderFile: () => null, retainReaderFile: () => () => {},
+        cachedReaderFile: (_context, key) => key === '7:false' ? cached : null,
+        retainReaderFile: () => () => { releases++ },
         readerFileCacheKey: (_work, _token, page, original) => `${page}:${original}`,
         loadReaderFile: async (_context, url, key, priority) => {
           downloads.push({ url, key, priority })
-          return { displayUri: url, filePath: 'preloaded-file', bytes: 42 }
+          cached = { displayUri: 'file:///cache/preloaded-file', filePath: '/cache/preloaded-file', bytes: 42 }
+          return cached
         },
       },
       ReaderPageCropService: {},
     }
-    if (name === '@reader-kit/core') return {}
-    if (name === '@reader-kit/ui') return {}
+    if (name === '@reader-kit/core') return { ReaderImageInformation: class {},
+      ReaderAsset: class { constructor(uri, release, information) { Object.assign(this, { uri, release, information }) } } }
+    if (name === '@reader-kit/ui') return { ReaderFileInformation: class {
+      constructor(path, facts) { Object.assign(this, { path, facts }) }
+    } }
     if (name === '../viewmodel/ReaderViewModel') return { ReaderViewModel: class {} }
     if (name === '@kit.ArkData') return { uniformTypeDescriptor: {} }
     if (name === '@kit.ShareKit') return { systemShare: {} }
@@ -165,12 +172,20 @@ test('shared preload resolves and warms the default cache without creating a Rea
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
   } }).outputText, context)
   const adapter = new context.exports.NextEReaderLabAdapter({}, 'token', false)
-  adapter.pages.set('page', copyable({ page: 7, imageUrl: '' }))
+  adapter.pages.set('page', copyable({ page: 7, imageUrl: '', originImageUrl: '' }))
   await adapter.preload({ key: 'page', unit: { work: 'gallery' }, sourceIndex: 6 }, token())
-  assert.deepEqual(resolutions, [{ page: 7, force: undefined }])
+  assert.deepEqual(resolutions, [{ page: 7, force: false }])
   assert.deepEqual(downloads, [{
     url: 'https://fixture.invalid/preloaded.webp', key: '7:false', priority: 2,
   }])
+  assert.equal(releases, 1)
+  const warmed = await adapter.preloadAsset({ key: 'page', unit: { work: 'gallery' }, sourceIndex: 6 }, token())
+  assert.equal(warmed.uri, 'file:///cache/preloaded-file')
+  assert.equal(warmed.saveUri, 'https://fixture.invalid/preloaded.webp')
+  warmed.release()
+  assert.equal(releases, 2)
+  assert.equal(downloads.length, 1)
+  assert.equal(resolutions.length, 1)
 })
 
 test('actual share adapter builds its hyperlink from the selected variant and rejects cancelled resolution', async () => {
@@ -379,6 +394,6 @@ const pageSource = fs.readFileSync(new URL('../feature/reader/src/main/ets/lab/N
 test('optional host passes its cache warmer and persisted depth into reader-kit', () => {
   assert.match(text, /implements ReaderCatalog, ReaderAssetProvider, ReaderAssetFailureClassifier,[\s\S]*?ReaderPreloadHost/)
   assert.match(pageSource, /const autoReadSourceHost = lab\?\.autoReadSourceProbe === 'delay-once'[\s\S]*?new NextEReaderAutoReadSourceProbe\(adapter, lab\.autoReadSourceProbe\)[\s\S]*?: adapter/)
-  assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider, adapter, adapter, autoReadSourceHost\)/)
-  assert.match(pageSource, /preloadDepth: this\.readMode\.preloadPages/)
+  assert.match(pageSource, /new ReaderPagedSession\(adapter, assetProvider,[\s\S]*?this\.request\.readingChrome \? preloadHost : adapter, adapter, autoReadSourceHost\)/)
+  assert.match(pageSource, /preloadDepth: ReaderComicTranslationAutoPolicy\.warmLookahead\(this\.readMode\.preloadPages,/)
 })

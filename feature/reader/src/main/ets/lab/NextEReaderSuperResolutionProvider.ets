@@ -5,7 +5,8 @@ import {
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
-import { ReaderSuperResolutionResult, readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
+import { ReaderSuperResolutionResult, ReaderSuperResolutionTaskPriority,
+  readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
 import { NextEReaderCropSource } from './NextEReaderCropSource'
 
 export class NextEReaderSuperResolutionInformation {
@@ -96,18 +97,25 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
+  private preloadSequence: number = 0
   private cropStrength: () => string
   private saveUriForPage: (page: ReaderPage) => string
+  private preloadSource: ((page: ReaderPage, cancellation: ReaderCancellation) => Promise<ReaderAsset>) | null
+  private cropEnabled: () => boolean
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: () => NextEReaderSuperResolutionConfiguration,
     cropStrength: () => string = (): string => '',
-    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '') {
+    saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '',
+    preloadSource: ((page: ReaderPage, cancellation: ReaderCancellation) => Promise<ReaderAsset>) | null = null,
+    cropEnabled: () => boolean = (): boolean => false) {
     this.context = context
     this.provider = provider
     this.configuration = configuration
     this.cropStrength = cropStrength
     this.saveUriForPage = saveUriForPage
+    this.preloadSource = preloadSource
+    this.cropEnabled = cropEnabled
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     this.ownerPrefix = `reader-shared:${++NextEReaderSuperResolutionProvider.sequence}`
@@ -125,7 +133,7 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     const asset = await this.provider.load(page, kind, cancellation, forceReload, onProgress)
     if (kind === 'original') {
       const path = NextEReaderSuperResolutionProvider.localPath(asset.uri)
-      if (path.length > 0) this.sourcePaths.set(this.pageIdentity(page), path)
+      if (path.length > 0 && asset.notice === null) this.sourcePaths.set(this.pageIdentity(page), path)
       else this.sourcePaths.delete(this.pageIdentity(page))
     }
     return asset
@@ -176,6 +184,40 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     } finally {
       detach()
       if (!retained) readerSuperResolutionReleaseOwner(ownerKey)
+    }
+  }
+
+  /** Warm the same processed cache identity as a visible request, at background priority. */
+  async preload(page: ReaderPage, cancellation: ReaderCancellation): Promise<void> {
+    cancellation.check()
+    const configuration = this.configuration()
+    if (!configuration.enabled || this.preloadSource === null) return
+    const identity = configuration.identity()
+    const asset = await this.preloadSource(page, cancellation)
+    const ownerKey = `${this.ownerPrefix}:prefetch:${++this.preloadSequence}:${this.pageIdentity(page)}:${identity}`
+    const detach = cancellation.onCancel((): void => readerSuperResolutionReleaseOwner(ownerKey))
+    try {
+      cancellation.check()
+      const path = NextEReaderSuperResolutionProvider.localPath(asset.uri)
+      if (asset.notice !== null || path.length === 0) return
+      if (!this.configuration().enabled || this.configuration().identity() !== identity) return
+      const sourceKey = `${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${page.sourceIndex}`
+      const result = await readerSuperResolutionProcess(this.context, path, sourceKey,
+        (_state: string): void => {}, ownerKey, ReaderSuperResolutionTaskPriority.PREFETCH)
+      cancellation.check()
+      if (this.configuration().identity() === identity && result.applied) {
+        const path = result.filePath.length > 0 ? result.filePath :
+          NextEReaderSuperResolutionProvider.localPath(result.displayUri)
+        if (path.length > 0 && this.cropEnabled()) {
+          await new NextEReaderCropSource(path, 'reader-preload-enhanced', this.cropStrength).read()
+          cancellation.check()
+        }
+        console.info(`[NextEReaderPreprocess] enhanced source=${page.sourceIndex}`)
+      }
+    } finally {
+      detach()
+      readerSuperResolutionReleaseOwner(ownerKey)
+      asset.release()
     }
   }
 

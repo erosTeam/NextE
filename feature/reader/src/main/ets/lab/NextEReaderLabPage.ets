@@ -17,7 +17,7 @@ import { appSheetOptions } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
   ReaderAssetProvider, ReaderImageInformation,
-  ReaderPage } from '@reader-kit/core'
+  ReaderPage, ReaderAsset, ReaderCancellation } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
 import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, ReaderLabVisibilityState, connectReaderLabVisibility,
@@ -44,6 +44,8 @@ import {
   NextEReaderImageBlockProvider,
 } from './NextEReaderImageBlockProvider'
 import { NextEReaderHostRequest } from './NextEReaderHostRequest'
+import { NextEReaderProcessingPreloadHost, NextEReaderSourcePreloadHost } from './NextEReaderProcessingPreloadHost'
+import { ReaderComicTranslationAutoPolicy } from '../model/ReaderComicTranslationAutoPolicy'
 
 class NextERootEntryHandoffHost implements ReaderRootEntryHandoffHost {
   private authorize: (entry: ReaderEntryTransition) => boolean
@@ -103,6 +105,7 @@ export struct NextEReaderLabPage {
   private translationProviderRef: NextEReaderTranslationProvider | null = null
   private superResolutionProvider: NextEReaderSuperResolutionProvider | null = null
   private imageBlockProvider: NextEReaderImageBlockProvider | null = null
+  private processingPreloadHost: NextEReaderProcessingPreloadHost | null = null
   private mediaActions: ReaderMediaActions = new ReaderMediaActions()
   @Local private labVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
   @Local private readerThumbnailTransition: ReaderThumbnailTransitionState = connectReaderThumbnailTransition()
@@ -139,6 +142,7 @@ export struct NextEReaderLabPage {
   @Local private imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings()
   @Local private imageBlockRuleSaving: boolean = false
   private translationAutoScheduleEpoch: number = 0
+  private translationAutoCancellation: ReaderCancellation = new ReaderCancellation()
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -171,15 +175,18 @@ export struct NextEReaderLabPage {
       this.getUIContext().getPromptAction().showToast({ message })
     }, forcedImageBlockSourceIndex)
     this.imageBlockProvider = imageBlockProvider
+    const preloadSource = (page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderAsset> =>
+      this.preloadProcessingSource(adapter, imageBlockProvider, page, cancellation)
     const variantProvider = new NextEReaderSuperResolutionProvider(context, imageBlockProvider,
       (): NextEReaderSuperResolutionConfiguration => this.superResolutionConfiguration(),
       (): string => this.cropStrength(),
-      (page: ReaderPage): string => adapter.saveUri(page))
+      (page: ReaderPage): string => adapter.saveUri(page), preloadSource,
+      (): boolean => this.initialCropBorders())
     this.superResolutionProvider = variantProvider
     const translationProvider = new NextEReaderTranslationProvider(context, variantProvider,
       (page: ReaderPage): NextEReaderTranslationConfiguration => this.translationConfiguration(page),
       (): string => this.cropStrength(),
-      (page: ReaderPage): string => adapter.saveUri(page))
+      (page: ReaderPage): string => adapter.saveUri(page), preloadSource)
     this.translationProviderRef = translationProvider
     connectNextEReaderTranslationProbe().bindAction(context, this.request.work, (id: string): boolean => {
       const state = this.session?.snapshot()
@@ -197,7 +204,12 @@ export struct NextEReaderLabPage {
         lab.originalVariantProbe, lab.assetFailureMessage)
     const autoReadSourceHost = lab?.autoReadSourceProbe === 'delay-once'
       ? new NextEReaderAutoReadSourceProbe(adapter, lab.autoReadSourceProbe) : adapter
-    const session = new ReaderPagedSession(adapter, assetProvider, adapter, adapter, autoReadSourceHost)
+    const sourcePreloadHost = new NextEReaderSourcePreloadHost(preloadSource)
+    const preloadHost = new NextEReaderProcessingPreloadHost(sourcePreloadHost, variantProvider)
+    this.processingPreloadHost = preloadHost
+    preloadHost.setActive(this.preprocessingActive())
+    const session = new ReaderPagedSession(adapter, assetProvider,
+      this.request.readingChrome ? preloadHost : adapter, adapter, autoReadSourceHost)
     if (this.request.readingChrome) {
       this.initializeSession(session)
       return
@@ -229,6 +241,56 @@ export struct NextEReaderLabPage {
     if (this.readMode.backgroundMode === ReaderBackgroundMode.WHITE) return false
     if (this.readMode.backgroundMode === ReaderBackgroundMode.AUTO) return this.themeDisplay.effectiveDark
     return true
+  }
+
+  private preprocessingActive(): boolean {
+    return this.request.readingChrome && !this.volumeDisposed && !this.closeRequested && !this.hostClosing &&
+      this.routeActive && this.labVisibility.foreground && !this.readerSettingsSheetShown
+  }
+
+  private async preloadProcessingSource(adapter: NextEReaderLabAdapter, imageBlock: NextEReaderImageBlockProvider,
+    page: ReaderPage, cancellation: ReaderCancellation): Promise<ReaderAsset> {
+    cancellation.check()
+    if (!this.preprocessingActive()) throw new Error('reader_preprocessing_inactive')
+    const asset = await adapter.preloadAsset(page, cancellation)
+    try {
+      cancellation.check()
+      if (!this.preprocessingActive()) throw new Error('reader_preprocessing_inactive')
+      const checked = await imageBlock.applyDecision(page, asset, cancellation)
+      cancellation.check()
+      if (checked.notice === null && this.initialCropBorders() && checked.crop !== null) {
+        await checked.crop.read()
+        cancellation.check()
+      }
+      return checked
+    } catch (error) {
+      asset.release()
+      throw error as Error
+    }
+  }
+
+  @Monitor('routeActive', 'labVisibility.foreground', 'closeRequested', 'hostClosing', 'readerSettingsSheetShown')
+  private syncPreprocessingActivity(): void {
+    const active = this.preprocessingActive()
+    this.processingPreloadHost?.setActive(active)
+    this.cancelNextAutoTranslation()
+    if (active && this.translationAutoEnabled &&
+      (this.pageIncluded(this.translationAppliedPages, this.currentSourceIndex) ||
+        this.pageIncluded(this.translationAutoFailedPages, this.currentSourceIndex))) {
+      this.scheduleNextAutoTranslation(this.currentSourceIndex)
+    }
+  }
+
+  @Monitor('readMode.superResolutionEnabled', 'readMode.superResolutionModel',
+    'readMode.superResolutionBackend', 'readMode.superResolutionMaxHeight')
+  private refreshPreprocessedEnhancement(): void {
+    this.processingPreloadHost?.refresh()
+  }
+
+  @Monitor('readMode.cropBordersContinuous', 'readMode.cropBordersPaged',
+    'readMode.cropStrengthContinuous', 'readMode.cropStrengthPaged', 'readMode.mode')
+  private refreshPreprocessedCrop(): void {
+    this.processingPreloadHost?.refresh()
   }
 
   private readerCanvasBackground(): ResourceColor {
@@ -450,9 +512,9 @@ export struct NextEReaderLabPage {
     const configured = this.translationIdentity(this.currentSourceIndex).length > 0
     return [
       new ReaderHostAction('translate-page', label, configured || translated || hidden,
-        translated, this.translationBusyPage >= 0),
+        translated, this.translationBusyPage === this.currentSourceIndex),
       new ReaderHostAction('translate-auto', AppStrings.get('reader_comic_translation_auto'), configured,
-        this.translationAutoEnabled, this.translationBusyPage >= 0),
+        this.translationAutoEnabled, !this.translationAutoEnabled && this.translationBusyPage === this.currentSourceIndex),
     ]
   }
 
@@ -478,7 +540,7 @@ export struct NextEReaderLabPage {
       this.toggleTranslationAuto(sourceIndex)
       return
     }
-    if (id !== 'translate-page' || this.translationBusyPage >= 0) return
+    if (id !== 'translate-page' || this.translationBusyPage === sourceIndex) return
     const hidden = this.pageIncluded(this.translationHiddenPages, sourceIndex)
     const translated = !hidden &&
       (this.translationFrame(sourceIndex)?.asset.variant === 'translated' ||
@@ -568,13 +630,13 @@ export struct NextEReaderLabPage {
   }
 
   private toggleTranslationAuto(sourceIndex: number): void {
-    if (this.translationBusyPage >= 0) return
     if (this.translationAutoEnabled) {
       this.translationAutoEnabled = false
-      this.translationAutoScheduleEpoch += 1
+      this.cancelNextAutoTranslation()
       this.translationPreferenceRevision += 1
       return
     }
+    if (this.translationBusyPage === sourceIndex) return
     if (this.translationIdentity(sourceIndex).length === 0) return
     this.getUIContext().showAlertDialog({
       title: AppStrings.get('reader_comic_translation_auto'),
@@ -596,6 +658,8 @@ export struct NextEReaderLabPage {
 
   private handleVariantSelection(sourceIndex: number, preference: ReaderVariantPreference,
     result: 'changed' | 'unchanged' | 'unavailable' | 'stale'): void {
+    if (preference.variant === 'enhanced' && (result === 'changed' || result === 'unchanged') &&
+      this.preprocessingActive()) this.processingPreloadHost?.refresh()
     if (preference.variant !== 'translated') return
     if (this.translationBusyPage === sourceIndex) this.translationBusyPage = -1
     if (result === 'changed' || result === 'unchanged') {
@@ -622,37 +686,62 @@ export struct NextEReaderLabPage {
   }
 
   private scheduleNextAutoTranslation(sourceIndex: number): void {
-    const epoch = ++this.translationAutoScheduleEpoch
-    const prepare = (attempt: number): void => {
-      if (epoch !== this.translationAutoScheduleEpoch || !this.translationAutoEnabled ||
-        this.currentSourceIndex !== sourceIndex || this.volumeDisposed || this.closeRequested || this.hostClosing) return
-      const state = this.session?.snapshot()
-      const session = this.session
-      const next = sourceIndex + 1
-      if (session === null || state?.phase !== 'ready' || state.unit === null || next >= state.unit.pageCount ||
-        this.pageIncluded(this.translationAppliedPages, next) ||
-        this.pageIncluded(this.translationAutoFailedPages, next) ||
-        this.pageIncluded(this.translationHiddenPages, next)) return
-      const frame = this.translationWindowFrame(next)
-      if (frame?.asset.phase !== 'displayed') {
-        if (attempt < 20) setTimeout((): void => prepare(attempt + 1), 100)
-        return
-      }
-      const identity = this.translationIdentity(next)
-      if (identity.length === 0) {
-        if (attempt < 20) setTimeout((): void => prepare(attempt + 1), 100)
-        return
-      }
+    this.cancelNextAutoTranslation()
+    void this.prepareNextAutoTranslation(sourceIndex, this.translationAutoScheduleEpoch,
+      this.translationAutoCancellation)
+  }
+
+  private cancelNextAutoTranslation(): void {
+    this.translationAutoScheduleEpoch += 1
+    this.translationAutoCancellation.cancel()
+    this.translationAutoCancellation = new ReaderCancellation()
+    if (this.translationBusyPage !== this.currentSourceIndex) this.translationBusyPage = -1
+  }
+
+  private async prepareNextAutoTranslation(sourceIndex: number, epoch: number,
+    cancellation: ReaderCancellation): Promise<void> {
+    const state = this.session?.snapshot()
+    const adapter = this.adapter
+    const provider = this.translationProviderRef
+    const next = sourceIndex + 1
+    if (!this.preprocessingActive() || !this.translationAutoEnabled || this.currentSourceIndex !== sourceIndex ||
+      adapter === null || provider === null || state?.phase !== 'ready' || state.unit === null ||
+      next >= state.unit.pageCount || this.pageIncluded(this.translationAppliedPages, next) ||
+      this.pageIncluded(this.translationAutoFailedPages, next) || this.pageIncluded(this.translationHiddenPages, next)) return
+    const unit = state.unit.copy()
+    try {
+      const page = await adapter.page(unit, next, cancellation)
+      cancellation.check()
+      const identity = this.translationConfiguration(page).identity()
+      if (identity.length === 0) return
       this.translationBusyPage = next
       this.translationPreferenceRevision += 1
-      const preference = new ReaderVariantPreference('translated', identity)
-      void session.prepareVariantForSource(next, state.unit.key.copy(), state.navigationRevision,
-        'translated', identity).then((result: 'changed' | 'unchanged' | 'unavailable' | 'stale'): void => {
-          if (result === 'stale' && this.currentSourceIndex === next) return
-          this.handleVariantSelection(next, preference, result)
-        })
+      const plan = await provider.prepareVariant(page, 'translated', identity, cancellation)
+      if (this.initialCropBorders()) {
+        const translated = await plan.load(cancellation, false)
+        try { await translated.crop?.read() } finally { translated.release() }
+      }
+      cancellation.check()
+      if (epoch !== this.translationAutoScheduleEpoch || !this.preprocessingActive() ||
+        this.session?.snapshot().unit?.key.equals(unit.key) !== true ||
+        this.translationConfiguration(page).identity() !== identity) return
+      // The runtime repository owns the warmed result. Do not mount an off-screen
+      // native image or roll this completion into another lookahead/model request.
+      this.translationRequestedPages = this.includePage(this.translationRequestedPages, next)
+      this.translationAppliedPages = this.includePage(this.translationAppliedPages, next)
+      this.translationAutoFailedPages = this.excludePage(this.translationAutoFailedPages, next)
+      this.translationPreferenceRevision += 1
+      console.info(`[NextEReaderPreprocess] translated source=${next}`)
+    } catch (_error) {
+      if (!cancellation.isCancelled() && epoch === this.translationAutoScheduleEpoch) {
+        this.translationAutoFailedPages = this.includePage(this.translationAutoFailedPages, next)
+        this.translationPreferenceRevision += 1
+      }
+    } finally {
+      if (epoch === this.translationAutoScheduleEpoch && this.translationBusyPage === next) {
+        this.translationBusyPage = -1
+      }
     }
-    setTimeout((): void => prepare(0), 0)
   }
 
   private logNormalEntryGeometry(stage: string): void {
@@ -696,11 +785,13 @@ export struct NextEReaderLabPage {
         this.getUIContext(), this.request.work, sourceIndex + 1)
     }
     if (this.currentSourceIndex !== sourceIndex) {
+      this.cancelNextAutoTranslation()
       this.currentSourceIndex = sourceIndex
       if (this.translationAutoEnabled && !this.pageIncluded(this.translationAutoFailedPages, sourceIndex) &&
         !this.pageIncluded(this.translationHiddenPages, sourceIndex) &&
         this.translationFrame(sourceIndex)?.asset.variant !== 'translated') this.translationBusyPage = sourceIndex
-      else if (this.translationAutoEnabled && this.translationFrame(sourceIndex)?.asset.variant === 'translated') {
+      else if (this.translationAutoEnabled && (this.translationFrame(sourceIndex)?.asset.variant === 'translated' ||
+        this.pageIncluded(this.translationAutoFailedPages, sourceIndex))) {
         this.scheduleNextAutoTranslation(sourceIndex)
       }
       this.translationPreferenceRevision += 1
@@ -959,7 +1050,8 @@ export struct NextEReaderLabPage {
 
   aboutToDisappear(): void {
     this.volumeDisposed = true
-    this.translationAutoScheduleEpoch += 1
+    this.cancelNextAutoTranslation()
+    this.processingPreloadHost?.close()
     this.translationAutoEnabled = false
     this.translationBusyPage = -1
     if (this.enhancementInteractionTimer >= 0) clearTimeout(this.enhancementInteractionTimer)
@@ -1103,7 +1195,8 @@ export struct NextEReaderLabPage {
               // tests that need the menus reveal them with a real tap.
               initialChromeVisible: false,
               pageTurnAnimation: this.labRequest?.pageTurnAnimationOverride ?? this.readMode.pageTurnAnimation,
-              preloadDepth: this.readMode.preloadPages,
+              preloadDepth: ReaderComicTranslationAutoPolicy.warmLookahead(this.readMode.preloadPages,
+                this.translationAutoEnabled),
               variantPolicy: new ReaderVariantPolicy(new ReaderVariantPreference(
                 this.superResolutionAvailable() ? 'enhanced' : 'default', this.superResolutionIdentity()),
                 this.translationPreferenceRevision,

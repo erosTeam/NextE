@@ -17,7 +17,7 @@ export class NextEReaderCropSource implements ReaderImageCropSource {
   async read(): Promise<ReaderImageCropBounds> {
     const strength = this.strength()
     DiagnosticLogger.info('reader-crop', 'shared_detect', `identity=${this.identity} strength=${strength}`)
-    const bounds = await ReaderPageCropService.detect(this.path, this.identity, strength)
+    const bounds = await ReaderPageCropService.detectFile(this.path, strength)
     return new ReaderImageCropBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
   }
 }

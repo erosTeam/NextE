@@ -14,6 +14,7 @@ const core = { ...load('ReaderContent'), ...load('ReaderSession'), ...load('Read
   ...load('ReaderImageInformation') }
 const calls = []
 let pending = null
+let runtimeBehavior = null
 let runtimeResult = { renderedPage: { identity: { projectId: 'nexte-gallery:eh:12:zh-CN', pageIndex: 0,
   targetLanguage: 'zh-CN' }, localFilePath: '/cache/translated.png' } }
 const shared = {
@@ -23,7 +24,11 @@ const shared = {
     sourceLanguage = 'auto'; targetLanguage = 'zh-CN'
   },
   ComicTranslationRuntimeService: {
-    async runReaderPage(...args) { calls.push(args); return pending === null ? runtimeResult : pending },
+    async runReaderPage(...args) {
+      calls.push(args)
+      if (runtimeBehavior !== null) return runtimeBehavior(...args)
+      return pending === null ? runtimeResult : pending
+    },
   },
   // Mirrors the real classifier contract for the failure-code recording path.
   ComicTranslationErrorClassifier: {
@@ -140,6 +145,86 @@ const okProvider = new NextEReaderTranslationProvider({}, backend, () => configu
   () => '', saveUriForPage)
 await okProvider.load(page, 'original', cancellation, false)
 assert.equal(okProvider.lastFailureCode(page.sourceIndex), '')
+
+// Preprocessing waits for file readiness, rather than the two-second displayed-frame poll.
+const future = new core.ReaderPage(unit, '12:2', 1)
+let readySource
+const sourceReady = new Promise(resolve => { readySource = resolve })
+let warmSourceReleases = 0
+let finishModel
+let modelStarted = false
+runtimeBehavior = async (_context, input) => {
+  assert.equal(input.imageWidth, 800, 'undisplayed page uses retained source header width')
+  assert.equal(input.imageHeight, 1200, 'undisplayed page uses retained source header height')
+  modelStarted = true
+  await new Promise(resolve => { finishModel = resolve })
+  return { renderedPage: { identity: { projectId: input.projectId, pageIndex: input.pageIndex,
+    targetLanguage: input.targetLanguage }, localFilePath: '/cache/warm-translated.png' } }
+}
+const warmProvider = new NextEReaderTranslationProvider({}, backend, () => configuration,
+  () => '', () => 'https://ehgt.org/source.jpg', async () => {
+    await sourceReady
+    return new core.ReaderAsset('file:///cache/future.jpg', () => { warmSourceReleases++ }, {
+      async read() {
+        const facts = new core.ReaderImageInformation()
+        facts.width = 800; facts.height = 1200
+        return facts
+      },
+    })
+  })
+const warmToken = new core.ReaderCancellation()
+const background = warmProvider.prepareVariant(future, 'translated', identity, warmToken)
+const beforeReady = calls.length
+await Promise.resolve(); await Promise.resolve()
+assert.equal(calls.length, beforeReady, 'unready source starts no model call')
+readySource()
+for (let i = 0; i < 12; i++) await Promise.resolve()
+assert.equal(calls.at(-1)[1].imageWidth, 800, 'production preflight gets a positive file-header width')
+assert.equal(calls.at(-1)[1].imageHeight, 1200)
+assert.equal(modelStarted, true, 'future page processing needs no decoded frame')
+assert.equal(future.width, 0, 'catalog page remains undecoded and unmodified')
+assert.equal(future.height, 0)
+const beforeJoin = calls.length
+// Entering the prewarmed page joins its existing task.
+const displayed = warmProvider.prepareVariant(future, 'translated', identity, new core.ReaderCancellation())
+warmToken.cancel()
+finishModel()
+await assert.rejects(background, /reader_request_cancelled/)
+assert.equal((await displayed).variant, 'translated')
+assert.equal(calls.length, beforeJoin, 'foreground joins the running next-page task without consuming quota again')
+assert.equal(warmSourceReleases, 2, 'both consumers release their independently retained source')
+
+// Distinct pages share one model lane. A retired queued page consumes no model quota.
+let releaseFirst
+let activeModels = 0
+let peakModels = 0
+const startedPages = []
+runtimeBehavior = async (_context, input) => {
+  activeModels++; peakModels = Math.max(peakModels, activeModels); startedPages.push(input.pageIndex)
+  if (input.pageIndex === 0) await new Promise(resolve => { releaseFirst = resolve })
+  activeModels--
+  return { renderedPage: { identity: { projectId: input.projectId, pageIndex: input.pageIndex,
+    targetLanguage: input.targetLanguage }, localFilePath: `/cache/page-${input.pageIndex}.png` } }
+}
+const serialProvider = new NextEReaderTranslationProvider({}, backend, () => configuration,
+  () => '', () => 'https://ehgt.org/source.jpg')
+const latest = new core.ReaderPage(unit, '12:3', 2)
+for (const candidate of [page, future, latest]) {
+  await serialProvider.load(candidate, 'original', new core.ReaderCancellation(), false)
+}
+const first = serialProvider.prepareVariant(page, 'translated', identity, new core.ReaderCancellation())
+for (let i = 0; i < 10; i++) await Promise.resolve()
+const retired = new core.ReaderCancellation()
+const queued = serialProvider.prepareVariant(future, 'translated', identity, retired)
+const queuedRejected = assert.rejects(queued, /reader_request_cancelled/)
+retired.cancel()
+const current = serialProvider.prepareVariant(latest, 'translated', identity, new core.ReaderCancellation())
+assert.deepEqual(startedPages, [0])
+releaseFirst()
+await first; await queuedRejected; await current
+assert.deepEqual(startedPages, [0, 2])
+assert.equal(peakModels, 1)
+runtimeBehavior = null
 await okProvider.prepareVariant(page, 'translated', identity, new core.ReaderCancellation())
 assert.equal(okProvider.lastFailureCode(page.sourceIndex), '')
 

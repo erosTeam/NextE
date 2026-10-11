@@ -1,5 +1,7 @@
 import { taskpool } from '@kit.ArkTS'
 import { image } from '@kit.ImageKit'
+import { fileIo } from '@kit.CoreFileKit'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import {
   ReaderPageCropBounds,
   ReaderPageCropDetector,
@@ -7,6 +9,28 @@ import {
 } from '../model/ReaderPageCropBounds'
 
 const READER_CROP_CACHE_LIMIT: number = 256
+
+@Concurrent
+function hashReaderPageCropFile(filePath: string): string {
+  const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY)
+  try {
+    const md = cryptoFramework.createMd('SHA256')
+    const buffer = new ArrayBuffer(128 * 1024)
+    while (true) {
+      const length = fileIo.readSync(file.fd, buffer, { length: buffer.byteLength })
+      if (length <= 0) break
+      md.updateSync({ data: new Uint8Array(buffer, 0, length) })
+    }
+    const digest = md.digestSync().data
+    const parts: string[] = []
+    for (let index = 0; index < digest.length; index += 1) {
+      parts.push(digest[index].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
+  } finally {
+    fileIo.closeSync(file)
+  }
+}
 
 @Concurrent
 async function detectReaderPageCropFile(filePath: string, strength: string): Promise<string> {
@@ -67,6 +91,28 @@ async function detectReaderPageCropFile(filePath: string, strength: string): Pro
 export class ReaderPageCropService {
   private static cache: Map<string, ReaderPageCropBounds> = new Map()
   private static inFlight: Map<string, Promise<ReaderPageCropBounds>> = new Map()
+  private static identityInFlight: Map<string, Promise<string>> = new Map()
+
+  /** Reuse preprocessing across asset owners without trusting a reused path or a UI instance ID. */
+  static async detectFile(filePath: string, strength: string): Promise<ReaderPageCropBounds> {
+    if (filePath.length === 0) return ReaderPageCropBounds.none()
+    let identity = ReaderPageCropService.identityInFlight.get(filePath)
+    if (identity === undefined) {
+      identity = taskpool.execute<[string], string>(hashReaderPageCropFile, filePath)
+      ReaderPageCropService.identityInFlight.set(filePath, identity)
+    }
+    const owned = identity
+    try {
+      const digest = await owned
+      return await ReaderPageCropService.detect(filePath, `content:${digest}`, strength)
+    } catch (_error) {
+      return ReaderPageCropBounds.none()
+    } finally {
+      if (ReaderPageCropService.identityInFlight.get(filePath) === owned) {
+        ReaderPageCropService.identityInFlight.delete(filePath)
+      }
+    }
+  }
 
   static detect(
     filePath: string,
