@@ -527,6 +527,14 @@ export class ReaderSuperResolutionService {
     }
   }
 
+  static promoteOwner(ownerKey: string): void {
+    for (const task of ReaderSuperResolutionService.inFlight.values()) {
+      if (task.owners.has(ownerKey)) {
+        ReaderSuperResolutionService.promote(task, ReaderSuperResolutionTaskPriority.CURRENT, ownerKey)
+      }
+    }
+  }
+
   static releaseOwner(ownerKey: string): void {
     if (ownerKey.length <= 0) {
       return
@@ -1535,6 +1543,10 @@ export class ReaderSuperResolutionService {
 export function readerSuperResolutionSetInteractionPaused(paused: boolean): void {
   readerSuperResolutionInteractionPauseRequested = paused
   applyReaderSuperResolutionInteractionPause()
+}
+
+export function readerSuperResolutionPromoteOwner(ownerKey: string): void {
+  ReaderSuperResolutionService.promoteOwner(ownerKey)
 }
 
 export function readerSuperResolutionReleaseOwner(ownerKey: string): void {

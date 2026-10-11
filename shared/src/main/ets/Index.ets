@@ -554,6 +554,7 @@ export {
   ReaderSuperResolutionTaskState,
   readerSuperResolutionProcess,
   readerSuperResolutionReleaseOwner,
+  readerSuperResolutionPromoteOwner,
   readerSuperResolutionSetInteractionPaused,
 } from './services/ReaderSuperResolutionService'
 export {

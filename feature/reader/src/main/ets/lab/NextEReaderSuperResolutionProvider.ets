@@ -1,12 +1,12 @@
 import { common } from '@kit.AbilityKit'
 import {
-  ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderImageInformation,
+  ReaderAsset, ReaderAssetKind, ReaderAssetProvider, ReaderCancellation, ReaderProcessingCancellation, ReaderImageInformation,
   ReaderOriginalAssetPlan, ReaderPage,
   ReaderProcessedAssetVariant, ReaderVariantAssetPlan,
 } from '@reader-kit/core'
 import { ReaderFileInformation } from '@reader-kit/ui'
 import { ReaderSuperResolutionResult, ReaderSuperResolutionTaskPriority,
-  readerSuperResolutionProcess, readerSuperResolutionReleaseOwner } from 'shared'
+  readerSuperResolutionProcess, readerSuperResolutionReleaseOwner, readerSuperResolutionPromoteOwner } from 'shared'
 import { NextEReaderCropSource } from './NextEReaderCropSource'
 
 export class NextEReaderSuperResolutionInformation {
@@ -66,6 +66,8 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
     this.saveUri = saveUri
   }
 
+  release(): void { readerSuperResolutionReleaseOwner(this.ownerKey) }
+
   async load(cancellation: ReaderCancellation, _forceReload: boolean): Promise<ReaderAsset> {
     cancellation.check()
     const facts = new ReaderImageInformation()
@@ -83,7 +85,7 @@ class NextEReaderSuperResolutionPlan implements ReaderVariantAssetPlan {
 
 /**
  * NextE owns enhancement configuration, source-file discovery and service lifetime.
- * reader-kit receives only an exact resolved plan for the currently displayed page.
+ * reader-kit owns demand and receives an exact resolved recipe independent of native presentation.
  */
 export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private static sequence: number = 0
@@ -97,25 +99,22 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
   private informationByPage: Map<string, NextEReaderSuperResolutionInformation> =
     new Map<string, NextEReaderSuperResolutionInformation>()
   private ownerPrefix: string
-  private preloadSequence: number = 0
+  private preparationSequence: number = 0
   private cropStrength: () => string
   private saveUriForPage: (page: ReaderPage) => string
   private preloadSource: ((page: ReaderPage, cancellation: ReaderCancellation) => Promise<ReaderAsset>) | null
-  private cropEnabled: () => boolean
 
   constructor(context: common.UIAbilityContext, provider: ReaderAssetProvider,
     configuration: () => NextEReaderSuperResolutionConfiguration,
     cropStrength: () => string = (): string => '',
     saveUriForPage: (page: ReaderPage) => string = (_page: ReaderPage): string => '',
-    preloadSource: ((page: ReaderPage, cancellation: ReaderCancellation) => Promise<ReaderAsset>) | null = null,
-    cropEnabled: () => boolean = (): boolean => false) {
+    preloadSource: ((page: ReaderPage, cancellation: ReaderCancellation) => Promise<ReaderAsset>) | null = null) {
     this.context = context
     this.provider = provider
     this.configuration = configuration
     this.cropStrength = cropStrength
     this.saveUriForPage = saveUriForPage
     this.preloadSource = preloadSource
-    this.cropEnabled = cropEnabled
     this.cancellationMode = provider.cancellationMode
     this.informationSupported = provider.informationSupported === true
     this.ownerPrefix = `reader-shared:${++NextEReaderSuperResolutionProvider.sequence}`
@@ -146,19 +145,31 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
     if (variant !== 'enhanced' || !configuration.enabled || configuration.identity() !== identity) {
       throw new Error('reader_variant_unavailable')
     }
-    const sourcePath = this.sourcePaths.get(this.pageIdentity(page)) ?? ''
-    if (sourcePath.length === 0) throw new Error('reader_variant_source_unavailable')
     const sourceKey = `${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${page.sourceIndex}`
-    const ownerKey = `${this.ownerPrefix}:${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${identity}`
+    const ownerKey = `${this.ownerPrefix}:task:${++this.preparationSequence}:${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${identity}`
     const detach = cancellation.onCancel((): void => {
       readerSuperResolutionReleaseOwner(ownerKey)
     })
+    const promotion = cancellation instanceof ReaderProcessingCancellation
+      ? cancellation.onPromotion((): void => readerSuperResolutionPromoteOwner(ownerKey)) : (): void => {}
+    let sourceAsset: ReaderAsset | null = null
     let retained: boolean = false
     try {
+      if (this.preloadSource !== null) {
+        sourceAsset = await this.preloadSource(page, cancellation)
+        cancellation.check()
+        const path = NextEReaderSuperResolutionProvider.localPath(sourceAsset.uri)
+        if (sourceAsset.notice !== null || path.length === 0) throw new Error('reader_variant_source_unavailable')
+        this.sourcePaths.set(this.pageIdentity(page), path)
+      }
+      const sourcePath = this.sourcePaths.get(this.pageIdentity(page)) ?? ''
+      if (sourcePath.length === 0) throw new Error('reader_variant_source_unavailable')
       const result: ReaderSuperResolutionResult = await readerSuperResolutionProcess(
         this.context, sourcePath, sourceKey, (state: string): void => {
           this.rememberInformation(page, identity, configuration.model, false, state)
-        }, ownerKey)
+        }, ownerKey,
+        cancellation instanceof ReaderProcessingCancellation && cancellation.priority === 'prefetch'
+          ? ReaderSuperResolutionTaskPriority.PREFETCH : ReaderSuperResolutionTaskPriority.CURRENT)
       cancellation.check()
       this.rememberInformation(page, identity, configuration.model, result.applied, result.reason)
       const current = this.configuration()
@@ -182,42 +193,8 @@ export class NextEReaderSuperResolutionProvider implements ReaderAssetProvider {
       }
       throw error as Error
     } finally {
-      detach()
+      detach(); promotion(); sourceAsset?.release()
       if (!retained) readerSuperResolutionReleaseOwner(ownerKey)
-    }
-  }
-
-  /** Warm the same processed cache identity as a visible request, at background priority. */
-  async preload(page: ReaderPage, cancellation: ReaderCancellation): Promise<void> {
-    cancellation.check()
-    const configuration = this.configuration()
-    if (!configuration.enabled || this.preloadSource === null) return
-    const identity = configuration.identity()
-    const asset = await this.preloadSource(page, cancellation)
-    const ownerKey = `${this.ownerPrefix}:prefetch:${++this.preloadSequence}:${this.pageIdentity(page)}:${identity}`
-    const detach = cancellation.onCancel((): void => readerSuperResolutionReleaseOwner(ownerKey))
-    try {
-      cancellation.check()
-      const path = NextEReaderSuperResolutionProvider.localPath(asset.uri)
-      if (asset.notice !== null || path.length === 0) return
-      if (!this.configuration().enabled || this.configuration().identity() !== identity) return
-      const sourceKey = `${page.unit.scope}:${page.unit.work}:${page.unit.unit}:${page.key}:${page.sourceIndex}`
-      const result = await readerSuperResolutionProcess(this.context, path, sourceKey,
-        (_state: string): void => {}, ownerKey, ReaderSuperResolutionTaskPriority.PREFETCH)
-      cancellation.check()
-      if (this.configuration().identity() === identity && result.applied) {
-        const path = result.filePath.length > 0 ? result.filePath :
-          NextEReaderSuperResolutionProvider.localPath(result.displayUri)
-        if (path.length > 0 && this.cropEnabled()) {
-          await new NextEReaderCropSource(path, 'reader-preload-enhanced', this.cropStrength).read()
-          cancellation.check()
-        }
-        console.info(`[NextEReaderPreprocess] enhanced source=${page.sourceIndex}`)
-      }
-    } finally {
-      detach()
-      readerSuperResolutionReleaseOwner(ownerKey)
-      asset.release()
     }
   }
 
