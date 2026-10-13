@@ -1625,6 +1625,14 @@
       "value": "No release notes"
     },
     {
+      "name": "about_telegram_group",
+      "value": "Telegram group"
+    },
+    {
+      "name": "about_telegram_open_failed",
+      "value": "Failed to open Telegram group link"
+    },
+    {
       "name": "about_platform",
       "value": "Platform"
     },

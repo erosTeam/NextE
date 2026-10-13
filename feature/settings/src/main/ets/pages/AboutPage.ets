@@ -24,6 +24,8 @@ import {
 const SYSTEM_SYMBOL_BROWSER_OPEN_TAPS: number = 5
 const SYSTEM_SYMBOL_BROWSER_TAP_WINDOW_MS: number = 2500
 
+const TELEGRAM_GROUP_URL: string = 'https://t.me/erosTeamG'
+
 @ComponentV2
 export struct AboutPage {
   @Local appVersion: string = ''
@@ -324,6 +326,14 @@ export struct AboutPage {
     })
   }
 
+  private openTelegramGroup(): void {
+    const want: Want = { action: 'ohos.want.action.viewData', uri: TELEGRAM_GROUP_URL }
+    this.ctx().startAbility(want).catch((error: Error) => {
+      DiagnosticLogger.warn('settings', 'about_telegram_open_failed', error.message)
+      this.toast($r('app.string.about_telegram_open_failed'))
+    })
+  }
+
   private openReleasePage(): void {
     const release: AppRelease | null = this.selectedRelease()
     if (release === null || release.htmlUrl.length === 0) {
@@ -417,6 +427,15 @@ export struct AboutPage {
         showChevron: false,
         action: () => {
           this.onPlatformTap()
+        },
+      })
+      this.DividerRow()
+      ConciseListRow({
+        title: $r('app.string.about_telegram_group'),
+        subtitle: TELEGRAM_GROUP_URL,
+        showChevron: true,
+        action: () => {
+          this.openTelegramGroup()
         },
       })
     }

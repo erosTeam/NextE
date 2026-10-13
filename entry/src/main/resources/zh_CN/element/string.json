@@ -1625,6 +1625,14 @@
       "value": "暂无更新说明"
     },
     {
+      "name": "about_telegram_group",
+      "value": "Telegram 群组"
+    },
+    {
+      "name": "about_telegram_open_failed",
+      "value": "无法打开 Telegram 群组链接"
+    },
+    {
       "name": "about_platform",
       "value": "平台"
     },
