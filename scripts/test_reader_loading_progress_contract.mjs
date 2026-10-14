@@ -22,8 +22,9 @@ const ok = (name, cond) => {
 
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
 
-ok('Reader root uses the pre-overlay bottom stack baseline',
-  /Stack\(\{ alignContent: Alignment\.Bottom \}\)/.test(reader))
+ok('Reader root centers the canvas and loading states',
+  /Stack\(\{ alignContent: Alignment\.Center \}\)/.test(reader) &&
+  !/HdsNavDestination\(\)[\s\S]*Stack\(\{ alignContent: Alignment\.Bottom \}\)/.test(reader))
 ok('root empty and jump loading use plain LoadingProgress',
   /else \{[\s\S]*LoadingProgress\(\)[\s\S]*ThemeConstants\.LOADING_SIZE_LARGE/.test(reader) &&
   /if \(this\.vm\.jumping\) \{[\s\S]*LoadingProgress\(\)[\s\S]*ThemeConstants\.LOADING_SIZE_LARGE/.test(reader))
@@ -35,7 +36,10 @@ ok('ReaderLoadingOverlay is not present in ReaderPage',
   !/ReaderLoadingOverlay|ReaderLoadingLine/.test(reader))
 ok('ready image branch does not overlay loading UI',
   !/if \(!this\.imageLoaded\) \{[\s\S]*LoadingProgress|if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoading/.test(reader))
-ok('bottom chrome is not re-anchored against a centered root',
-  !/ReaderBottomBar\(\)[\s\S]*\.align\(Alignment\.Bottom\)/.test(reader))
+ok('bottom chrome anchors itself instead of relying on root stack alignment',
+  /ReaderBottomBar\(\)[\s\S]*\.backgroundColor\('#CC000000'\)[\s\S]*\.align\(Alignment\.Bottom\)/.test(reader))
+ok('image-page loading and failure stacks are centered',
+  /struct ReaderImagePage[\s\S]*Stack\(\{ alignContent: Alignment\.Center \}\)/.test(reader) &&
+  /struct ReaderVerticalImage[\s\S]*Stack\(\{ alignContent: Alignment\.Center \}\)/.test(reader))
 
 console.log(`✓ reader loading recovery contract: ${passed} assertions passed`)

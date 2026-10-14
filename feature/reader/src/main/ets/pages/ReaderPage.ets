@@ -55,7 +55,9 @@ export struct ReaderPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.Bottom }) {
+      // Keep the reading canvas centered. Chrome bars anchor themselves explicitly so loading,
+      // failure, and image pages cannot inherit a bottom-aligned root and drift into the artwork.
+      Stack({ alignContent: Alignment.Center }) {
         if (this.vm.images.length > 0) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
@@ -752,6 +754,7 @@ export struct ReaderPage {
       bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_SM,
     })
     .backgroundColor('#CC000000')
+    .align(Alignment.Bottom)
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
   }
@@ -867,7 +870,7 @@ struct ReaderImagePage {
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.Center }) {
       // `failed` first: a resolve error OR an Image fetch error (dead one-shot token / 509) shows the
       // re-source retry even if a (broken) URL is set.
       if (this.failed) {
@@ -1005,7 +1008,7 @@ struct ReaderVerticalImage {
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.Center }) {
       // `failed` first so an Image fetch error (dead token / 509) shows the re-source retry.
       if (this.failed) {
         ReaderFailureOverlay({
