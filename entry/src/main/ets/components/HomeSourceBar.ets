@@ -16,6 +16,9 @@ import {
   connectThemeDisplay,
   SubtabTransitionBridge,
   SUBTAB_TRANSITION_SCOPE_HOME,
+  SubTabStyleSettings,
+  SubTabStyleState,
+  connectSubTabStyle,
 } from 'shared'
 
 /**
@@ -34,6 +37,7 @@ export struct HomeSourceBar {
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+  @Local tabStyle: SubTabStyleState = connectSubTabStyle();
 
   // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab:
   // non-hidden profiles, login-gated (watched/favorite need an account). The TabItem label is the
@@ -56,6 +60,10 @@ export struct HomeSourceBar {
 
   private themeTracked(color: ResourceColor): ResourceColor {
     return this.themeDisplay.effectiveDark ? color : color
+  }
+
+  private isCapsule(): boolean {
+    return SubTabStyleSettings.isCapsule(this.tabStyle.style)
   }
 
   build() {
@@ -83,11 +91,14 @@ export struct HomeSourceBar {
         }
         .width(28)
         .height(28)
-        .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
+        .margin({
+          left: this.isCapsule() ? 0 : ThemeConstants.SPACE_XS,
+          right: this.isCapsule() ? ThemeConstants.SPACE_MD : ThemeConstants.SPACE_SM,
+        })
         .backgroundColor(Color.Transparent)
-        .alignSelf(ItemAlign.Start)
+        .alignSelf(this.isCapsule() ? ItemAlign.Center : ItemAlign.Start)
         // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
-        .offset({ y: -2 })
+        .offset({ y: this.isCapsule() ? 0 : -2 })
         .onClick(() => {
           connectNavStack().stack.pushPathByName('TabManager', null)
         })

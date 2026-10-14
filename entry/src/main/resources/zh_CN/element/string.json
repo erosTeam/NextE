@@ -5339,6 +5339,18 @@
     {
       "name": "settings_reader_group_implementation",
       "value": "阅读器实现"
+    },
+    {
+      "name": "settings_subtab_style",
+      "value": "页签样式"
+    },
+    {
+      "name": "subtab_style_underline",
+      "value": "下划线"
+    },
+    {
+      "name": "subtab_style_capsule",
+      "value": "胶囊"
     }
   ]
 }

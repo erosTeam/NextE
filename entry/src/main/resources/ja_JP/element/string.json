@@ -5339,6 +5339,18 @@
     {
       "name": "settings_reader_group_implementation",
       "value": "リーダー実装"
+    },
+    {
+      "name": "settings_subtab_style",
+      "value": "サブタブのスタイル"
+    },
+    {
+      "name": "subtab_style_underline",
+      "value": "下線"
+    },
+    {
+      "name": "subtab_style_capsule",
+      "value": "カプセル"
     }
   ]
 }
