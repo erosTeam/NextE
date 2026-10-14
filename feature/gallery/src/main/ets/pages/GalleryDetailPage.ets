@@ -1,6 +1,7 @@
 import { appMenuOptions, ReaderTrialEntryRelay } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
 import {
+  AnimatorResult,
   ComponentContent,
   CustomContentDialog,
   FrameCallback,
@@ -29,6 +30,8 @@ import {
   AllThumbnailsParams,
   Favcat,
   GalleryFavoriteInfo,
+  UserTagContextService,
+  UserTagRequestContext,
   EhApiService,
   GalleryDetailResult,
   EhErrorText,
@@ -327,7 +330,8 @@ export struct GalleryDetailPage {
   @Local compactPreviewReloadToken: number = 0;
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
-  @Local readFabShouldAnimate: boolean = false;
+  @Local favoriteFabWidth: number = 0;
+  @Local readFabEdgeProgress: number = connectActionHandEdge().edge === 'left' ? 1 : 0;
   @Local actionStripViewportWidth: number = 0;
   @Local actionStripContentWidth: number = 0;
   @Local actionStripLayoutReady: boolean = false;
@@ -347,6 +351,12 @@ export struct GalleryDetailPage {
   @Local remoteFavoriteSubmitting: boolean = false;
   @Local remoteFavoriteLoadingFavcats: boolean = false;
   @Local remoteFavoriteError: string = '';
+  @Local remoteFavoriteSlotsReady: boolean = false;
+  @Local remoteFavoriteLoadedNote: string = '';
+  private remoteFavoriteDraftRevision: number = 0;
+  private remoteFavoriteSheetEpoch: number = 0;
+  private remoteFavoriteRequest: UserTagRequestContext | null = null;
+  private detailDisposed: boolean = false;
   @Local ratingSelected: number = 0;
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
@@ -359,6 +369,8 @@ export struct GalleryDetailPage {
   private coverPopDispatching: boolean = false;
   private navigationDestinationId: string = '';
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
+  private favoriteFabMaterialController: HdsTabsController = new HdsTabsController();
+  private readFabAnimator: AnimatorResult | null = null;
   private actionStripScroller: Scroller = new Scroller();
   private fullPreviewScroller: Scroller = new Scroller();
   private fullPreviewRefreshController: PullRefreshController = new PullRefreshController();
@@ -428,17 +440,19 @@ export struct GalleryDetailPage {
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
   @Monitor('actionEdge.edge')
   private onActionEdgeChanged(): void {
-    this.readFabShouldAnimate = this.readFabLayoutReady
     this.actionStripShouldAnimate = this.actionStripLayoutReady
     this.visualActionEdge = this.actionEdge.edge
+    this.moveReadFabToEdge()
     this.scrollActionStripToEdge()
   }
 
   @Monitor('readButtonStyle.style')
   private onReadButtonStyleChanged(): void {
+    this.stopReadFabAnimation()
+    this.readFabEdgeProgress = this.actionEdge.edge === 'left' ? 1 : 0
     this.readFabWidth = 0
+    this.favoriteFabWidth = 0
     this.readFabLayoutReady = false
-    this.readFabShouldAnimate = false
   }
 
   @Monitor('commentVoteMutation.version')
@@ -477,14 +491,85 @@ export struct GalleryDetailPage {
     this.syncDownloadChipState('local')
   }
 
-  // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =
-  // inner width − button width. Interpolated by the button's .animation().
-  private readFabVisualX(): number {
-    if (this.visualActionEdge === 'left') {
-      return 0
+  private stopReadFabAnimation(): void {
+    const animator: AnimatorResult | null = this.readFabAnimator
+    this.readFabAnimator = null
+    if (animator !== null) {
+      // cancel() emits a final onFrame at its end value. Retire callbacks first so a reversal
+      // starts at the current visible progress instead of jumping to the old destination.
+      animator.onFrame = (_value: number) => {}
+      animator.onFinish = () => {}
+      animator.cancel()
     }
+  }
+
+  private moveReadFabToEdge(): void {
+    const target: number = this.visualActionEdge === 'left' ? 1 : 0
+    const begin: number = this.readFabEdgeProgress
+    this.stopReadFabAnimation()
+    if (!this.readFabLayoutReady || Math.abs(begin - target) < 0.001) {
+      this.readFabEdgeProgress = target
+      return
+    }
+    const animator: AnimatorResult = this.getUIContext().createAnimator({
+      duration: ThemeConstants.ANIM_DURATION,
+      easing: 'ease-out',
+      delay: 0,
+      fill: 'forwards',
+      direction: 'normal',
+      iterations: 1,
+      begin: begin,
+      end: target,
+    })
+    this.readFabAnimator = animator
+    animator.onFrame = (value: number) => {
+      if (this.readFabAnimator === animator) {
+        this.readFabEdgeProgress = Math.max(0, Math.min(1, value))
+      }
+    }
+    animator.onFinish = () => {
+      if (this.readFabAnimator === animator) {
+        this.readFabEdgeProgress = target
+        this.readFabAnimator = null
+      }
+    }
+    animator.play()
+  }
+
+  private actionFabSwapProgress(): number {
+    const phase: number = Math.max(0, Math.min(1, (this.readFabEdgeProgress - 0.2) / 0.6))
+    return phase * phase * (3 - 2 * phase)
+  }
+
+  private actionFabActivityInset(): number {
+    return this.readFabUsesHdsMaterial() ? ThemeConstants.SPACE_LG : 0
+  }
+
+  private actionFabGroupX(): number {
     const inner: number = this.readFabAvailableWidth() - this.readFabRailSideInset() * 2
-    return Math.max(0, inner - this.readFabWidth)
+    // HDS measurement includes a material/press activity inset on both buttons. Their
+    // visible surfaces share one gap; overlapping activity boxes are not extra spacing.
+    const width: number = this.readFabWidth + this.favoriteFabWidth + ThemeConstants.SPACE_SM -
+      this.actionFabActivityInset() * 2
+    return Math.max(0, inner - width) * (1 - this.readFabEdgeProgress)
+  }
+
+  private readFabVisualX(): number {
+    return this.actionFabGroupX() +
+      (this.favoriteFabWidth - this.actionFabActivityInset() * 2 + ThemeConstants.SPACE_SM) *
+      (1 - this.actionFabSwapProgress())
+  }
+
+  private favoriteFabVisualX(): number {
+    return this.actionFabGroupX() +
+      (this.readFabWidth - this.actionFabActivityInset() * 2 + ThemeConstants.SPACE_SM) *
+      this.actionFabSwapProgress()
+  }
+
+  private favoriteFabVisualY(): number {
+    const phase: number = Math.max(0, Math.min(1,
+      this.readFabEdgeProgress / 0.2, (1 - this.readFabEdgeProgress) / 0.2))
+    return -(ThemeConstants.BUTTON_HEIGHT + ThemeConstants.SPACE_SM) * Math.sin(Math.PI / 2 * phase)
   }
 
   private readFabAvailableWidth(): number {
@@ -566,9 +651,6 @@ export struct GalleryDetailPage {
     return Math.min(172, 104 + (index + 1).toString().length * 8)
   }
 
-  private readFabAnimationDuration(): number {
-    return this.readFabShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
-  }
 
   private actionStripVisualX(): number {
     if (this.visualActionEdge === 'left' || this.actionStripContentWidth >= this.actionStripViewportWidth) {
@@ -589,7 +671,7 @@ export struct GalleryDetailPage {
   }
 
   private updateReadFabLayoutReady(): void {
-    if (this.readFabAvailableWidth() > 0 && this.readFabWidth > 0) {
+    if (this.readFabAvailableWidth() > 0 && this.readFabWidth > 0 && this.favoriteFabWidth > 0) {
       this.readFabLayoutReady = true
     }
   }
@@ -652,11 +734,13 @@ export struct GalleryDetailPage {
   // the replacement arrives, but never let an in-flight old account/site response repaint or cache it.
   @Monitor('auth.memberId')
   onDetailAccountChange(): void {
+    this.retireRemoteFavoriteEditor()
     this.reloadFullPreviewForContext()
   }
 
   @Monitor('siteMode.isEx')
   onDetailSiteChange(): void {
+    this.retireRemoteFavoriteEditor()
     this.reloadFullPreviewForContext()
   }
 
@@ -728,11 +812,15 @@ export struct GalleryDetailPage {
   }
 
   aboutToAppear(): void {
+    this.detailDisposed = false
     this.syncDownloadChipState('appear')
     this.scheduleSuperResolutionPreparation()
   }
 
   aboutToDisappear(): void {
+    this.detailDisposed = true
+    this.stopReadFabAnimation()
+    this.retireRemoteFavoriteEditor()
     // Left before the 5s debounce fired → this open was transient; don't record it.
     if (this.historyTimer >= 0) {
       clearTimeout(this.historyTimer)
@@ -1445,7 +1533,7 @@ export struct GalleryDetailPage {
       return false
     }
     // Only title actions without a componentId-backed host stay on the destination root. Favorite is
-    // opened through openBindSheet against its actual HDS icon node below.
+    // opened through openBindSheet against its actual bottom action button.
     return this.detailSheetKind === DETAIL_SHEET_ADD_TAGS ||
       this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE
   }
@@ -1459,6 +1547,9 @@ export struct GalleryDetailPage {
       return
     }
     this.remoteFavoriteSheetContent = null
+    this.remoteFavoriteSheetEpoch = this.remoteFavoriteSheetEpoch + 1
+    this.remoteFavoriteRequest = null
+    this.remoteFavoriteLoadingFavcats = false
     content.dispose()
     if (this.detailSheetKind === DETAIL_SHEET_REMOTE_FAVORITE) {
       this.detailSheetShown = false
@@ -1466,7 +1557,7 @@ export struct GalleryDetailPage {
     }
   }
 
-  private openRemoteFavoriteSheetOnTitleButton(): void {
+  private openRemoteFavoriteSheetOnButton(): void {
     const uiContext: UIContext = this.getUIContext()
     const target: FrameNode | null = uiContext.getFrameNodeById(this.favoriteSheetTargetId())
     if (target === null) {
@@ -1920,18 +2011,10 @@ export struct GalleryDetailPage {
     return immersiveTitleBarOpts(content)
   }
 
-  // Native HDS title-bar actions. Read remains the primary FAB; secondary tools stay in the title-bar
-  // menu so detail content does not gain ad-hoc action rows.
+  // Native HDS title-bar actions. Read and Favorite are the bottom actions; other tools remain
+  // in the native title-bar menu.
   private detailMenu(): Record<string, Object> {
-    const favoriteInner: Record<string, Object> = {
-      'label': $r('app.string.detail_favorite'),
-      'icon': this.favoriteTitleBarIcon(),
-      'componentId': this.favoriteSheetTargetId(),
-      'isEnabled': true,
-      'action': () => {
-        this.openRemoteFavorite()
-      },
-    }
+
     const shareInner: Record<string, Object> = {
       'label': $r('app.string.detail_share'),
       'icon': $r('sys.symbol.share'),
@@ -1942,7 +2025,7 @@ export struct GalleryDetailPage {
     }
     const commentsInner: Record<string, Object> = {
       'label': $r('app.string.gallery_comments'),
-      'icon': $r('sys.symbol.doc_plaintext'),
+      'icon': $r('sys.symbol.topic_message'),
       'isEnabled': true,
       'action': () => {
         this.openComments()
@@ -2029,7 +2112,6 @@ export struct GalleryDetailPage {
       },
     }
     const items: Record<string, Object>[] = [
-      { 'content': favoriteInner },
       { 'content': shareInner },
       { 'content': commentsInner },
       { 'content': refreshInner },
@@ -2040,30 +2122,28 @@ export struct GalleryDetailPage {
       { 'content': openWebInner },
     ]
     if (this.usesSplitDetailLayout() && this.fullPreviewVm.itemCount > 0) {
-      items.splice(3, 0, { 'content': previewFirstInner })
-      items.splice(4, 0, { 'content': previewJumpInner })
+      items.splice(2, 0, { 'content': previewFirstInner })
+      items.splice(3, 0, { 'content': previewJumpInner })
     }
     if (this.vm.gallery.parentGid.length > 0 && this.vm.gallery.parentGid !== this.params.gid) {
-      items.splice(3, 0, { 'content': parentInner })
+      items.splice(2, 0, { 'content': parentInner })
     }
     if (this.canShowDownloadUpgrade()) {
-      items.splice(4, 0, { 'content': downloadUpgradeInner })
+      items.splice(3, 0, { 'content': downloadUpgradeInner })
     }
     return { 'value': items, 'maxCount': 3 }
   }
 
-  private favoriteTitleBarIcon(): Resource | SymbolGlyphModifier {
+  private favoriteFabIcon(): Resource {
+    return this.vm.gallery.favcat.length > 0 || this.isLocalFavorite()
+      ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart')
+  }
+
+  private favoriteFabColor(): ResourceColor {
     if (this.vm.gallery.favcat.length > 0) {
-      return new SymbolGlyphModifier($r('sys.symbol.heart_fill')).fontColor([
-        EhConstants.favCatColor(this.vm.gallery.favcat),
-      ])
+      return EhConstants.favCatColor(this.vm.gallery.favcat)
     }
-    if (this.isLocalFavorite()) {
-      return new SymbolGlyphModifier($r('sys.symbol.heart_fill')).fontColor([
-        EhConstants.favCatColor('l'),
-      ])
-    }
-    return $r('sys.symbol.heart')
+    return this.isLocalFavorite() ? EhConstants.favCatColor('l') : ThemeConstants.BRAND_PRIMARY
   }
 
   private galleryUrl(): string {
@@ -2186,124 +2266,193 @@ export struct GalleryDetailPage {
     }
   }
 
+  private retireRemoteFavoriteEditor(): void {
+    this.remoteFavoriteSheetEpoch = this.remoteFavoriteSheetEpoch + 1
+    this.remoteFavoriteRequest = null
+    this.remoteFavoriteLoadingFavcats = false
+    this.remoteFavoriteSlotsReady = false
+    if (!this.detailDisposed && this.remoteFavoriteSheetContent !== null) {
+      this.closeDetailSheet()
+    }
+  }
+
+  private isCurrentRemoteFavoriteEditor(request: UserTagRequestContext, epoch: number): boolean {
+    return !this.detailDisposed && this.remoteFavoriteRequest === request &&
+      this.remoteFavoriteSheetEpoch === epoch && this.detailSheetShown &&
+      this.detailSheetKind === DETAIL_SHEET_REMOTE_FAVORITE &&
+      UserTagContextService.isCurrentAuthenticated(request)
+  }
+
   private openRemoteFavorite(): void {
-    if (this.remoteFavoriteSheetContent !== null) {
+    if (this.remoteFavoriteSheetContent !== null || this.remoteFavoriteSubmitting) {
       return
     }
-    this.remoteFavoriteSelectedCat = this.vm.gallery.favcat.length > 0 ? this.vm.gallery.favcat : ''
+    this.remoteFavoriteSheetEpoch = this.remoteFavoriteSheetEpoch + 1
+    this.remoteFavoriteRequest = UserTagContextService.captureActiveRequest()
+    this.remoteFavoriteSelectedCat = this.vm.gallery.favcat
     this.remoteFavoriteNote = this.vm.gallery.favNote
+    this.remoteFavoriteLoadedNote = this.vm.gallery.favNote
+    this.remoteFavoriteDraftRevision = 0
+    this.remoteFavoriteSlotsReady = false
     this.remoteFavoriteError = ''
-    if (this.remoteFavoriteSlots.length === 0 && this.favoriteSlotCache.favcats.length > 0) {
-      this.remoteFavoriteSlots = this.copyFavcats(this.favoriteSlotCache.favcats)
-    }
+    this.remoteFavoriteSlots = this.auth.isLogin ? this.copyFavcats(this.favoriteSlotCache.favcats) : []
     this.detailSheetKind = DETAIL_SHEET_REMOTE_FAVORITE
     this.detailSheetShown = true
-    this.openRemoteFavoriteSheetOnTitleButton()
+    this.openRemoteFavoriteSheetOnButton()
     this.refreshRemoteFavcats()
   }
 
   private copyFavcats(favcats: Favcat[]): Favcat[] {
     const out: Favcat[] = []
-    favcats.forEach((fav: Favcat) => {
-      out.push(new Favcat(fav.favId, fav.favTitle, fav.totNum))
-    })
+    favcats.forEach((fav: Favcat) => { out.push(new Favcat(fav.favId, fav.favTitle, fav.totNum)) })
     return out
   }
 
   private async refreshRemoteFavcats(): Promise<void> {
-    if (this.remoteFavoriteLoadingFavcats) {
+    const request: UserTagRequestContext | null = this.remoteFavoriteRequest
+    const epoch: number = this.remoteFavoriteSheetEpoch
+    if (request === null || this.remoteFavoriteLoadingFavcats) {
       return
     }
+    if (!this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+      if (!this.auth.isLogin) {
+        this.remoteFavoriteError = AppStrings.get('error_login_required')
+      }
+      return
+    }
+    const draftRevision: number = this.remoteFavoriteDraftRevision
     this.remoteFavoriteLoadingFavcats = true
     this.remoteFavoriteError = ''
     try {
       const info: GalleryFavoriteInfo = await EhApiService.getInstance().getGalleryFavoriteInfo(
-        connectSiteMode().isEx,
-        this.params.gid,
-        this.params.token,
+        request.isEx, this.params.gid, this.params.token,
       )
+      if (!this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+        return
+      }
       this.remoteFavoriteSlots = info.favcats
-      if (info.favcats.length > 0) {
-        this.favoriteSlotCache.update(info.favcats)
-        await FavcatListSettings.persist(this.ctx(), info.favcats)
-      }
-      const selectedStillExists: boolean =
-        info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) >= 0
-      const currentStillExists: boolean =
-        this.vm.gallery.favcat.length > 0 &&
-        info.favcats.findIndex((fav: Favcat) => fav.favId === this.vm.gallery.favcat) >= 0
-      if (this.vm.gallery.favcat.length > 0 && info.selectFavcat.length > 0) {
-        this.remoteFavoriteSelectedCat = info.selectFavcat
-      } else if (currentStillExists) {
-        this.remoteFavoriteSelectedCat = this.vm.gallery.favcat
-      } else if (!selectedStillExists || this.remoteFavoriteSelectedCat === 'favdel') {
-        this.remoteFavoriteSelectedCat = ''
-      }
-      this.remoteFavoriteNote = info.favNote
       if (info.favcats.length === 0) {
         this.remoteFavoriteError = AppStrings.get('detail_remote_favorite_no_slots')
+        return
       }
+      this.favoriteSlotCache.update(info.favcats)
+      await FavcatListSettings.persist(this.ctx(), info.favcats)
+      if (!this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+        return
+      }
+      let currentCat: string = this.vm.gallery.favcat
+      if (currentCat.length > 0 && info.selectFavcat.length > 0) {
+        currentCat = info.selectFavcat
+      }
+      if (info.favcats.findIndex((fav: Favcat) => fav.favId === currentCat) < 0) {
+        currentCat = ''
+      }
+      this.remoteFavoriteLoadedNote = info.favNote
+      this.vm.applyRemoteFavoriteState(currentCat, this.remoteFavoriteTitleFor(currentCat), info.favNote)
+      if (this.remoteFavoriteDraftRevision === draftRevision) {
+        this.remoteFavoriteSelectedCat = currentCat
+        this.remoteFavoriteNote = info.favNote
+      }
+      this.remoteFavoriteSlotsReady = true
     } catch (e) {
-      this.remoteFavoriteError = EhErrorText.forUser(e)
+      if (this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+        this.remoteFavoriteError = EhErrorText.forUser(e)
+      }
     } finally {
-      this.remoteFavoriteLoadingFavcats = false
+      if (this.remoteFavoriteSheetEpoch === epoch) {
+        this.remoteFavoriteLoadingFavcats = false
+      }
     }
   }
 
-  private async submitRemoteFavorite(): Promise<void> {
-    if (this.remoteFavoriteSubmitting) {
+  private hasRemoteFavoriteNoteChanges(): boolean {
+    return this.remoteFavoriteNote.trim() !== this.remoteFavoriteLoadedNote.trim()
+  }
+
+  private selectRemoteFavorite(fav: Favcat): void {
+    if (!this.canUseRemoteFavoriteSlots()) {
       return
     }
+    this.remoteFavoriteSelectedCat = fav.favId
+    if (fav.favId === this.vm.gallery.favcat && !this.hasRemoteFavoriteNoteChanges()) {
+      this.closeDetailSheet()
+      return
+    }
+    this.submitRemoteFavorite(fav.favId)
+  }
+
+  private canUseRemoteFavoriteSlots(): boolean {
+    const request: UserTagRequestContext | null = this.remoteFavoriteRequest
+    return this.remoteFavoriteSlotsReady && !this.remoteFavoriteSubmitting &&
+      !this.remoteFavoriteLoadingFavcats && request !== null &&
+      this.isCurrentRemoteFavoriteEditor(request, this.remoteFavoriteSheetEpoch)
+  }
+
+  private confirmRemoveRemoteFavorite(): void {
+    if (!this.canUseRemoteFavoriteSlots() || this.vm.gallery.favcat.length === 0) {
+      return
+    }
+    const epoch: number = this.remoteFavoriteSheetEpoch
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.detail_remote_favorite_remove_confirm'),
+      primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
+      secondaryButton: {
+        value: $r('app.string.detail_remote_favorite_remove'),
+        fontColor: Color.Red,
+        action: () => {
+          if (this.remoteFavoriteSheetEpoch === epoch) {
+            this.submitRemoteFavorite('favdel')
+          }
+        },
+      },
+    })
+  }
+
+  private async submitRemoteFavorite(favcat: string = this.remoteFavoriteSelectedCat): Promise<void> {
+    const request: UserTagRequestContext | null = this.remoteFavoriteRequest
+    const epoch: number = this.remoteFavoriteSheetEpoch
+    if (request === null || !this.canUseRemoteFavoriteSlots() ||
+      (favcat !== 'favdel' && this.remoteFavoriteSlots.findIndex((fav: Favcat) => fav.favId === favcat) < 0)) {
+      return
+    }
+    const gid: string = this.params.gid
+    const token: string = this.params.token
+    const nextFavcat: string = favcat === 'favdel' ? '' : favcat
+    const nextFavTitle: string = this.remoteFavoriteTitleFor(nextFavcat)
+    const nextFavNote: string = nextFavcat.length > 0 ? this.remoteFavoriteNote.trim() : ''
     this.remoteFavoriteSubmitting = true
     this.remoteFavoriteError = ''
-    const favcat: string =
-      this.remoteFavoriteSelectedCat.length > 0 ? this.remoteFavoriteSelectedCat : 'favdel'
-    const nextFavcat: string = favcat === 'favdel' ? '' : favcat
-    const nextFavTitle: string =
-      nextFavcat.length > 0 ? this.remoteFavoriteTitleFor(nextFavcat) : ''
-    const nextFavNote: string = nextFavcat.length > 0 ? this.remoteFavoriteNote.trim() : ''
-    const previousFavcat: string = this.vm.gallery.favcat
-    const previousFavTitle: string = this.vm.gallery.favTitle
-    const previousFavNote: string = this.vm.gallery.favNote
-    this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
-    this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
-    this.remoteFavoriteSelectedCat = nextFavcat
-    this.remoteFavoriteNote = nextFavNote
-    this.closeDetailSheet()
     try {
       await EhApiService.getInstance().updateGalleryFavorite({
-        isEx: connectSiteMode().isEx,
-        gid: this.params.gid,
-        token: this.params.token,
-        favcat: favcat,
-        favnote: nextFavNote,
+        isEx: request.isEx, gid: gid, token: token, favcat: favcat, favnote: nextFavNote,
       })
-      await this.vm.refresh()
-      this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
-      this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
-      this.getUIContext()
-        .getPromptAction()
-        .openToast({
-          message: $r('app.string.detail_remote_favorite_saved'),
-        })
-        .catch((_toastError: Error) => {})
+      if (!UserTagContextService.isCurrentAuthenticated(request)) {
+        return
+      }
+      this.favoriteMutation.publish(gid, nextFavcat, nextFavTitle, nextFavNote)
+      if (this.params.gid === gid && this.params.token === token) {
+        this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
+      }
+      if (!this.detailDisposed && this.params.gid === gid && this.params.token === token) {
+        if (this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+          this.remoteFavoriteSelectedCat = nextFavcat
+          this.remoteFavoriteNote = nextFavNote
+          this.remoteFavoriteLoadedNote = nextFavNote
+          this.closeDetailSheet()
+        }
+        this.getUIContext().getPromptAction().openToast({
+          message: nextFavcat.length > 0 ? $r('app.string.detail_remote_favorite_saved') :
+            $r('app.string.detail_remote_favorite_removed'),
+        }).catch((_toastError: Error) => {})
+      }
+      // The write already changed only favorite metadata. Applying the confirmed result also updates
+      // the detail cache; a second full-detail request must not turn a successful write into failure.
     } catch (e) {
-      this.remoteFavoriteError = EhErrorText.forUser(e)
-      this.vm.applyRemoteFavoriteState(previousFavcat, previousFavTitle, previousFavNote)
-      this.favoriteMutation.publish(
-        this.params.gid,
-        previousFavcat,
-        previousFavTitle,
-        previousFavNote,
-      )
-      this.remoteFavoriteSelectedCat = previousFavcat
-      this.remoteFavoriteNote = previousFavNote
-      this.getUIContext()
-        .getPromptAction()
-        .openToast({
-          message: this.remoteFavoriteError,
-        })
-        .catch((_toastError: Error) => {})
+      if (this.isCurrentRemoteFavoriteEditor(request, epoch)) {
+        this.remoteFavoriteError = EhErrorText.forUser(e)
+        this.getUIContext().getPromptAction().openToast({ message: this.remoteFavoriteError })
+          .catch((_toastError: Error) => {})
+      }
     } finally {
       this.remoteFavoriteSubmitting = false
     }
@@ -2360,10 +2509,8 @@ export struct GalleryDetailPage {
   }
 
   private canSubmitRemoteFavorite(): boolean {
-    if (this.remoteFavoriteSlots.length === 0) {
-      return false
-    }
-    return this.remoteFavoriteSelectedCat.length > 0 || this.vm.gallery.favcat.length > 0
+    return this.canUseRemoteFavoriteSlots() && this.remoteFavoriteSelectedCat.length > 0 &&
+      this.hasRemoteFavoriteNoteChanges()
   }
 
   @Builder
@@ -2659,17 +2806,8 @@ export struct GalleryDetailPage {
         ? $r('sys.color.ohos_id_color_click_effect')
         : Color.Transparent,
     )
-    .enabled(!this.remoteFavoriteSubmitting)
-    .onClick(() => {
-      if (
-        this.isRemoteFavoriteSlotSelected(fav.favId) &&
-        this.isCurrentRemoteFavoriteSlot(fav.favId)
-      ) {
-        this.remoteFavoriteSelectedCat = 'favdel'
-      } else {
-        this.remoteFavoriteSelectedCat = fav.favId
-      }
-    })
+    .enabled(this.canUseRemoteFavoriteSlots())
+    .onClick(() => { this.selectRemoteFavorite(fav) })
   }
 
   @Builder
@@ -2712,7 +2850,8 @@ export struct GalleryDetailPage {
     AppModalScaffold({
       title: $r('app.string.detail_remote_favorite'),
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
-      confirmText: $r('app.string.detail_remote_favorite_save'),
+      confirmText: $r('app.string.detail_remote_favorite_save_note'),
+      showConfirmAction: this.hasRemoteFavoriteNoteChanges(),
       confirmEnabled: this.canSubmitRemoteFavorite(),
       confirmLoading: this.remoteFavoriteSubmitting,
       closeAction: () => {
@@ -2732,13 +2871,14 @@ export struct GalleryDetailPage {
             text: this.remoteFavoriteNote,
             placeholder: $r('app.string.detail_remote_favorite_note_placeholder'),
           })
-            .height(96)
+            .constraintSize({ minHeight: ThemeConstants.BUTTON_HEIGHT })
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .backgroundColor($r('app.color.card_background'))
             .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-            .enabled(!this.remoteFavoriteSubmitting && this.remoteFavoriteSelectedCat !== 'favdel')
+            .enabled(!this.remoteFavoriteSubmitting && this.auth.isLogin)
             .onChange((value: string) => {
               this.remoteFavoriteNote = value
+              this.remoteFavoriteDraftRevision = this.remoteFavoriteDraftRevision + 1
             })
           Column({ space: ThemeConstants.SPACE_XS }) {
             ForEach(
@@ -2749,7 +2889,21 @@ export struct GalleryDetailPage {
               (fav: Favcat) => fav.favId,
             )
           }.width('100%')
+          if (this.vm.gallery.favcat.length > 0) {
+            ConciseListRow({
+              title: $r('app.string.detail_remote_favorite_remove'),
+              leadingIcon: $r('sys.symbol.minus_circle'),
+              destructive: true,
+              showChevron: false,
+              isEnabled: this.canUseRemoteFavoriteSlots(),
+              action: () => { this.confirmRemoveRemoteFavorite() },
+            })
+          }
           this.LocalFavoriteRow()
+          if (this.remoteFavoriteLoadingFavcats) {
+            LoadingProgress().width(ThemeConstants.SYMBOL_SIZE_STANDARD)
+              .height(ThemeConstants.SYMBOL_SIZE_STANDARD)
+          }
           if (this.remoteFavoriteError.length > 0) {
             Text(this.remoteFavoriteError)
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -2882,27 +3036,80 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private ReadFabRail() {
-    Row() {
+  private FavoriteFabButton() {
+    if (this.readFabUsesHdsMaterial()) {
       Row() {
-        this.ReadFabButton()
+        HdsCapsuleBarButton({
+          controller: this.favoriteFabMaterialController,
+          barWidth: ThemeConstants.BUTTON_HEIGHT,
+          barHeight: ThemeConstants.BUTTON_HEIGHT,
+          activityPadding: ThemeConstants.SPACE_LG,
+        }) {
+          Row() {
+            AppIconButton({
+              icon: this.favoriteFabIcon(),
+              label: $r('app.string.detail_favorite'),
+              buttonSize: ThemeConstants.BUTTON_HEIGHT,
+              iconSize: ThemeConstants.SYMBOL_SIZE_ROW,
+              tint: this.favoriteFabColor(),
+              isEnabled: !this.remoteFavoriteSubmitting,
+              loading: this.remoteFavoriteSubmitting,
+              action: () => { this.openRemoteFavorite() },
+            })
+            .id(this.favoriteSheetTargetId())
+          }
+          .width(ThemeConstants.BUTTON_HEIGHT)
+          .height(ThemeConstants.BUTTON_HEIGHT)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .translate({ y: -ThemeConstants.SPACE_XS })
+        }
       }
-      .height(this.readFabOuterHeight())
-      .translate({ x: this.readFabVisualX() })
-      .opacity(this.readFabLayoutReady ? 1 : 0)
-      .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
-      .onAreaChange((_oldArea: Area, area: Area) => {
-        this.readFabWidth = area.width as number
-        this.updateReadFabLayoutReady()
+      .accessibilityText($r('app.string.detail_favorite'))
+      .enabled(!this.remoteFavoriteSubmitting)
+    } else {
+      AppIconButton({
+        icon: this.favoriteFabIcon(),
+        label: $r('app.string.detail_favorite'),
+        buttonSize: ThemeConstants.BUTTON_HEIGHT,
+        iconSize: ThemeConstants.SYMBOL_SIZE_ROW,
+        tint: this.favoriteFabColor(),
+        buttonBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+        isEnabled: !this.remoteFavoriteSubmitting,
+        loading: this.remoteFavoriteSubmitting,
+        action: () => { this.openRemoteFavorite() },
       })
+      .id(this.favoriteSheetTargetId())
+      .borderRadius(ThemeConstants.BUTTON_HEIGHT / 2)
+      .shadow(ShadowStyle.OUTER_DEFAULT_MD)
     }
-    // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
-    // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
-    // its internal activity padding for edge clearance, so the rail padding is style-dependent.
+  }
+
+  @Builder
+  private ReadFabRail() {
+    Stack({ alignContent: Alignment.BottomStart }) {
+      Row() { this.ReadFabButton() }
+        .height(this.readFabOuterHeight())
+        .translate({ x: this.readFabVisualX() })
+        .opacity(this.readFabLayoutReady ? 1 : 0)
+        .onAreaChange((_oldArea: Area, area: Area) => {
+          this.readFabWidth = area.width as number
+          this.updateReadFabLayoutReady()
+        })
+      Row() { this.FavoriteFabButton() }
+        .height(this.readFabOuterHeight())
+        .translate({ x: this.favoriteFabVisualX(), y: this.favoriteFabVisualY() })
+        .opacity(this.readFabLayoutReady ? 1 : 0)
+        .onAreaChange((_oldArea: Area, area: Area) => {
+          this.favoriteFabWidth = area.width as number
+          this.updateReadFabLayoutReady()
+        })
+    }
     .width('100%')
+    .height(this.readFabOuterHeight())
     .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
-    .justifyContent(FlexAlign.Start)
     .hitTestBehavior(HitTestMode.Transparent)
+    .clip(false)
     .position({ left: 0, bottom: this.readFabRailBottomInset() })
   }
 

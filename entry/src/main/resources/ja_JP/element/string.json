@@ -5361,6 +5361,13 @@
       "value": "カプセル"
     },
     {"name": "eh_app_profile_auto", "value": "NextE 専用設定を自動使用"},
-    {"name": "eh_app_profile_auto_hint", "value": "ログイン後、NextE 設定を選択または作成します。オフにすると他の設定を手動で使用できます。サイトの既定設定は変更しません。"}
+    {"name": "eh_app_profile_auto_hint", "value": "ログイン後、NextE 設定を選択または作成します。オフにすると他の設定を手動で使用できます。サイトの既定設定は変更しません。"},
+    {"name": "tag_info_copy", "value": "タグをコピー"},
+    {"name": "tag_info_copied", "value": "タグをコピーしました"},
+    {"name": "tag_info_copy_failed", "value": "タグをコピーできませんでした"},
+    {"name": "detail_remote_favorite_remove", "value": "リモートお気に入りを解除"},
+    {"name": "detail_remote_favorite_remove_confirm", "value": "このリモートお気に入りとメモを削除しますか？"},
+    {"name": "detail_remote_favorite_removed", "value": "リモートお気に入りを解除しました"},
+    {"name": "detail_remote_favorite_save_note", "value": "メモを保存"}
   ]
 }

@@ -5361,6 +5361,13 @@
       "value": "Capsule"
     },
     {"name": "eh_app_profile_auto", "value": "Use a dedicated NextE profile"},
-    {"name": "eh_app_profile_auto_hint", "value": "Automatically select or create a NextE profile after login. Turn off to use another profile manually. The website default stays unchanged."}
+    {"name": "eh_app_profile_auto_hint", "value": "Automatically select or create a NextE profile after login. Turn off to use another profile manually. The website default stays unchanged."},
+    {"name": "tag_info_copy", "value": "Copy tag"},
+    {"name": "tag_info_copied", "value": "Tag copied"},
+    {"name": "tag_info_copy_failed", "value": "Unable to copy tag"},
+    {"name": "detail_remote_favorite_remove", "value": "Remove EH favorite"},
+    {"name": "detail_remote_favorite_remove_confirm", "value": "Remove this EH favorite and its note?"},
+    {"name": "detail_remote_favorite_removed", "value": "Removed from EH favorites"},
+    {"name": "detail_remote_favorite_save_note", "value": "Save note"}
   ]
 }

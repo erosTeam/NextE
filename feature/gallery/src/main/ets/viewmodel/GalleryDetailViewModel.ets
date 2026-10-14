@@ -31,6 +31,7 @@ class GalleryDetailRun {
   memberId: string
   passHash: string
   cacheKey: string
+  favoriteRevision: number = 0
 
   constructor(
     epoch: number,
@@ -77,6 +78,7 @@ export class GalleryDetailViewModel {
   private context: common.UIAbilityContext | null = null
   private detailRenderVersion: number = 0
   private detailEpoch: number = 0
+  private favoriteRevision: number = 0
   // Only an applied detail run may write a mutation/translation snapshot back to the cache. A newer
   // account/site replacement invalidates this immediately while old content remains on screen.
   private activeDetailRun: GalleryDetailRun | null = null
@@ -209,7 +211,7 @@ export class GalleryDetailViewModel {
     const cookieStore: EhCookieStore = EhCookieStore.getInstance()
     const memberId: string = cookieStore.get(EhConstants.COOKIE_MEMBER_ID)
     const passHash: string = cookieStore.get(EhConstants.COOKIE_PASS_HASH)
-    return new GalleryDetailRun(
+    const run: GalleryDetailRun = new GalleryDetailRun(
       this.detailEpoch,
       gid,
       token,
@@ -218,6 +220,8 @@ export class GalleryDetailViewModel {
       passHash,
       EhPageCacheService.galleryDetailKey(isEx, gid, token),
     )
+    run.favoriteRevision = this.favoriteRevision
+    return run
   }
 
   private isCurrentDetailRun(run: GalleryDetailRun): boolean {
@@ -488,6 +492,7 @@ export class GalleryDetailViewModel {
     if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
       return false
     }
+    this.preserveNewerFavoriteState(translated, run)
     this.gallery = translated
     this.images = res.images
     this.comments = res.comments
@@ -580,7 +585,16 @@ export class GalleryDetailViewModel {
 
   /** Apply the known result of an EH favorite write. `merge()` intentionally treats empty fields as
    * "unknown", so delete/move needs an explicit state replacement to clear stale filled hearts. */
+  private preserveNewerFavoriteState(gallery: EhGallery, run: GalleryDetailRun): void {
+    if (run.favoriteRevision !== this.favoriteRevision) {
+      gallery.favcat = this.gallery.favcat
+      gallery.favTitle = this.gallery.favTitle
+      gallery.favNote = this.gallery.favNote
+    }
+  }
+
   applyRemoteFavoriteState(favcat: string, favTitle: string, favNote: string): void {
+    this.favoriteRevision = this.favoriteRevision + 1
     const next: EhGallery = this.gallery.copy()
     next.favcat = favcat
     next.favTitle = favTitle

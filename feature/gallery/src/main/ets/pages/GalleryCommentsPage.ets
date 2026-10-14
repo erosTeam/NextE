@@ -875,20 +875,22 @@ export struct GalleryCommentsPage {
     if (this.uploaderOnly) {
       uploaderOnly = {
         'label': $r('app.string.comment_filter_all'),
-        'icon': $r('sys.symbol.list_bullet_square_fill'),
+        'icon': $r('sys.symbol.message_on_message_fill'),
         'symbolEndIcon': new SymbolGlyphModifier($r('sys.symbol.checkmark')),
         'isEnabled': this.comments.length > 0,
         'action': () => {
           this.uploaderOnly = false
+          this.showCommentToast($r('app.string.comment_filter_all'))
         },
       }
     } else {
       uploaderOnly = {
         'label': $r('app.string.comment_filter_uploader_only'),
-        'icon': $r('sys.symbol.person'),
+        'icon': $r('sys.symbol.message_on_message'),
         'isEnabled': this.comments.length > 0,
         'action': () => {
           this.uploaderOnly = true
+          this.showCommentToast($r('app.string.comment_filter_uploader_only'))
         },
       }
     }

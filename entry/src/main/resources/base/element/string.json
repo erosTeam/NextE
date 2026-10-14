@@ -5361,6 +5361,13 @@
       "value": "胶囊"
     },
     {"name": "eh_app_profile_auto", "value": "自动使用 NextE 专属配置"},
-    {"name": "eh_app_profile_auto_hint", "value": "登录后自动选择或创建 NextE 配置。关闭后可手动使用其他配置，不改变网站默认配置。"}
+    {"name": "eh_app_profile_auto_hint", "value": "登录后自动选择或创建 NextE 配置。关闭后可手动使用其他配置，不改变网站默认配置。"},
+    {"name": "tag_info_copy", "value": "Copy tag"},
+    {"name": "tag_info_copied", "value": "Tag copied"},
+    {"name": "tag_info_copy_failed", "value": "Unable to copy tag"},
+    {"name": "detail_remote_favorite_remove", "value": "Remove EH favorite"},
+    {"name": "detail_remote_favorite_remove_confirm", "value": "Remove this EH favorite and its note?"},
+    {"name": "detail_remote_favorite_removed", "value": "Removed from EH favorites"},
+    {"name": "detail_remote_favorite_save_note", "value": "Save note"}
   ]
 }

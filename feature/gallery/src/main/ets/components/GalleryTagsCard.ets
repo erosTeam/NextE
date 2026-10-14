@@ -1,5 +1,6 @@
 import { common, Want } from '@kit.AbilityKit'
 import { vibrator } from '@kit.SensorServiceKit'
+import { pasteboard } from '@kit.BasicServicesKit'
 import {
   ThemeConstants,
   ListRowDivider,
@@ -14,6 +15,7 @@ import {
   ConciseListRow,
   InlineEditRow,
   AppModalScaffold,
+  AppIconButton,
   AppColorPicker,
   PageErrorState,
   UserTagStore,
@@ -331,6 +333,21 @@ export struct GalleryTagsCard {
       return ''
     }
     return `${this.selectedNamespace}:${this.selectedTagText}`
+  }
+
+  private copySelectedTag(): void {
+    const text: string = this.selectedTagKey()
+    if (text.length === 0) {
+      return
+    }
+    let message: Resource = $r('app.string.tag_info_copied')
+    try {
+      const data: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text)
+      pasteboard.getSystemPasteboard().setDataSync(data)
+    } catch (_error) {
+      message = $r('app.string.tag_info_copy_failed')
+    }
+    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {})
   }
 
   private triggerLongPressHaptic(): void {
@@ -1037,10 +1054,19 @@ export struct GalleryTagsCard {
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          Text(this.selectedTagKey())
-            .fontSize(ThemeConstants.FONT_SIZE_META)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            Text(this.selectedTagKey())
+              .fontSize(ThemeConstants.FONT_SIZE_META)
+              .fontColor($r('sys.color.font_secondary'))
+              .layoutWeight(1)
+            AppIconButton({
+              icon: $r('sys.symbol.doc_text_on_doc_text'),
+              label: $r('app.string.tag_info_copy'),
+              buttonSize: TAG_INFO_ACTION_SIZE,
+              iconSize: ThemeConstants.SYMBOL_SIZE_ACTION,
+              action: () => { this.copySelectedTag() },
+            })
+          }.width('100%')
         }
         .layoutWeight(1)
 
