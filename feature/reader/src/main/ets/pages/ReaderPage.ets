@@ -17,6 +17,7 @@ import {
   ReadColumnMode,
   ReadModeSettings,
   GalleryReadProgressSettings,
+  AppStrings,
   connectNavStack,
   connectSiteMode,
   ShareUtil,
@@ -47,11 +48,13 @@ export struct ReaderPage {
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
   @Local sliderValue: number = 1;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local autoPageEnabled: boolean = false;
   // Reader viewport size (captured on layout) — divides the canvas into eros_fe's 3×3 tap regions
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
   private listScroller: Scroller = new Scroller();
+  private autoPageTimer: number = -1;
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
@@ -224,15 +227,78 @@ export struct ReaderPage {
         this.vm.currentIndex,
       )
     }
+    if (this.autoPageEnabled) {
+      this.scheduleAutoPage()
+    }
   }
 
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
+    this.stopAutoPage()
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.flush(this.hostContext())
     }
     // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
+  }
+
+  private clearAutoPageTimer(): void {
+    if (this.autoPageTimer >= 0) {
+      clearTimeout(this.autoPageTimer)
+      this.autoPageTimer = -1
+    }
+  }
+
+  private stopAutoPage(): void {
+    this.clearAutoPageTimer()
+    this.autoPageEnabled = false
+  }
+
+  private toggleAutoPage(): void {
+    if (this.autoPageEnabled) {
+      this.stopAutoPage()
+      return
+    }
+    if (this.vm.currentIndex >= this.vm.totalPages() - 1) {
+      return
+    }
+    this.autoPageEnabled = true
+    this.scheduleAutoPage()
+  }
+
+  private scheduleAutoPage(): void {
+    this.clearAutoPageTimer()
+    if (!this.autoPageEnabled) {
+      return
+    }
+    const seconds: number = ReadModeSettings.normalizeAutoPageSeconds(this.readMode.autoPageSeconds)
+    this.autoPageTimer = setTimeout(() => {
+      this.autoPageTimer = -1
+      this.advanceAutoPage()
+    }, seconds * 1000)
+  }
+
+  private nextAutoPageTarget(): number {
+    if (this.doublePageEnabled()) {
+      return this.spreadStartIndex(this.spreadIndexForImage(this.vm.currentIndex) + 1)
+    }
+    return this.vm.currentIndex + 1
+  }
+
+  private advanceAutoPage(): void {
+    if (!this.autoPageEnabled) {
+      return
+    }
+    if (this.imageZoomed || this.sliderPreview >= 0 || this.vm.jumping) {
+      this.scheduleAutoPage()
+      return
+    }
+    const target: number = this.nextAutoPageTarget()
+    if (target >= this.vm.totalPages()) {
+      this.stopAutoPage()
+      return
+    }
+    this.turnTo(target)
   }
 
   // Tap-zone navigation — eros_fe's 3×3 region grid (lrRatio 1/3, tbRatio 1/5, view_page.dart):
@@ -598,6 +664,15 @@ export struct ReaderPage {
     return $r('app.string.common_off')
   }
 
+  private autoPageLabel(): string {
+    const label: string = AppStrings.get('reader_auto_page')
+    if (!this.autoPageEnabled) {
+      return label
+    }
+    const seconds: number = ReadModeSettings.normalizeAutoPageSeconds(this.readMode.autoPageSeconds)
+    return `${label} ${seconds}s`
+  }
+
   private cycleColumnMode(): void {
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return
@@ -741,6 +816,23 @@ export struct ReaderPage {
           })
           .onClick(() => {
             this.cycleColumnMode()
+          })
+        Text(this.autoPageLabel())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(this.autoPageEnabled ? ThemeConstants.BRAND_PRIMARY : Color.White)
+          .borderRadius(ThemeConstants.RADIUS_ROUND)
+          .border({
+            width: 1,
+            color: this.autoPageEnabled ? ThemeConstants.BRAND_PRIMARY : Color.White,
+          })
+          .padding({
+            left: ThemeConstants.SPACE_MD,
+            right: ThemeConstants.SPACE_MD,
+            top: 2,
+            bottom: 2,
+          })
+          .onClick(() => {
+            this.toggleAutoPage()
           })
       }
       .width('100%')

@@ -613,6 +613,10 @@
       "value": "双页模式"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "自动翻页间隔"
+    },
+    {
       "name": "common_off",
       "value": "关闭"
     },
@@ -655,6 +659,10 @@
     {
       "name": "read_double_page_b",
       "value": "双页 B"
+    },
+    {
+      "name": "reader_auto_page",
+      "value": "自动"
     },
     {
       "name": "search_history",

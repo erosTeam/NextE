@@ -613,6 +613,10 @@
       "value": "両ページモード"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "自動ページ送り間隔"
+    },
+    {
       "name": "common_off",
       "value": "オフ"
     },
@@ -655,6 +659,10 @@
     {
       "name": "read_double_page_b",
       "value": "両ページ B"
+    },
+    {
+      "name": "reader_auto_page",
+      "value": "自動"
     },
     {
       "name": "search_history",

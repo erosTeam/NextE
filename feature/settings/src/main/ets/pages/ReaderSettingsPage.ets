@@ -27,6 +27,7 @@ export struct ReaderSettingsPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
   @Local columnMenuShown: boolean = false;
+  @Local autoPageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private setMode(mode: string): void {
@@ -39,6 +40,12 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setColumnMode(ctx, mode)
+  }
+
+  private setAutoPageSeconds(seconds: number): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setAutoPageSeconds(ctx, seconds)
   }
 
   private modeLabel(): Resource {
@@ -59,6 +66,11 @@ export struct ReaderSettingsPage {
       return $r('app.string.read_double_page_b')
     }
     return $r('app.string.common_off')
+  }
+
+  private autoPageIntervalLabel(): string {
+    const seconds: number = ReadModeSettings.normalizeAutoPageSeconds(this.readMode.autoPageSeconds)
+    return `${seconds}s`
   }
 
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
@@ -135,6 +147,28 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  AutoPageMenu() {
+    Menu() {
+      ForEach(
+        [2, 3, 5, 8, 12, 20, 30],
+        (seconds: number) => {
+          MenuItem({
+            content: `${seconds}s`,
+            symbolEndIcon:
+              ReadModeSettings.normalizeAutoPageSeconds(this.readMode.autoPageSeconds) === seconds
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setAutoPageSeconds(seconds)
+            this.autoPageMenuShown = false
+          })
+        },
+        (seconds: number) => `${seconds}`,
+      )
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -160,6 +194,14 @@ export struct ReaderSettingsPage {
                   this.columnMenuShown = true
                 },
               })
+              ConciseListRow({
+                title: $r('app.string.settings_reader_auto_page_interval'),
+                trailingText: this.autoPageIntervalLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.autoPageMenuShown = true
+                },
+              })
             }
           }
           .bindMenu(this.dirMenuShown, this.DirMenu, {
@@ -172,6 +214,12 @@ export struct ReaderSettingsPage {
             placement: Placement.Bottom,
             onDisappear: () => {
               this.columnMenuShown = false
+            },
+          })
+          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, {
+            placement: Placement.Bottom,
+            onDisappear: () => {
+              this.autoPageMenuShown = false
             },
           })
         }

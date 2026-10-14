@@ -22,6 +22,7 @@ export enum ReadColumnMode {
 export class ReadModeState {
   @Trace mode: string = ReadMode.LTR
   @Trace columnMode: string = ReadColumnMode.SINGLE
+  @Trace autoPageSeconds: number = 3
 }
 
 const READ_MODE_KEY: string = 'v2:readMode'

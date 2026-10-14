@@ -613,6 +613,10 @@
       "value": "Double page"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "Auto page interval"
+    },
+    {
       "name": "common_off",
       "value": "Off"
     },
@@ -655,6 +659,10 @@
     {
       "name": "read_double_page_b",
       "value": "Double B"
+    },
+    {
+      "name": "reader_auto_page",
+      "value": "Auto"
     },
     {
       "name": "search_history",
