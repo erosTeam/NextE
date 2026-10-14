@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Contract: Reader loading is stable and staged. First paint and far-jump parsing use a centered
- * resolving state; after the real image URL is known, each image page keeps a centered image-loading
- * line visible until Image.onComplete.
+ * resolving state; after the real image URL is known, each image page shows centered image-loading
+ * progress while the file stream is downloading, then removes the overlay before rendering the image.
  *
  * Run: node scripts/test_reader_loading_progress_contract.mjs
  */
@@ -23,7 +23,7 @@ const grounding = [
   'eros_fe: lib/pages/image_view/view/view_widget.dart ImageExt.build() LoadState.loading and _ViewLoadingLine.build()',
   'primary information: Reader shows a stable centered loading stage instead of a bottom spinner or black image canvas',
   'primary action: reading/tap navigation remains primary; retry/re-source remains the recovery action on failure',
-  'scope: split loading UI into resolving/parsing and image-loading stages; show a centered line during image loading; do not rewrite resolver, navigation, zoom, retry, or offline/download pipeline',
+  'scope: split loading UI into resolving/parsing and image-loading stages; show a centered line during image file streaming; remove it once imageUrl is renderable; do not rewrite resolver, navigation, zoom, retry, or offline/download pipeline',
   'Harmony expression: a small ReaderLoadingOverlay/ReaderLoadingLine component inside ReaderPage, backed by Image.onComplete/onError, stream progress, and existing V2 local state',
 ]
 
@@ -45,18 +45,18 @@ ok(/ReaderBottomBar\(\)[\s\S]*\.align\(Alignment\.Bottom\)/.test(reader),
   'Reader bottom chrome explicitly stays bottom-aligned after the root stack is centered')
 ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_resolving'\) \}\)/.test(reader),
   'empty reader and jump states use the resolving loading stage')
-ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
-  'image pages use the image-loading stage after a real URL is known')
+ok(/else if \(this\.imageProgress >= 0\) \{[\s\S]*ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
+  'image pages use the image-loading stage during stream download')
 ok(/\.width\('100%'\)[\s\S]*?\.height\('100%'\)[\s\S]*?\.justifyContent\(FlexAlign\.Center\)[\s\S]*?\.alignItems\(HorizontalAlign\.Center\)/.test(reader),
   'loading overlay fills the page and centers its content')
 ok(/@Local imageLoaded: boolean = false/.test(reader) &&
   /this\.imageLoaded = false[\s\S]*await ImageResolveService/.test(reader) &&
   /\.onComplete\(\([\s\S]*?\) => \{[\s\S]*this\.imageLoaded = true/.test(reader),
   'ReaderImagePage tracks Image loading separately from URL resolving')
-ok(/if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
-  'horizontal image page overlays image-loading line until Image completes')
-ok(/struct ReaderVerticalImage[\s\S]*@Local imageLoaded: boolean = false[\s\S]*if \(!this\.imageLoaded\) \{[\s\S]*reader_loading_image/.test(reader),
-  'vertical image page overlays image-loading line until Image completes')
+ok(!/else if \(this\.imageUrl\.length > 0\) \{[\s\S]*if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingOverlay/.test(reader),
+  'visible image branch does not keep loading overlay above the rendered image')
+ok(/struct ReaderVerticalImage[\s\S]*else if \(this\.imageProgress >= 0\) \{[\s\S]*reader_loading_image/.test(reader),
+  'vertical image page shows image-loading line only during stream download')
 ok(!/else \{\s*LoadingProgress\(\)[\s\S]*?\.color\(Color\.White\)\s*\}/.test(reader),
   'Reader no longer falls back to loose white LoadingProgress spinners for loading states')
 const client = read('shared/src/main/ets/network/EhHttpClient.ets')

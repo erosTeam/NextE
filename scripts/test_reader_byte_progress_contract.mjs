@@ -23,7 +23,7 @@ const grounding = [
   'eros_fe: /Users/honjow/git/eros_fe/lib/pages/image_view/view/view_widget.dart ImageExt.build() and _ViewLoadingLine.build()',
   'primary information: Reader second-stage loading shows current full-image byte progress after the real image URL is known',
   'primary action: reading, tap regions, zoom, and page turn stay primary; retry/re-source remains the failure recovery action',
-  'scope: stream the resolved full image into a transient reader cache file, bind progress into the existing centered line, and render the local file; do not implement offline library, archive/download pipeline, background queue, or fake percentages',
+  'scope: stream the resolved full image into a transient reader cache file, bind progress into the existing centered line while streaming, and render the local file without a leftover overlay; do not implement offline library, archive/download pipeline, background queue, or fake percentages',
   'Harmony expression: NetworkKit requestInStream plus dataReceiveProgress/dataReceive writes through CoreFileKit, with V2 @Local imageProgress feeding ReaderLoadingLine',
 ]
 
@@ -60,8 +60,10 @@ ok(/downloadBinaryToFileInStream\(\s*remoteUrl,\s*filePath,\s*\(loaded: number, 
   'Reader binds stream progress callback after URL resolution')
 ok(/this\.imageUrl = `file:\/\/\$\{filePath\}`/.test(reader),
   'Reader renders the local cache file after streaming completes')
-ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
-  'horizontal and vertical image stages pass real progress to the centered overlay')
+ok(/else if \(this\.imageProgress >= 0\) \{[\s\S]*ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
+  'horizontal and vertical image stages pass real progress to the centered overlay while streaming')
+ok(!/if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingOverlay/.test(reader),
+  'Reader does not leave progress overlay over a renderable image')
 ok(/struct ReaderLoadingLine[\s\S]*@Param progress: number = -1[\s\S]*Math\.round\(Math\.max\(0, Math\.min\(1, this\.progress\)\) \* 100\)/.test(reader),
   'loading line renders a bounded percentage from the progress signal')
 

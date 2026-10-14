@@ -47,11 +47,19 @@ export struct ReaderPage {
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
   @Local sliderValue: number = 1;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local readerZoomScale: number = 1;
+  @Local readerOffsetX: number = 0;
+  @Local readerOffsetY: number = 0;
   // Reader viewport size (captured on layout) — divides the canvas into eros_fe's 3×3 tap regions
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
   private listScroller: Scroller = new Scroller();
+  private readerPanOffsetX: number = 0;
+  private readerPanOffsetY: number = 0;
+  private readerBaseZoom: number = 1;
+  private readerBaseOffsetX: number = 0;
+  private readerBaseOffsetY: number = 0;
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
@@ -344,6 +352,106 @@ export struct ReaderPage {
     })
   }
 
+  private onImageFitPan(deltaX: number, deltaY: number): void {
+    const absX: number = Math.abs(deltaX)
+    const absY: number = Math.abs(deltaY)
+    if (absX < READER_FIT_SWIPE_THRESHOLD || absX < absY * READER_FIT_SWIPE_AXIS_RATIO) {
+      return
+    }
+    this.resetReaderZoom()
+    if (deltaX < 0) {
+      this.tapRight()
+    } else {
+      this.tapLeft()
+    }
+  }
+
+  private clampReaderOffsetX(value: number, scale: number): number {
+    const max: number = Math.max(0, (this.viewWidth * (scale - 1)) / 2)
+    return Math.min(max, Math.max(-max, value))
+  }
+
+  private clampReaderOffsetY(value: number, scale: number): number {
+    const max: number = Math.max(0, (this.viewHeight * (scale - 1)) / 2)
+    return Math.min(max, Math.max(-max, value))
+  }
+
+  private resetReaderZoom(): void {
+    this.readerZoomScale = 1
+    this.readerBaseZoom = 1
+    this.readerOffsetX = 0
+    this.readerOffsetY = 0
+    this.readerBaseOffsetX = 0
+    this.readerBaseOffsetY = 0
+    this.imageZoomed = false
+  }
+
+  private setReaderZoom(scale: number, offsetX: number, offsetY: number): void {
+    this.readerZoomScale = ReaderImageTransformCoordinator.clampScale(scale)
+    this.readerOffsetX = this.clampReaderOffsetX(offsetX, this.readerZoomScale)
+    this.readerOffsetY = this.clampReaderOffsetY(offsetY, this.readerZoomScale)
+    this.readerBaseZoom = this.readerZoomScale
+    this.readerBaseOffsetX = this.readerOffsetX
+    this.readerBaseOffsetY = this.readerOffsetY
+    this.imageZoomed = this.readerZoomScale > 1.01
+  }
+
+  private onReaderDoubleTap(x: number, y: number): void {
+    if (this.readerZoomScale > 1.01) {
+      this.resetReaderZoom()
+      return
+    }
+    const target: number = ReaderImageTransformCoordinator.DOUBLE_TAP_SCALE
+    this.setReaderZoom(
+      target,
+      ReaderImageTransformCoordinator.doubleTapOffset(x, this.viewWidth, target),
+      ReaderImageTransformCoordinator.doubleTapOffset(y, this.viewHeight, target),
+    )
+  }
+
+  private resetReaderPan(): void {
+    this.readerPanOffsetX = 0
+    this.readerPanOffsetY = 0
+    this.readerBaseOffsetX = this.readerOffsetX
+    this.readerBaseOffsetY = this.readerOffsetY
+  }
+
+  private updateReaderPan(e?: GestureEvent): void {
+    if (!e) {
+      return
+    }
+    this.readerPanOffsetX = e.offsetX as number
+    this.readerPanOffsetY = e.offsetY as number
+    if (this.readerZoomScale > 1.01) {
+      this.readerOffsetX = this.clampReaderOffsetX(
+        this.readerBaseOffsetX + this.readerPanOffsetX,
+        this.readerZoomScale,
+      )
+      this.readerOffsetY = this.clampReaderOffsetY(
+        this.readerBaseOffsetY + this.readerPanOffsetY,
+        this.readerZoomScale,
+      )
+    }
+  }
+
+  private finishReaderPan(): void {
+    if (this.readerZoomScale <= 1.01) {
+      this.onImageFitPan(this.readerPanOffsetX, this.readerPanOffsetY)
+    } else {
+      this.readerBaseOffsetX = this.readerOffsetX
+      this.readerBaseOffsetY = this.readerOffsetY
+    }
+    this.resetReaderPan()
+  }
+
+  private updateReaderPinch(e?: GestureEvent): void {
+    if (!e) {
+      return
+    }
+    const nextScale: number = this.readerBaseZoom * (e.scale as number)
+    this.setReaderZoom(nextScale, this.readerOffsetX, this.readerOffsetY)
+  }
+
   @Builder
   HorizontalReader() {
     Swiper() {
@@ -355,6 +463,9 @@ export struct ReaderPage {
             onZoomChange: (zoomed: boolean) => {
               this.imageZoomed = zoomed
             },
+            onFitHorizontalSwipe: (deltaX: number, deltaY: number) => {
+              this.onImageFitPan(deltaX, deltaY)
+            },
           })
         },
         (img: EhGalleryImage) => `${img.page}`,
@@ -365,7 +476,7 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(2)
     .indicator(false)
-    .disableSwipe(this.imageZoomed)
+    .disableSwipe(true)
     .width('100%')
     .height('100%')
     .onChange((i: number) => {
@@ -374,6 +485,18 @@ export struct ReaderPage {
     .onClick((e: ClickEvent) => {
       this.onReaderTap(e.x, e.y)
     })
+    .gesture(
+      PanGesture({ fingers: 1, direction: PanDirection.Horizontal })
+        .onActionStart(() => {
+          this.resetReaderPan()
+        })
+        .onActionUpdate((e?: GestureEvent) => {
+          this.updateReaderPan(e)
+        })
+        .onActionEnd(() => {
+          this.finishReaderPan()
+        }),
+    )
   }
 
   private spreadIndexForImage(index: number): number {
@@ -481,6 +604,9 @@ export struct ReaderPage {
         onZoomChange: (zoomed: boolean) => {
           this.imageZoomed = zoomed
         },
+        onFitHorizontalSwipe: (deltaX: number, deltaY: number) => {
+          this.onImageFitPan(deltaX, deltaY)
+        },
       })
         .layoutWeight(1)
     } else {
@@ -525,7 +651,7 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(2)
     .indicator(false)
-    .disableSwipe(this.imageZoomed)
+    .disableSwipe(true)
     .width('100%')
     .height('100%')
     .onChange((i: number) => {
@@ -534,6 +660,18 @@ export struct ReaderPage {
     .onClick((e: ClickEvent) => {
       this.onReaderTap(e.x, e.y)
     })
+    .gesture(
+      PanGesture({ fingers: 1, direction: PanDirection.Horizontal })
+        .onActionStart(() => {
+          this.resetReaderPan()
+        })
+        .onActionUpdate((e?: GestureEvent) => {
+          this.updateReaderPan(e)
+        })
+        .onActionEnd(() => {
+          this.finishReaderPan()
+        }),
+    )
   }
 
   @Builder
@@ -783,6 +921,8 @@ export struct ReaderPage {
 
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
 const READER_IMAGE_CACHE_DIR: string = 'reader-images'
+const READER_FIT_SWIPE_THRESHOLD: number = 48
+const READER_FIT_SWIPE_AXIS_RATIO: number = 1.15
 
 /**
  * One reader page. Resolves its full image on appear, then renders it with pinch /
@@ -794,6 +934,7 @@ const READER_IMAGE_CACHE_DIR: string = 'reader-images'
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
+  @Param onFitHorizontalSwipe: (deltaX: number, deltaY: number) => void = (_deltaX: number, _deltaY: number) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -816,6 +957,8 @@ struct ReaderImagePage {
   private pinchStartCenterX: number = 0;
   private pinchStartCenterY: number = 0;
   private isPinching: boolean = false;
+  private lastPanOffsetX: number = 0;
+  private lastPanOffsetY: number = 0;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
   private loadSerial: number = 0;
@@ -1007,9 +1150,8 @@ struct ReaderImagePage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
-        }
+      } else if (this.imageProgress >= 0) {
+        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
       } else {
         ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
       }
@@ -1089,8 +1231,14 @@ struct ReaderImagePage {
           .onActionStart(() => {
             this.baseOffsetX = this.offsetX
             this.baseOffsetY = this.offsetY
+            this.lastPanOffsetX = 0
+            this.lastPanOffsetY = 0
           })
           .onActionUpdate((e?: GestureEvent) => {
+            if (e && !this.isPinching) {
+              this.lastPanOffsetX = e.offsetX as number
+              this.lastPanOffsetY = e.offsetY as number
+            }
             if (e && !this.isPinching && this.zoomScale > 1.01) {
               this.offsetX = this.clampOffsetX(this.baseOffsetX + (e.offsetX as number), this.zoomScale)
               this.offsetY = this.clampOffsetY(
@@ -1100,6 +1248,10 @@ struct ReaderImagePage {
             }
           })
           .onActionEnd(() => {
+            if (this.zoomScale <= 1.01) {
+              this.onFitHorizontalSwipe(this.lastPanOffsetX, this.lastPanOffsetY)
+              return
+            }
             this.baseOffsetX = this.offsetX
             this.baseOffsetY = this.offsetY
           }),
@@ -1236,9 +1388,8 @@ struct ReaderVerticalImage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
-        }
+      } else if (this.imageProgress >= 0) {
+        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
       } else {
         ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving'), compact: true })
       }
