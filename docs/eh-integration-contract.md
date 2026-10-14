@@ -13,7 +13,7 @@ NextE 通过 **Cookie 鉴权 + HTML/JSON 抓取**对接 E-Hentai / ExHentai(无 
 
 | 页型 | 方法 / 路径 | parser → model |
 |---|---|---|
-| 画廊列表 / 搜索 | `GET /`(或 `/watched`、`/favorites.php`、`/popular`、`/toplist.php`),带 `f_cats`、`f_search`、`page`、游标 `next/prev/jump/seek/from`、`advsearch=1`+`f_*`、`favcat`;重试 `inline_set=dm_l`(扩展模式)、`fs_f/fs_p`(收藏排序) | `EhGalleryListParser` → `GalleryList{gallerys[], nextGid, prevGid, maxPage}` |
+| 画廊列表 / 搜索 | `GET /`(或 `/watched`、`/favorites.php`、`/popular`、`/toplist.php`),带 `f_cats`、`f_search`、`page`、游标 `next/prev/jump/seek/from`、`advsearch=1`+`f_*`、`favcat`;重试 `inline_set=dm_l`(Compact 紧凑模式)、`fs_f/fs_p`(收藏排序) | `EhGalleryListParser` → `GalleryList{gallerys[], nextGid, prevGid, maxPage}` |
 | 画廊详情 | `GET /g/{gid}/{token}`(HTML);抓内联 `var apiuid=(\d+);` / `var apikey="([0-9a-f]+)";` | `EhGalleryDetailParser` + `EhGalleryCommentParser` + `EhGalleryTagsParser` + `EhGalleryImageParser` → `EhGallery` |
 | 图片页 | `GET /s/{imgkey}/{gid}-{page}`(HTML,`paraImage`)**或**快路径 `POST /api.php method=showpage`(需 `showKey`);509/坏图时 `nl=<sourceId>` 换源 | → `EhGalleryImage` |
 | **`/api.php`**(单 JSON POST,按 `method` 复用) | `gdata`(批量 25 个 `[gid,token]` → `gmetadata[]`)、`showpage`、`rategallery`、`votecomment`、`taggallery`、`tagsuggest`、`setusertag`、`imagedispatch`(MPV) | `EhApiJsonParser` |

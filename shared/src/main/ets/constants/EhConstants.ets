@@ -43,9 +43,8 @@ export class EhConstants {
   // Favorites ordering query values
   static readonly FAV_ORDER_FAV: string = 'fs_f'
   static readonly FAV_ORDER_POSTED: string = 'fs_p'
-  // inline_set value forcing the Minimal (list) display mode — the only favorites layout the gltc
-  // table parser understands. Used to recover when the account's mode is Thumbnail (an `itg gld` div).
-  static readonly FAV_DISPLAY_LIST: string = 'dm_l'
+  // Inline display-mode correction shared by all gallery lists. 'l' means Compact.
+  static readonly LIST_DISPLAY_COMPACT: string = 'dm_l'
 
   // A desktop Chrome UA — EH serves the desktop layout the parsers expect.
   static readonly USER_AGENT: string =

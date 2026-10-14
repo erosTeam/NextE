@@ -4,6 +4,7 @@ import { EhError, EhErrorKind } from './EhError'
 import { EhErrorClassifier } from './EhErrorClassifier'
 import { EhConstants } from '../constants/EhConstants'
 import { EhGalleryListParseTask } from '../parser/EhGalleryListParseTask'
+import { EhGalleryListParser } from '../parser/EhGalleryListParser'
 import { EhFavcatListParser } from '../parser/EhFavcatListParser'
 import { EhMytagsParser } from '../parser/EhMytagsParser'
 import { EhUconfigParser } from '../parser/EhUconfigParser'
@@ -160,10 +161,17 @@ export class EhApiService {
    * ServerError/EmptyBody/ParseFailure otherwise). Replaces the old `throw new Error('... HTTP <n>')`
    * so a non-404 failure can never surface to the UI as a 404.
    */
-  private async fetch(url: string, isEx: boolean, page: string): Promise<EhTextResponse> {
+  private async fetch(
+    url: string,
+    isEx: boolean,
+    page: string,
+    singleAttempt: boolean = false,
+  ): Promise<EhTextResponse> {
     let resp: EhTextResponse
     try {
-      resp = await EhHttpClient.getInstance().getText(url)
+      resp = singleAttempt
+        ? await EhHttpClient.getInstance().getTextOnce(url)
+        : await EhHttpClient.getInstance().getText(url)
     } catch (err) {
       throw EhErrorClassifier.network(err as Error, url)
     }
@@ -459,6 +467,35 @@ export class EhApiService {
     return list
   }
 
+  /** Normalize the server layout before parsing, across every gallery-list entry point. */
+  private async fetchCompactListBody(
+    url: string,
+    isEx: boolean,
+    request: UserTagRequestContext,
+  ): Promise<string> {
+    const changesPreference: boolean = /[?&]inline_set=/.test(url)
+    if (changesPreference && !UserTagContextService.isCurrentScope(request)) {
+      throw new EhError(EhErrorKind.Network, 'gallery list context changed before preference update')
+    }
+    const first: EhTextResponse = await this.fetch(url, isEx, 'list', changesPreference)
+    if (!EhGalleryListParser.needsCompactLayout(first.body)) {
+      return first.body
+    }
+    if (!UserTagContextService.isCurrentScope(request)) {
+      throw new EhError(EhErrorKind.Network, 'gallery list context changed before layout correction')
+    }
+    const compactUrl: string = changesPreference
+      ? url.replace(/([?&])inline_set=[^&]*/, '$1inline_set=' + EhConstants.LIST_DISPLAY_COMPACT)
+      : url + (url.indexOf('?') >= 0 ? '&' : '?') + 'inline_set=' + EhConstants.LIST_DISPLAY_COMPACT
+    // inline_set changes an EH preference even though it is exposed as GET. Send once;
+    // a lost response must not blindly repeat the mutation.
+    const corrected: EhTextResponse = await this.fetch(compactUrl, isEx, 'list', true)
+    if (EhGalleryListParser.needsCompactLayout(corrected.body)) {
+      throw new EhError(EhErrorKind.ParseFailure, 'gallery list still uses an unsupported display mode')
+    }
+    return corrected.body
+  }
+
   async getGalleryList(query: GalleryListQuery): Promise<GalleryList> {
     const userTagRequest: UserTagRequestContext = UserTagContextService.captureActiveRequest()
     const base: string = EhConstants.baseUrl(query.isEx)
@@ -473,10 +510,10 @@ export class EhApiService {
     if (isPopular) {
       // /popular ignores filters and the next cursor — request the bare snapshot.
       const url: string = `${base}${path}`
-      const resp = await this.fetch(url, query.isEx, 'list')
+      const body: string = await this.fetchCompactListBody(url, query.isEx, userTagRequest)
       return this.filterLocalBlocked(
         this.filterHidden(
-          this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body), userTagRequest),
+          this.registerInlineTagColors(await EhGalleryListParseTask.parse(body), userTagRequest),
           userTagRequest,
         ),
       )
@@ -487,9 +524,9 @@ export class EhApiService {
       const pageParam: string = query.page >= 0 ? `&p=${query.page}` : ''
       const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}${pageParam}`
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
-      const resp = await this.fetch(url, false, 'list')
+      const body: string = await this.fetchCompactListBody(url, false, userTagRequest)
       const list: GalleryList = this.registerInlineTagColors(
-        await EhGalleryListParseTask.parse(resp.body),
+        await EhGalleryListParseTask.parse(body),
         userTagRequest,
       )
       return this.filterLocalBlocked(
@@ -552,9 +589,9 @@ export class EhApiService {
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}${path}${queryStr}`
-    const resp = await this.fetch(url, query.isEx, 'list')
+    const body: string = await this.fetchCompactListBody(url, query.isEx, userTagRequest)
     const list: GalleryList = this.registerInlineTagColors(
-      await EhGalleryListParseTask.parse(resp.body),
+      await EhGalleryListParseTask.parse(body),
       userTagRequest,
     )
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
@@ -573,14 +610,7 @@ export class EhApiService {
     // Match eros_fe: normal paging sends page/from or next only. inline_set is an exception retry
     // for display/order correction, not part of the ordinary page request.
     const firstPage: boolean = query.page < 0 && query.next.length === 0
-    let body: string = await this.fetchFavoritesBody(base, query, '')
-    // The gltc TABLE parser only understands the Minimal/Compact layout. If the account's favorites
-    // display mode is Thumbnail (`<div class="itg gld">`, no `<table class="itg">`), the parse finds
-    // zero rows — so force inline_set=dm_l (Minimal) once and re-fetch (eros_fe dm_l handling). The
-    // guard (no itg table AND an itg div present) means a table-mode account never triggers the retry.
-    if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
-      body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
-    }
+    let body: string = await this.fetchFavoritesBody(base, query, '', userTagRequest)
     const activeOrder: string = this.favoriteOrderFromBody(body)
     if (
       firstPage &&
@@ -588,10 +618,7 @@ export class EhApiService {
       activeOrder.length > 0 &&
       activeOrder !== query.order
     ) {
-      body = await this.fetchFavoritesBody(base, query, query.order)
-      if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
-        body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
-      }
+      body = await this.fetchFavoritesBody(base, query, query.order, userTagRequest)
     }
     const list: GalleryList = this.registerInlineTagColors(
       await EhGalleryListParseTask.parse(body),
@@ -614,6 +641,7 @@ export class EhApiService {
     base: string,
     query: FavoritesQuery,
     inlineSet: string,
+    request: UserTagRequestContext,
   ): Promise<string> {
     const params: string[] = []
     if (query.favcat.length > 0 && query.favcat !== 'a') {
@@ -640,8 +668,7 @@ export class EhApiService {
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}/favorites.php${queryStr}`
-    const resp = await this.fetch(url, query.isEx, 'list')
-    return resp.body
+    return await this.fetchCompactListBody(url, query.isEx, request)
   }
 
   /** Fetch the user's My Tags (watched/hidden/flagged tags + apiuid/apikey). Requires login.
