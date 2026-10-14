@@ -17,6 +17,7 @@ import {
   EhCookieStore,
   InlineEditRow,
   EhApiService,
+  EhAppProfileService,
   EhConstants,
   EhProfile,
   EhProfileSettings,
@@ -215,8 +216,13 @@ export struct EhProfileSettingsPage {
       this.loading = false
       return
     }
-    EhApiService.getInstance()
-      .getUserConfig(request.isEx)
+    EhAppProfileService.ensureSelected()
+      .then(() => {
+        if (!this.contextMatchesCurrent(request)) {
+          throw new Error('profile context changed')
+        }
+        return EhApiService.getInstance().getUserConfig(request.isEx)
+      })
       .then((s: EhProfileSettings) => {
         if (run !== this.loadRun) {
           return

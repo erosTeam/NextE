@@ -29,6 +29,13 @@ NextE 通过 **Cookie 鉴权 + HTML/JSON 抓取**对接 E-Hentai / ExHentai(无 
 - 写操作(评论、标签、搜图)以 HTTP **302/303 重定向**表示成功:**关闭自动跟随重定向**,读 `Location`(`getTextResponseWithHeaders`)。
 - 远端写操作(评论、评分、投票、收藏、标签、归档、uconfig、消耗 GP 的图片配额重置)只能单次发送；即使服务端将动作暴露为 GET，也不得按读取请求重试。网络超时或 5xx 后结果可能未知，禁止由通用传输层自动重发；仅已确认只读的 `showpage`、`gdata`、`tagsuggest` JSON POST 可以重试。
 
+## NextE 专属配置
+
+- `EH_APP_PROFILE_ENABLED` 默认开启，开关位于 EH 设置；关闭不删除配置、不改变当前选择。
+- 首次列表请求、登录/账号切换和站点切换时，读取当前账号的 `uconfig.php`；已有唯一 `NextE` 配置则复用，缺少时单次创建。服务端确认选择后才保存 `sp` 到当前账号 Cookie，不调用 `profile_action=default`。
+- 同一账号/站点的并发选择合并；旧账号、旧站点和已关闭开关的响应不能写回。POST 响应丢失只读回验证，不重发创建；同进程内未确认的创建禁止再次自动创建。
+- 列表在配置准备成功后才请求，防止 `inline_set` 修正落到原配置。准备失败保留已有列表，通过现有错误/重试处理；用户也可关闭自动选择后使用手动配置。
+
 ## parser 清单(每页型 → model)
 
 `EhGalleryListParser`→`GalleryList`;`EhGalleryDetailParser`→`EhGallery`(header);`EhGalleryCommentParser`→`EhComment[]`;`EhGalleryTagsParser`→`TagGroup[]`;`EhGalleryImageParser`→`EhGalleryImage[]`(**3 种缩略图布局**:`#gdt>div.gdtm` sprite / `#gdt>div.gdtl` / `#gdt>a`,全支持);`EhImagePageParser`(paraImage + paraShowPageJson);`EhApiJsonParser`(gmetadata/showpage/imagedispatch);`EhUconfigParser`→`EhSettings`;`EhMyTagsParser`;`EhFavoritesParser`;`EhArchiverParser`;`EhTorrentParser`;`EhUserProfileParser`;`EhAdvanceSearchParser`(URL query 解码)。

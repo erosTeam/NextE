@@ -10,6 +10,7 @@ export class StorageKeys {
   static readonly STORE_SETTINGS: string = 'nexte_settings'
 
   // settings keys
+  static readonly EH_APP_PROFILE_ENABLED: string = 'eh.appProfileEnabled' // default-on dedicated EH profile
   static readonly SITE_MODE_EX: string = 'site.modeEx' // boolean: 表站(false)/里站(true)
   static readonly LIST_MODE: string = 'layout.listMode' // list/simpleList/grid/waterfall/waterfallCompact/coverWall
   static readonly GALLERY_DETAIL_TRANSITION_ENABLED: string = 'layout.galleryDetailTransitionEnabled'

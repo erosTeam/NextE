@@ -14,6 +14,7 @@ import { CookieJarEntry } from '../model/CookieJarEntry'
 import { FavcatListSettings } from './FavcatListSettings'
 import { SiteModeSettings } from './SiteModeSettings'
 import { UserTagLoader } from '../services/UserTagLoader'
+import { EhAppProfileService } from '../services/EhAppProfileService'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -463,9 +464,11 @@ export class CookieJarSettings {
     expectedPassHash: string,
     expectedIsEx: boolean,
     selectedProfile: string,
+    isCurrent: (() => boolean) | null = null,
   ): Promise<boolean> {
     if (
       selectedProfile.length === 0 ||
+      (isCurrent !== null && !isCurrent()) ||
       !CookieJarSettings.matchesActiveProfileContext(expectedMemberId, expectedPassHash, expectedIsEx)
     ) {
       return false
@@ -477,6 +480,7 @@ export class CookieJarSettings {
       )
       if (
         !CookieJarSettings.matchesActiveProfileContext(expectedMemberId, expectedPassHash, expectedIsEx) ||
+        (isCurrent !== null && !isCurrent()) ||
         !AccountListSettings.hasStoredMember(store, expectedMemberId)
       ) {
         return false
@@ -511,6 +515,7 @@ export class CookieJarSettings {
       store.flushSync()
       CookieJarSettings.syncAuthState()
       await AccountListSettings.recordActive(context)
+      await EhAppProfileService.ensureSelected()
       await FavcatListSettings.restore(context)
       DiagnosticLogger.info(
         'auth',

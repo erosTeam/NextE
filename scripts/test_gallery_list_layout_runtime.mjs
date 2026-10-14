@@ -53,7 +53,7 @@ const query = { isEx: true, source: '', next: '', prev: '', seek: '', tl: 11, pa
   requireTorrent: false, showExpunged: false, disableLanguageFilter: false,
   disableUploaderFilter: false, disableTagFilter: false, applyToplistHiddenUserTags: false }
 const favorites = { isEx: true, favcat: 'a', next: '', prev: '', seek: '', page: -1, from: '', search: '', order: '' }
-function fixture(reply) {
+function fixture(reply, profileReady = true) {
   const calls = []
   let currentScope = true
   const get = async (url, once) => {
@@ -65,6 +65,7 @@ function fixture(reply) {
     if (name === './EhHttpClient') return { EhHttpClient: { getInstance: () => ({
       getText: url => get(url, false), getTextOnce: url => get(url, true),
     }) } }
+    if (name === '../services/EhAppProfileService') return { EhAppProfileService: { ensureSelected: async () => profileReady, listFailure: () => new errors.EhError(errors.EhErrorKind.RateLimited, 'fixture profile rate limit') } }
     if (name === './EhError') return errors
     if (name === './EhErrorClassifier') return classifier
     if (name === '../constants/EhConstants') return { EhConstants }
@@ -204,4 +205,11 @@ test('favorites sorting and layout correction each send once, preserve filters a
     assert.equal(params.get('f_search'), '测试')
     assert.equal(params.get('seek'), '2026-10-01')
   }
+})
+
+
+test('profile failure keeps its typed cause and sends no gallery or preference request', async () => {
+  const { api, calls } = fixture(() => compact, false)
+  await assert.rejects(api.getGalleryList(query), error => error.kind === errors.EhErrorKind.RateLimited)
+  assert.equal(calls.length, 0)
 })

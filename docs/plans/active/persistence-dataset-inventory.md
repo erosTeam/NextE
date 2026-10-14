@@ -26,6 +26,7 @@ Allowed `Sync` values:
 | --- | --- | --- | --- | --- |
 | StorageKeys.STORE_SETTINGS | store | excluded | excluded | Preferences store name |
 | StorageKeys.SITE_MODE_EX | setting | plaintext | excluded | EH site mode |
+| StorageKeys.EH_APP_PROFILE_ENABLED | setting | plaintext | excluded | Optional default-on NextE EH profile selection; profile ID remains in the encrypted account cookie bundle |
 | StorageKeys.LIST_MODE | setting | plaintext | excluded | Gallery list layout |
 | StorageKeys.GALLERY_DETAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Legacy gallery-detail transition compatibility switch |
 | StorageKeys.GALLERY_DETAIL_TRANSITION_MODE | setting | plaintext | excluded | Selected gallery-detail transition mode |

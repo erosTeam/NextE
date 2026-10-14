@@ -5,6 +5,7 @@ import { EhErrorClassifier } from './EhErrorClassifier'
 import { EhConstants } from '../constants/EhConstants'
 import { EhGalleryListParseTask } from '../parser/EhGalleryListParseTask'
 import { EhGalleryListParser } from '../parser/EhGalleryListParser'
+import { EhAppProfileService } from '../services/EhAppProfileService'
 import { EhFavcatListParser } from '../parser/EhFavcatListParser'
 import { EhMytagsParser } from '../parser/EhMytagsParser'
 import { EhUconfigParser } from '../parser/EhUconfigParser'
@@ -473,6 +474,13 @@ export class EhApiService {
     isEx: boolean,
     request: UserTagRequestContext,
   ): Promise<string> {
+    const profileReady: boolean = await EhAppProfileService.ensureSelected()
+    if (!UserTagContextService.isCurrentScope(request)) {
+      throw new EhError(EhErrorKind.Network, 'gallery list context changed during profile preparation')
+    }
+    if (!profileReady) {
+      throw EhAppProfileService.listFailure()
+    }
     const changesPreference: boolean = /[?&]inline_set=/.test(url)
     if (changesPreference && !UserTagContextService.isCurrentScope(request)) {
       throw new EhError(EhErrorKind.Network, 'gallery list context changed before preference update')

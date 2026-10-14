@@ -1190,6 +1190,9 @@ export {
   ThemeColorState,
   connectThemeColor,
 } from './state/AppearanceState'
+export { EhAppProfileService } from './services/EhAppProfileService'
+export { EhAppProfileSettings } from './settings/EhAppProfileSettings'
+export { EhAppProfileState, connectEhAppProfile } from './state/EhAppProfileState'
 export { CookieJarSettings } from './settings/CookieJarSettings'
 export { AccountListSettings } from './settings/AccountListSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'

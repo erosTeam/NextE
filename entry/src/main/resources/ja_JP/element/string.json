@@ -5351,6 +5351,8 @@
     {
       "name": "subtab_style_capsule",
       "value": "カプセル"
-    }
+    },
+    {"name": "eh_app_profile_auto", "value": "NextE 専用設定を自動使用"},
+    {"name": "eh_app_profile_auto_hint", "value": "ログイン後、NextE 設定を選択または作成します。オフにすると他の設定を手動で使用できます。サイトの既定設定は変更しません。"}
   ]
 }

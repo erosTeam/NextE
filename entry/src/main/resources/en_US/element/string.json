@@ -5351,6 +5351,8 @@
     {
       "name": "subtab_style_capsule",
       "value": "Capsule"
-    }
+    },
+    {"name": "eh_app_profile_auto", "value": "Use a dedicated NextE profile"},
+    {"name": "eh_app_profile_auto_hint", "value": "Automatically select or create a NextE profile after login. Turn off to use another profile manually. The website default stays unchanged."}
   ]
 }
