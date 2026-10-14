@@ -225,18 +225,22 @@ export struct SettingsPage {
     this.getUIContext().showAlertDialog({
       message: $r('app.string.logout_confirm'),
       primaryButton: {
-        value: $r('app.string.settings_logout'),
-        fontColor: Color.Red,
-        action: () => {
-          const ctx: common.UIAbilityContext =
-            this.getUIContext().getHostContext() as common.UIAbilityContext
-          CookieJarSettings.clear(ctx)
-        },
-      },
-      secondaryButton: {
         value: $r('app.string.common_cancel'),
         action: () => {},
       },
+      secondaryButton: {
+        value: $r('app.string.settings_logout'),
+        fontColor: Color.Red,
+        action: () => {
+          this.logout()
+        },
+      },
     })
+  }
+
+  private logout(): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    CookieJarSettings.clear(ctx)
   }
 }
