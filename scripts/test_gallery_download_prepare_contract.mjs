@@ -22,7 +22,7 @@ const grounding = [
   'eros_fe: lib/common/controller/download_controller.dart downloadGallery() / _addGalleryTask(groupCount: firstPageImage.length); lib/common/controller/download/image_download_processor.dart fetchFirstPageCount() / fetchImageList()',
   'primary information: Downloads task row shows image-page seed preparation state and progress, not only a queued shell',
   'primary action: detail Read remains primary; Download remains secondary; queue row foregrounds preparation status while Remove is secondary',
-  'scope: save first detail preview /s/ imagePageUrl seeds and fetch later preview pages via ?p=; no full-image URL resolve, file writes, background downloader, pause/resume engine, or archiver submit',
+  'scope: save first detail preview /s/ imagePageUrl seeds and fetch later preview pages via ?p= before handing off to the bounded foreground downloader; no background daemon, pause/resume engine, or archiver submit',
   'Harmony expression: HDS grouped list task row, subtitle status/progress, secondary Remove suffix; existing title-bar segmented control stays the queue switcher',
 ]
 
@@ -77,9 +77,9 @@ ok(!/Text\(this\.taskStatus\(task\)\)/.test(queue),
   'downloads page does not duplicate row status in the suffix and squeeze the progress subtitle')
 ok(!/trailingText:\s*this\.taskStatus/.test(queue),
   'downloads page does not pass hidden task status through a suffix-overridden trailingText')
-ok(!/fullimg|DownloadAgentService|downloadToPath/.test(
+ok(!/fullimg|DownloadAgentService|downloadToPath|PauseTask|ResumeTask/.test(
   `${settings}\n${detail}\n${queue}`,
-), 'seed preparation still avoids original-image expansion and the full background downloader')
+), 'seed preparation still avoids original-image expansion and full background/pause-resume engines')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

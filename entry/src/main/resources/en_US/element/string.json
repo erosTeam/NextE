@@ -89,6 +89,10 @@
       "value": "Partial"
     },
     {
+      "name": "download_status_complete",
+      "value": "Complete"
+    },
+    {
       "name": "download_status_error",
       "value": "Error"
     },

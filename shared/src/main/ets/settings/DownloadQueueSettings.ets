@@ -15,9 +15,12 @@ import { EhApiService } from '../network/EhApiService'
 import { ImageResolveService } from '../services/ImageResolveService'
 
 const MAX_GALLERY_TASKS: number = 200
+const INITIAL_GALLERY_DOWNLOAD_BATCH_LIMIT: number = 3
 
 /** Single writer for the local Gallery download queue. */
 export class DownloadQueueSettings {
+  private static activeGalleryRuns: string[] = []
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -130,7 +133,12 @@ export class DownloadQueueSettings {
         totalPreviewPages,
         '',
       )
-      await DownloadQueueSettings.downloadFirstGalleryImage(context, gid, token)
+      await DownloadQueueSettings.runGalleryDownloadBatch(
+        context,
+        gid,
+        token,
+        INITIAL_GALLERY_DOWNLOAD_BATCH_LIMIT,
+      )
     } catch (error) {
       await DownloadQueueSettings.updatePreparedTask(
         context,
@@ -150,45 +158,97 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
   ): Promise<void> {
-    const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
-    if (task === null) {
+    await DownloadQueueSettings.runGalleryDownloadBatch(context, gid, token, 1)
+  }
+
+  static async runGalleryDownloadBatch(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    maxImages: number,
+  ): Promise<void> {
+    if (maxImages <= 0) {
       return
     }
-    const seed: DownloadImageSeed | null = DownloadQueueSettings.firstPendingSeed(task)
-    if (seed === null) {
+    const runKey: string = DownloadQueueSettings.galleryRunKey(gid, token)
+    if (DownloadQueueSettings.activeGalleryRuns.indexOf(runKey) >= 0) {
       return
     }
-    await DownloadQueueSettings.updateDownloadTaskStatus(
+    DownloadQueueSettings.activeGalleryRuns.push(runKey)
+    try {
+      let downloaded: number = 0
+      while (downloaded < maxImages) {
+        const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+        if (task === null) {
+          return
+        }
+        const seed: DownloadImageSeed | null = DownloadQueueSettings.firstPendingSeed(task)
+        if (seed === null) {
+          await DownloadQueueSettings.updateDownloadTaskStatus(
+            context,
+            gid,
+            token,
+            DownloadGalleryTaskStatus.COMPLETE,
+            '',
+          )
+          return
+        }
+        await DownloadQueueSettings.updateDownloadTaskStatus(
+          context,
+          gid,
+          token,
+          DownloadGalleryTaskStatus.DOWNLOADING,
+          '',
+        )
+        try {
+          await DownloadQueueSettings.downloadSeedToFile(context, gid, token, seed)
+          downloaded += 1
+        } catch (error) {
+          await DownloadQueueSettings.updateSeedDownloadError(
+            context,
+            gid,
+            token,
+            seed,
+            (error as Error).message,
+          )
+          return
+        }
+      }
+      const refreshed: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+      if (refreshed !== null && DownloadQueueSettings.firstPendingSeed(refreshed) === null) {
+        await DownloadQueueSettings.updateDownloadTaskStatus(
+          context,
+          gid,
+          token,
+          DownloadGalleryTaskStatus.COMPLETE,
+          '',
+        )
+      }
+    } finally {
+      DownloadQueueSettings.removeActiveRun(runKey)
+    }
+  }
+
+  private static async downloadSeedToFile(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    seed: DownloadImageSeed,
+  ): Promise<void> {
+    const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
+    const imageUrl: string = await ImageResolveService.getInstance().resolve(image)
+    const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
+    const filePath: string = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
+    const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, filePath)
+    await DownloadQueueSettings.updateDownloadedSeed(
       context,
       gid,
       token,
-      DownloadGalleryTaskStatus.DOWNLOADING,
-      '',
+      seed,
+      image,
+      filePath,
+      bytes,
     )
-    try {
-      const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
-      const imageUrl: string = await ImageResolveService.getInstance().resolve(image)
-      const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
-      const filePath: string = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
-      const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, filePath)
-      await DownloadQueueSettings.updateDownloadedSeed(
-        context,
-        gid,
-        token,
-        seed,
-        image,
-        filePath,
-        bytes,
-      )
-    } catch (error) {
-      await DownloadQueueSettings.updateFirstDownloadError(
-        context,
-        gid,
-        token,
-        seed,
-        (error as Error).message,
-      )
-    }
   }
 
   private static async updatePreparedTask(
@@ -365,7 +425,7 @@ export class DownloadQueueSettings {
     await DownloadQueueSettings.persist(context, next)
   }
 
-  private static async updateFirstDownloadError(
+  private static async updateSeedDownloadError(
     context: common.UIAbilityContext,
     gid: string,
     token: string,
@@ -398,6 +458,17 @@ export class DownloadQueueSettings {
       return a.imagePageUrl === b.imagePageUrl
     }
     return a.page === b.page
+  }
+
+  private static galleryRunKey(gid: string, token: string): string {
+    return `${gid}:${token}`
+  }
+
+  private static removeActiveRun(runKey: string): void {
+    const index: number = DownloadQueueSettings.activeGalleryRuns.indexOf(runKey)
+    if (index >= 0) {
+      DownloadQueueSettings.activeGalleryRuns.splice(index, 1)
+    }
   }
 
   private static parse(raw: string): DownloadGalleryTask[] {
@@ -494,6 +565,7 @@ export class DownloadQueueSettings {
       status === DownloadGalleryTaskStatus.READY ||
       status === DownloadGalleryTaskStatus.DOWNLOADING ||
       status === DownloadGalleryTaskStatus.PARTIAL ||
+      status === DownloadGalleryTaskStatus.COMPLETE ||
       status === DownloadGalleryTaskStatus.ERROR
     ) {
       return status

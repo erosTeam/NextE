@@ -148,6 +148,13 @@ export class DownloadGalleryTask {
     return `${this.downloadedCount()}`
   }
 
+  isComplete(): boolean {
+    if (this.pageCount > 0 && this.downloadedCount() >= this.pageCount) {
+      return true
+    }
+    return this.status === DownloadGalleryTaskStatus.COMPLETE
+  }
+
   private static toSeeds(images: EhGalleryImage[]): DownloadImageSeed[] {
     const seeds: DownloadImageSeed[] = []
     images.forEach((image: EhGalleryImage) => {
@@ -165,5 +172,6 @@ export class DownloadGalleryTaskStatus {
   static readonly READY: string = 'ready'
   static readonly DOWNLOADING: string = 'downloading'
   static readonly PARTIAL: string = 'partial'
+  static readonly COMPLETE: string = 'complete'
   static readonly ERROR: string = 'error'
 }

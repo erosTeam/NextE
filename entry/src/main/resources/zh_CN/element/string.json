@@ -89,6 +89,10 @@
       "value": "部分完成"
     },
     {
+      "name": "download_status_complete",
+      "value": "已完成"
+    },
+    {
       "name": "download_status_error",
       "value": "准备失败"
     },

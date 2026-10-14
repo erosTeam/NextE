@@ -75,8 +75,9 @@ ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
 
 ok(/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage),
   'downloads page reads queue state')
-ok(/selectedActiveCount\(\)[\s\S]*galleryTasks\.length/.test(queuePage),
-  'downloads page summary reflects real Gallery task count')
+ok(/selectedActiveCount\(\)[\s\S]*galleryTasks\.filter/.test(queuePage) &&
+  /selectedFinishedCount\(\)[\s\S]*galleryTasks\.filter/.test(queuePage),
+  'downloads page summary reflects real active and finished Gallery task counts')
 ok(/GalleryTaskSection/.test(queuePage) && /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
   /task\.displayTitle\(\)/.test(queuePage), 'downloads page renders real task rows')
 ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.test(queuePage),

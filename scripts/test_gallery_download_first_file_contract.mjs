@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract: the Gallery download queue advances from `/s/` seed preparation to one real downloaded
- * image file in the app sandbox. This is deliberately a first-file smoke, not the full background
+ * Contract: the Gallery download queue keeps a one-image compatibility entry for the real image
+ * file path while newer lanes may run a bounded foreground batch. This is not the full background
  * downloader loop.
  *
  * Run: node scripts/test_gallery_download_first_file_contract.mjs
@@ -23,7 +23,7 @@ const grounding = [
   'eros_fe: lib/common/controller/download_controller.dart downloadGallery() / _addGalleryTask() / _startImageTask(); lib/common/controller/download/image_download_processor.dart downloadImageFlow() / getImageDownloadInfo() / fetchImageInfo()',
   'primary information: Downloads task row shows real file download progress, not only seed preparation',
   'primary action: detail Read remains primary; Download remains secondary; queue row foregrounds download status/progress while Remove is secondary',
-  'scope: resolve the first /s/ seed to a real image URL and immediately write that image to the app sandbox; no full background loop, pause/resume, external directory picker, archiver, or original-image policy expansion',
+  'scope: keep a one-image entry that resolves a /s/ seed to a real image URL and writes that image to the app sandbox; newer lanes may call the same path in a bounded foreground batch, but there is still no full background loop, pause/resume, external directory picker, archiver, or original-image policy expansion',
   'Harmony expression: HDS grouped list task row with downloaded progress in the subtitle; NetworkKit request plus CoreFileKit sandbox write, no new heavy UI',
 ]
 
@@ -58,8 +58,9 @@ ok(/EhHttpClient\.getInstance\(\)\.downloadBinaryToFile/.test(settings),
 ok(/context\.filesDir/.test(settings) && /download-gallery/.test(settings),
   'first-file path writes under the app sandbox download-gallery directory')
 ok(/prepareGallerySeeds\(/.test(detail), 'detail download still starts through seed preparation')
-ok(/await DownloadQueueSettings\.downloadFirstGalleryImage\(context, gid, token\)/.test(settings),
-  'seed preparation chains into the first-file smoke after preview seeds are ready')
+ok(/downloadFirstGalleryImage[\s\S]*runGalleryDownloadBatch\(context, gid, token, 1\)/.test(settings),
+  'first-file entry delegates to a one-image bounded batch')
+ok(/runGalleryDownloadBatch/.test(settings), 'newer download lanes reuse the same seed-to-file path through the bounded runner')
 ok(/parseSeeds/.test(settings) && /raw\.filePath/.test(settings) && /raw\.bytesWritten/.test(settings),
   'persisted queue restores downloaded file metadata')
 

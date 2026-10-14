@@ -54,9 +54,21 @@ export struct DownloadQueuePage {
   }
 
   private selectedActiveCount(): number {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
-      ? 0
-      : this.downloadQueue.galleryTasks.length
+    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
+      return 0
+    }
+    return this.downloadQueue.galleryTasks.filter((task: DownloadGalleryTask) => {
+      return !task.isComplete()
+    }).length
+  }
+
+  private selectedFinishedCount(): number {
+    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
+      return 0
+    }
+    return this.downloadQueue.galleryTasks.filter((task: DownloadGalleryTask) => {
+      return task.isComplete()
+    }).length
   }
 
   private selectedStatus(): Resource {
@@ -78,6 +90,9 @@ export struct DownloadQueuePage {
     if (task.status === DownloadGalleryTaskStatus.PARTIAL) {
       return AppStrings.get('download_status_partial')
     }
+    if (task.status === DownloadGalleryTaskStatus.COMPLETE || task.isComplete()) {
+      return AppStrings.get('download_status_complete')
+    }
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
       return AppStrings.get('download_status_error')
     }
@@ -91,6 +106,10 @@ export struct DownloadQueuePage {
     }
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
       parts.push(this.taskStatusText(task))
+    }
+    if (task.isComplete() && task.downloadProgressText().length > 0) {
+      parts.push(this.taskStatusText(task))
+      return parts.join(' · ')
     }
     if (task.downloadProgressText().length > 0) {
       parts.push(AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText()))
@@ -143,7 +162,7 @@ export struct DownloadQueuePage {
       ConciseListRow({
         title: $r('app.string.download_finished_tasks'),
         leadingIcon: $r('sys.symbol.checkmark'),
-        trailingText: '0',
+        trailingText: `${this.selectedFinishedCount()}`,
         showChevron: false,
       })
     }

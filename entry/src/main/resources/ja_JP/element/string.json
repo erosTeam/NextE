@@ -89,6 +89,10 @@
       "value": "一部完了"
     },
     {
+      "name": "download_status_complete",
+      "value": "完了"
+    },
+    {
       "name": "download_status_error",
       "value": "準備失敗"
     },
