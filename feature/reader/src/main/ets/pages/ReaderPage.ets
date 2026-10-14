@@ -1,13 +1,11 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { window } from '@kit.ArkUI'
-import { fileIo as fs } from '@kit.CoreFileKit'
 import {
   ThemeConstants,
   EhGalleryImage,
   ReaderParams,
   ImageResolveService,
-  EhHttpClient,
   DiagnosticLogger,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -20,7 +18,6 @@ import {
   connectNavStack,
   connectSiteMode,
   ShareUtil,
-  ReaderImageTransformCoordinator,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -58,7 +55,7 @@ export struct ReaderPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.Center }) {
+      Stack({ alignContent: Alignment.Bottom }) {
         if (this.vm.images.length > 0) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
@@ -86,12 +83,18 @@ export struct ReaderPage {
           .justifyContent(FlexAlign.Center)
           .padding(ThemeConstants.SPACE_XL)
         } else {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE_LARGE)
+            .height(ThemeConstants.LOADING_SIZE_LARGE)
+            .color(Color.White)
         }
 
         // Jump-to-page spinner while a far slider jump loads the intermediate preview pages.
         if (this.vm.jumping) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE_LARGE)
+            .height(ThemeConstants.LOADING_SIZE_LARGE)
+            .color(Color.White)
         }
 
         // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
@@ -130,9 +133,8 @@ export struct ReaderPage {
           p.seedImagePageUrl,
         )
           .then(() => {
-            const loadedTarget: number =
+            const targetIndex: number =
               this.vm.images.length > 0 ? Math.min(requestedIndex, this.vm.images.length - 1) : 0
-            const targetIndex: number = this.normalizedReaderIndex(loadedTarget)
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
             if (this.readMode.mode === ReadMode.VERTICAL) {
@@ -286,28 +288,11 @@ export struct ReaderPage {
     }
   }
 
-  private turnSpread(delta: number): void {
-    const currentSpread: number = this.spreadIndexForImage(this.vm.currentIndex)
-    const targetSpread: number = currentSpread + delta
-    if (targetSpread < 0 || targetSpread >= this.spreadCount()) {
-      return
-    }
-    this.turnTo(this.spreadStartIndex(targetSpread))
-  }
-
   private toPrev(): void {
-    if (this.doublePageEnabled()) {
-      this.turnSpread(-1)
-      return
-    }
     this.turnTo(this.vm.currentIndex - this.pageStep())
   }
 
   private toNext(): void {
-    if (this.doublePageEnabled()) {
-      this.turnSpread(1)
-      return
-    }
     this.turnTo(this.vm.currentIndex + this.pageStep())
   }
 
@@ -339,7 +324,7 @@ export struct ReaderPage {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
-        this.vm.currentIndex = this.normalizedReaderIndex(target)
+        this.vm.currentIndex = target
       }
     })
   }
@@ -393,46 +378,6 @@ export struct ReaderPage {
     return spreadIndex * 2
   }
 
-  private spreadIndexForMode(columnMode: string, index: number): number {
-    if (columnMode === ReadColumnMode.SINGLE || index <= 0) {
-      return index
-    }
-    if (columnMode === ReadColumnMode.EVEN_LEFT) {
-      return Math.floor((index + 1) / 2)
-    }
-    return Math.floor(index / 2)
-  }
-
-  private spreadStartForMode(columnMode: string, spreadIndex: number): number {
-    if (columnMode === ReadColumnMode.SINGLE) {
-      return spreadIndex
-    }
-    if (columnMode === ReadColumnMode.EVEN_LEFT) {
-      return spreadIndex <= 0 ? 0 : spreadIndex * 2 - 1
-    }
-    return spreadIndex * 2
-  }
-
-  private normalizedIndexForColumnMode(columnMode: string): number {
-    const spreadIndex: number = this.spreadIndexForMode(columnMode, this.vm.currentIndex)
-    return this.spreadStartForMode(columnMode, spreadIndex)
-  }
-
-  private normalizedReaderIndex(index: number): number {
-    if (!this.doublePageEnabled()) {
-      return index
-    }
-    return this.spreadStartIndex(this.spreadIndexForImage(index))
-  }
-
-  private sliderTargetIndex(page: number): number {
-    const index: number = page - 1
-    if (!this.doublePageEnabled()) {
-      return index
-    }
-    return this.spreadStartIndex(this.spreadIndexForImage(index))
-  }
-
   private spreadCount(): number {
     const total: number = this.vm.totalPages()
     if (!this.doublePageEnabled() || total <= 1) {
@@ -457,22 +402,6 @@ export struct ReaderPage {
     return index >= 0 && index < this.vm.images.length && this.vm.hasPreviewAt(index)
   }
 
-  private spreadSecondIndex(start: number): number {
-    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT && start <= 0) {
-      return -1
-    }
-    return start + 1
-  }
-
-  private spreadSecondVisible(start: number): boolean {
-    const second: number = this.spreadSecondIndex(start)
-    return second >= 0 && second < this.vm.totalPages()
-  }
-
-  private spreadRowReversed(): boolean {
-    return this.readMode.mode === ReadMode.RTL
-  }
-
   @Builder
   SpreadImage(index: number) {
     if (this.hasSpreadImage(index)) {
@@ -490,28 +419,18 @@ export struct ReaderPage {
   }
 
   @Builder
-  SpreadSecondSlot(start: number) {
-    if (this.spreadSecondVisible(start)) {
-      this.SpreadImage(this.spreadSecondIndex(start))
-    } else {
-      Blank()
-        .layoutWeight(1)
-    }
-  }
-
-  @Builder
   DoublePageReader() {
     Swiper() {
       ForEach(
         this.spreadStarts(),
         (start: number) => {
           Row({ space: ThemeConstants.SPACE_XS }) {
-            if (this.spreadRowReversed()) {
-              this.SpreadSecondSlot(start)
-              this.SpreadImage(start)
+            this.SpreadImage(start)
+            if (start + 1 < this.vm.totalPages()) {
+              this.SpreadImage(start + 1)
             } else {
-              this.SpreadImage(start)
-              this.SpreadSecondSlot(start)
+              Blank()
+                .layoutWeight(1)
             }
           }
           .width('100%')
@@ -608,13 +527,9 @@ export struct ReaderPage {
     } else if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
       next = ReadColumnMode.SINGLE
     }
-    const targetIndex: number = this.normalizedIndexForColumnMode(next)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setColumnMode(ctx, next)
-    if (targetIndex !== this.vm.currentIndex) {
-      this.turnTo(targetIndex)
-    }
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),
@@ -763,7 +678,7 @@ export struct ReaderPage {
           } else {
             this.sliderPreview = -1
             this.sliderValue = page
-            this.jumpToPage(this.sliderTargetIndex(page))
+            this.jumpToPage(page - 1)
           }
         })
     }
@@ -777,12 +692,12 @@ export struct ReaderPage {
     .backgroundColor('#CC000000')
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
-    .align(Alignment.Bottom)
   }
 }
 
+const MAX_SCALE: number = 4
+const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
-const READER_IMAGE_CACHE_DIR: string = 'reader-images'
 
 /**
  * One reader page. Resolves its full image on appear, then renders it with pinch /
@@ -796,8 +711,6 @@ struct ReaderImagePage {
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
 
   @Local imageUrl: string = '';
-  @Local imageLoaded: boolean = false;
-  @Local imageProgress: number = -1;
   @Local failed: boolean = false;
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -808,17 +721,8 @@ struct ReaderImagePage {
   private baseOffsetY: number = 0;
   private compW: number = 0;
   private compH: number = 0;
-  private intrinsicW: number = 0;
-  private intrinsicH: number = 0;
-  private pinchStartScale: number = 1;
-  private pinchStartOffsetX: number = 0;
-  private pinchStartOffsetY: number = 0;
-  private pinchStartCenterX: number = 0;
-  private pinchStartCenterY: number = 0;
-  private isPinching: boolean = false;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
-  private loadSerial: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -827,15 +731,12 @@ struct ReaderImagePage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    const serial: number = this.nextLoadSerial()
+    if (!changeSource && this.image.imageUrl.length > 0) {
+      this.imageUrl = this.image.imageUrl
+      return
+    }
     try {
-      const remoteUrl: string = !changeSource && this.image.imageUrl.length > 0
-        ? this.image.imageUrl
-        : await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      if (serial !== this.loadSerial) {
-        return
-      }
-      await this.downloadImage(remoteUrl, serial)
+      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
@@ -847,8 +748,6 @@ struct ReaderImagePage {
   private retrySource(): void {
     this.autoRetryCount = 0
     this.imageUrl = ''
-    this.imageLoaded = false
-    this.imageProgress = -1
     this.failed = false
     this.resolve(true)
   }
@@ -857,8 +756,6 @@ struct ReaderImagePage {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
       this.imageUrl = ''
-      this.imageLoaded = false
-      this.imageProgress = -1
       this.failed = false
       this.resolve(true)
       return
@@ -866,72 +763,11 @@ struct ReaderImagePage {
     this.failed = true
   }
 
-  private nextLoadSerial(): number {
-    this.loadSerial++
-    this.imageUrl = ''
-    this.imageLoaded = false
-    this.imageProgress = -1
-    this.failed = false
-    return this.loadSerial
-  }
-
-  private async downloadImage(remoteUrl: string, serial: number): Promise<void> {
-    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const dir: string = `${context.cacheDir}/${READER_IMAGE_CACHE_DIR}`
-    ReaderImageCache.ensureDir(dir)
-    const filePath: string = `${dir}/${ReaderImageCache.fileName(this.image, remoteUrl)}`
-    this.imageProgress = 0
-    await EhHttpClient.getInstance().downloadBinaryToFileInStream(
-      remoteUrl,
-      filePath,
-      (loaded: number, total: number) => {
-        if (serial !== this.loadSerial) {
-          return
-        }
-        if (total > 0) {
-          this.imageProgress = Math.max(0, Math.min(1, loaded / total))
-        } else if (loaded > 0) {
-          this.imageProgress = 0.08
-        }
-      },
-    )
-    if (serial !== this.loadSerial) {
-      return
-    }
-    this.imageProgress = 1
-    this.imageLoaded = false
-    this.imageUrl = `file://${filePath}`
-  }
-
-  private displayWidth(): number {
-    return ReaderImageTransformCoordinator.displaySize(
-      this.compW,
-      this.compH,
-      this.intrinsicW,
-      this.intrinsicH,
-    )
-  }
-
-  private displayHeight(): number {
-    return ReaderImageTransformCoordinator.displaySize(
-      this.compH,
-      this.compW,
-      this.intrinsicH,
-      this.intrinsicW,
-    )
-  }
-
-  private clampOffsetX(value: number, scale: number): number {
-    return ReaderImageTransformCoordinator.clampOffset(value, this.compW, this.displayWidth(), scale)
-  }
-
-  private clampOffsetY(value: number, scale: number): number {
-    return ReaderImageTransformCoordinator.clampOffset(value, this.compH, this.displayHeight(), scale)
-  }
-
   private clampOffset(): void {
-    this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
-    this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
+    const maxX: number = Math.max(0, (this.compW * (this.zoomScale - 1)) / 2)
+    const maxY: number = Math.max(0, (this.compH * (this.zoomScale - 1)) / 2)
+    this.offsetX = Math.min(maxX, Math.max(-maxX, this.offsetX))
+    this.offsetY = Math.min(maxY, Math.max(-maxY, this.offsetY))
     this.baseOffsetX = this.offsetX
     this.baseOffsetY = this.offsetY
   }
@@ -953,23 +789,12 @@ struct ReaderImagePage {
     }
   }
 
-  private onDoubleTap(tapX: number, tapY: number): void {
+  private onDoubleTap(): void {
     if (this.zoomScale > 1.01) {
       this.resetZoom()
     } else {
-      const target: number = ReaderImageTransformCoordinator.DOUBLE_TAP_SCALE
-      this.zoomScale = target
-      this.baseZoom = target
-      this.offsetX = this.clampOffsetX(
-        ReaderImageTransformCoordinator.doubleTapOffset(tapX, this.compW, target),
-        target,
-      )
-      this.offsetY = this.clampOffsetY(
-        ReaderImageTransformCoordinator.doubleTapOffset(tapY, this.compH, target),
-        target,
-      )
-      this.baseOffsetX = this.offsetX
-      this.baseOffsetY = this.offsetY
+      this.zoomScale = DOUBLE_TAP_SCALE
+      this.baseZoom = DOUBLE_TAP_SCALE
     }
     this.notifyZoom()
   }
@@ -979,12 +804,15 @@ struct ReaderImagePage {
       // `failed` first: a resolve error OR an Image fetch error (dead one-shot token / 509) shows the
       // re-source retry even if a (broken) URL is set.
       if (this.failed) {
-        ReaderFailureOverlay({
-          page: this.image.page,
-          onRetry: () => {
-            this.retrySource()
-          },
-        })
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Text($r('app.string.image_load_failed'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(Color.White)
+          Button($r('app.string.common_retry'))
+            .onClick(() => {
+              this.retrySource()
+            })
+        }
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
           .objectFit(ImageFit.Contain)
@@ -993,25 +821,18 @@ struct ReaderImagePage {
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
-          .onComplete((e) => {
-            if (e && e.width && e.height) {
-              this.intrinsicW = this.getUIContext().px2vp(e.width)
-              this.intrinsicH = this.getUIContext().px2vp(e.height)
-              this.clampOffset()
-            }
+          .onComplete((_e) => {
             this.autoRetryCount = 0
-            this.imageLoaded = true
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
-            this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
-        }
       } else {
-        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
+        LoadingProgress()
+          .width(ThemeConstants.LOADING_SIZE_LARGE)
+          .height(ThemeConstants.LOADING_SIZE_LARGE)
+          .color(Color.White)
       }
     }
     .width('100%')
@@ -1020,52 +841,20 @@ struct ReaderImagePage {
       this.compW = n.width as number
       this.compH = n.height as number
     })
-    // Gestures stay unconditional: ArkUI can drop conditional `.gesture()` trees. At fit,
-    // parent Swiper handles page turns; once zoomed, this page reports up and owns pan.
+    // Pinch + double-tap zoom + VERTICAL-only pan. The pan is direction-restricted so it
+    // never captures horizontal drags — those pass through to the ancestor Swiper for the
+    // page turn. When zoomed, vertical drag pans the (tall) image top-to-bottom, which is
+    // the common reading need; double-tap resets. (A conditional `.gesture(cond ? a : b)`
+    // is silently dropped by ArkUI — the gesture set must be unconditional.)
     .gesture(
       GestureGroup(
         GestureMode.Parallel,
-        PinchGesture({ fingers: 2 })
-          .onActionStart((e?: GestureEvent) => {
-            if (!e) {
-              return
-            }
-            this.isPinching = true
-            this.pinchStartScale = this.zoomScale
-            this.pinchStartOffsetX = this.offsetX
-            this.pinchStartOffsetY = this.offsetY
-            this.pinchStartCenterX = e.pinchCenterX as number
-            this.pinchStartCenterY = e.pinchCenterY as number
-          })
-          .onActionUpdate((e?: GestureEvent) => {
-            if (!e) {
-              return
-            }
-            const scale: number = ReaderImageTransformCoordinator.clampScale(
-              this.pinchStartScale * (e.scale as number),
-            )
-            const scaleRatio: number = scale / this.pinchStartScale
-            const offsetX: number = ReaderImageTransformCoordinator.pinchOffset(
-              this.pinchStartCenterX,
-              e.pinchCenterX as number,
-              this.compW,
-              this.pinchStartOffsetX,
-              scaleRatio,
-            )
-            const offsetY: number = ReaderImageTransformCoordinator.pinchOffset(
-              this.pinchStartCenterY,
-              e.pinchCenterY as number,
-              this.compH,
-              this.pinchStartOffsetY,
-              scaleRatio,
-            )
-            this.zoomScale = scale
-            this.offsetX = this.clampOffsetX(offsetX, scale)
-            this.offsetY = this.clampOffsetY(offsetY, scale)
+        PinchGesture()
+          .onActionUpdate((e: GestureEvent) => {
+            this.zoomScale = Math.min(MAX_SCALE, Math.max(1, this.baseZoom * e.scale))
             this.notifyZoom()
           })
           .onActionEnd(() => {
-            this.isPinching = false
             this.baseZoom = this.zoomScale
             if (this.zoomScale <= 1.01) {
               this.resetZoom()
@@ -1073,34 +862,18 @@ struct ReaderImagePage {
               this.clampOffset()
             }
             this.notifyZoom()
-          })
-          .onActionCancel(() => {
-            this.isPinching = false
-            this.baseZoom = this.zoomScale
-            this.clampOffset()
           }),
-        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.compW / 2
-          const tapY: number = loc ? (loc.y as number) : this.compH / 2
-          this.onDoubleTap(tapX, tapY)
+        TapGesture({ count: 2 }).onAction(() => {
+          this.onDoubleTap()
         }),
-        PanGesture({ fingers: 1, direction: PanDirection.All })
-          .onActionStart(() => {
-            this.baseOffsetX = this.offsetX
-            this.baseOffsetY = this.offsetY
-          })
-          .onActionUpdate((e?: GestureEvent) => {
-            if (e && !this.isPinching && this.zoomScale > 1.01) {
-              this.offsetX = this.clampOffsetX(this.baseOffsetX + (e.offsetX as number), this.zoomScale)
-              this.offsetY = this.clampOffsetY(
-                this.baseOffsetY + (e.offsetY as number),
-                this.zoomScale,
-              )
+        PanGesture({ direction: PanDirection.Vertical })
+          .onActionUpdate((e: GestureEvent) => {
+            if (this.zoomScale > 1.01) {
+              this.offsetY = this.baseOffsetY + e.offsetY
+              this.clampOffset()
             }
           })
           .onActionEnd(() => {
-            this.baseOffsetX = this.offsetX
             this.baseOffsetY = this.offsetY
           }),
       ),
@@ -1119,12 +892,9 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Local imageUrl: string = '';
-  @Local imageLoaded: boolean = false;
-  @Local imageProgress: number = -1;
   @Local failed: boolean = false;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   private autoRetryCount: number = 0;
-  private loadSerial: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -1132,15 +902,12 @@ struct ReaderVerticalImage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    const serial: number = this.nextLoadSerial()
+    if (!changeSource && this.image.imageUrl.length > 0) {
+      this.imageUrl = this.image.imageUrl
+      return
+    }
     try {
-      const remoteUrl: string = !changeSource && this.image.imageUrl.length > 0
-        ? this.image.imageUrl
-        : await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      if (serial !== this.loadSerial) {
-        return
-      }
-      await this.downloadImage(remoteUrl, serial)
+      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
@@ -1151,8 +918,6 @@ struct ReaderVerticalImage {
   private retrySource(): void {
     this.autoRetryCount = 0
     this.imageUrl = ''
-    this.imageLoaded = false
-    this.imageProgress = -1
     this.failed = false
     this.resolve(true)
   }
@@ -1161,8 +926,6 @@ struct ReaderVerticalImage {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
       this.imageUrl = ''
-      this.imageLoaded = false
-      this.imageProgress = -1
       this.failed = false
       this.resolve(true)
       return
@@ -1170,53 +933,12 @@ struct ReaderVerticalImage {
     this.failed = true
   }
 
-  private nextLoadSerial(): number {
-    this.loadSerial++
-    this.imageUrl = ''
-    this.imageLoaded = false
-    this.imageProgress = -1
-    this.failed = false
-    return this.loadSerial
-  }
-
-  private async downloadImage(remoteUrl: string, serial: number): Promise<void> {
-    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const dir: string = `${context.cacheDir}/${READER_IMAGE_CACHE_DIR}`
-    ReaderImageCache.ensureDir(dir)
-    const filePath: string = `${dir}/${ReaderImageCache.fileName(this.image, remoteUrl)}`
-    this.imageProgress = 0
-    await EhHttpClient.getInstance().downloadBinaryToFileInStream(
-      remoteUrl,
-      filePath,
-      (loaded: number, total: number) => {
-        if (serial !== this.loadSerial) {
-          return
-        }
-        if (total > 0) {
-          this.imageProgress = Math.max(0, Math.min(1, loaded / total))
-        } else if (loaded > 0) {
-          this.imageProgress = 0.08
-        }
-      },
-    )
-    if (serial !== this.loadSerial) {
-      return
-    }
-    this.imageProgress = 1
-    this.imageLoaded = false
-    this.imageUrl = `file://${filePath}`
-  }
-
   build() {
     Stack() {
       // `failed` first so an Image fetch error (dead token / 509) shows the re-source retry.
       if (this.failed) {
-        ReaderFailureOverlay({
-          page: this.image.page,
-          compact: true,
-          onRetry: () => {
-            this.retrySource()
-          },
+        Button($r('app.string.common_retry')).onClick(() => {
+          this.retrySource()
         })
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
@@ -1226,182 +948,22 @@ struct ReaderVerticalImage {
           .draggable(false)
           .onComplete((e) => {
             this.autoRetryCount = 0
-            this.imageLoaded = true
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
             }
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
-            this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
-        }
       } else {
-        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving'), compact: true })
+        LoadingProgress()
+          .width(ThemeConstants.LOADING_SIZE)
+          .height(ThemeConstants.LOADING_SIZE)
+          .color(Color.White)
       }
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
-  }
-}
-
-@ComponentV2
-struct ReaderFailureOverlay {
-  @Param page: number = 0;
-  @Param compact: boolean = false;
-  @Param onRetry: () => void = () => {};
-
-  private iconSize(): number {
-    return this.compact ? 28 : 36
-  }
-
-  private contentWidth(): number {
-    return this.compact ? 196 : 280
-  }
-
-  build() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
-        .fontSize(this.iconSize())
-        .fontColor([Color.White])
-      Text($r('app.string.image_load_failed'))
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
-        .fontWeight(FontWeight.Medium)
-        .textAlign(TextAlign.Center)
-        .maxLines(2)
-      Text($r('app.string.reader_retry_source_hint'))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor('#AAFFFFFF')
-        .textAlign(TextAlign.Center)
-        .maxLines(2)
-      if (this.page > 0) {
-        Text(`P${this.page}`)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor('#88FFFFFF')
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
-      }
-      Button($r('app.string.reader_retry_source'))
-        .type(ButtonType.Capsule)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
-        .backgroundColor('#26FFFFFF')
-        .onClick(() => {
-          this.onRetry()
-        })
-    }
-    .width(this.contentWidth())
-    .padding(ThemeConstants.SPACE_LG)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .hitTestBehavior(HitTestMode.Default)
-  }
-}
-
-@ComponentV2
-struct ReaderLoadingOverlay {
-  @Param label: Resource = $r('app.string.reader_loading_resolving');
-  @Param compact: boolean = false;
-  @Param progress: number = -1;
-
-  build() {
-    Column() {
-      ReaderLoadingLine({ label: this.label, compact: this.compact, progress: this.progress })
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .hitTestBehavior(HitTestMode.None)
-  }
-}
-
-@ComponentV2
-struct ReaderLoadingLine {
-  @Param label: Resource = $r('app.string.reader_loading_resolving');
-  @Param compact: boolean = false;
-  @Param progress: number = -1;
-
-  private lineWidth(): number {
-    return this.compact ? 148 : 220
-  }
-
-  private activeWidth(): number {
-    if (this.progress >= 0) {
-      const width: number = this.lineWidth() * Math.max(0.04, Math.min(1, this.progress))
-      return Math.max(8, width)
-    }
-    return this.compact ? 72 : 108
-  }
-
-  build() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Row() {
-        Blank()
-          .width(this.activeWidth())
-          .height(4)
-          .borderRadius(2)
-          .backgroundColor(Color.White)
-      }
-      .width(this.lineWidth())
-      .height(4)
-      .borderRadius(2)
-      .backgroundColor('#55FFFFFF')
-      .clip(true)
-      Text(this.label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor(Color.White)
-        .textAlign(TextAlign.Center)
-        .maxLines(1)
-      if (this.progress >= 0) {
-        Text(`${Math.round(Math.max(0, Math.min(1, this.progress)) * 100)}%`)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.White)
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
-      }
-    }
-    .alignItems(HorizontalAlign.Center)
-    .padding(ThemeConstants.SPACE_MD)
-  }
-}
-
-class ReaderImageCache {
-  static ensureDir(dir: string): void {
-    try {
-      fs.mkdirSync(dir, true)
-    } catch (err) {
-      DiagnosticLogger.warn('reader', 'cache_mkdir_failed', (err as Error).message)
-    }
-  }
-
-  static fileName(image: EhGalleryImage, url: string): string {
-    const ext: string = ReaderImageCache.extension(url)
-    const seed: string = `${image.page}_${image.imgkey}_${image.reloadKey}`
-    return `${ReaderImageCache.safePart(seed)}${ext}`
-  }
-
-  private static extension(url: string): string {
-    const lower: string = url.toLowerCase()
-    const q: number = lower.indexOf('?')
-    const clean: string = q >= 0 ? lower.substring(0, q) : lower
-    if (clean.endsWith('.png')) {
-      return '.png'
-    }
-    if (clean.endsWith('.webp')) {
-      return '.webp'
-    }
-    if (clean.endsWith('.gif')) {
-      return '.gif'
-    }
-    return '.jpg'
-  }
-
-  private static safePart(value: string): string {
-    return value.replace(/[^a-zA-Z0-9._-]/g, '_')
   }
 }
