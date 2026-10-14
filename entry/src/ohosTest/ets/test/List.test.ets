@@ -97,6 +97,7 @@ import readerLocalSourceTrialTest from './ReaderLocalSourceTrial.test'
 import readerBackendSelectionTest from './ReaderBackendSelection.test'
 import nextERuntimeContinuityTest from './ReaderRuntimeContinuity.test'
 import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test' 
+import publicModelDownloadIntegrationTest from './PublicModelDownloadIntegration.test'
 
 export default function testsuite(): void {
   gallerySplitTransitionTest()
@@ -198,4 +199,5 @@ export default function testsuite(): void {
   readerBackendSelectionTest()
   nextERuntimeContinuityTest()
   readerLegacyEnhancementCrashTrialTest() 
+  publicModelDownloadIntegrationTest()
 }
