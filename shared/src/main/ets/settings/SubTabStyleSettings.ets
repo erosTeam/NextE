@@ -6,6 +6,7 @@ import {
   connectSubTabStyle,
   SUBTAB_STYLE_UNDERLINE,
   SUBTAB_STYLE_CAPSULE,
+  SUBTAB_STYLE_DEFAULT,
 } from '../state/SubTabStyleState'
 
 export interface SubTabStyleOption {
@@ -20,7 +21,8 @@ export class SubTabStyleSettings {
   }
 
   static normalizeStyle(style: string): string {
-    return (style || '').trim() === SUBTAB_STYLE_CAPSULE ? SUBTAB_STYLE_CAPSULE : SUBTAB_STYLE_UNDERLINE
+    const normalized: string = (style || '').trim()
+    return normalized === SUBTAB_STYLE_UNDERLINE ? SUBTAB_STYLE_UNDERLINE : SUBTAB_STYLE_DEFAULT
   }
 
   static options(): SubTabStyleOption[] {
@@ -43,7 +45,7 @@ export class SubTabStyleSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
-      SubTabStyleSettings.apply(store.getSync(StorageKeys.SUBTAB_STYLE, SUBTAB_STYLE_UNDERLINE) as string)
+      SubTabStyleSettings.apply(store.getSync(StorageKeys.SUBTAB_STYLE, SUBTAB_STYLE_DEFAULT) as string)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'subtab_style_restore_failed', (error as Error).message)
     }

@@ -8,6 +8,9 @@ import {
   DiagnosticLogger,
   EhApiService,
   EhAssetBalance,
+  EhAppProfileService,
+  EhAppProfileSettings,
+  EhAppProfileState,
   EhHome,
   EhProfile,
   EhProfileSettings,
@@ -18,6 +21,7 @@ import {
   ThemeConstants,
   ListRowDivider,
   connectAuth,
+  connectEhAppProfile,
   connectNavStack,
   NavStackHolder,
   connectSiteMode,
@@ -207,6 +211,8 @@ class AccountDashboardCache {
 @ComponentV2
 export struct AccountPage {
   @Local auth: AuthState = connectAuth();
+  @Local appProfile: EhAppProfileState = connectEhAppProfile();
+  @Local appProfileSaving: boolean = false;
   @Local accountList: AccountListState = connectAccountList();
   @Local site: SiteModeState = connectSiteMode();
   @Local home: EhHome = new EhHome();
@@ -506,6 +512,29 @@ export struct AccountPage {
           this.homeResetting = false
           this.homeResettingKey = ''
         }
+      })
+  }
+
+  private setAppProfileEnabled(value: boolean): void {
+    if (this.appProfileSaving) {
+      return
+    }
+    this.appProfileSaving = true
+    EhAppProfileSettings.setEnabled(this.ctx(), value)
+      .then(async () => {
+        if (value) {
+          if (await EhAppProfileService.ensureSelected()) {
+            this.loadProfileSettings()
+          } else {
+            this.toast($r('app.string.ehp_profile_failed'))
+          }
+        }
+      })
+      .catch(() => {
+        this.toast($r('app.string.ehp_profile_failed'))
+      })
+      .finally(() => {
+        this.appProfileSaving = false
       })
   }
 
@@ -853,6 +882,18 @@ export struct AccountPage {
               leadingIcon: $r('sys.symbol.gearshape'),
               action: () => {
                 this.stack.pushPathByName('EhProfileSettings', null)
+              },
+            })
+            ListRowDivider()
+            ConciseListRow({
+              title: $r('app.string.eh_app_profile_auto'),
+              subtitle: $r('app.string.eh_app_profile_auto_hint'),
+              leadingIcon: $r('sys.symbol.person'),
+              hasSwitch: true,
+              checked: this.appProfile.enabled,
+              isEnabled: !this.appProfileSaving,
+              switchAction: (value: boolean) => {
+                this.setAppProfileEnabled(value)
               },
             })
             ListRowDivider()

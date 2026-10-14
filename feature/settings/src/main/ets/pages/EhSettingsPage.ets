@@ -9,10 +9,6 @@ import {
   ClipboardLinkBuildFlag,
   ClipboardLinkSettingsState,
   CommentTranslationSettingsState,
-  EhAppProfileService,
-  EhAppProfileSettings,
-  EhAppProfileState,
-  connectEhAppProfile,
   EhConstants,
   EhCookieStore,
   GroupedListSection,
@@ -59,8 +55,6 @@ export struct EhSettingsPage {
   @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
-  @Local appProfile: EhAppProfileState = connectEhAppProfile();
-  @Local appProfileSaving: boolean = false;
   @Local clipboardSaving: boolean = false;
   // Keep the latest explicit site choice separate from the in-flight access check. A delayed
   // uconfig response may unlock Ex only while the same account still wants ExHentai.
@@ -160,25 +154,6 @@ export struct EhSettingsPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
-  private setAppProfileEnabled(value: boolean): void {
-    if (this.appProfileSaving) {
-      return
-    }
-    this.appProfileSaving = true
-    EhAppProfileSettings.setEnabled(this.ctx(), value)
-      .then(async () => {
-        if (value && !await EhAppProfileService.ensureSelected()) {
-          this.toast($r('app.string.ehp_profile_failed'))
-        }
-      })
-      .catch(() => {
-        this.toast($r('app.string.ehp_profile_failed'))
-      })
-      .finally(() => {
-        this.appProfileSaving = false
-      })
-  }
-
   private setToplistHiddenFilter(value: boolean): void {
     ToplistFilterSettings.save(this.ctx(), value)
   }
@@ -221,18 +196,6 @@ export struct EhSettingsPage {
               dropdownMenuEnabled: true,
               dropdownMenuBuilder: (select: (action: () => void) => void) => {
                 this.SiteMenu(select)
-              },
-            })
-            ListRowDivider()
-            ConciseListRow({
-              title: $r('app.string.eh_app_profile_auto'),
-              subtitle: $r('app.string.eh_app_profile_auto_hint'),
-              leadingIcon: $r('sys.symbol.person'),
-              hasSwitch: true,
-              checked: this.appProfile.enabled,
-              isEnabled: !this.appProfileSaving,
-              switchAction: (value: boolean) => {
-                this.setAppProfileEnabled(value)
               },
             })
           }

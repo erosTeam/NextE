@@ -1,7 +1,7 @@
+import { GalleryActionFabRail, GalleryActionStripRail } from '../components/GalleryActionRail'
 import { appMenuOptions, ReaderTrialEntryRelay } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
 import {
-  AnimatorResult,
   ComponentContent,
   CustomContentDialog,
   FrameCallback,
@@ -91,8 +91,6 @@ import {
   immersiveTitleBarOpts,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
-  ActionHandEdgeState,
-  connectActionHandEdge,
   MotionHandStateService,
   ActionFollowTouchTracker,
   ActionFollowTouchState,
@@ -317,25 +315,11 @@ export struct GalleryDetailPage {
   @Local archiverSheetParams: GalleryArchiverParams = new GalleryArchiverParams();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
-  // Resolved Read-FAB hand edge (smart-grip / follow-operation / fixed). visualActionEdge mirrors it and
-  // drives a smooth .translate() slide; root/button widths convert the discrete edge into a continuous X.
-  @Local actionEdge: ActionHandEdgeState = connectActionHandEdge();
-  // Seed from the CURRENT resolved edge (the service resolves it at startup, before this page mounts), so a
-  // page opened while the edge is already 'left' starts left — @Monitor only fires on later changes.
-  @Local visualActionEdge: string = connectActionHandEdge().edge;
   @Local detailRootWidth: number = connectLayoutSafeArea().rememberedGalleryDetailContentWidth(
     connectNavStack().isSplitMode,
   );
   @Local detailMetadataWidth: number = 0;
   @Local compactPreviewReloadToken: number = 0;
-  @Local readFabWidth: number = 0;
-  @Local readFabLayoutReady: boolean = false;
-  @Local favoriteFabWidth: number = 0;
-  @Local readFabEdgeProgress: number = connectActionHandEdge().edge === 'left' ? 1 : 0;
-  @Local actionStripViewportWidth: number = 0;
-  @Local actionStripContentWidth: number = 0;
-  @Local actionStripLayoutReady: boolean = false;
-  @Local actionStripShouldAnimate: boolean = false;
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
@@ -370,8 +354,6 @@ export struct GalleryDetailPage {
   private navigationDestinationId: string = '';
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
   private favoriteFabMaterialController: HdsTabsController = new HdsTabsController();
-  private readFabAnimator: AnimatorResult | null = null;
-  private actionStripScroller: Scroller = new Scroller();
   private fullPreviewScroller: Scroller = new Scroller();
   private fullPreviewRefreshController: PullRefreshController = new PullRefreshController();
   private readerTransitionScope: string =
@@ -436,25 +418,6 @@ export struct GalleryDetailPage {
   // arrives, keep the full-preview VM empty and make the next seed a complete fresh session.
   private fullPreviewMustReset: boolean = false;
 
-  // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
-  // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
-  @Monitor('actionEdge.edge')
-  private onActionEdgeChanged(): void {
-    this.actionStripShouldAnimate = this.actionStripLayoutReady
-    this.visualActionEdge = this.actionEdge.edge
-    this.moveReadFabToEdge()
-    this.scrollActionStripToEdge()
-  }
-
-  @Monitor('readButtonStyle.style')
-  private onReadButtonStyleChanged(): void {
-    this.stopReadFabAnimation()
-    this.readFabEdgeProgress = this.actionEdge.edge === 'left' ? 1 : 0
-    this.readFabWidth = 0
-    this.favoriteFabWidth = 0
-    this.readFabLayoutReady = false
-  }
-
   @Monitor('commentVoteMutation.version')
   private onCommentVoteMutation(): void {
     if (this.commentVoteMutation.gid !== this.params.gid) {
@@ -491,107 +454,12 @@ export struct GalleryDetailPage {
     this.syncDownloadChipState('local')
   }
 
-  private stopReadFabAnimation(): void {
-    const animator: AnimatorResult | null = this.readFabAnimator
-    this.readFabAnimator = null
-    if (animator !== null) {
-      // cancel() emits a final onFrame at its end value. Retire callbacks first so a reversal
-      // starts at the current visible progress instead of jumping to the old destination.
-      animator.onFrame = (_value: number) => {}
-      animator.onFinish = () => {}
-      animator.cancel()
-    }
-  }
-
-  private moveReadFabToEdge(): void {
-    const target: number = this.visualActionEdge === 'left' ? 1 : 0
-    const begin: number = this.readFabEdgeProgress
-    this.stopReadFabAnimation()
-    if (!this.readFabLayoutReady || Math.abs(begin - target) < 0.001) {
-      this.readFabEdgeProgress = target
-      return
-    }
-    const animator: AnimatorResult = this.getUIContext().createAnimator({
-      duration: ThemeConstants.ANIM_DURATION,
-      easing: 'ease-out',
-      delay: 0,
-      fill: 'forwards',
-      direction: 'normal',
-      iterations: 1,
-      begin: begin,
-      end: target,
-    })
-    this.readFabAnimator = animator
-    animator.onFrame = (value: number) => {
-      if (this.readFabAnimator === animator) {
-        this.readFabEdgeProgress = Math.max(0, Math.min(1, value))
-      }
-    }
-    animator.onFinish = () => {
-      if (this.readFabAnimator === animator) {
-        this.readFabEdgeProgress = target
-        this.readFabAnimator = null
-      }
-    }
-    animator.play()
-  }
-
-  private actionFabSwapProgress(): number {
-    const phase: number = Math.max(0, Math.min(1, (this.readFabEdgeProgress - 0.2) / 0.6))
-    return phase * phase * (3 - 2 * phase)
-  }
-
-  private actionFabActivityInset(): number {
-    return this.readFabUsesHdsMaterial() ? ThemeConstants.SPACE_LG : 0
-  }
-
-  private actionFabGroupX(): number {
-    const inner: number = this.readFabAvailableWidth() - this.readFabRailSideInset() * 2
-    // HDS measurement includes a material/press activity inset on both buttons. Their
-    // visible surfaces share one gap; overlapping activity boxes are not extra spacing.
-    const width: number = this.readFabWidth + this.favoriteFabWidth + ThemeConstants.SPACE_SM -
-      this.actionFabActivityInset() * 2
-    return Math.max(0, inner - width) * (1 - this.readFabEdgeProgress)
-  }
-
-  private readFabVisualX(): number {
-    return this.actionFabGroupX() +
-      (this.favoriteFabWidth - this.actionFabActivityInset() * 2 + ThemeConstants.SPACE_SM) *
-      (1 - this.actionFabSwapProgress())
-  }
-
-  private favoriteFabVisualX(): number {
-    return this.actionFabGroupX() +
-      (this.readFabWidth - this.actionFabActivityInset() * 2 + ThemeConstants.SPACE_SM) *
-      this.actionFabSwapProgress()
-  }
-
-  private favoriteFabVisualY(): number {
-    const phase: number = Math.max(0, Math.min(1,
-      this.readFabEdgeProgress / 0.2, (1 - this.readFabEdgeProgress) / 0.2))
-    return -(ThemeConstants.BUTTON_HEIGHT + ThemeConstants.SPACE_SM) * Math.sin(Math.PI / 2 * phase)
-  }
-
   private readFabAvailableWidth(): number {
     return this.usesSplitDetailLayout() ? this.detailRootWidth : this.detailMetadataWidth
   }
 
   private readFabUsesHdsMaterial(): boolean {
     return this.readButtonStyle.style === ReadButtonStyleSettings.STYLE_HDS
-  }
-
-  private readFabRailSideInset(): number {
-    return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
-  }
-
-  private readFabRailBottomInset(): number {
-    return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
-  }
-
-  private readFabOuterHeight(): number {
-    return this.readFabUsesHdsMaterial()
-      ? ThemeConstants.BUTTON_HEIGHT + ThemeConstants.SPACE_LG * 2
-      : ThemeConstants.BUTTON_HEIGHT
   }
 
   private usesSplitDetailLayout(): boolean {
@@ -651,43 +519,6 @@ export struct GalleryDetailPage {
     return Math.min(172, 104 + (index + 1).toString().length * 8)
   }
 
-
-  private actionStripVisualX(): number {
-    if (this.visualActionEdge === 'left' || this.actionStripContentWidth >= this.actionStripViewportWidth) {
-      return 0
-    }
-    return Math.max(0, this.actionStripViewportWidth - this.actionStripContentWidth)
-  }
-
-  private actionStripRailMinWidth(): Length {
-    if (this.actionStripViewportWidth <= 0) {
-      return '100%'
-    }
-    return this.actionStripViewportWidth
-  }
-
-  private actionStripAnimationDuration(): number {
-    return this.actionStripShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
-  }
-
-  private updateReadFabLayoutReady(): void {
-    if (this.readFabAvailableWidth() > 0 && this.readFabWidth > 0 && this.favoriteFabWidth > 0) {
-      this.readFabLayoutReady = true
-    }
-  }
-
-  private updateActionStripLayoutReady(): void {
-    if (this.actionStripViewportWidth > 0 && this.actionStripContentWidth > 0) {
-      this.actionStripLayoutReady = true
-    }
-  }
-
-  private scrollActionStripToEdge(): void {
-    try {
-      this.actionStripScroller.scrollEdge(this.visualActionEdge === 'left' ? Edge.Start : Edge.End)
-    } catch (_error) {
-    }
-  }
 
   // followOperation mode: a scroll-like drag reports its start X so the button hops to the operating side.
   private handleFollowTouch(event: TouchEvent): void {
@@ -819,7 +650,6 @@ export struct GalleryDetailPage {
 
   aboutToDisappear(): void {
     this.detailDisposed = true
-    this.stopReadFabAnimation()
     this.retireRemoteFavoriteEditor()
     // Left before the 5s debounce fired → this open was transient; don't record it.
     if (this.historyTimer >= 0) {
@@ -2374,11 +2204,7 @@ export struct GalleryDetailPage {
       return
     }
     this.remoteFavoriteSelectedCat = fav.favId
-    if (fav.favId === this.vm.gallery.favcat && !this.hasRemoteFavoriteNoteChanges()) {
-      this.closeDetailSheet()
-      return
-    }
-    this.submitRemoteFavorite(fav.favId)
+    this.submitRemoteFavorite(fav.favId === this.vm.gallery.favcat ? 'favdel' : fav.favId)
   }
 
   private canUseRemoteFavoriteSlots(): boolean {
@@ -2386,26 +2212,6 @@ export struct GalleryDetailPage {
     return this.remoteFavoriteSlotsReady && !this.remoteFavoriteSubmitting &&
       !this.remoteFavoriteLoadingFavcats && request !== null &&
       this.isCurrentRemoteFavoriteEditor(request, this.remoteFavoriteSheetEpoch)
-  }
-
-  private confirmRemoveRemoteFavorite(): void {
-    if (!this.canUseRemoteFavoriteSlots() || this.vm.gallery.favcat.length === 0) {
-      return
-    }
-    const epoch: number = this.remoteFavoriteSheetEpoch
-    this.getUIContext().showAlertDialog({
-      message: $r('app.string.detail_remote_favorite_remove_confirm'),
-      primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
-      secondaryButton: {
-        value: $r('app.string.detail_remote_favorite_remove'),
-        fontColor: Color.Red,
-        action: () => {
-          if (this.remoteFavoriteSheetEpoch === epoch) {
-            this.submitRemoteFavorite('favdel')
-          }
-        },
-      },
-    })
   }
 
   private async submitRemoteFavorite(favcat: string = this.remoteFavoriteSelectedCat): Promise<void> {
@@ -2873,6 +2679,7 @@ export struct GalleryDetailPage {
           })
             .constraintSize({ minHeight: ThemeConstants.BUTTON_HEIGHT })
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .placeholderFont({ size: ThemeConstants.FONT_SIZE_BODY })
             .backgroundColor($r('app.color.card_background'))
             .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
             .enabled(!this.remoteFavoriteSubmitting && this.auth.isLogin)
@@ -2889,16 +2696,6 @@ export struct GalleryDetailPage {
               (fav: Favcat) => fav.favId,
             )
           }.width('100%')
-          if (this.vm.gallery.favcat.length > 0) {
-            ConciseListRow({
-              title: $r('app.string.detail_remote_favorite_remove'),
-              leadingIcon: $r('sys.symbol.minus_circle'),
-              destructive: true,
-              showChevron: false,
-              isEnabled: this.canUseRemoteFavoriteSlots(),
-              action: () => { this.confirmRemoveRemoteFavorite() },
-            })
-          }
           this.LocalFavoriteRow()
           if (this.remoteFavoriteLoadingFavcats) {
             LoadingProgress().width(ThemeConstants.SYMBOL_SIZE_STANDARD)
@@ -3087,30 +2884,12 @@ export struct GalleryDetailPage {
 
   @Builder
   private ReadFabRail() {
-    Stack({ alignContent: Alignment.BottomStart }) {
-      Row() { this.ReadFabButton() }
-        .height(this.readFabOuterHeight())
-        .translate({ x: this.readFabVisualX() })
-        .opacity(this.readFabLayoutReady ? 1 : 0)
-        .onAreaChange((_oldArea: Area, area: Area) => {
-          this.readFabWidth = area.width as number
-          this.updateReadFabLayoutReady()
-        })
-      Row() { this.FavoriteFabButton() }
-        .height(this.readFabOuterHeight())
-        .translate({ x: this.favoriteFabVisualX(), y: this.favoriteFabVisualY() })
-        .opacity(this.readFabLayoutReady ? 1 : 0)
-        .onAreaChange((_oldArea: Area, area: Area) => {
-          this.favoriteFabWidth = area.width as number
-          this.updateReadFabLayoutReady()
-        })
-    }
-    .width('100%')
-    .height(this.readFabOuterHeight())
-    .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
-    .hitTestBehavior(HitTestMode.Transparent)
-    .clip(false)
-    .position({ left: 0, bottom: this.readFabRailBottomInset() })
+    GalleryActionFabRail({
+      availableWidth: this.readFabAvailableWidth(),
+      usesHdsMaterial: this.readFabUsesHdsMaterial(),
+      readButtonContent: () => { this.ReadFabButton() },
+      favoriteButtonContent: () => { this.FavoriteFabButton() },
+    })
   }
 
   @Builder
@@ -3393,7 +3172,6 @@ export struct GalleryDetailPage {
             .height('100%')
             .onAreaChange((_oldArea: Area, area: Area) => {
               this.detailMetadataWidth = area.width as number
-              this.updateReadFabLayoutReady()
             })
 
             Column() {
@@ -3420,7 +3198,6 @@ export struct GalleryDetailPage {
           .height('100%')
           .onAreaChange((_oldArea: Area, area: Area) => {
             this.detailMetadataWidth = area.width as number
-            this.updateReadFabLayoutReady()
           })
           .onTouch((event: TouchEvent) => {
             this.handleFollowTouch(event)
@@ -3651,63 +3428,30 @@ export struct GalleryDetailPage {
   @Builder
   relationsRow() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      // Keep this strip coupled to the smart-grip/follow-operation edge exactly like the Read FAB.
-      // Do not simplify this to a plain horizontal Scroll: the rail width + translate animation is what
-      // preserves smooth left/right edge alignment when the action side changes.
-      Scroll(this.actionStripScroller) {
-        Row() {
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
-              this.openSimilar()
+      GalleryActionStripRail() {
+        this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
+          this.openSimilar()
+        })
+        if (
+          Number.parseInt(
+            this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
+            10,
+          ) > 0
+        ) {
+          this.DetailSheetActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
+            true, DETAIL_SHEET_TORRENTS, () => {
+              this.openTorrents()
             })
-            if (
-              Number.parseInt(
-                this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
-                10,
-              ) > 0
-            ) {
-              this.DetailSheetActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
-                true, DETAIL_SHEET_TORRENTS, () => {
-                  this.openTorrents()
-                })
-            }
-            this.DetailSheetActionChip($r('sys.symbol.doc_zipper'), this.archiverTitle(), true,
-              DETAIL_SHEET_ARCHIVER, () => {
-                this.openArchiver()
-              })
-            this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
-              this.openRatingDialog()
-            })
-            this.DownloadActionChip()
-          }
-          .alignItems(VerticalAlign.Center)
-          .translate({ x: this.actionStripVisualX() })
-          .animation({ duration: this.actionStripAnimationDuration(), curve: Curve.EaseOut })
-          .onAreaChange((_oldArea: Area, area: Area) => {
-            this.actionStripContentWidth = area.width as number
-            this.updateActionStripLayoutReady()
-          })
         }
-        // A minimum keeps short strips aligned to the selected hand edge while leaving the horizontal
-        // maximum unconstrained. An exact viewport-sized width would shrink the measured child Row,
-        // hide real capsule overflow, and leave Scroll with no draggable range.
-        .constraintSize({ minWidth: this.actionStripRailMinWidth() })
-        .justifyContent(FlexAlign.Start)
+        this.DetailSheetActionChip($r('sys.symbol.doc_zipper'), this.archiverTitle(), true,
+          DETAIL_SHEET_ARCHIVER, () => {
+            this.openArchiver()
+          })
+        this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
+          this.openRatingDialog()
+        })
+        this.DownloadActionChip()
       }
-      .scrollable(ScrollDirection.Horizontal)
-      .nestedScroll({
-        scrollForward: NestedScrollMode.SELF_ONLY,
-        scrollBackward: NestedScrollMode.SELF_ONLY,
-      })
-      .scrollBar(BarState.Off)
-      .width('100%')
-      .onAreaChange((_oldArea: Area, area: Area) => {
-        this.actionStripViewportWidth = area.width as number
-        this.updateActionStripLayoutReady()
-      })
-      .onAppear(() => {
-        this.scrollActionStripToEdge()
-      })
     }
   }
 }

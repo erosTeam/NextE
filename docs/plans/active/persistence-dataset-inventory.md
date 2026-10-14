@@ -45,7 +45,7 @@ Allowed `Sync` values:
 | StorageKeys.BLURRING_OF_COVER_BACKGROUND | setting | plaintext | excluded | Cover background style |
 | StorageKeys.ACTION_ALIGNMENT_MODE | setting | plaintext | excluded | Floating action placement |
 | StorageKeys.READ_BUTTON_STYLE | setting | plaintext | excluded | Read button style |
-| StorageKeys.SUBTAB_STYLE | setting | plaintext | excluded | Sub-tab underline or capsule style |
+| StorageKeys.SUBTAB_STYLE | setting | plaintext | excluded | Sub-tab underline or capsule style; capsule is the default when unset |
 | StorageKeys.SCREEN_ORIENTATION | setting | plaintext | excluded | Main-window orientation policy |
 | StorageKeys.TABLET_LAYOUT_MODE | setting | plaintext | excluded | Adaptive tablet split-layout preference |
 | StorageKeys.THEME_MODE | setting | plaintext | excluded | Theme mode |

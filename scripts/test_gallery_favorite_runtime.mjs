@@ -19,14 +19,13 @@ function between(text, first, last) {
 const flow = between(source, '  private retireRemoteFavoriteEditor()', '  private isRemoteFavoriteSlotSelected(')
 const titles = between(source, '  private remoteFavoriteTitleFor(', '  private remoteFavoriteStatusText(')
 const noteSave = between(source, '  private canSubmitRemoteFavorite()', '  @Builder\n  private FullTitleSheet()')
-const motion = between(source, '  private stopReadFabAnimation()', '  private readFabAvailableWidth()')
 const copy = between(tagSource, '  private selectedTagKey()', '  private triggerLongPressHaptic()')
 const preserve = between(modelSource, '  private preserveNewerFavoriteState(', '  applyRatingResult(')
 const slots = ['0', '1'].map(favId => ({ favId, favTitle: `Folder ${favId}`, totNum: 0 }))
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 function fixture(options = {}) {
-  const calls = [], events = [], toasts = [], copies = [], animators = []
-  let current = true, dialog, persist = async () => {}
+  const calls = [], events = [], toasts = [], copies = []
+  let current = true, persist = async () => {}
   const request = { isEx: false, memberId: 'fixture-member', generation: 0 }
   const context = { exports: {}, Color: { Red: 'red' }, DETAIL_SHEET_REMOTE_FAVORITE: source.match(/const DETAIL_SHEET_REMOTE_FAVORITE: string = '([^']+)'/)[1], $r: key => key, AppStrings: { get: key => key },
     ThemeConstants: { SPACE_SM: 8, ANIM_DURATION: 400 },
@@ -39,7 +38,7 @@ function fixture(options = {}) {
     }) },
     pasteboard: { MIMETYPE_TEXT_PLAIN: 'text/plain', createData: (type, text) => ({ type, text }), getSystemPasteboard: () => ({ setDataSync: data => { if (options.copyError) throw new Error('fixture copy failure'); copies.push(data) } }) },
   }
-  vm.runInNewContext(ts.transpileModule(`class Subject { ${flow} ${titles} ${noteSave} ${motion} }; class Tag { ${copy} }; class Model { ${preserve} }; exports.Subject=Subject; exports.Tag=Tag; exports.Model=Model;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText, context)
+  vm.runInNewContext(ts.transpileModule(`class Subject { ${flow} ${titles} ${noteSave} }; class Tag { ${copy} }; class Model { ${preserve} }; exports.Subject=Subject; exports.Tag=Tag; exports.Model=Model;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText, context)
   const p = new context.exports.Subject()
   Object.assign(p, { params: { gid: 'fixture-gallery', token: 'fixture-token' }, auth: { isLogin: true },
     detailDisposed: false, detailSheetShown: true, detailSheetKind: 'remoteFavorite', remoteFavoriteRequest: request,
@@ -52,17 +51,13 @@ function fixture(options = {}) {
       applyRemoteFavoriteState: (cat, title, note) => { p.vm.gallery = { favcat: cat, favTitle: title, favNote: note }; events.push({ apply: cat }) },
       refresh: async () => { throw new Error('Full detail refresh must not be part of favorite submission') },
     }, ctx: () => ({}), closeDetailSheet: () => { p.detailSheetShown = false; events.push({ closed: true }) },
-    getUIContext: () => ({ getPromptAction: () => ({ openToast: async data => { toasts.push(data.message) } }),
-      showAlertDialog: data => { dialog = data }, createAnimator: options => {
-        const animator = { options, onFrame: () => {}, onFinish: () => {}, play: () => {}, cancel() { this.onFrame(options.end); this.onFinish() } }
-        animators.push(animator); return animator
-      } }),
+    getUIContext: () => ({ getPromptAction: () => ({ openToast: async data => { toasts.push(data.message) } }) }),
   })
   const tag = new context.exports.Tag(); tag.selectedNamespace = 'language'; tag.selectedTagText = 'english'; tag.selectedTagDisplay = '英语'; tag.getUIContext = p.getUIContext
   const model = new context.exports.Model(); model.favoriteRevision = 0
   model.gallery = { favcat: '0', favTitle: 'Folder 0', favNote: 'old note', copy() { return { ...this } } }
   model.saveCurrentDetailCache = () => events.push({ cached: true })
-  return { p, tag, model, calls, events, toasts, copies, animators, request, expire: () => { current = false }, getDialog: () => dialog, setPersist: fn => { persist = fn } }
+  return { p, tag, model, calls, events, toasts, copies, request, expire: () => { current = false }, setPersist: fn => { persist = fn } }
 }
 const drain = () => new Promise(resolve => setImmediate(resolve))
 for (const [label, oldCat, nextCat] of [['add', '', '1'], ['move', '0', '1'], ['note', '0', '0'], ['remove', '0', 'favdel']]) {
@@ -76,13 +71,15 @@ for (const [label, oldCat, nextCat] of [['add', '', '1'], ['move', '0', '1'], ['
     assert.equal(f.events.filter(x => x.closed).length, 1)
   })
 }
-test('folder tap submits once; clicking the unchanged current folder closes without removing', async () => {
-  const f = fixture(); f.p.selectRemoteFavorite(slots[0]); await drain(); assert.equal(f.calls.length, 0)
+test('folder tap adds or moves; clicking the current folder removes once', async () => {
+  const f = fixture(); f.p.selectRemoteFavorite(slots[0]); await drain()
+  assert.equal(f.calls.length, 1); assert.equal(f.calls[0].write.favcat, 'favdel'); assert.equal(f.p.vm.gallery.favcat, '')
+  const added = fixture({ oldCat: '' }); added.p.selectRemoteFavorite(slots[0]); await drain(); assert.equal(added.calls[0].write.favcat, '0')
   const moved = fixture(); moved.p.selectRemoteFavorite(slots[1]); await drain(); assert.equal(moved.calls[0].write.favcat, '1')
 })
-test('current folder saves an edited note; note-only confirmation is enabled only when changed', async () => {
+test('note-only confirmation saves the note without toggling the current folder', async () => {
   const f = fixture(); assert.equal(f.p.canSubmitRemoteFavorite(), false); f.p.remoteFavoriteNote = 'new note'
-  assert.equal(f.p.canSubmitRemoteFavorite(), true); f.p.selectRemoteFavorite(slots[0]); await drain()
+  assert.equal(f.p.canSubmitRemoteFavorite(), true); await f.p.submitRemoteFavorite()
   assert.equal(f.calls[0].write.favcat, '0'); assert.equal(f.calls[0].write.favnote, 'new note')
 })
 test('pending submission keeps the old state visible and blocks repeated taps', async () => {
@@ -98,10 +95,18 @@ for (const reason of ['HTTP 429', 'HTTP 503', 'lost response']) {
     assert.equal(f.events.filter(x => x.mutation).length, 0); assert.equal(f.p.remoteFavoriteError, reason)
   })
 }
-test('remote removal needs explicit confirmation; cancelling sends no write', async () => {
-  const f = fixture(); f.p.confirmRemoveRemoteFavorite(); f.getDialog().primaryButton.action(); assert.equal(f.calls.length, 0)
-  f.getDialog().secondaryButton.action(); await drain(); assert.equal(f.calls[0].write.favcat, 'favdel')
-  const expired = fixture(); expired.p.confirmRemoveRemoteFavorite(); expired.expire(); expired.getDialog().secondaryButton.action(); await drain(); assert.equal(expired.calls.length, 0)
+test('repeat-tap removal is single-flight and stale editors cannot remove', async () => {
+  const reply = deferred(); const f = fixture({ write: () => reply.promise })
+  f.p.selectRemoteFavorite(slots[0]); f.p.selectRemoteFavorite(slots[0]); assert.equal(f.calls.length, 1)
+  assert.equal(f.p.vm.gallery.favcat, '0'); reply.resolve(); await drain(); assert.equal(f.p.vm.gallery.favcat, '')
+  const expired = fixture(); expired.expire(); expired.p.selectRemoteFavorite(slots[0]); await drain(); assert.equal(expired.calls.length, 0)
+})
+test('failed repeat-tap removal preserves the category and note draft without retry', async () => {
+  const f = fixture({ write: async () => { throw new Error('HTTP 429') } }); f.p.remoteFavoriteNote = 'keep draft'
+  f.p.selectRemoteFavorite(slots[0]); await drain()
+  assert.equal(f.calls.length, 1); assert.equal(f.calls[0].write.favcat, 'favdel')
+  assert.equal(f.p.vm.gallery.favcat, '0'); assert.equal(f.p.remoteFavoriteNote, 'keep draft')
+  assert.equal(f.p.detailSheetShown, true); assert.equal(f.events.filter(x => x.mutation).length, 0)
 })
 test('late folder data preserves note edits and does not enable writes before folder loading completes', async () => {
   const reply = deferred(); const f = fixture({ read: () => reply.promise }); f.p.remoteFavoriteSlotsReady = false
@@ -140,11 +145,4 @@ test('a detail response started before a confirmed mutation cannot overwrite its
 test('copy writes the original namespaced tag and reports success or failure accurately', () => {
   const f = fixture(); f.tag.copySelectedTag(); assert.equal(f.copies[0].text, 'language:english'); assert.equal(f.toasts[0], 'app.string.tag_info_copied')
   const failed = fixture({ copyError: true }); failed.tag.copySelectedTag(); assert.equal(failed.copies.length, 0); assert.equal(failed.toasts[0], 'app.string.tag_info_copy_failed')
-})
-test('reversing the animator ignores its synthetic cancellation end-frame and starts at visible progress', () => {
-  const f = fixture(); Object.assign(f.p, { readFabLayoutReady: true, readFabEdgeProgress: 0, visualActionEdge: 'left', readFabAnimator: null })
-  f.p.moveReadFabToEdge(); const first = f.animators[0]; first.onFrame(0.45); f.p.visualActionEdge = 'right'; f.p.moveReadFabToEdge()
-  assert.equal(f.p.readFabEdgeProgress, 0.45); assert.equal(f.animators[1].options.begin, 0.45)
-  f.animators[1].onFrame(0.2); first.onFrame(1); assert.equal(f.p.readFabEdgeProgress, 0.2)
-  f.p.stopReadFabAnimation(); assert.equal(f.p.readFabEdgeProgress, 0.2); assert.equal(f.p.readFabAnimator, null)
 })
