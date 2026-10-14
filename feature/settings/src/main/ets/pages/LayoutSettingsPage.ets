@@ -38,6 +38,10 @@ import {
   ReadButtonStyleOption,
   ReadButtonStyleState,
   connectReadButtonStyle,
+  SubTabStyleSettings,
+  SubTabStyleOption,
+  SubTabStyleState,
+  connectSubTabStyle,
   ScreenOrientationSettings,
   ScreenOrientationOption,
   ScreenOrientationState,
@@ -84,6 +88,7 @@ export struct LayoutSettingsPage {
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
+  @Local subTabStyle: SubTabStyleState = connectSubTabStyle();
   @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
   @Local tabletLayout: TabletLayoutState = connectTabletLayout();
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
@@ -603,6 +608,27 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
+  SubTabStyleMenu(select: (action: () => void) => void) {
+    Menu() {
+      ForEach(
+        SubTabStyleSettings.options(),
+        (option: SubTabStyleOption) => {
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: this.subTabStyle.style === option.style,
+            selectAction: () => {
+              select(() => {
+                SubTabStyleSettings.setStyle(this.ctx(), option.style)
+              })
+            },
+          })
+        },
+        (option: SubTabStyleOption) => option.style,
+      )
+    }
+  }
+
+  @Builder
   ScreenOrientationMenu(select: (action: () => void) => void) {
     Menu() {
       ForEach(
@@ -700,6 +726,19 @@ export struct LayoutSettingsPage {
                   dropdownMenuEnabled: true,
                   dropdownMenuBuilder: (select: (action: () => void) => void) => {
                     this.ImmersiveMaterialMenu(select)
+                  },
+                })
+              }
+              ListRowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_subtab_style'),
+                  leadingIcon: $r('sys.symbol.list_square'),
+                  trailingText: SubTabStyleSettings.label(this.subTabStyle.style),
+                  trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.SubTabStyleMenu(select)
                   },
                 })
               }

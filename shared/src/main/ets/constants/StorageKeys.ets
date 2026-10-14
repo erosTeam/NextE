@@ -10,6 +10,7 @@ export class StorageKeys {
   static readonly STORE_SETTINGS: string = 'nexte_settings'
 
   // settings keys
+  static readonly EH_APP_PROFILE_ENABLED: string = 'eh.appProfileEnabled' // default-on dedicated EH profile
   static readonly SITE_MODE_EX: string = 'site.modeEx' // boolean: 表站(false)/里站(true)
   static readonly LIST_MODE: string = 'layout.listMode' // list/simpleList/grid/waterfall/waterfallCompact/coverWall
   static readonly GALLERY_DETAIL_TRANSITION_ENABLED: string = 'layout.galleryDetailTransitionEnabled'
@@ -29,6 +30,7 @@ export class StorageKeys {
   static readonly BLURRING_OF_COVER_BACKGROUND: string = 'layout.blurringOfCoverBackground' // boolean: blur off-aspect cover background (else color gradient)
   static readonly ACTION_ALIGNMENT_MODE: string = 'layout.actionAlignmentMode' // floating Read button: smartGrip/followOperation/fixedLeft/fixedRight
   static readonly READ_BUTTON_STYLE: string = 'layout.readButtonStyle' // filled/hds floating Read button style
+  static readonly SUBTAB_STYLE: string = 'layout.subTabStyle' // underline/capsule
   static readonly SCREEN_ORIENTATION: string = 'layout.screenOrientation' // unspecified/autoRotationUnspecified
   static readonly TABLET_LAYOUT_MODE: string = 'layout.tabletLayoutMode' // auto/off/landscapeOnly
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark

@@ -3,6 +3,8 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhConstants } from '../constants/EhConstants'
 import { CookieJarSettings } from './CookieJarSettings'
 import { SiteModeSettings } from './SiteModeSettings'
+import { EhAppProfileSettings } from './EhAppProfileSettings'
+import { EhAppProfileService } from '../services/EhAppProfileService'
 import { ListModeSettings } from './ListModeSettings'
 import { GalleryDetailTransitionSettings } from './GalleryDetailTransitionSettings'
 import { GalleryTitleSettings } from './GalleryTitleSettings'
@@ -11,6 +13,7 @@ import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
 import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
+import { SubTabStyleSettings } from './SubTabStyleSettings'
 import { ScreenOrientationSettings } from './ScreenOrientationSettings'
 import { TabletLayoutSettings } from './TabletLayoutSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
@@ -78,6 +81,8 @@ export class SettingsBootstrap {
         ThemeSettings.restore(context),
         ThemeColorSettings.restore(context),
         ImmersiveMaterialSettings.restore(context),
+        SubTabStyleSettings.restore(context),
+        EhAppProfileSettings.restore(context),
         LanguageSettings.restore(context),
         ScreenOrientationSettings.restore(context),
         TabletLayoutSettings.restore(context),
@@ -115,6 +120,11 @@ export class SettingsBootstrap {
         SecuritySettings.restore(context),
         BackGuardSettings.restore(context),
       ])
+
+      // Lists await selection independently, keeping remote network work off the first-paint gate.
+      // Establish the tag request generation before the first list snapshots its scope.
+      UserTagLoader.reconcileActiveContext()
+      EhAppProfileService.initialize(context)
 
       // RDB-backed restores remain ordered: they share migrations/write schedulers and feed the initial
       // Home/Favorites/Watched state. Parallelizing those stores risks lock contention and stale snapshots.

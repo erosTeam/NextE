@@ -1191,6 +1191,9 @@ export {
   ThemeColorState,
   connectThemeColor,
 } from './state/AppearanceState'
+export { EhAppProfileService } from './services/EhAppProfileService'
+export { EhAppProfileSettings } from './settings/EhAppProfileSettings'
+export { EhAppProfileState, connectEhAppProfile } from './state/EhAppProfileState'
 export { CookieJarSettings } from './settings/CookieJarSettings'
 export { AccountListSettings } from './settings/AccountListSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'
@@ -1201,6 +1204,8 @@ export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'
 export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
+export { SubTabStyleSettings, SubTabStyleOption } from './settings/SubTabStyleSettings'
+export { SubTabStyleState, connectSubTabStyle } from './state/SubTabStyleState'
 export { ScreenOrientationSettings, ScreenOrientationOption } from './settings/ScreenOrientationSettings'
 export { TabletLayoutSettings, TabletLayoutOption } from './settings/TabletLayoutSettings'
 export {

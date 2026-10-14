@@ -63,6 +63,51 @@ export class EhGalleryListParser {
   private static readonly RE_PTT: RegExp =
     /<table[^>]*class="[^"]*\bptt\b[^"]*"[^>]*>[\s\S]*?<\/table>/
 
+  /** Match eros_fe's selected display-mode check; retain the old thumbnail-layout recovery. */
+  static needsCompactLayout(html: string): boolean {
+    const selectRe: RegExp = /<select\b[^>]*>([\s\S]*?)<\/select>/gi
+    let select: RegExpExecArray | null = selectRe.exec(html)
+    while (select !== null) {
+      const options: string = select[1] !== undefined ? select[1] : ''
+      const optionRe: RegExp = /<option\b([^>]*)>/gi
+      let option: RegExpExecArray | null = optionRe.exec(options)
+      let displayOptions: number = 0
+      let selectedMode: string = ''
+      while (option !== null) {
+        const attrs: string = option[1] !== undefined ? option[1] : ''
+        const value: RegExpMatchArray | null =
+          attrs.match(/\bvalue\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))/i)
+        const mode: string = value !== null
+          ? (value[1] ?? value[2] ?? value[3] ?? '').trim().toLowerCase()
+          : ''
+        if (mode === 'm' || mode === 'p' || mode === 'l' || mode === 'e' || mode === 't') {
+          displayOptions++
+          if (/(?:^|\s)selected(?:\s|=|$)/i.test(attrs)) {
+            selectedMode = mode
+          }
+        }
+        option = optionRe.exec(options)
+      }
+      // Sort/category selects must never be mistaken for the display-mode control.
+      if (displayOptions >= 2 && selectedMode.length > 0) {
+        return selectedMode !== 'l'
+      }
+      select = selectRe.exec(html)
+    }
+    // Some pages omit the selector. Known non-Compact containers still need correction;
+    // no result table or an unknown structure alone is not evidence of a layout mismatch.
+    const containerRe: RegExp = /<(?:table|div)\b[^>]*\bclass\s*=\s*["']([^"']*)["'][^>]*>/gi
+    let container: RegExpExecArray | null = containerRe.exec(html)
+    while (container !== null) {
+      const classes: string = container[1] !== undefined ? container[1] : ''
+      if (/\bitg\b/i.test(classes) && /\b(?:gltm|glte|gld)\b/i.test(classes)) {
+        return true
+      }
+      container = containerRe.exec(html)
+    }
+    return false
+  }
+
   static parse(html: string): GalleryList {
     const list: GalleryList = new GalleryList()
     list.nextGid = EhGalleryListParser.navCursor(

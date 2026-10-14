@@ -6,6 +6,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { EhConstants } from '../constants/EhConstants'
 import { UserTagLoader } from '../services/UserTagLoader'
+import { EhAppProfileService } from '../services/EhAppProfileService'
 
 /**
  * Persists the site mode (表站 e-hentai / 里站 exhentai) and is the single writer of the
@@ -76,6 +77,7 @@ export class SiteModeSettings {
       store.putSync(StorageKeys.SITE_MODE_EX, isEx)
       store.flushSync()
       DiagnosticLogger.info('settings', 'sitemode_set', `isEx=${isEx}`)
+      await EhAppProfileService.ensureSelected()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'sitemode_save_failed', (error as Error).message)
     }

@@ -2606,7 +2606,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "選択したLLMソースでギャラリーコメントを翻訳し、失敗時はGoogleにフォールバックします。"
+      "value": "選択したLLMソースでギャラリーコメントを翻訳し、失敗時は内蔵のオンライン翻訳にフォールバックします。"
     },
     {
       "name": "comment_translation_auto",
@@ -2630,11 +2630,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "Google翻訳を使用"
+      "value": "無料のオンライン翻訳を使用"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "LLMを使わずGoogleを直接使用します。"
+      "value": "LLMを使わず、内蔵のオンライン翻訳を直接使用します。"
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -4642,7 +4642,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "端末内漫画モデルのダウンロードに失敗しました"
+      "value": "端末内漫画モデルのダウンロードに失敗しました：%s"
     },
     {
       "name": "comic_local_detector_remove_title",
@@ -5347,6 +5347,20 @@
     {
       "name": "settings_reader_group_implementation",
       "value": "リーダー実装"
-    }
+    },
+    {
+      "name": "settings_subtab_style",
+      "value": "サブタブのスタイル"
+    },
+    {
+      "name": "subtab_style_underline",
+      "value": "下線"
+    },
+    {
+      "name": "subtab_style_capsule",
+      "value": "カプセル"
+    },
+    {"name": "eh_app_profile_auto", "value": "NextE 専用設定を自動使用"},
+    {"name": "eh_app_profile_auto_hint", "value": "ログイン後、NextE 設定を選択または作成します。オフにすると他の設定を手動で使用できます。サイトの既定設定は変更しません。"}
   ]
 }

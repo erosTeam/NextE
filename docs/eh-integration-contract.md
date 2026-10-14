@@ -13,7 +13,7 @@ NextE 通过 **Cookie 鉴权 + HTML/JSON 抓取**对接 E-Hentai / ExHentai(无 
 
 | 页型 | 方法 / 路径 | parser → model |
 |---|---|---|
-| 画廊列表 / 搜索 | `GET /`(或 `/watched`、`/favorites.php`、`/popular`、`/toplist.php`),带 `f_cats`、`f_search`、`page`、游标 `next/prev/jump/seek/from`、`advsearch=1`+`f_*`、`favcat`;重试 `inline_set=dm_l`(扩展模式)、`fs_f/fs_p`(收藏排序) | `EhGalleryListParser` → `GalleryList{gallerys[], nextGid, prevGid, maxPage}` |
+| 画廊列表 / 搜索 | `GET /`(或 `/watched`、`/favorites.php`、`/popular`、`/toplist.php`),带 `f_cats`、`f_search`、`page`、游标 `next/prev/jump/seek/from`、`advsearch=1`+`f_*`、`favcat`;重试 `inline_set=dm_l`(Compact 紧凑模式)、`fs_f/fs_p`(收藏排序) | `EhGalleryListParser` → `GalleryList{gallerys[], nextGid, prevGid, maxPage}` |
 | 画廊详情 | `GET /g/{gid}/{token}`(HTML);抓内联 `var apiuid=(\d+);` / `var apikey="([0-9a-f]+)";` | `EhGalleryDetailParser` + `EhGalleryCommentParser` + `EhGalleryTagsParser` + `EhGalleryImageParser` → `EhGallery` |
 | 图片页 | `GET /s/{imgkey}/{gid}-{page}`(HTML,`paraImage`)**或**快路径 `POST /api.php method=showpage`(需 `showKey`);509/坏图时 `nl=<sourceId>` 换源 | → `EhGalleryImage` |
 | **`/api.php`**(单 JSON POST,按 `method` 复用) | `gdata`(批量 25 个 `[gid,token]` → `gmetadata[]`)、`showpage`、`rategallery`、`votecomment`、`taggallery`、`tagsuggest`、`setusertag`、`imagedispatch`(MPV) | `EhApiJsonParser` |
@@ -28,6 +28,13 @@ NextE 通过 **Cookie 鉴权 + HTML/JSON 抓取**对接 E-Hentai / ExHentai(无 
 - `apiuid`/`apikey` 从详情 HTML 抓取,是每个 `/api.php` 写操作(评分/投票/标签)的必需参数;`gid`/`token` 来自列表/详情 URL;`showKey` 从首个 `/s/` 页抓一次,后续整本经 `method=showpage` 复用(快路径)。
 - 写操作(评论、标签、搜图)以 HTTP **302/303 重定向**表示成功:**关闭自动跟随重定向**,读 `Location`(`getTextResponseWithHeaders`)。
 - 远端写操作(评论、评分、投票、收藏、标签、归档、uconfig、消耗 GP 的图片配额重置)只能单次发送；即使服务端将动作暴露为 GET，也不得按读取请求重试。网络超时或 5xx 后结果可能未知，禁止由通用传输层自动重发；仅已确认只读的 `showpage`、`gdata`、`tagsuggest` JSON POST 可以重试。
+
+## NextE 专属配置
+
+- `EH_APP_PROFILE_ENABLED` 默认开启，开关位于 EH 设置；关闭不删除配置、不改变当前选择。
+- 首次列表请求、登录/账号切换和站点切换时，读取当前账号的 `uconfig.php`；已有唯一 `NextE` 配置则复用，缺少时单次创建。服务端确认选择后才保存 `sp` 到当前账号 Cookie，不调用 `profile_action=default`。
+- 同一账号/站点的并发选择合并；旧账号、旧站点和已关闭开关的响应不能写回。POST 响应丢失只读回验证，不重发创建；同进程内未确认的创建禁止再次自动创建。
+- 列表在配置准备成功后才请求，防止 `inline_set` 修正落到原配置。准备失败保留已有列表，通过现有错误/重试处理；用户也可关闭自动选择后使用手动配置。
 
 ## parser 清单(每页型 → model)
 

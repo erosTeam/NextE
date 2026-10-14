@@ -26,6 +26,7 @@ Allowed `Sync` values:
 | --- | --- | --- | --- | --- |
 | StorageKeys.STORE_SETTINGS | store | excluded | excluded | Preferences store name |
 | StorageKeys.SITE_MODE_EX | setting | plaintext | excluded | EH site mode |
+| StorageKeys.EH_APP_PROFILE_ENABLED | setting | plaintext | excluded | Optional default-on NextE EH profile selection; profile ID remains in the encrypted account cookie bundle |
 | StorageKeys.LIST_MODE | setting | plaintext | excluded | Gallery list layout |
 | StorageKeys.GALLERY_DETAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Legacy gallery-detail transition compatibility switch |
 | StorageKeys.GALLERY_DETAIL_TRANSITION_MODE | setting | plaintext | excluded | Selected gallery-detail transition mode |
@@ -44,6 +45,7 @@ Allowed `Sync` values:
 | StorageKeys.BLURRING_OF_COVER_BACKGROUND | setting | plaintext | excluded | Cover background style |
 | StorageKeys.ACTION_ALIGNMENT_MODE | setting | plaintext | excluded | Floating action placement |
 | StorageKeys.READ_BUTTON_STYLE | setting | plaintext | excluded | Read button style |
+| StorageKeys.SUBTAB_STYLE | setting | plaintext | excluded | Sub-tab underline or capsule style |
 | StorageKeys.SCREEN_ORIENTATION | setting | plaintext | excluded | Main-window orientation policy |
 | StorageKeys.TABLET_LAYOUT_MODE | setting | plaintext | excluded | Adaptive tablet split-layout preference |
 | StorageKeys.THEME_MODE | setting | plaintext | excluded | Theme mode |
