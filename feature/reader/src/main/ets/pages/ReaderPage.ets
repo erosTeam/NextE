@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI'
 import {
   ThemeConstants,
   EhGalleryImage,
+  EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
   DiagnosticLogger,
@@ -20,6 +21,13 @@ import {
   ShareUtil,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
+
+const READER_THUMB_IMAGE_H: number = ThemeConstants.FLOAT_BAR_HEIGHT - ThemeConstants.SPACE_XS
+const READER_THUMB_PLACEHOLDER_W: number =
+  ThemeConstants.LIST_CARD_COVER_ASPECT * READER_THUMB_IMAGE_H
+const READER_THUMB_STRIP_H: number =
+  READER_THUMB_IMAGE_H + ThemeConstants.LINE_HEIGHT_BODY + ThemeConstants.SPACE_SM
+const READER_THUMB_SELECTED_BORDER: number = ThemeConstants.SPACE_XS / 2
 
 /**
  * Image reader (basic-complete): horizontal paged Swiper of full images, each a
@@ -49,6 +57,7 @@ export struct ReaderPage {
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
   private listScroller: Scroller = new Scroller();
+  private thumbScroller: Scroller = new Scroller();
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
@@ -219,6 +228,9 @@ export struct ReaderPage {
     if (this.sliderPreview < 0) {
       this.sliderValue = this.vm.currentIndex + 1
     }
+    if (this.showChrome) {
+      this.scrollThumbToCurrent()
+    }
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.setIndex(
         this.hostContext(),
@@ -226,6 +238,22 @@ export struct ReaderPage {
         this.vm.currentIndex,
       )
     }
+  }
+
+  @Monitor('showChrome')
+  onChromeVisibilityChanged(): void {
+    if (this.showChrome) {
+      this.scrollThumbToCurrent()
+    }
+  }
+
+  private scrollThumbToCurrent(): void {
+    if (this.vm.currentIndex < 0 || this.vm.currentIndex >= this.vm.images.length) {
+      return
+    }
+    setTimeout(() => {
+      this.thumbScroller.scrollToIndex(this.vm.currentIndex)
+    }, 0)
   }
 
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
@@ -660,6 +688,9 @@ export struct ReaderPage {
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
+      if (this.vm.images.length > 1) {
+        this.ReaderThumbnailStrip()
+      }
       Slider({
         value: this.sliderValue,
         min: 1,
@@ -692,6 +723,70 @@ export struct ReaderPage {
     .backgroundColor('#CC000000')
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
+  }
+
+  @Builder
+  ReaderThumbnailStrip() {
+    List({ space: ThemeConstants.SPACE_SM, scroller: this.thumbScroller }) {
+      ForEach(
+        this.vm.images,
+        (img: EhGalleryImage) => {
+          ListItem() {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Stack({ alignContent: Alignment.Center }) {
+                this.ReaderThumbnailImage(img)
+              }
+              .height(READER_THUMB_IMAGE_H + ThemeConstants.SPACE_XS)
+              .padding(READER_THUMB_SELECTED_BORDER)
+              .borderRadius(ThemeConstants.RADIUS_SM)
+              .border({
+                width: img.page - 1 === this.vm.currentIndex ? READER_THUMB_SELECTED_BORDER : 0,
+                color: img.page - 1 === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
+              })
+              Text(`${img.page}`)
+                .fontSize(ThemeConstants.FONT_SIZE_TINY)
+                .fontColor(img.page - 1 === this.vm.currentIndex ? Color.White : $r('sys.color.font_tertiary'))
+            }
+            .alignItems(HorizontalAlign.Center)
+            .onClick(() => {
+              this.jumpToPage(img.page - 1)
+            })
+          }
+        },
+        (img: EhGalleryImage) => `${img.page}`,
+      )
+    }
+    .listDirection(Axis.Horizontal)
+    .height(READER_THUMB_STRIP_H)
+    .width('100%')
+    .scrollBar(BarState.Off)
+  }
+
+  @Builder
+  ReaderThumbnailImage(img: EhGalleryImage) {
+    if (img.thumbUrl.length > 0) {
+      EhSpriteThumbnail({
+        url: img.thumbUrl,
+        thumbWidth: img.thumbWidth,
+        thumbHeight: img.thumbHeight,
+        offsetX: img.thumbOffsetX,
+        spriteWidth: img.spriteWidth,
+        spriteHeight: img.spriteHeight,
+        fitHeight: true,
+        displayHeight: READER_THUMB_IMAGE_H,
+        radius: ThemeConstants.RADIUS_SM,
+      })
+    } else {
+      Stack({ alignContent: Alignment.Center }) {
+        Text(`${img.page}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(Color.White)
+      }
+      .width(READER_THUMB_PLACEHOLDER_W)
+      .height(READER_THUMB_IMAGE_H)
+      .backgroundColor(ThemeConstants.OVERLAY_SCRIM)
+      .borderRadius(ThemeConstants.RADIUS_SM)
+    }
   }
 }
 
