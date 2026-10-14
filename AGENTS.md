@@ -1,5 +1,7 @@
 # NextE agent entry
 
+**未经用户明确允许，禁止更改样式；修 bug 也不例外。**
+
 This is the repository entrypoint. Keep durable rules here; put platform, product, device and build
 details in the linked guides. The current user request is the only source of scope or authorization.
 

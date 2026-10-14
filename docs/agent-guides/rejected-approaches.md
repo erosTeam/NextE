@@ -60,3 +60,10 @@ user explicitly reopens the entry after reviewing its failure evidence.
   and discontinuous corner-radius morphs without proving the landing defect.
 - **Evidence:** failed 2026-08-30 candidate sequence recorded in
   `docs/plans/active/gallery-reader-transition-acceptance.md`.
+
+## REJ-TITLEBAR-GRADIENT-001 — 禁止换效果冒充修复
+
+- **Status:** `REJECTED`
+- **Lookup keys:** `ImmersiveTitleBar`、`immersiveTitleBarOpts`、`ScrollEffectType`、`COMMON_BLUR`、`GRADIENT_BLUR`、`bottomBuilder`、`MaskBlur`。
+- 用户要求修复原渐变模糊滚动消失；禁止擅自改成非渐变模糊。只有用户明确允许改效果才能重新实施。
+- 2026-10-13 已撤回源码及197测试包；原缺陷仍未修好。原始记录在 NextN 的 `.hvigor/outputs/next-titlebar-recheck-20261013/`，不是新任务或通过证明。
