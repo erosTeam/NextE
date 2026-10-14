@@ -393,6 +393,14 @@
       "value": "清除"
     },
     {
+      "name": "quick_search",
+      "value": "快速搜索"
+    },
+    {
+      "name": "quick_search_save",
+      "value": "保存搜索"
+    },
+    {
       "name": "filter_options",
       "value": "选项"
     },

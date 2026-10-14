@@ -393,6 +393,14 @@
       "value": "Clear"
     },
     {
+      "name": "quick_search",
+      "value": "Quick Search"
+    },
+    {
+      "name": "quick_search_save",
+      "value": "Save search"
+    },
+    {
       "name": "filter_options",
       "value": "Options"
     },

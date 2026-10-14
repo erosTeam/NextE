@@ -45,8 +45,8 @@ function route(query, filterActive) {
 }
 
 // Mirror of SearchViewModel.search() entry guard and reapplyFilters() guard.
-const shouldSearch = (query, isLoading, filterActive) =>
-  !isLoading && !(query.trim().length === 0 && !filterActive)
+const shouldSearch = (query, isLoading, filterActive, isFavoriteScope = false) =>
+  !isLoading && !(query.trim().length === 0 && !isFavoriteScope && !filterActive)
 const shouldReapply = (queryLen, filterActive) => queryLen > 0 || filterActive
 
 let passed = 0
@@ -104,6 +104,7 @@ const ok = (name, cond) => {
   ok('vm: term searches', shouldSearch('x', false, false) === true)
   ok('vm: empty+nofilter blocked', shouldSearch('', false, false) === false)
   ok('vm: empty+filter allowed', shouldSearch('', false, true) === true)
+  ok('vm: empty+favorite allowed', shouldSearch('', false, false, true) === true)
   ok('vm: loading blocks even with filter', shouldSearch('', true, true) === false)
 }
 
@@ -132,9 +133,9 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/search/src/main/ets/viewmodel/SearchViewModel.ets'),
     'utf8',
   )
-  ok('vm allows empty with active filter', /trimmed\.length === 0 && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok('vm allows empty with active filter/favorite scope', /trimmed\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
   ok('reapplyFilters honors filter-only', /this\.query\.length > 0 \|\| connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
-  ok('refresh allows filter-only browse', /this\.query\.length === 0 && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok('refresh allows filter-only/favorite browse', /this\.query\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
 }
 
 console.log(`✓ search input contract: ${passed} assertions passed`)

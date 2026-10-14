@@ -393,6 +393,14 @@
       "value": "クリア"
     },
     {
+      "name": "quick_search",
+      "value": "クイック検索"
+    },
+    {
+      "name": "quick_search_save",
+      "value": "検索を保存"
+    },
+    {
       "name": "filter_options",
       "value": "オプション"
     },

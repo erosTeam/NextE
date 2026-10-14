@@ -22,6 +22,9 @@ import {
   connectListMode,
   ListModeState,
   ListMode,
+  connectQuickSearch,
+  QuickSearchState,
+  QuickSearchSettings,
   connectSearchHistory,
   SearchHistoryState,
   SearchHistorySettings,
@@ -52,6 +55,7 @@ export struct GallerySearchPage {
   @Local vm: SearchViewModel = new SearchViewModel();
   @Local filter: SearchFilterState = connectSearchFilter();
   @Local listMode: ListModeState = connectListMode();
+  @Local quickSearch: QuickSearchState = connectQuickSearch();
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local showFilter: boolean = false;
@@ -176,6 +180,17 @@ export struct GallerySearchPage {
     this.runQuery(query)
   }
 
+  private saveQuickSearch(): void {
+    const q: string = this.actionState.keyword.trim()
+    if (q.length > 0) {
+      QuickSearchSettings.add(this.ctx(), q)
+    }
+  }
+
+  private clearQuickSearch(): void {
+    QuickSearchSettings.clear(this.ctx())
+  }
+
   @Monitor('filter.applySeq')
   onFilterApply(): void {
     // Persist the applied filters so they survive a restart (eros_fe keeps the advanced-search profile).
@@ -202,6 +217,74 @@ export struct GallerySearchPage {
         Row() {
           Blank()
           this.FilterTrigger()
+        }
+        .width('100%')
+        .padding({ bottom: ThemeConstants.SPACE_MD })
+      }
+
+      if (this.actionState.keyword.trim().length > 0) {
+        Row() {
+          Text($r('app.string.quick_search_save'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_emphasize'))
+            .backgroundColor($r('app.color.card_background'))
+            .borderRadius(ThemeConstants.RADIUS_ROUND)
+            .padding({
+              left: ThemeConstants.SPACE_MD,
+              right: ThemeConstants.SPACE_MD,
+              top: ThemeConstants.SPACE_XS,
+              bottom: ThemeConstants.SPACE_XS,
+            })
+            .onClick(() => {
+              this.saveQuickSearch()
+            })
+          Blank()
+        }
+        .width('100%')
+        .padding({ bottom: ThemeConstants.SPACE_MD })
+      }
+
+      if (this.quickSearch.items.length > 0) {
+        Row() {
+          Text($r('app.string.quick_search'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+          Blank()
+          Text($r('app.string.search_history_clear'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_emphasize'))
+            .onClick(() => {
+              this.clearQuickSearch()
+            })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        .padding({ bottom: ThemeConstants.SPACE_SM })
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(
+            this.quickSearch.items,
+            (q: string) => {
+              Text(q)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_primary'))
+                .backgroundColor($r('app.color.card_background'))
+                .borderRadius(ThemeConstants.RADIUS_ROUND)
+                .padding({
+                  left: ThemeConstants.SPACE_MD,
+                  right: ThemeConstants.SPACE_MD,
+                  top: ThemeConstants.SPACE_XS,
+                  bottom: ThemeConstants.SPACE_XS,
+                })
+                .margin({ right: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .constraintSize({ maxWidth: '90%' })
+                .onClick(() => {
+                  this.searchFromHistory(q)
+                })
+            },
+            (q: string) => q,
+          )
         }
         .width('100%')
         .padding({ bottom: ThemeConstants.SPACE_MD })
@@ -249,7 +332,7 @@ export struct GallerySearchPage {
             (q: string) => q,
           )
         }.width('100%')
-      } else {
+      } else if (this.quickSearch.items.length === 0) {
         Column() {
           Text($r('app.string.search_hint'))
             .fontSize(ThemeConstants.FONT_SIZE_BODY)

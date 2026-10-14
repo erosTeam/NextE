@@ -19,6 +19,7 @@ export class StorageKeys {
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
   static readonly SEARCH_HISTORY: string = 'search.history' // JSON array of recent query strings
+  static readonly QUICK_SEARCH: string = 'search.quickSearch' // JSON array of saved search queries
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters
   static readonly VIEWED_HISTORY: string = 'viewed.history' // JSON [ViewedGallery] recently-viewed, newest first
   static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/vertical

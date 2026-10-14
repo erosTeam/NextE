@@ -103,6 +103,7 @@ export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { ReadMode, ReadModeState, connectReadMode } from './state/ReadModeState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
+export { QuickSearchState, connectQuickSearch } from './state/QuickSearchState'
 export {
   GalleryReadProgressState,
   ReadProgressEntry,
@@ -144,6 +145,7 @@ export { ListModeSettings } from './settings/ListModeSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
 export { SearchHistorySettings } from './settings/SearchHistorySettings'
+export { QuickSearchSettings } from './settings/QuickSearchSettings'
 export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
