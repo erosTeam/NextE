@@ -11,6 +11,7 @@ import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
 import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
+import { SubTabStyleSettings } from './SubTabStyleSettings'
 import { ScreenOrientationSettings } from './ScreenOrientationSettings'
 import { TabletLayoutSettings } from './TabletLayoutSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
@@ -78,6 +79,7 @@ export class SettingsBootstrap {
         ThemeSettings.restore(context),
         ThemeColorSettings.restore(context),
         ImmersiveMaterialSettings.restore(context),
+        SubTabStyleSettings.restore(context),
         LanguageSettings.restore(context),
         ScreenOrientationSettings.restore(context),
         TabletLayoutSettings.restore(context),

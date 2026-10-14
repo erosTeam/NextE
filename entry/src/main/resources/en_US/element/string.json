@@ -5339,6 +5339,18 @@
     {
       "name": "settings_reader_group_implementation",
       "value": "Reader implementation"
+    },
+    {
+      "name": "settings_subtab_style",
+      "value": "Sub-tab style"
+    },
+    {
+      "name": "subtab_style_underline",
+      "value": "Underline"
+    },
+    {
+      "name": "subtab_style_capsule",
+      "value": "Capsule"
     }
   ]
 }

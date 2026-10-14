@@ -29,6 +29,7 @@ export class StorageKeys {
   static readonly BLURRING_OF_COVER_BACKGROUND: string = 'layout.blurringOfCoverBackground' // boolean: blur off-aspect cover background (else color gradient)
   static readonly ACTION_ALIGNMENT_MODE: string = 'layout.actionAlignmentMode' // floating Read button: smartGrip/followOperation/fixedLeft/fixedRight
   static readonly READ_BUTTON_STYLE: string = 'layout.readButtonStyle' // filled/hds floating Read button style
+  static readonly SUBTAB_STYLE: string = 'layout.subTabStyle' // underline/capsule
   static readonly SCREEN_ORIENTATION: string = 'layout.screenOrientation' // unspecified/autoRotationUnspecified
   static readonly TABLET_LAYOUT_MODE: string = 'layout.tabletLayoutMode' // auto/off/landscapeOnly
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark

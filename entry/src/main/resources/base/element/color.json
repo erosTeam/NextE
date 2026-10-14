@@ -65,6 +65,10 @@
       "value": "#FFFFFF"
     },
     {
+      "name": "text_on_light_accent",
+      "value": "#E6000000"
+    },
+    {
       "name": "fav_heart_default",
       "value": "#EE0000"
     },
