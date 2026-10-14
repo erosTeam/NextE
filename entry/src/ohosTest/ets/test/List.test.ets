@@ -98,6 +98,7 @@ import readerBackendSelectionTest from './ReaderBackendSelection.test'
 import nextERuntimeContinuityTest from './ReaderRuntimeContinuity.test'
 import readerLegacyEnhancementCrashTrialTest from './ReaderLegacyEnhancementCrashTrial.test' 
 import bingTranslationIntegrationTest from './BingTranslationIntegration.test'
+import publicModelDownloadIntegrationTest from './PublicModelDownloadIntegration.test'
 
 export default function testsuite(): void {
   gallerySplitTransitionTest()
@@ -200,4 +201,5 @@ export default function testsuite(): void {
   nextERuntimeContinuityTest()
   readerLegacyEnhancementCrashTrialTest() 
   bingTranslationIntegrationTest()
+  publicModelDownloadIntegrationTest()
 }
