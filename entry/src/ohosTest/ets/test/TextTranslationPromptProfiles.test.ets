@@ -337,16 +337,16 @@ export default function textTranslationPromptProfilesTest(): void {
     })
 
     it('separates the three route kinds from prompt-specific fields', 0, () => {
-      const googleOnly: string = CommentTranslationService.googleCacheScope('zh-CN', 'comment', true)
-      const googleFallback: string = CommentTranslationService.googleCacheScope('zh-CN', 'comment', false)
-      expect(googleOnly.indexOf('google-v1') >= 0).assertEqual(true)
-      expect(googleOnly.indexOf('google-fallback') >= 0).assertEqual(false)
-      expect(googleFallback.indexOf('google-fallback-v1') >= 0).assertEqual(true)
+      const googleOnly: string = CommentTranslationService.bingCacheScope('zh-CN', 'comment', true)
+      const googleFallback: string = CommentTranslationService.bingCacheScope('zh-CN', 'comment', false)
+      expect(googleOnly.indexOf('bing-v1') >= 0).assertEqual(true)
+      expect(googleOnly.indexOf('bing-fallback') >= 0).assertEqual(false)
+      expect(googleFallback.indexOf('bing-fallback-v1') >= 0).assertEqual(true)
       expect(googleFallback === googleOnly).assertEqual(false)
       expect(googleOnly.indexOf('custom-a') >= 0).assertEqual(false)
       expect(googleOnly.indexOf('pr1') >= 0).assertEqual(false)
 
-      const googleTitle: string = CommentTranslationService.googleCacheScope('zh-CN', 'gallery_title', true)
+      const googleTitle: string = CommentTranslationService.bingCacheScope('zh-CN', 'gallery_title', true)
       expect(googleOnly === googleTitle).assertEqual(false)
     })
 

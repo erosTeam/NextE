@@ -293,6 +293,7 @@ export class EhHttpClient {
     throw lastError !== null ? lastError : new Error('binary request failed')
   }
 
+  /** Public release assets opt out of EH cookies for both the axios envelope and native retries. */
   async downloadBinaryToFileInStream(
     url: string,
     filePath: string,
@@ -302,11 +303,12 @@ export class EhHttpClient {
     accept: string = IMAGE_ACCEPT,
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
+    includeEhCookies: boolean = true,
   ): Promise<number> {
     const config: AxiosRequestConfig<string> = {
       url: url,
       method: 'GET',
-      headers: EhHttpClient.binaryHeader(accept),
+      headers: EhHttpClient.binaryHeader(accept, includeEhCookies),
       connectTimeout: connectTimeoutMs,
       readTimeout: readTimeoutMs,
       timeout: readTimeoutMs,
@@ -318,6 +320,7 @@ export class EhHttpClient {
         noProgressTimeoutMs,
         accept,
         maxAttempts,
+        includeEhCookies,
       ),
     }
     const resp: AxiosResponse<number, string> =
@@ -331,6 +334,7 @@ export class EhHttpClient {
     noProgressTimeoutMs: number,
     accept: string,
     maxAttempts: number,
+    includeEhCookies: boolean,
   ): AxiosAdapter {
     const adapter: AxiosAdapter = async (
       config: InternalAxiosRequestConfig,
@@ -342,6 +346,7 @@ export class EhHttpClient {
         noProgressTimeoutMs,
         accept,
         maxAttempts,
+        includeEhCookies,
       )
       return {
         data: written,
@@ -361,6 +366,7 @@ export class EhHttpClient {
     noProgressTimeoutMs: number,
     accept: string,
     maxAttempts: number,
+    includeEhCookies: boolean,
   ): Promise<number> {
     const url: string = EhHttpClient.requiredUrl(config)
     const connectTimeoutMs: number = EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS)
@@ -372,6 +378,10 @@ export class EhHttpClient {
       const req: http.HttpRequest = http.createHttp()
       let noProgressTimer: number = -1
       let noProgressTimedOut: boolean = false
+      let rejectNoProgress: (error: Error) => void = (_error: Error): void => {}
+      const noProgressFailure: Promise<number> = new Promise<number>((_resolve, reject) => {
+        rejectNoProgress = (error: Error): void => { reject(error) }
+      })
       const clearNoProgressTimer = (): void => {
         if (noProgressTimer >= 0) {
           clearTimeout(noProgressTimer)
@@ -385,6 +395,8 @@ export class EhHttpClient {
         }
         noProgressTimer = setTimeout((): void => {
           noProgressTimedOut = true
+          // Native destroy() may defer settlement until the peer closes; end our wait immediately.
+          rejectNoProgress(new Error('binary no progress timeout'))
           req.destroy()
         }, noProgressTimeoutMs)
       }
@@ -392,7 +404,7 @@ export class EhHttpClient {
       let openedTarget: boolean = false
       let shouldDeleteFile: boolean = false
       try {
-        const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
+        const header: Record<string, string> = EhHttpClient.binaryHeader(accept, includeEhCookies)
         file = fs.openSync(
           filePath,
           fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
@@ -404,11 +416,16 @@ export class EhHttpClient {
         let lastProgressAt: number = 0
         let lastProgressLoaded: number = -1
         let lastProgressTotal: number = -1
+        let lastReceivedBytes: number = 0
         const emitProgress = (loaded: number, total: number, force: boolean = false): void => {
           if (loaded <= 0) {
             return
           }
-          clearNoProgressTimer()
+          // Only new bytes extend the stall deadline; repeated progress notifications do not.
+          if (loaded > lastReceivedBytes) {
+            lastReceivedBytes = loaded
+            armNoProgressTimer()
+          }
           const now: number = force ? 0 : Date.now()
           if (!force && now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS) {
             return
@@ -423,6 +440,9 @@ export class EhHttpClient {
         }
         armNoProgressTimer()
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
+          if (noProgressTimedOut || file === null) {
+            return
+          }
           if (info.totalSize > progressTotal) {
             progressTotal = info.totalSize
           }
@@ -432,6 +452,9 @@ export class EhHttpClient {
           emitProgress(progressLoaded, progressTotal)
         })
         req.on('dataReceive', (data: ArrayBuffer) => {
+          if (noProgressTimedOut || file === null) {
+            return
+          }
           const offset: number = written
           const len: number = fs.writeSync((file as fs.File).fd, data, { offset: offset })
           written += len
@@ -440,13 +463,16 @@ export class EhHttpClient {
           }
           emitProgress(progressLoaded, progressTotal)
         })
-        const code: number = await req.requestInStream(url, {
+        const request: Promise<number> = req.requestInStream(url, {
           method: http.RequestMethod.GET,
           header: header,
           connectTimeout: connectTimeoutMs,
           readTimeout: readTimeoutMs,
           usingCache: false,
         })
+        const code: number = noProgressTimeoutMs > 0
+          ? await Promise.race([request, noProgressFailure])
+          : await request
         if (noProgressTimedOut) {
           throw new Error('binary no progress timeout')
         }
@@ -786,13 +812,16 @@ export class EhHttpClient {
     }
   }
 
-  private static binaryHeader(accept: string): Record<string, string> {
-    return {
+  private static binaryHeader(accept: string, includeEhCookies: boolean = true): Record<string, string> {
+    const header: Record<string, string> = {
       'User-Agent': EhConstants.USER_AGENT,
       'Accept': accept,
       'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-      'Cookie': EhCookieStore.getInstance().header(),
     }
+    if (includeEhCookies) {
+      header['Cookie'] = EhCookieStore.getInstance().header()
+    }
+    return header
   }
 
   private static truncateQuietly(filePath: string, len: number): void {

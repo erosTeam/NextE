@@ -1,4 +1,10 @@
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { uiMaterial } from '@kit.ArkUI'
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { SubTabStyleSettings } from '../settings/SubTabStyleSettings'
+import { SubTabStyleState, connectSubTabStyle } from '../state/SubTabStyleState'
+import { ImmersiveMaterialSettings } from '../settings/ImmersiveMaterialSettings'
+import { ImmersiveMaterialSettingsState, connectImmersiveMaterialSettings } from '../state/ImmersiveMaterialSettingsState'
 import { SELECTOR_BAR_HEIGHT } from '../state/HomeSourceState'
 import { TabItem } from '../model/TabItem'
 import {
@@ -11,6 +17,7 @@ import {
 const INDICATOR_W: number = 18
 const TAB_GAP: number = ThemeConstants.SPACE_XS
 const BAR_PAD: number = 0
+const PILL_HEIGHT: number = 30
 // Underline baseline (V2Next FeedPills: indicator at TAB_BAR_HEIGHT - 14): the tab labels are TOP-aligned
 // with a small top padding, and the 3px indicator sits just under them — so the bar fills its height
 // tightly instead of floating a centred label with empty space above/below (which read as a tall bar).
@@ -49,6 +56,8 @@ export struct SubTabBar {
   // into the ForEach key makes a language switch rebuild + re-key the cached bar, so even the SELECTED tab's
   // $r label re-resolves (otherwise only the unselected pills, which read a signal, refresh).
   @Local language: LanguageState = connectLanguageState();
+  @Local tabStyle: SubTabStyleState = connectSubTabStyle();
+  @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   private scroller: Scroller = new Scroller();
   private containerReady: boolean = false;
   private containerGlobalLeft: number = 0;
@@ -64,6 +73,49 @@ export struct SubTabBar {
   // this cached pill subtree recolors the instant the system (or manual) theme flips.
   private themeTracked(color: ResourceColor): ResourceColor {
     return this.themeDisplay.effectiveDark ? color : color
+  }
+
+  private isCapsule(): boolean {
+    return SubTabStyleSettings.isCapsule(this.tabStyle.style)
+  }
+
+  private tabGap(): number {
+    return this.isCapsule() ? ThemeConstants.SPACE_SM : TAB_GAP
+  }
+
+  // Capsule contrast and neutral material treatment are adapted from PR #8 (91772b0e).
+  private onFillTextColor(i: number): ResourceColor {
+    const color: ResourceColor = this.tabAccentColor(i)
+    const hex: string = typeof color === 'string' ? this.normalizedHex(color) : ''
+    if (hex.length === 0) {
+      return ThemeConstants.TEXT_ON_BRAND
+    }
+    const r: number = Number.parseInt(hex.substring(1, 3), 16)
+    const g: number = Number.parseInt(hex.substring(3, 5), 16)
+    const b: number = Number.parseInt(hex.substring(5, 7), 16)
+    const luminance: number = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.6 ? ThemeConstants.TEXT_ON_LIGHT_ACCENT : ThemeConstants.TEXT_ON_BRAND
+  }
+
+  private selectedTextColor(i: number): ResourceColor {
+    return this.isCapsule() ? this.onFillTextColor(i) : this.tabAccentColor(i)
+  }
+
+  private inactiveMaterial(): uiMaterial.Material | undefined {
+    return ImmersiveMaterialSettings.systemMaterial(
+      this.immersiveMaterial.level, uiMaterial.ImmersiveStyle.ULTRA_THIN, false, false,
+    )
+  }
+
+  private tabFill(i: number): ResourceColor {
+    if (!this.isCapsule()) {
+      return Color.Transparent
+    }
+    if (this.visualSelectedIndex() === i) {
+      return this.tabAccentColor(i)
+    }
+    return deviceInfo.apiAvailable('26.0.0')
+      ? Color.Transparent : this.themeTracked($r('sys.color.ohos_id_color_button_normal'))
   }
 
   private visualSelectedIndex(): number {
@@ -85,10 +137,10 @@ export struct SubTabBar {
     if (i < this.tabLefts.length && this.tabLefts[i] >= 0) {
       return this.tabLefts[i]
     }
-    let left: number = BAR_PAD
+    let left: number = this.isCapsule() ? ThemeConstants.SPACE_MD : BAR_PAD
     for (let k = 0; k < i; k++) {
       const w: number = k < this.tabWidths.length ? this.tabWidths[k] : 0
-      left += w + TAB_GAP
+      left += w + this.tabGap()
     }
     return left
   }
@@ -242,6 +294,16 @@ export struct SubTabBar {
     this.centerSelectedTab(true, false)
   }
 
+  @Monitor('tabStyle.style')
+  onTabStyleChange(): void {
+    // A style changes measured geometry; reuse the native List and recenter after its new layout.
+    this.tabWidths = []
+    this.tabLefts = []
+    this.centeredTarget = -1
+    this.pendingCenterIndex = this.centerIndex()
+    this.pendingCenterSmooth = false
+  }
+
   private centerSelectedTab(smooth: boolean, force: boolean): void {
     const i: number = this.centerIndex()
     if (!force && i === this.centeredTarget && this.pendingCenterIndex !== i) {
@@ -287,7 +349,7 @@ export struct SubTabBar {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      List({ space: TAB_GAP, scroller: this.scroller }) {
+      List({ space: this.tabGap(), scroller: this.scroller }) {
         ForEach(
           this.tabs,
           (tab: TabItem, index: number) => {
@@ -297,7 +359,7 @@ export struct SubTabBar {
                   .fontSize(ThemeConstants.FONT_SIZE_BODY)
                   .fontColor(
                     this.visualSelectedIndex() === index
-                      ? this.tabAccentColor(index)
+                      ? this.selectedTextColor(index)
                       : this.themeTracked($r('sys.color.font_secondary')),
                   )
                   .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
@@ -307,7 +369,7 @@ export struct SubTabBar {
                     .fontSize(ThemeConstants.FONT_SIZE_TINY)
                     .fontColor(
                       this.visualSelectedIndex() === index
-                        ? this.tabAccentColor(index)
+                        ? this.selectedTextColor(index)
                         : this.themeTracked($r('sys.color.font_tertiary')),
                     )
                 }
@@ -315,8 +377,13 @@ export struct SubTabBar {
               .padding({
                 left: ThemeConstants.SPACE_MD,
                 right: ThemeConstants.SPACE_MD,
-                top: ThemeConstants.SPACE_XS,
+                top: this.isCapsule() ? 0 : ThemeConstants.SPACE_XS,
               })
+              .height(this.isCapsule() ? PILL_HEIGHT : undefined)
+              .borderRadius(this.isCapsule() ? ThemeConstants.RADIUS_ROUND : 0)
+              .clip(this.isCapsule())
+              .systemMaterial(this.isCapsule() && this.visualSelectedIndex() !== index ? this.inactiveMaterial() : undefined)
+              .backgroundColor(this.tabFill(index))
               .onClick(() => {
                 this.onSelect(index)
               })
@@ -329,6 +396,9 @@ export struct SubTabBar {
         )
       }
       .listDirection(Axis.Horizontal)
+      .alignListItem(this.isCapsule() ? ListItemAlign.Center : ListItemAlign.Start)
+      .contentStartOffset(this.isCapsule() ? ThemeConstants.SPACE_MD : 0)
+      .contentEndOffset(this.isCapsule() ? ThemeConstants.SPACE_MD : 0)
       .onDidScroll((_scrollOffset: number, _scrollState: ScrollState) => {
         this.setScrollOffsetX(this.currentScrollOffsetX())
       })
@@ -339,7 +409,9 @@ export struct SubTabBar {
       .padding({ left: BAR_PAD, right: BAR_PAD })
       .width('100%')
       .height(SELECTOR_BAR_HEIGHT)
-      this.indicatorBar()
+      if (!this.isCapsule()) {
+        this.indicatorBar()
+      }
     }
     .width('100%')
     .height(SELECTOR_BAR_HEIGHT)

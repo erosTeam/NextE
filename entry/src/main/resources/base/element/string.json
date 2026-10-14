@@ -2598,7 +2598,7 @@
     },
     {
       "name": "comment_translation_enable_hint",
-      "value": "Translate gallery comments with the selected LLM source, with Google as fallback."
+      "value": "Translate gallery comments with the selected LLM source, with the built-in online translator as fallback."
     },
     {
       "name": "comment_translation_auto",
@@ -2622,11 +2622,11 @@
     },
     {
       "name": "comment_translation_google_only",
-      "value": "Use Google Translate"
+      "value": "Use free online translation"
     },
     {
       "name": "comment_translation_google_only_hint",
-      "value": "Skip LLM and use Google directly."
+      "value": "Skip the LLM and use the built-in online translator."
     },
     {
       "name": "comment_translation_api_key_saved",
@@ -4634,7 +4634,7 @@
     },
     {
       "name": "comic_local_detector_install_failed",
-      "value": "On-device manga model download failed"
+      "value": "On-device manga model download failed: %s"
     },
     {
       "name": "comic_local_detector_remove_title",
@@ -5339,6 +5339,18 @@
     {
       "name": "settings_reader_group_implementation",
       "value": "Reader implementation"
+    },
+    {
+      "name": "settings_subtab_style",
+      "value": "页签样式"
+    },
+    {
+      "name": "subtab_style_underline",
+      "value": "下划线"
+    },
+    {
+      "name": "subtab_style_capsule",
+      "value": "胶囊"
     }
   ]
 }
