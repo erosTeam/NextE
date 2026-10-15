@@ -1728,7 +1728,9 @@ export struct GalleryDetailPage {
     if (this.fullPreviewMustReset || this.params.gid.length === 0 || this.vm.images.length === 0) {
       return
     }
-    this.fullPreviewVm.syncDetailFirstPage(this.allThumbnailsParams(0, false), true)
+    // Opening a reader must retain the mounted thumbnail and its source handle.
+    // Actual detail updates are reconciled by onDetailPreviewSeedChanged.
+    this.fullPreviewVm.seed(this.allThumbnailsParams(0, false))
   }
 
   private openThumbnails(initialImagePage: number = 0): void {

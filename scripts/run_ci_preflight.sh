@@ -26,6 +26,7 @@ run_severe() {
   node scripts/test_public_clipboard_build_contract.mjs
   node scripts/test_local_only_incident_boundary_contract.mjs
   node scripts/test_shared_reader_reverse_contract.mjs
+  node --test scripts/test_reader_system_entry_window_runtime.mjs
 }
 
 case "${1:-all}" in

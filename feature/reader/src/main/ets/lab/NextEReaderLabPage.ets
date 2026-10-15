@@ -46,6 +46,10 @@ import {
 import { NextEReaderHostRequest } from './NextEReaderHostRequest'
 import { NextEReaderSourcePreloadHost } from './NextEReaderSourcePreloadHost'
 
+// Match ReaderPage and NextN's source-window protection for a system entry.
+// A custom thumbnail entry still uses its root proxy's actual handoff.
+const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
+
 class NextERootEntryHandoffHost implements ReaderRootEntryHandoffHost {
   private authorize: (entry: ReaderEntryTransition) => boolean
   private setTarget: (target: ReaderEntryTarget) => boolean
@@ -112,6 +116,8 @@ export struct NextEReaderLabPage {
   @Local private readMode: ReadModeState = connectReadMode()
   @Local private themeDisplay: ThemeDisplayState = connectThemeDisplay()
   @Local private routeActive: boolean = false
+  @Local private systemEntryWindowReady: boolean = false
+  private systemEntryWindowTimer: number = -1
   @Local private safeArea: LayoutSafeAreaState = connectLayoutSafeArea()
   private unitKey: ReaderUnitKey = new ReaderUnitKey('', '', '')
   private trialWindow: ReaderTrialWindow = new ReaderTrialWindow(null, (): boolean => this.labRequest !== null || readerSourceStatusBarVisible(),
@@ -963,6 +969,7 @@ export struct NextEReaderLabPage {
 
   aboutToDisappear(): void {
     this.volumeDisposed = true
+    this.clearSystemEntryWindowPresentation()
     this.translationAutoEnabled = false
     this.translationBusyPage = -1
     if (this.enhancementInteractionTimer >= 0) clearTimeout(this.enhancementInteractionTimer)
@@ -977,18 +984,40 @@ export struct NextEReaderLabPage {
     if (this.managesTrialWindow) this.trialWindow.close()
   }
 
+  private scheduleSystemEntryWindowPresentation(): void {
+    this.clearSystemEntryWindowPresentation()
+    this.systemEntryWindowReady = !this.readMode.fullscreen
+    if (this.systemEntryWindowReady) return
+    this.systemEntryWindowTimer = setTimeout((): void => {
+      this.systemEntryWindowTimer = -1
+      if (!this.routeActive || this.volumeDisposed || this.closeRequested || this.hostClosing ||
+        !this.labVisibility.foreground) return
+      this.systemEntryWindowReady = true
+    }, READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS)
+  }
+
+  private clearSystemEntryWindowPresentation(): void {
+    if (this.systemEntryWindowTimer >= 0) clearTimeout(this.systemEntryWindowTimer)
+    this.systemEntryWindowTimer = -1
+    this.systemEntryWindowReady = false
+  }
+
   private rootWindowPresentationSettled(): boolean {
     if (this.volumeDisposed || this.closeRequested || this.hostClosing ||
       !this.routeActive || !this.labVisibility.foreground) return false
     const root = this.readerThumbnailTransition
-    return root.galleryId !== this.request.work || !root.active() || root.presentationSettledFor(this.request.work)
+    if (root.galleryId === this.request.work && root.active()) {
+      return root.presentationSettledFor(this.request.work)
+    }
+    return this.systemEntryWindowReady
   }
 
   private entryWindowReady(): boolean {
     return readerEntryWindowReady(this.entryTransition, this.rootWindowPresentationSettled())
   }
 
-  @Monitor('entryPhase', 'readerThumbnailTransition.presentationEpoch', 'routeActive', 'labVisibility.foreground')
+  @Monitor('entryPhase', 'readerThumbnailTransition.presentationEpoch', 'routeActive', 'labVisibility.foreground',
+    'systemEntryWindowReady')
   private replayEntryWindowPresentation(): void {
     if (!this.routeActive || !this.entryWindowReady() || !this.request.readingChrome) return
     if (this.managesTrialWindow) {
@@ -1027,6 +1056,7 @@ export struct NextEReaderLabPage {
   private closeTrial(initializationFailed: boolean = false, suppliedContext: ReaderCloseContext | null = null): void {
     if (this.closeRequested) return
     this.closeRequested = true
+    this.clearSystemEntryWindowPresentation()
     const context: ReaderCloseContext | null = suppliedContext ?? (initializationFailed || this.session === null
       ? null : ReaderCloseContext.from(this.session.snapshot()))
     const image: EhGalleryImage | null = context === null ? null : this.adapter?.transitionImage(context.part.pageKey) ?? null
@@ -1202,8 +1232,16 @@ export struct NextEReaderLabPage {
       this.closeTrial()
       return true
     })
-    .onShown((): void => { this.routeActive = true; this.onShown() })
-    .onHidden((): void => { this.routeActive = false })
-    .onDisAppear((): void => { this.routeActive = false; this.onDisappeared() })
+    .onShown((): void => {
+      this.scheduleSystemEntryWindowPresentation()
+      this.routeActive = true
+      this.onShown()
+    })
+    .onHidden((): void => { this.routeActive = false; this.clearSystemEntryWindowPresentation() })
+    .onDisAppear((): void => {
+      this.routeActive = false
+      this.clearSystemEntryWindowPresentation()
+      this.onDisappeared()
+    })
   }
 }

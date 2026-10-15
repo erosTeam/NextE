@@ -11,6 +11,7 @@ import {
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { ReaderTrialEntryRelay, ReaderTrialEntrySource } from './ReaderTrialEntryRelay'
 
+const READER_THUMBNAIL_FLIGHT_DURATION_MS: number = 300
 const READER_OPEN_CONTENT_HANDOFF_FRACTION: number = 0.22
 const READER_CLOSE_TARGET_HANDOFF_START: number = 0.55
 const READER_CLOSE_TARGET_HANDOFF_END: number = 0.90
@@ -516,7 +517,7 @@ export class ReaderThumbnailTransitionCoordinator {
         return
       }
       uiContext.animateTo({
-        duration: ThemeConstants.ANIM_DURATION,
+        duration: READER_THUMBNAIL_FLIGHT_DURATION_MS,
         curve: Curve.Friction,
         onFinish: () => {
           if (!transition.opening()) {
@@ -604,7 +605,7 @@ export class ReaderThumbnailTransitionCoordinator {
         return
       }
       uiContext.animateTo({
-        duration: ThemeConstants.ANIM_DURATION,
+        duration: READER_THUMBNAIL_FLIGHT_DURATION_MS,
         curve: Curve.Friction,
         onFinish: () => {
           if (!transition.openingReverse()) {
@@ -809,7 +810,7 @@ export class ReaderThumbnailTransitionCoordinator {
         }
         DiagnosticLogger.info('reader-transition', 'close_proxy_prepared', `index=${currentIndex}`)
         uiContext.animateTo({
-          duration: ThemeConstants.ANIM_DURATION,
+          duration: READER_THUMBNAIL_FLIGHT_DURATION_MS,
           curve: Curve.Friction,
           onFinish: () => {
             DiagnosticLogger.info('reader-transition', 'close_finished', `index=${currentIndex}`)
@@ -831,8 +832,8 @@ export class ReaderThumbnailTransitionCoordinator {
         })
         if (closeTargetSnapshot !== undefined) {
           uiContext.animateTo({
-            delay: ThemeConstants.ANIM_DURATION * READER_CLOSE_TARGET_HANDOFF_START,
-            duration: ThemeConstants.ANIM_DURATION * (
+            delay: READER_THUMBNAIL_FLIGHT_DURATION_MS * READER_CLOSE_TARGET_HANDOFF_START,
+            duration: READER_THUMBNAIL_FLIGHT_DURATION_MS * (
               READER_CLOSE_TARGET_HANDOFF_END - READER_CLOSE_TARGET_HANDOFF_START
             ),
             curve: Curve.EaseInOut,
