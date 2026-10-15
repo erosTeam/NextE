@@ -1969,6 +1969,10 @@ export struct GalleryDetailPage {
       ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart')
   }
 
+  private favoriteFabIconWeight(): number {
+    return this.vm.gallery.favcat.length > 0 || this.isLocalFavorite() ? 400 : 600
+  }
+
   private favoriteFabColor(): ResourceColor {
     if (this.vm.gallery.favcat.length > 0) {
       return EhConstants.favCatColor(this.vm.gallery.favcat)
@@ -2845,6 +2849,7 @@ export struct GalleryDetailPage {
           Row() {
             AppIconButton({
               icon: this.favoriteFabIcon(),
+              iconWeight: this.favoriteFabIconWeight(),
               label: $r('app.string.detail_favorite'),
               buttonSize: ThemeConstants.BUTTON_HEIGHT,
               iconSize: ThemeConstants.SYMBOL_SIZE_ROW,
@@ -2867,6 +2872,7 @@ export struct GalleryDetailPage {
     } else {
       AppIconButton({
         icon: this.favoriteFabIcon(),
+        iconWeight: this.favoriteFabIconWeight(),
         label: $r('app.string.detail_favorite'),
         buttonSize: ThemeConstants.BUTTON_HEIGHT,
         iconSize: ThemeConstants.SYMBOL_SIZE_ROW,

@@ -15,7 +15,6 @@ import {
   ConciseListRow,
   InlineEditRow,
   AppModalScaffold,
-  AppIconButton,
   AppColorPicker,
   PageErrorState,
   UserTagStore,
@@ -1054,23 +1053,25 @@ export struct GalleryTagsCard {
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            Text(this.selectedTagKey())
-              .fontSize(ThemeConstants.FONT_SIZE_META)
-              .fontColor($r('sys.color.font_secondary'))
-              .layoutWeight(1)
-            AppIconButton({
-              icon: $r('sys.symbol.doc_text_on_doc_text'),
-              label: $r('app.string.tag_info_copy'),
-              buttonSize: TAG_INFO_ACTION_SIZE,
-              iconSize: ThemeConstants.SYMBOL_SIZE_ACTION,
-              action: () => { this.copySelectedTag() },
-            })
-          }.width('100%')
+          Text(this.selectedTagKey())
+            .fontSize(ThemeConstants.FONT_SIZE_META)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
         }
         .layoutWeight(1)
 
         Row({ space: ThemeConstants.SPACE_XS }) {
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.doc_text_on_doc_text'))
+              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+              .fontColor([$r('sys.color.font_secondary')])
+          }
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .width(TAG_INFO_ACTION_SIZE)
+          .height(TAG_INFO_ACTION_SIZE)
+          .enabled(this.selectedTagKey().length > 0)
+          .accessibilityText($r('app.string.tag_info_copy'))
+          .onClick(() => { this.copySelectedTag() })
           // Single thumbs-up / thumbs-down toggles, tinted when this is the user's current vote; tapping
           // the active one withdraws. EH's returned state (parsed in submitTagVote) is the source of
           // truth, so the state needs no separate "已赞成/已反对" label.

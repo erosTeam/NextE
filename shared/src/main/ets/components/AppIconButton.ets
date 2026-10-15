@@ -7,6 +7,7 @@ export struct AppIconButton {
   @Param label: Resource = $r('app.string.common_delete');
   @Param buttonSize: number = 44;
   @Param iconSize: number = ThemeConstants.FONT_SIZE_TITLE;
+  @Param iconWeight: number = 400;
   @Param tint: ResourceColor = $r('sys.color.font_secondary');
   @Param loadingTint: ResourceColor = ThemeConstants.BRAND_PRIMARY;
   @Param buttonBackgroundColor: ResourceColor = Color.Transparent;
@@ -26,6 +27,7 @@ export struct AppIconButton {
       } else {
         SymbolGlyph(this.icon)
           .fontSize(this.iconSize)
+          .fontWeight(this.iconWeight)
           .fontColor([this.tint])
       }
     }
