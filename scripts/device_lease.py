@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Advisory device lease helper for agent-driven real-device validation.
-
-This intentionally does NOT wrap or block a human's direct hdc usage. It is a
-cooperation mechanism for Hermes/Codex/Claude agents so that automated tasks do
-not fight over the single development device.
-"""
+"""Device lease and checked-protocol gate for NextE device validation."""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +16,35 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-LEASE_ROOT = Path(os.environ.get("NEXTE_DEVICE_LEASE_DIR", Path.home() / ".hermes" / "device-leases"))
+
+LEASE_ROOT = Path(
+    os.environ.get(
+        "HARMONY_DEVICE_LEASE_DIR",
+        os.environ.get("NEXTE_DEVICE_LEASE_DIR", Path.home() / ".hermes" / "device-leases"),
+    )
+)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CHECKED_PROTOCOL_RUNNER = (
+    Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    / "skills"
+    / "harmony-run-device-diagnostics"
+    / "scripts"
+    / "run_device_protocol.py"
+).resolve()
+CHECKED_RECORDING_RUNNER = (
+    Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    / "skills"
+    / "harmony-run-device-diagnostics"
+    / "scripts"
+    / "capture_transition_recording.mjs"
+).resolve()
+
+
+DIRECT_HDC_TRANSPORT_COMMANDS = {"tconn"}
+DIRECT_HDC_SHELL_PROBES = {
+    ("echo", "ok"),
+    ("param", "get", "bootevent.boot.completed"),
+}
 
 
 def utc_now() -> dt.datetime:
@@ -41,8 +64,8 @@ def parse_ttl(value: str) -> int:
     return int(raw)
 
 
-def iso(ts: dt.datetime) -> str:
-    return ts.astimezone().isoformat(timespec="seconds")
+def iso(timestamp: dt.datetime) -> str:
+    return timestamp.astimezone().isoformat(timespec="seconds")
 
 
 def parse_iso(value: str) -> dt.datetime:
@@ -66,13 +89,6 @@ def process_exists(pid: int) -> bool:
 
 
 def stale_reason(data: dict[str, Any] | None) -> str | None:
-    """Return why a lease is stale before TTL expiry, if known.
-
-    Backward compatibility note: historical leases store ``pid`` as the short-lived
-    acquire command's PID. That PID is intentionally *not* treated as holder
-    liveness. Only explicit holder_pid process-bound leases can become stale
-    before TTL expiry.
-    """
     if not data or data.get("status") != "active":
         return None
     try:
@@ -109,27 +125,23 @@ def load_lease(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+        with path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
         return data if isinstance(data, dict) else None
     except Exception:
         return None
 
 
 def save_lease(path: Path, data: dict[str, Any]) -> None:
-    tmp = path.with_suffix(".json.tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
-        f.write("\n")
-    tmp.replace(path)
+    temporary_path = path.with_suffix(".json.tmp")
+    with temporary_path.open("w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2, sort_keys=True)
+        file.write("\n")
+    temporary_path.replace(path)
 
 
 def is_active(data: dict[str, Any] | None) -> bool:
-    if not data:
-        return False
-    if data.get("status") != "active":
-        return False
-    if stale_reason(data):
+    if not data or data.get("status") != "active" or stale_reason(data):
         return False
     try:
         return parse_iso(str(data["expires_at"])) > utc_now()
@@ -150,11 +162,9 @@ def render(data: dict[str, Any] | None) -> str:
         state = " (expired)"
     holder_pid = data.get("holder_pid")
     holder_host = data.get("holder_host")
-    if holder_pid is None:
-        liveness = "TTL-only / not process-bound"
-    else:
-        holder_host_text = holder_host or data.get("host") or "unknown-host"
-        liveness = f"process-bound holder_pid={holder_pid} holder_host={holder_host_text}"
+    liveness = "TTL-only / not process-bound" if holder_pid is None else (
+        f"process-bound holder_pid={holder_pid} holder_host={holder_host or data.get('host') or 'unknown-host'}"
+    )
     fields = [
         f"lease_id: {data.get('lease_id')}{state}",
         f"device: {data.get('device')}",
@@ -171,29 +181,29 @@ def render(data: dict[str, Any] | None) -> str:
     return "\n".join(fields)
 
 
-def with_lock(device: str):
+def with_lock(device: str) -> tuple[Path, Any]:
     lease_path, lock_path = paths(device)
-    lock_f = lock_path.open("a+", encoding="utf-8")
-    fcntl.flock(lock_f, fcntl.LOCK_EX)
-    return lease_path, lock_f
+    lock_file = lock_path.open("a+", encoding="utf-8")
+    fcntl.flock(lock_file, fcntl.LOCK_EX)
+    return lease_path, lock_file
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    lease_path, lock_f = with_lock(args.device)
+    lease_path, lock_file = with_lock(args.device)
     try:
         data = load_lease(lease_path)
         if args.json:
             print(json.dumps(data or {}, ensure_ascii=False, indent=2, sort_keys=True))
         else:
-            print(render(data if is_active(data) else data))
+            print(render(data))
         return 0 if is_active(data) else 1
     finally:
-        fcntl.flock(lock_f, fcntl.LOCK_UN)
-        lock_f.close()
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        lock_file.close()
 
 
 def cmd_acquire(args: argparse.Namespace) -> int:
-    lease_path, lock_f = with_lock(args.device)
+    lease_path, lock_file = with_lock(args.device)
     try:
         existing = load_lease(lease_path)
         if is_active(existing) and not args.force:
@@ -202,7 +212,7 @@ def cmd_acquire(args: argparse.Namespace) -> int:
             return 2
         now = utc_now()
         lease_id = f"{now.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
-        data = {
+        data: dict[str, Any] = {
             "device": args.device,
             "lease_id": lease_id,
             "owner": args.owner,
@@ -227,12 +237,12 @@ def cmd_acquire(args: argparse.Namespace) -> int:
         print(lease_id)
         return 0
     finally:
-        fcntl.flock(lock_f, fcntl.LOCK_UN)
-        lock_f.close()
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        lock_file.close()
 
 
 def cmd_renew(args: argparse.Namespace) -> int:
-    lease_path, lock_f = with_lock(args.device)
+    lease_path, lock_file = with_lock(args.device)
     try:
         data = load_lease(lease_path)
         if not is_active(data) or data.get("lease_id") != args.lease:
@@ -245,12 +255,12 @@ def cmd_renew(args: argparse.Namespace) -> int:
         print(render(data))
         return 0
     finally:
-        fcntl.flock(lock_f, fcntl.LOCK_UN)
-        lock_f.close()
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        lock_file.close()
 
 
 def cmd_release(args: argparse.Namespace) -> int:
-    lease_path, lock_f = with_lock(args.device)
+    lease_path, lock_file = with_lock(args.device)
     try:
         data = load_lease(lease_path)
         if not data:
@@ -264,14 +274,14 @@ def cmd_release(args: argparse.Namespace) -> int:
         save_lease(lease_path, data)
         return 0
     finally:
-        fcntl.flock(lock_f, fcntl.LOCK_UN)
-        lock_f.close()
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        lock_file.close()
 
 
 def wait_for_lease(args: argparse.Namespace) -> dict[str, Any] | None:
     deadline = time.time() + args.wait
     while True:
-        lease_path, lock_f = with_lock(args.device)
+        lease_path, lock_file = with_lock(args.device)
         try:
             data = load_lease(lease_path)
             if is_active(data) and data.get("lease_id") == args.lease:
@@ -281,64 +291,154 @@ def wait_for_lease(args: argparse.Namespace) -> dict[str, Any] | None:
                 print(render(data), file=sys.stderr)
                 return None
         finally:
-            fcntl.flock(lock_f, fcntl.LOCK_UN)
-            lock_f.close()
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
         time.sleep(1)
+
+
+def direct_device_protocol_violation(
+    command: list[str], expected_device: str | None = None
+) -> str | None:
+    """Reject lease-wrapped shortcuts around the manifest protocol runner."""
+    if not command:
+        return None
+    executable = Path(command[0]).name
+    if executable.startswith("python"):
+        if len(command) != 3 or Path(command[1]).resolve() != CHECKED_PROTOCOL_RUNNER:
+            return "Python device commands must use the checked run_device_protocol.py invocation"
+        manifest = Path(command[2]).resolve()
+        try:
+            manifest.relative_to(PROJECT_ROOT)
+        except ValueError:
+            return "device protocol manifest must be project-owned"
+        try:
+            manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+            manifest_target = str(manifest_payload["target"])
+            manifest_authorized_target = manifest_payload.get("authorizedTarget")
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return "device protocol manifest must be readable JSON with a target"
+        if expected_device and manifest_target != expected_device:
+            return "device protocol manifest target must match the active lease target"
+        if (
+            manifest_authorized_target is not None
+            and str(manifest_authorized_target) != manifest_target
+        ):
+            return "device protocol manifest target must match its authorized target"
+        return None
+    if executable == "node":
+        if len(command) != 3 or Path(command[1]).resolve() != CHECKED_RECORDING_RUNNER:
+            return "Node device commands must use the checked capture_transition_recording.mjs invocation"
+        manifest = Path(command[2]).resolve()
+        try:
+            manifest.relative_to(PROJECT_ROOT)
+        except ValueError:
+            return "transition recording manifest must be project-owned"
+        try:
+            manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+            manifest_target = str(manifest_payload["target"])
+            manifest_authorized_target = manifest_payload.get("authorizedTarget")
+            recording_file_name = str(manifest_payload["recordingFileName"])
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return "transition recording manifest must be readable JSON with target and recordingFileName"
+        if not recording_file_name.endswith(".mp4"):
+            return "transition recording manifest must declare an mp4 recordingFileName"
+        if expected_device and manifest_target != expected_device:
+            return "transition recording manifest target must match the active lease target"
+        if (
+            manifest_authorized_target is not None
+            and str(manifest_authorized_target) != manifest_target
+        ):
+            return "transition recording manifest target must match its authorized target"
+        return None
+    if executable in {"sh", "bash", "zsh", "env"}:
+        return "shell or environment wrappers are not permitted for device commands"
+    if executable != "hdc":
+        return "lease run accepts only the checked protocol runner or explicit transport probes"
+
+    argv = list(command[1:])
+    command_target: str | None = None
+    if argv[:1] == ["-t"] and len(argv) >= 3:
+        command_target = argv[1]
+        argv = argv[2:]
+    if not argv:
+        return "direct HDC invocation has no permitted transport operation"
+    if argv[0] in DIRECT_HDC_TRANSPORT_COMMANDS:
+        if len(argv) != 2 or (expected_device and argv[1] != expected_device):
+            return "HDC reconnect target must match the active lease target"
+        return None
+    if argv[:2] == ["list", "targets"] and command_target is None:
+        return None
+    if command_target is None:
+        return "device-specific HDC probes require an explicit -t target"
+    if expected_device and command_target != expected_device:
+        return "HDC target must match the active lease target"
+    if argv[:2] == ["file", "recv"]:
+        return None
+    if argv[0] == "shell":
+        shell_argv = tuple(argv[1:])
+        if shell_argv in DIRECT_HDC_SHELL_PROBES:
+            return None
+    return "stateful or evidentiary HDC commands must run through a checked device-protocol manifest"
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     if not args.command:
         print("device lease run requires a command after --", file=sys.stderr)
         return 2
+    violation = direct_device_protocol_violation(args.command, args.device)
+    if violation:
+        print(f"device lease run denied: {violation}", file=sys.stderr)
+        print(
+            "use scripts/run-device-protocol --device <target> --lease <lease> <manifest.json>",
+            file=sys.stderr,
+        )
+        return 2
     if not wait_for_lease(args):
         return 2
     if args.print_command:
-        print("+ " + " ".join(shlex.quote(x) for x in args.command), file=sys.stderr)
-    return subprocess.call(args.command)
+        print("+ " + " ".join(shlex.quote(part) for part in args.command), file=sys.stderr)
+    # HDC may auto-start its host server; detach the client from a short-lived exec group.
+    return subprocess.call(
+        args.command, start_new_session=Path(args.command[0]).name == "hdc"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Advisory real-device lease helper for NextE agent tasks")
-    parser.add_argument(
-        "--device",
-        required=True,
-        help="explicit user-authorized device target; this helper intentionally has no default",
+    parser = argparse.ArgumentParser(
+        description="Real-device lease and checked protocol gate for NextE agent tasks"
     )
+    parser.add_argument("--device", required=True, help="explicit user-authorized device target; no default")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("status")
-    p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_status)
+    status = sub.add_parser("status")
+    status.add_argument("--json", action="store_true")
+    status.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("acquire")
-    p.add_argument("--owner", required=True, help="agent/task owner, e.g. codex:v2next-ui")
-    p.add_argument("--project", default="NextE")
-    p.add_argument("--reason", default="agent device validation")
-    p.add_argument("--ttl", default="30m")
-    p.add_argument(
-        "--holder-pid",
-        type=int,
-        help="optional long-running local process PID that holds the lease; if it exits, the lease is stale before TTL",
-    )
-    p.add_argument("--force", action="store_true", help="manual/user-approved override only")
-    p.set_defaults(func=cmd_acquire)
+    acquire = sub.add_parser("acquire")
+    acquire.add_argument("--owner", required=True)
+    acquire.add_argument("--project", default="NextE")
+    acquire.add_argument("--reason", default="agent device validation")
+    acquire.add_argument("--ttl", default="30m")
+    acquire.add_argument("--holder-pid", type=int)
+    acquire.add_argument("--force", action="store_true", help="manual/user-approved override only")
+    acquire.set_defaults(func=cmd_acquire)
 
-    p = sub.add_parser("renew")
-    p.add_argument("--lease", required=True)
-    p.add_argument("--ttl", default="30m")
-    p.set_defaults(func=cmd_renew)
+    renew = sub.add_parser("renew")
+    renew.add_argument("--lease", required=True)
+    renew.add_argument("--ttl", default="30m")
+    renew.set_defaults(func=cmd_renew)
 
-    p = sub.add_parser("release")
-    p.add_argument("--lease", required=True)
-    p.add_argument("--force", action="store_true")
-    p.set_defaults(func=cmd_release)
+    release = sub.add_parser("release")
+    release.add_argument("--lease", required=True)
+    release.add_argument("--force", action="store_true")
+    release.set_defaults(func=cmd_release)
 
-    p = sub.add_parser("run")
-    p.add_argument("--lease", required=True)
-    p.add_argument("--wait", type=int, default=0, help="seconds to wait for matching active lease")
-    p.add_argument("--print-command", action="store_true")
-    p.add_argument("command", nargs=argparse.REMAINDER)
-    p.set_defaults(func=cmd_run)
+    run = sub.add_parser("run")
+    run.add_argument("--lease", required=True)
+    run.add_argument("--wait", type=int, default=0)
+    run.add_argument("--print-command", action="store_true")
+    run.add_argument("command", nargs=argparse.REMAINDER)
+    run.set_defaults(func=cmd_run)
     return parser
 
 

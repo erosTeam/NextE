@@ -5,19 +5,29 @@
 This is the repository entrypoint. Keep durable rules here; put platform, product, device and build
 details in the linked guides. The current user request is the only source of scope or authorization.
 
-## Before acting
+## 每次开始
 
-1. Read [always-loaded rules](docs/agent-guides/always-loaded-rules.md).
-2. Read the guide for the work: [HarmonyOS](docs/agent-guides/harmonyos-default.md),
-   [local development](docs/agent-guides/local-development.md), [product work](docs/agent-guides/product-work.md),
-   [architecture](docs/architecture.md), [manga translation](docs/manga-translation-design.md),
-   [EH integration](docs/eh-integration-contract.md), or [planning](docs/roadmap.md) /
-   [plan lifecycle](docs/plans/README.md).
-3. Read the applicable skill before using its workflow. Check current source, scripts, worktree state and
-   fresh evidence; do not treat plans, handoffs, artifacts or archived documents as current facts.
-4. Before editing an existing behavior, query [rejected approaches](docs/agent-guides/rejected-approaches.md)
-   with the affected file and symbol names. A matching `REJECTED` entry must not be reintroduced unless
-   the current user explicitly reopens it after reviewing its recorded failure.
+- 先读 [始终生效规则](docs/agent-guides/always-loaded-rules.md)，再进行计划、修改、验证、派工或汇报。
+- 用户最新明确要求优先；旧计划、摘要、记忆、租约和自动唤醒不产生新任务或授权。
+- 查看当前源码、脚本、工作区与新鲜证据；计划、交接、产物和归档文档都不是当前事实。
+- 修改已有行为前，用文件名和符号查询 [已拒绝方案](docs/agent-guides/rejected-approaches.md)；匹配的 `REJECTED` 条目禁止恢复，除非用户审阅失败证据后明确重新允许。
+
+## 按工作读取
+
+技能绑定是强制的：下表把每类工作钉死到具体技能与文档。压缩或从摘要恢复后，必须按表重读对应技能，
+不得凭摘要里的操作模式跳过技能。
+
+| 工作 | 必读 |
+| --- | --- |
+| HarmonyOS 源码、构建 | `harmony-mandatory-preflight` 和 `harmony-next` 技能，以及 [平台约束](docs/agent-guides/harmonyos-default.md) |
+| 设备、截图、日志、UI 操作 | 另读 `harmony-run-device-diagnostics` 技能和 [设备协议](docs/device-lease.md) |
+| 本地构建、签名、依赖 | [本地开发](docs/agent-guides/local-development.md) |
+| 产品语义、验收 | [产品规则](docs/agent-guides/product-work.md) |
+| 共享 Reader | [共同职责](third_party/reader-kit/README.md#consumer-contract) |
+| EH 集成、Cookie、远端写入 | [EH 契约](docs/eh-integration-contract.md) |
+| 漫画翻译 | [漫画翻译设计](docs/manga-translation-design.md) |
+| 架构、模块边界 | [架构](docs/architecture.md) |
+| 规划、计划生命周期 | [路线图](docs/roadmap.md) / [计划生命周期](docs/plans/README.md) |
 
 ## Hard stops
 
@@ -40,6 +50,8 @@ shorthand against the current `Connected` output of `hdc list targets -v`; conti
 never infer a target from history, artifacts or another task. Before installation, launch, input, screenshot,
 layout, foreground inspection or logs, acquire the resolved target's lease with
 `scripts/device-lease --device <target> ...`; follow [device lease](docs/device-lease.md).
+
+Every HDC command must run in the host environment outside the sandbox: sandboxed network restrictions make HDC report `Connect server failed`, empty output, or ping timeouts, none of which proves the device is offline. Never report a device as offline or disconnected from a sandboxed failure alone.
 
 ### Pushes
 

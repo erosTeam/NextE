@@ -22,7 +22,15 @@ def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: validate_device_protocol_result.py <manifest.json>")
     manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    metadata_path = Path(manifest["artifactDir"]) / "run-metadata.json"
+    base_dir = Path(manifest["artifactDir"])
+    run_id = manifest.get("runId")
+    if run_id is not None:
+        if (not isinstance(run_id, str)
+                or re.fullmatch(r"[A-Za-z0-9._-]+", run_id) is None
+                or run_id in {".", ".."}):
+            fail("invalid runId directory name")
+        base_dir = base_dir / run_id
+    metadata_path = base_dir / "run-metadata.json"
     if not metadata_path.is_file():
         fail(f"missing metadata: {metadata_path}")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))

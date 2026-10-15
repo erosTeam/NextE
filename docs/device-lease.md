@@ -69,6 +69,10 @@ manifest 必须按动作顺序记录源状态和目标状态；目录中的状�
 `hdc list targets -v` 只用于发现和解析，不改变设备状态，不需要 lease。它不能在用户未选择设备
 时充当自动选设备机制。
 
+## 执行环境：HDC 一律在沙盒外
+
+所有 HDC 命令（list targets、tconn、install、aa、uitest、hilog、file recv 等）必须在沙盒外的宿主环境执行。沙盒的网络限制会让 HDC 报 Connect server failed、ping 超时或空输出，这都不是设备离线证据。报告设备离线或断开之前，必须先确认该命令已在沙盒外执行过；仅在沙盒内失败不得据此下结论。
+
 ## 工具
 
 ```bash
@@ -118,6 +122,18 @@ scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 安装、启动、输入、唤醒/超时、截图/layout/日志不因已有 lease 就允许绕过 manifest。
 一个已知用户操作链保持连续，原始输入 manifest 与证据同存于忽略产物目录；不按每次点击
 追加受版本控制的运行记录。租约和示例地址均不构成目标选择或用户授权。
+
+同一任务的设备操作复用一份源 manifest：普通导航、重试、用户纠正和压缩恢复都在原文件中更新
+动作与当前检查点，不为每次点击或取证另建源文件。只有验证目的、前置状态和验收条件需要独立
+复用时才拆出另一个场景；创建前先查当前任务已有文件。
+
+`artifactDir` 固定为场景目录，`runId` 将当次证据写入 `<scenario>/<run-id>`。需要新建的是运行
+证据目录，源 manifest 可以反复读取；runner 拒绝覆盖已有证据不代表必须复制一份输入文件。
+runner 自动保存的 `protocol-manifest.json` / `recording-manifest.json` 是当次证据快照，不能拿它们
+继续派生一串新输入。统计时区分源文件与运行快照，不把二者混算成独立场景。
+
+源 manifest 和运行快照均留在忽略产物目录，不提交。清理重复 manifest 不授权按日期删除截图、
+录像、trace 或其他历史证据；证据清理必须另有明确范围。
 
 ## 哪些命令需要 lease
 

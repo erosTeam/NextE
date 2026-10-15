@@ -76,7 +76,12 @@ try {
   const denied = run(leaseShim, ['--device', target, 'acquire', '--owner', 'contract:other', '--ttl', '30s'], { NEXTE_DEVICE_LEASE_DIR: tmpLeaseRoot })
   ok(denied.status === 2 && denied.stderr.includes('device lease denied'), 'second acquire is denied while lease active')
 
-  const wrapped = run(leaseShim, ['--device', target, 'run', '--lease', leaseId, '--', 'python3', '-c', 'print("wrapped-ok")'], { NEXTE_DEVICE_LEASE_DIR: tmpLeaseRoot })
+  const deniedPython = run(leaseShim, ['--device', target, 'run', '--lease', leaseId, '--', 'python3', '-c', 'print("wrapped-ok")'], { NEXTE_DEVICE_LEASE_DIR: tmpLeaseRoot })
+  ok(deniedPython.status === 2 && deniedPython.stderr.includes('checked run_device_protocol.py'), 'arbitrary Python cannot bypass the checked device protocol')
+
+  const fakeHdc = path.join(tmpLeaseRoot, 'hdc')
+  fs.writeFileSync(fakeHdc, '#!/bin/sh\nprintf "wrapped-ok\\n"\n', { mode: 0o700 })
+  const wrapped = run(leaseShim, ['--device', target, 'run', '--lease', leaseId, '--', fakeHdc, '-t', target, 'shell', 'echo', 'ok'], { NEXTE_DEVICE_LEASE_DIR: tmpLeaseRoot })
   ok(wrapped.status === 0 && wrapped.stdout.trim() === 'wrapped-ok', 'run executes command under lease')
 
   const release = run(leaseShim, ['--device', target, 'release', '--lease', leaseId], { NEXTE_DEVICE_LEASE_DIR: tmpLeaseRoot })
