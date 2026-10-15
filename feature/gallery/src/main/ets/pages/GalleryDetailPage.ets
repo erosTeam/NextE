@@ -1970,7 +1970,7 @@ export struct GalleryDetailPage {
   }
 
   private favoriteFabIconWeight(): number {
-    return this.vm.gallery.favcat.length > 0 || this.isLocalFavorite() ? 400 : 600
+    return this.vm.gallery.favcat.length > 0 || this.isLocalFavorite() ? 400 : 500
   }
 
   private favoriteFabColor(): ResourceColor {
