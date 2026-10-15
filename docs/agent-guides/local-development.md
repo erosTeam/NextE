@@ -75,7 +75,12 @@ node scripts/test_version_consistency_contract.mjs
 该契约存在的直接原因：2026-10-15 发版只改了 app.json5，release 产物名和正文全部退回旧版本；
 且此前多次发版漏改模块 oh-package，版本号曾长期滞留在 1.3.4。禁止从错误历史归纳发版清单。
 
+步进前必须核对 GitHub Releases 的实际最后发布版本，而不是仓库内的 app.json5 当前值：prepare
+过但未打 tag 的版本不算已发布。发布序列从最后实际发布的 release 步进，禁止跳号。
+
 发布由 tag 触发：main 推送只构建验证；`git tag vX.Y.Z && git push origin vX.Y.Z` 触发签名构建
 与 release。tag 必须指向包含完整版本步进的提交。release 生成后核对产物名
-`NextE_X.Y.Z_ohos-release-unsigned.hap` 与正文版本；不一致立即停止并修正版本文件，禁止再打
-一个新 tag 掩盖，禁止通过删 tag 重发布修复。
+`NextE_X.Y.Z_ohos-release-unsigned.hap` 与正文版本。
+
+发布内容错误时，删除错误的 tag 与 release，修正后用同一版本号重新发布；版本号已流通给用户时
+才改用新版本号，并留下错误原因记录。不允许保留已知错误的发布物，也不允许为绕过错误而跳号。
