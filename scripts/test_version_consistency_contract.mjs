@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * Contract: every module's oh-package.json5 version matches the root, and
- * build-profile.json5 modules[] exactly matches the on-disk feature/* + shared + entry
- * set (no orphan module dir, no unregistered module). Cheap structural guard so the
- * monorepo can't silently drift.
+ * Contract: AppScope/app.json5 versionName is the single release version source.
+ * The root and every host module (entry, feature/*, shared) oh-package.json5
+ * version must equal it, and build-profile.json5 modules[] exactly matches the
+ * on-disk feature/* + shared + entry set (no orphan module dir, no unregistered
+ * module). Cheap structural guard so the monorepo can't silently drift.
+ *
+ * third_party/* keeps its own library version and is exempt.
  *
  * Run: node scripts/test_version_consistency_contract.mjs
  */
@@ -22,9 +25,30 @@ function readJson5(p) {
 }
 
 const errors = []
-
 const buildProfile = readJson5(join(ROOT, 'build-profile.json5'))
 const registered = buildProfile.modules.map((m) => m.srcPath.replace(/^\.\//, ''))
+
+// 0) release version consistency: app.json5 is the single source of truth.
+const appJson = readJson5(join(ROOT, 'AppScope', 'app.json5'))
+const appVersion = appJson.app?.versionName
+if (typeof appVersion !== 'string' || appVersion.length === 0) {
+  errors.push('AppScope/app.json5 has no app.versionName')
+} else {
+  const rootPkg = readJson5(join(ROOT, 'oh-package.json5'))
+  if (rootPkg.version !== appVersion) {
+    errors.push(`oh-package.json5 version ${rootPkg.version} != app.json5 versionName ${appVersion}`)
+  }
+  for (const m of buildProfile.modules) {
+    if (m.srcPath.startsWith('./third_party')) continue
+    const pkgPath = join(ROOT, m.srcPath, 'oh-package.json5')
+    if (existsSync(pkgPath)) {
+      const pkg = readJson5(pkgPath)
+      if (pkg.version !== appVersion) {
+        errors.push(`${m.srcPath}/oh-package.json5 version ${pkg.version} != app.json5 versionName ${appVersion}`)
+      }
+    }
+  }
+}
 
 // 1) every registered module dir exists with an oh-package.json5
 for (const m of buildProfile.modules) {

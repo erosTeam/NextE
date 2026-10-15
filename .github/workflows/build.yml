@@ -97,7 +97,7 @@ jobs:
       - name: Get app version
         shell: bash
         run: |
-          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('oh-package.json5','utf8').match(/\"version\"\\s*:\\s*\"([^\"]+)\"/); console.log(m ? m[1] : '0.0.0')")
+          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('AppScope/app.json5','utf8').match(/\"versionName\"\\s*:\\s*\"([^\"]+)\"/); if (!m) process.exit(1); console.log(m[1])")
           echo "APP_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Install OHPM dependencies
@@ -176,7 +176,7 @@ jobs:
       - name: Get app version
         shell: bash
         run: |
-          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('oh-package.json5','utf8').match(/\"version\"\s*:\s*\"([^\"]+)\"/); if (!m) process.exit(1); console.log(m[1])")
+          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('AppScope/app.json5','utf8').match(/\"versionName\"\\s*:\\s*\"([^\"]+)\"/); if (!m) process.exit(1); console.log(m[1])")
           echo "APP_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Verify release notes
