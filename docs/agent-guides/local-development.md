@@ -53,34 +53,26 @@ bash scripts/run_ci_preflight.sh
 
 ## 版本步进与发版
 
-`AppScope/app.json5` 的 `app.versionName` 是唯一的发布版本事实源；`versionCode` 每次发布 +1。
-CI 的 release 产物命名与 release 正文都从该文件读取。`oh-package.json5` 的 version 不参与发布
-决策，但必须与 versionName 一致，由契约脚本强制。
+先核对远端 Release、tag、已有 prepare 提交和对应变更范围，再确定本次目标版本；不能只对工作区
+当前版本机械加一。历史遗漏不代表模块版本可以不更新。
 
-发版步进在一次提交内全部完成，缺一即视为未完成：
+一次发版必须同步核对：
 
-1. `AppScope/app.json5`：versionCode +1，versionName 步进。
-2. 根 `oh-package.json5`：version 等于新 versionName。
-3. `entry/`、`feature/*`、`shared` 每个模块的 `oh-package.json5`：version 等于新 versionName。
-4. 新增 `changelog/vX.Y.Z.md`。
+- `AppScope/app.json5` 的 `versionName` 和 `versionCode`；正常升级递增 code，修正发布时保留已分配
+  code 的兼容性，不把用户设备的安装版本倒退。
+- 根、`entry/`、`feature/*`、`shared/` 的全部 `oh-package.json5`，以及存在时的根 `package.json`。
+- 关于页的备用版本文字，以及 `changelog/vX.Y.Z.md`；日志覆盖上一正确 Release 以来的用户可见变化。
+- CI 读取的版本、tag、HAP 内 `module.json` 的版本、附件文件名和 Release 正文。
 
-`third_party/*`（reader-kit、reader-enhancement）是跨项目共享库，保持独立版本，不随宿主发版。
+宿主包的 version 必须等于 app 的 versionName。`third_party/` 独立共享库保持自身版本；不因宿主
+发版改共享库。历史说明、测试样本和依赖版本不能进行全仓字符串替换。
 
-推送前必须运行版本契约并要求通过：
+CI 从 `AppScope/app.json5` 读取发布版本。推送前运行 `node scripts/test_version_consistency_contract.mjs`；
+该检查还须在 CI 中实际执行。NextE 另外运行 `bash scripts/run_ci_preflight.sh`。
 
-```bash
-node scripts/test_version_consistency_contract.mjs
-```
+main 推送触发构建；包含完整发布修正的提交通过检查后，再推送匹配的 `vX.Y.Z` tag，触发 Release
+模式的 unsigned HAP 构建与发布。核对精确提交的 Actions 结果，下载实际 Release 附件，验证包内
+版本、摘要和正文后才算发布完成。
 
-该契约存在的直接原因：2026-10-15 发版只改了 app.json5，release 产物名和正文全部退回旧版本；
-且此前多次发版漏改模块 oh-package，版本号曾长期滞留在 1.3.4。禁止从错误历史归纳发版清单。
-
-步进前必须核对 GitHub Releases 的实际最后发布版本，而不是仓库内的 app.json5 当前值：prepare
-过但未打 tag 的版本不算已发布。发布序列从最后实际发布的 release 步进，禁止跳号。
-
-发布由 tag 触发：main 推送只构建验证；`git tag vX.Y.Z && git push origin vX.Y.Z` 触发签名构建
-与 release。tag 必须指向包含完整版本步进的提交。release 生成后核对产物名
-`NextE_X.Y.Z_ohos-release-unsigned.hap` 与正文版本。
-
-发布内容错误时，删除错误的 tag 与 release，修正后用同一版本号重新发布；版本号已流通给用户时
-才改用新版本号，并留下错误原因记录。不允许保留已知错误的发布物，也不允许为绕过错误而跳号。
+错误 tag、Release 和附件按本次授权范围清理、修正并重新发布。不能因当前工具权限不足就编造
+“禁止删除或重发”的项目规则；纠错方式以实际发布状态和用户指令为准。

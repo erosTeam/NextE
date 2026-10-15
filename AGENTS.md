@@ -21,7 +21,7 @@ details in the linked guides. The current user request is the only source of sco
 | --- | --- |
 | HarmonyOS 源码、构建 | `harmony-mandatory-preflight` 和 `harmony-next` 技能，以及 [平台约束](docs/agent-guides/harmonyos-default.md) |
 | 设备、截图、日志、UI 操作 | 另读 `harmony-run-device-diagnostics` 技能和 [设备协议](docs/device-lease.md) |
-| 本地构建、签名、依赖 | [本地开发](docs/agent-guides/local-development.md) |
+| 本地构建、签名、依赖、版本发布 | [本地开发](docs/agent-guides/local-development.md) |
 | 产品语义、验收 | [产品规则](docs/agent-guides/product-work.md) |
 | 共享 Reader | [共同职责](third_party/reader-kit/README.md#consumer-contract) |
 | EH 集成、Cookie、远端写入 | [EH 契约](docs/eh-integration-contract.md) |

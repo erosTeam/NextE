@@ -136,11 +136,19 @@ jobs:
           python3 - <<'PY'
           import os
           import zipfile
+          import json
           from pathlib import Path
 
           hap = Path(os.environ['HAP_PATH'])
           with zipfile.ZipFile(hap) as z:
               names = z.namelist()
+              packaged_app = json.loads(z.read('module.json'))['app']
+          expected_app = json.loads(Path('AppScope/app.json5').read_text())['app']
+          for field in ('bundleName', 'versionName', 'versionCode'):
+              if packaged_app[field] != expected_app[field]:
+                  raise SystemExit(f'Packaged {field} does not match AppScope/app.json5')
+          if packaged_app['versionName'] != os.environ['APP_VERSION']:
+              raise SystemExit('Packaged version does not match artifact name')
           print(f'HAP: {hap}')
           print(f'Size MiB: {hap.stat().st_size / 1024 / 1024:.2f}')
           print(f'arm64 entries: {sum(1 for name in names if name.startswith("libs/arm64-v8a/"))}')
@@ -184,6 +192,7 @@ jobs:
         run: |
           notes="changelog/v${APP_VERSION}.md"
           test -s "$notes"
+          test "$GITHUB_REF_NAME" = "v${APP_VERSION}"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

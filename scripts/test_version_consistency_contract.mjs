@@ -31,8 +31,8 @@ const registered = buildProfile.modules.map((m) => m.srcPath.replace(/^\.\//, ''
 // 0) release version consistency: app.json5 is the single source of truth.
 const appJson = readJson5(join(ROOT, 'AppScope', 'app.json5'))
 const appVersion = appJson.app?.versionName
-if (typeof appVersion !== 'string' || appVersion.length === 0) {
-  errors.push('AppScope/app.json5 has no app.versionName')
+if (typeof appVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(appVersion)) {
+  errors.push('AppScope/app.json5 app.versionName must be X.Y.Z')
 } else {
   const rootPkg = readJson5(join(ROOT, 'oh-package.json5'))
   if (rootPkg.version !== appVersion) {
@@ -48,6 +48,21 @@ if (typeof appVersion !== 'string' || appVersion.length === 0) {
       }
     }
   }
+  const npmPackagePath = join(ROOT, 'package.json')
+  if (existsSync(npmPackagePath) && readJson5(npmPackagePath).version !== appVersion) {
+    errors.push('package.json version does not match app.versionName')
+  }
+  if (!existsSync(join(ROOT, `changelog/v${appVersion}.md`)) ||
+      readFileSync(join(ROOT, `changelog/v${appVersion}.md`), 'utf8').trim().length === 0) {
+    errors.push(`changelog/v${appVersion}.md must exist and be non-empty`)
+  }
+  const releaseRef = process.env.GITHUB_REF ?? ''
+  if (releaseRef.startsWith('refs/tags/') && releaseRef !== `refs/tags/v${appVersion}`) {
+    errors.push(`release tag ${releaseRef} does not match v${appVersion}`)
+  }
+}
+if (!Number.isSafeInteger(appJson.app?.versionCode) || appJson.app.versionCode <= 0) {
+  errors.push('AppScope/app.json5 app.versionCode must be a positive integer')
 }
 
 // 1) every registered module dir exists with an oh-package.json5
