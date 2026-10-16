@@ -666,6 +666,15 @@ export {
 export { TextTranslationPromptCodec } from './services/TextTranslationPromptCodec'
 export { TextTranslationPromptComposer } from './services/TextTranslationPromptComposer'
 export { LocalBlockService } from './services/LocalBlockService'
+export { LocalBlockCommentActionService } from './services/LocalBlockCommentActionService'
+export {
+  COMMENT_AUTHOR_BLOCK_BY_MEMBER_ID,
+  COMMENT_AUTHOR_BLOCK_BY_NAME,
+  COMMENT_BLOCK_ACTION_AUTHOR,
+  COMMENT_BLOCK_ACTION_THIS,
+  COMMENT_BLOCK_ACTION_CONTENT,
+} from './services/LocalBlockCommentActionService'
+export { CommentWordSegmentService } from './services/CommentWordSegmentService'
 export { ImageBlockFeedParser } from './services/ImageBlockFeedParser'
 export { ImageBlockService } from './services/ImageBlockService'
 export {
@@ -864,6 +873,8 @@ export {
 export {
   LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
   LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,
+  LOCAL_BLOCK_COMMENT_ID_PREFIX,
+  LOCAL_BLOCK_MEMBER_ID_PREFIX,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,

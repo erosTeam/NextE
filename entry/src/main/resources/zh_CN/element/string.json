@@ -5368,6 +5368,90 @@
     {"name": "detail_remote_favorite_remove", "value": "取消远端收藏"},
     {"name": "detail_remote_favorite_remove_confirm", "value": "取消远端收藏并删除该收藏备注？"},
     {"name": "detail_remote_favorite_removed", "value": "已取消远端收藏"},
-    {"name": "detail_remote_favorite_save_note", "value": "保存备注"}
+    {"name": "detail_remote_favorite_save_note", "value": "保存备注"},
+    {
+      "name": "local_block_identity_member",
+      "value": "用户 ID %s"
+    },
+    {
+      "name": "local_block_identity_comment",
+      "value": "评论 ID %s"
+    },
+    {
+      "name": "comment_block_failed",
+      "value": "屏蔽规则保存失败，请重试"
+    },
+    {
+      "name": "comment_block_author",
+      "value": "屏蔽该用户"
+    },
+    {
+      "name": "comment_block_this",
+      "value": "屏蔽这条评论"
+    },
+    {
+      "name": "comment_block_by_content",
+      "value": "按内容屏蔽"
+    },
+    {
+      "name": "comment_block_author_success",
+      "value": "已屏蔽该用户"
+    },
+    {
+      "name": "comment_block_author_by_name_success",
+      "value": "已按昵称屏蔽该评论人"
+    },
+    {
+      "name": "comment_block_this_success",
+      "value": "已屏蔽这条评论"
+    },
+    {
+      "name": "comment_block_this_unavailable",
+      "value": "这条评论无法单独屏蔽"
+    },
+    {
+      "name": "comment_word_panel_title",
+      "value": "按内容屏蔽"
+    },
+    {
+      "name": "comment_word_panel_hint",
+      "value": "点选或左右划选词语。相邻选词会合为一个短语；分开的词组分别屏蔽。"
+    },
+    {
+      "name": "comment_word_panel_empty",
+      "value": "没有找到可选的词"
+    },
+    {
+      "name": "comment_word_panel_selected",
+      "value": "已选 %d 个"
+    },
+    {
+      "name": "comment_word_panel_confirm",
+      "value": "屏蔽所选"
+    },
+    {
+      "name": "comment_word_block_success",
+      "value": "已屏蔽 %d 个词"
+    },
+    {
+      "name": "comment_word_block_none",
+      "value": "没有选择词语"
+    },
+    {
+      "name": "comment_word_panel_select_all",
+      "value": "全选"
+    },
+    {
+      "name": "comment_word_panel_clear",
+      "value": "清除"
+    },
+    {
+      "name": "comment_word_panel_confirm_count",
+      "value": "屏蔽所选 %d 个词"
+    },
+    {
+      "name": "comment_word_panel_preview",
+      "value": "将屏蔽：%s"
+    }
   ]
 }

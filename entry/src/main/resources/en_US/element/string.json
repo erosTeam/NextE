@@ -5368,6 +5368,90 @@
     {"name": "detail_remote_favorite_remove", "value": "Remove EH favorite"},
     {"name": "detail_remote_favorite_remove_confirm", "value": "Remove this EH favorite and its note?"},
     {"name": "detail_remote_favorite_removed", "value": "Removed from EH favorites"},
-    {"name": "detail_remote_favorite_save_note", "value": "Save note"}
+    {"name": "detail_remote_favorite_save_note", "value": "Save note"},
+    {
+      "name": "local_block_identity_member",
+      "value": "Member ID %s"
+    },
+    {
+      "name": "local_block_identity_comment",
+      "value": "Comment ID %s"
+    },
+    {
+      "name": "comment_block_failed",
+      "value": "Could not save the block rules. Please try again."
+    },
+    {
+      "name": "comment_block_author",
+      "value": "Block this user"
+    },
+    {
+      "name": "comment_block_this",
+      "value": "Block this comment"
+    },
+    {
+      "name": "comment_block_by_content",
+      "value": "Block by content"
+    },
+    {
+      "name": "comment_block_author_success",
+      "value": "Blocked this user"
+    },
+    {
+      "name": "comment_block_author_by_name_success",
+      "value": "Blocked this commenter name"
+    },
+    {
+      "name": "comment_block_this_success",
+      "value": "Blocked this comment"
+    },
+    {
+      "name": "comment_block_this_unavailable",
+      "value": "This comment cannot be blocked individually"
+    },
+    {
+      "name": "comment_word_panel_title",
+      "value": "Block by content"
+    },
+    {
+      "name": "comment_word_panel_hint",
+      "value": "Tap or swipe horizontally to select. Adjacent words form one phrase; separate groups become separate rules."
+    },
+    {
+      "name": "comment_word_panel_empty",
+      "value": "No words found"
+    },
+    {
+      "name": "comment_word_panel_selected",
+      "value": "%d selected"
+    },
+    {
+      "name": "comment_word_panel_confirm",
+      "value": "Block selected"
+    },
+    {
+      "name": "comment_word_block_success",
+      "value": "Blocked %d word(s)"
+    },
+    {
+      "name": "comment_word_block_none",
+      "value": "No word selected"
+    },
+    {
+      "name": "comment_word_panel_select_all",
+      "value": "Select all"
+    },
+    {
+      "name": "comment_word_panel_clear",
+      "value": "Clear"
+    },
+    {
+      "name": "comment_word_panel_confirm_count",
+      "value": "Block %d word(s)"
+    },
+    {
+      "name": "comment_word_panel_preview",
+      "value": "Will block: %s"
+    }
   ]
 }

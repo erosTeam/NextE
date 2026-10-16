@@ -100,7 +100,8 @@ export class EhCommentParser {
           HtmlSelectorUtils.group1(block, EhCommentParser.RE_DATE).trim(),
         )
         c.author = HtmlSelectorUtils.group1(block, EhCommentParser.RE_AUTHOR).trim()
-        c.memberId = HtmlSelectorUtils.group1(block, EhCommentParser.RE_MEMBER_ID).trim()
+        // A profile link in the body belongs to the linked user, not necessarily this comment's author.
+        c.memberId = HtmlSelectorUtils.group1(block.substring(0, bodyOpen.index), EhCommentParser.RE_MEMBER_ID).trim()
         c.score = HtmlSelectorUtils.group1(block, EhCommentParser.RE_SCORE).trim()
         const c4: string = HtmlSelectorUtils.group1(block, EhCommentParser.RE_C4)
         c.canEdit = c4.indexOf('edit_') >= 0

@@ -271,7 +271,7 @@ function parse(html) {
     const comment = {
       commentId: bodyOpen[1], contentText: body.text, contentLinks: body.links, contentSpans: body.spans, contentImages: body.images,
       postedTime: localPostedTime(g1(block, RE_DATE).trim()), author: g1(block, RE_AUTHOR).trim(),
-      memberId: g1(block, RE_MEMBER_ID).trim(),
+      memberId: g1(block.substring(0, bodyOpen.index), RE_MEMBER_ID).trim(),
       score: g1(block, RE_SCORE).trim(), vote: parseVote(c4),
       canEdit: c4.includes('edit_'), canVote: c4.includes('vote_'),
       scoreDetails: parseScoreDetails(block.substring(bodyCloseEnd + 1)),
@@ -298,6 +298,10 @@ if (syn[1] && (syn[1].author !== 'bob' || syn[1].commentId !== '8337138' || syn[
 if (syn[1] && (syn[1].isUploader || syn[1].score !== '+12')) fail(`syn c1 uploader/score wrong: ${JSON.stringify(syn[1])}`)
 if (syn[1] && (syn[1].memberId !== '202' || syn[1].vote !== 1 || !syn[1].canVote || !syn[1].canEdit)) fail(`syn c1 metadata wrong: ${JSON.stringify(syn[1])}`)
 if (syn[1] && JSON.stringify(syn[1].scoreDetails) !== JSON.stringify(['Base +10', '+2 helpful', '-0 abuse'])) fail(`syn c1 scoreDetails wrong: ${JSON.stringify(syn[1])}`)
+
+// A body link must not supply the author's stable identity when the header has no profile ID.
+const bodyProfile = parse(`<a name="c77"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://example.org/">no-id-author</a></div></div><div class="c6" id="comment_77"><a href="https://forums.e-hentai.org/index.php?showuser=999">another user</a></div></div>`)
+if (bodyProfile.length !== 1 || bodyProfile[0].memberId !== '') fail('body profile link was misidentified as the author ID')
 
 const downVote = parse(`<a name="c3"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=303">c</a></div><div class="c4 nosel"><a onclick="return vote_1()">+</a><a onclick="return vote_2()" style="color:#c00">-</a></div></div><div class="c6" id="comment_9">x</div></div>`)
 if (downVote[0] && downVote[0].vote !== -1) fail(`downvote style should parse as -1: ${JSON.stringify(downVote[0])}`)

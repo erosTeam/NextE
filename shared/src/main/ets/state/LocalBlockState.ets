@@ -6,6 +6,12 @@ export const LOCAL_BLOCK_TYPE_COMMENTATOR: string = 'commentator'
 export const LOCAL_BLOCK_TYPE_COMMENT: string = 'comment'
 export const LOCAL_BLOCK_COMMENT_DISPLAY_HIDE: string = 'hide'
 export const LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE: string = 'collapse'
+// Stable identities live in the existing rule text behind a typed prefix instead of a new block type or
+// column: an older client normalizes unknown block types to 'title' (see LocalBlockSettings.normalizeType),
+// which would turn a nameless rule into a title rule. A prefixed value stays inert there because no title
+// contains this literal, and it keeps the RDB schema, backup shape and older clients compatible.
+export const LOCAL_BLOCK_MEMBER_ID_PREFIX: string = '#uid:'
+export const LOCAL_BLOCK_COMMENT_ID_PREFIX: string = '#cid:'
 
 @ObservedV2
 export class LocalBlockRule {

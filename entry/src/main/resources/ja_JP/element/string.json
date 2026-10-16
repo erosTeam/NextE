@@ -5368,6 +5368,90 @@
     {"name": "detail_remote_favorite_remove", "value": "リモートお気に入りを解除"},
     {"name": "detail_remote_favorite_remove_confirm", "value": "このリモートお気に入りとメモを削除しますか？"},
     {"name": "detail_remote_favorite_removed", "value": "リモートお気に入りを解除しました"},
-    {"name": "detail_remote_favorite_save_note", "value": "メモを保存"}
+    {"name": "detail_remote_favorite_save_note", "value": "メモを保存"},
+    {
+      "name": "local_block_identity_member",
+      "value": "ユーザー ID %s"
+    },
+    {
+      "name": "local_block_identity_comment",
+      "value": "コメント ID %s"
+    },
+    {
+      "name": "comment_block_failed",
+      "value": "ブロックルールを保存できませんでした。もう一度お試しください。"
+    },
+    {
+      "name": "comment_block_author",
+      "value": "このユーザーをブロック"
+    },
+    {
+      "name": "comment_block_this",
+      "value": "このコメントをブロック"
+    },
+    {
+      "name": "comment_block_by_content",
+      "value": "内容でブロック"
+    },
+    {
+      "name": "comment_block_author_success",
+      "value": "このユーザーをブロックしました"
+    },
+    {
+      "name": "comment_block_author_by_name_success",
+      "value": "この投稿者名をブロックしました"
+    },
+    {
+      "name": "comment_block_this_success",
+      "value": "このコメントをブロックしました"
+    },
+    {
+      "name": "comment_block_this_unavailable",
+      "value": "このコメントは個別にブロックできません"
+    },
+    {
+      "name": "comment_word_panel_title",
+      "value": "内容でブロック"
+    },
+    {
+      "name": "comment_word_panel_hint",
+      "value": "タップまたは左右になぞって選択。隣接する語は一つのフレーズに、離れた語句は個別のルールになります。"
+    },
+    {
+      "name": "comment_word_panel_empty",
+      "value": "選択できる語がありません"
+    },
+    {
+      "name": "comment_word_panel_selected",
+      "value": "%d 件選択"
+    },
+    {
+      "name": "comment_word_panel_confirm",
+      "value": "選択した語をブロック"
+    },
+    {
+      "name": "comment_word_block_success",
+      "value": "%d 件の語をブロックしました"
+    },
+    {
+      "name": "comment_word_block_none",
+      "value": "語が選択されていません"
+    },
+    {
+      "name": "comment_word_panel_select_all",
+      "value": "すべて選択"
+    },
+    {
+      "name": "comment_word_panel_clear",
+      "value": "クリア"
+    },
+    {
+      "name": "comment_word_panel_confirm_count",
+      "value": "%d 件の語をブロック"
+    },
+    {
+      "name": "comment_word_panel_preview",
+      "value": "ブロック対象：%s"
+    }
   ]
 }

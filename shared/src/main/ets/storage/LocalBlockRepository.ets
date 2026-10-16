@@ -217,6 +217,26 @@ export class LocalBlockRepository {
     }
   }
 
+  /** One comment selection is atomic; a failure cannot leave only some of its phrases saved. */
+  static async upsertRules(
+    context: common.UIAbilityContext,
+    rules: LocalBlockRuleSnapshot[],
+  ): Promise<void> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      for (const rule of rules) {
+        const updatedAt: number = await LocalBlockRepository.nextMutationTime(store, Date.now())
+        const position: number = await LocalBlockRepository.positionForUpsert(store, rule.id)
+        await LocalBlockRepository.writeRule(store, rule, rule.id, position, updatedAt, SQL_UPSERT_RULE)
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
   /** Persist a per-rule tombstone even when an older sync record is the only later arrival. */
   static async tombstoneRule(
     context: common.UIAbilityContext,

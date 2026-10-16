@@ -47,7 +47,7 @@ export class LocalBlockSettings {
   }
 
   static cleanText(text: string): string {
-    return text.trim().replace(/\n+/g, ' ')
+    return text.trim().replace(/[\r\n\u2028\u2029]+/g, ' ')
   }
 
   static cloneRule(rule: LocalBlockRule): LocalBlockRule {
@@ -233,6 +233,66 @@ export class LocalBlockSettings {
     await LocalBlockSettings.persistRule(context, next)
   }
 
+  /** Comment actions publish only after the entire selection is durable. Plan inside the write queue so
+   * simultaneous actions share one rule, and a failed write leaves the visible rules unchanged. */
+  static async ensureLiteralRules(
+    context: common.UIAbilityContext,
+    blockType: string,
+    texts: string[],
+  ): Promise<number> {
+    let applied: number = 0
+    let refreshNeeded: boolean = false
+    await LocalBlockSettings.enqueueRdbWrite(async (): Promise<void> => {
+      const state: LocalBlockState = connectLocalBlock()
+      const revision: number = LocalBlockSettings.mutationRevision
+      const nextRules: LocalBlockRule[] = state.rules.map(
+        (rule: LocalBlockRule) => LocalBlockSettings.cloneRule(rule),
+      )
+      const writes: LocalBlockRule[] = []
+      const seen: string[] = []
+      for (const text of texts) {
+        const clean: string = LocalBlockSettings.cleanText(text)
+        const key: string = clean.toLowerCase()
+        if (clean.length === 0 || seen.indexOf(key) >= 0) {
+          continue
+        }
+        seen.push(key)
+        // Regex rules have different semantics and must never suppress a literal rule.
+        let rule: LocalBlockRule | undefined = nextRules.find((item: LocalBlockRule) =>
+          item.blockType === blockType && !item.enableRegex && item.ruleText.toLowerCase() === key)
+        if (rule === undefined) {
+          rule = new LocalBlockRule()
+          rule.id = `${Date.now()}-${Math.floor(Math.random() * 1000000)}-${writes.length}`
+          rule.blockType = blockType
+          rule.ruleText = clean
+          nextRules.push(rule)
+        }
+        rule.enabled = true
+        writes.push(rule)
+      }
+      if (writes.length === 0) {
+        return
+      }
+      await LocalBlockRepository.upsertRules(context, LocalBlockSettings.snapshotRules(writes))
+      applied = writes.length
+      // A settings edit queued during the write owns its newer UI state. Read back after the queue drains.
+      if (revision !== LocalBlockSettings.mutationRevision) {
+        refreshNeeded = true
+        return
+      }
+      state.rules = nextRules
+      LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+      LocalBlockSettings.bumpVersion(state)
+    })
+    if (refreshNeeded) {
+      await LocalBlockSettings.refreshFromStorage(context)
+    }
+    if (applied > 0) {
+      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
+    }
+    return applied
+  }
+
   static async removeRule(context: common.UIAbilityContext, ruleId: string): Promise<void> {
     const state: LocalBlockState = connectLocalBlock()
     const existing: boolean = state.rules.some((rule: LocalBlockRule) => rule.id === ruleId)
@@ -314,7 +374,9 @@ export class LocalBlockSettings {
       (): Promise<void> => work(),
       (): Promise<void> => work(),
     )
-    LocalBlockSettings.rdbWriteTail = next
+    LocalBlockSettings.rdbWriteTail = next.catch(() => {
+      // The caller still receives `next`'s rejection; subsequent backup/sync reads can drain the queue.
+    })
     return next
   }
 

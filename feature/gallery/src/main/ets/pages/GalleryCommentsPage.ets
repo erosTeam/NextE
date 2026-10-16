@@ -8,6 +8,14 @@ import {
   CommentTranslationSettingsState,
   BasicDataSource,
   LocalBlockService,
+  LocalBlockSettings,
+  LocalBlockCommentActionService,
+  COMMENT_AUTHOR_BLOCK_BY_MEMBER_ID,
+  COMMENT_AUTHOR_BLOCK_BY_NAME,
+  COMMENT_BLOCK_ACTION_AUTHOR,
+  COMMENT_BLOCK_ACTION_THIS,
+  COMMENT_BLOCK_ACTION_CONTENT,
+  CommentWordSegmentService,
   LocalBlockState,
   connectLocalBlock,
   ThemeConstants,
@@ -35,11 +43,18 @@ import {
   connectThemeDisplay,
   connectCommentTranslationSettings,
   immersiveTitleBarOpts,
+  appSheetOptions,
+  AppModalScaffold,
 } from 'shared'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 import { GalleryCommentRenderState } from '../model/GalleryCommentRenderState'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 
+// Word-panel chips: snug padding so a short token hugs its text instead of becoming a wide pill, and a
+// small gap so a wrapped run reads as one sentence rather than a spaced-out list.
+const WORD_CHIP_PADDING_H: number = 10
+const WORD_CHIP_PADDING_V: number = 5
+const WORD_CHIP_GAP: number = 6
 const COMMENT_COMPOSER_BOTTOM_RESERVE: number = 136
 const COMMENT_COMPOSER_FIELD_ID: string = 'gallery-comments-composer-field'
 const COMMENT_COMPOSER_OUTER_GAP: number = ThemeConstants.SPACE_SM
@@ -67,6 +82,30 @@ class CommentVoteSnapshot {
   commentId: string = ''
   vote: number = 0
   score: string = ''
+}
+
+/** Each word owns observable selection; stable ForEach keys never depend on selection. */
+@ObservedV2
+class CommentWordChoice {
+  text: string = ''
+  start: number = 0
+  end: number = 0
+  @Trace selected: boolean = false
+
+  constructor(text: string, start: number) {
+    this.text = text
+    this.start = start
+    this.end = start + text.length
+  }
+}
+
+/** Chip bounds relative to the word-flow container, unaffected by sheet transforms. */
+class WordChipBounds {
+  index: number = 0
+  left: number = 0
+  top: number = 0
+  right: number = 0
+  bottom: number = 0
 }
 
 /**
@@ -103,6 +142,10 @@ export struct GalleryCommentsPage {
   @Local commentCount: number = 0;
   @Local initialRefreshStarted: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  // "Block by content" panel: the comment being processed plus its segmented candidates.
+  @Local wordPanelShown: boolean = false;
+  @Local wordPanelLoading: boolean = false;
+  @Local wordPanelSaving: boolean = false;
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
 
@@ -766,6 +809,216 @@ export struct GalleryCommentsPage {
       })
   }
 
+  /**
+   * Comment-row block menu. Writing the rule bumps LocalBlockState.version, which this page observes to
+   * rebuild the list, so no extra refresh call is needed here.
+   */
+  private handleCommentBlock(comment: EhGalleryComment, action: string): void {
+    if (action === COMMENT_BLOCK_ACTION_AUTHOR) {
+      LocalBlockCommentActionService.blockCommentAuthor(this.ctx(), comment)
+        .then((basis: string) => {
+          if (basis === COMMENT_AUTHOR_BLOCK_BY_MEMBER_ID) {
+            this.showCommentToast($r('app.string.comment_block_author_success'))
+            return
+          }
+          this.showCommentToast(basis === COMMENT_AUTHOR_BLOCK_BY_NAME
+            ? $r('app.string.comment_block_author_by_name_success')
+            : $r('app.string.comment_block_this_unavailable'))
+        })
+        .catch(() => {
+          this.showCommentToast($r('app.string.comment_block_failed'))
+        })
+      return
+    }
+    if (action === COMMENT_BLOCK_ACTION_THIS) {
+      LocalBlockCommentActionService.blockComment(this.ctx(), comment)
+        .then((blocked: boolean) => {
+          this.showCommentToast(blocked
+            ? $r('app.string.comment_block_this_success')
+            : $r('app.string.comment_block_this_unavailable'))
+        })
+        .catch(() => {
+          this.showCommentToast($r('app.string.comment_block_failed'))
+        })
+      return
+    }
+    if (action === COMMENT_BLOCK_ACTION_CONTENT) {
+      this.openWordPanel(comment.contentText)
+    }
+  }
+
+  @Local wordTokens: CommentWordChoice[] = [];
+  private wordSource: string = '';
+  private wordRequest: number = 0;
+  private wordChipBounds: WordChipBounds[] = [];
+  private wordTouchSelecting: boolean = true;
+  private wordTouchLastIndex: number = -1;
+
+  private openWordPanel(content: string): void {
+    const request: number = ++this.wordRequest
+    const source: string = LocalBlockSettings.cleanText(content)
+    this.wordSource = source
+    this.wordTokens = []
+    this.wordChipBounds = []
+    this.wordPanelLoading = true
+    this.wordPanelShown = true
+    CommentWordSegmentService.segment(source)
+      .then((words: string[]) => {
+        if (!this.wordPanelShown || request !== this.wordRequest) {
+          return
+        }
+        const choices: CommentWordChoice[] = []
+        let offset: number = 0
+        for (const word of words) {
+          const start: number = source.indexOf(word, offset)
+          if (start >= 0) {
+            choices.push(new CommentWordChoice(word, start))
+            offset = start + word.length
+          }
+        }
+        this.wordTokens = choices
+        this.wordPanelLoading = false
+      })
+      .catch(() => {
+        if (request === this.wordRequest) {
+          this.wordPanelLoading = false
+        }
+      })
+  }
+
+  private selectAllWords(): void {
+    for (const word of this.wordTokens) {
+      word.selected = true
+    }
+  }
+
+  private clearWordSelection(): void {
+    for (const word of this.wordTokens) {
+      word.selected = false
+    }
+  }
+
+  private recordWordChipBounds(index: number, area: Area): void {
+    const bounds: WordChipBounds = new WordChipBounds()
+    bounds.index = index
+    bounds.left = Number(area.position.x)
+    bounds.top = Number(area.position.y)
+    bounds.right = bounds.left + Number(area.width)
+    bounds.bottom = bounds.top + Number(area.height)
+    this.wordChipBounds[index] = bounds
+  }
+
+  private wordChipIndexAt(x: number, y: number): number {
+    for (const bounds of this.wordChipBounds) {
+      if (bounds !== undefined && x >= bounds.left && x <= bounds.right &&
+        y >= bounds.top && y <= bounds.bottom) {
+        return bounds.index
+      }
+    }
+    return -1
+  }
+
+  private beginWordTouch(event: TouchEvent): void {
+    if (event.type !== TouchType.Down || event.touches.length === 0) {
+      return
+    }
+    const touch: TouchObject = event.touches[0]
+    const index: number = this.wordChipIndexAt(touch.x, touch.y)
+    this.wordTouchLastIndex = index
+    this.wordTouchSelecting = index >= 0 ? !this.wordTokens[index].selected : true
+  }
+
+  private paintWordDrag(event: GestureEvent): void {
+    if (event.fingerList.length === 0 || this.wordTouchLastIndex < 0) {
+      return
+    }
+    const finger: FingerInfo = event.fingerList[0]
+    const index: number = this.wordChipIndexAt(finger.localX, finger.localY)
+    if (index < 0) {
+      return
+    }
+    const start: number = Math.min(this.wordTouchLastIndex, index)
+    const end: number = Math.max(this.wordTouchLastIndex, index)
+    for (let i: number = start; i <= end; i++) {
+      this.wordTokens[i].selected = this.wordTouchSelecting
+    }
+    this.wordTouchLastIndex = index
+  }
+
+  /** Preview and persistence share the same flat source, preserving word separators without hard breaks. */
+  private wordBlockPhrases(): string[] {
+    const phrases: string[] = []
+    let start: number = -1
+    let end: number = 0
+    for (const word of this.wordTokens) {
+      if (word.selected) {
+        if (start < 0) {
+          start = word.start
+        }
+        end = word.end
+      } else if (start >= 0) {
+        phrases.push(this.wordSource.substring(start, end))
+        start = -1
+      }
+    }
+    if (start >= 0) {
+      phrases.push(this.wordSource.substring(start, end))
+    }
+    return phrases.filter((phrase: string, index: number) =>
+      phrases.findIndex((item: string) => item.toLowerCase() === phrase.toLowerCase()) === index)
+  }
+
+  private wordSelectedCount(): number {
+    return this.wordTokens.filter((word: CommentWordChoice) => word.selected).length
+  }
+
+  private wordConfirmText(): ResourceStr {
+    const phrases: number = this.wordBlockPhrases().length
+    return phrases === 0 ? $r('app.string.comment_word_panel_confirm')
+      : AppStrings.get('comment_word_panel_confirm_count').replace('%d', `${phrases}`)
+  }
+
+  private closeWordPanel(): void {
+    this.wordRequest++
+    this.wordPanelShown = false
+    this.wordTokens = []
+    this.wordSource = ''
+    this.wordChipBounds = []
+    this.wordTouchLastIndex = -1
+    this.wordPanelLoading = false
+    this.wordPanelSaving = false
+  }
+
+  private confirmWordBlock(): void {
+    if (this.wordPanelSaving) {
+      return
+    }
+    const phrases: string[] = this.wordBlockPhrases()
+    if (phrases.length === 0) {
+      this.showCommentToast($r('app.string.comment_word_block_none'))
+      return
+    }
+    DiagnosticLogger.info('local_block', 'word_block_confirm', `tokens=${this.wordSelectedCount()} phrases=${phrases.length}`)
+    const request: number = this.wordRequest
+    this.wordPanelSaving = true
+    LocalBlockCommentActionService.blockCommentWords(this.ctx(), phrases)
+      .then((count: number) => {
+        if (request === this.wordRequest) {
+          this.closeWordPanel()
+        }
+        DiagnosticLogger.info('local_block', 'word_block_saved', `phrases=${count}`)
+        this.showCommentToast(AppStrings.get('comment_word_block_success').replace('%d', `${count}`))
+      })
+      .catch((error: Error) => {
+        if (request === this.wordRequest) {
+          this.wordPanelSaving = false
+        }
+        DiagnosticLogger.warn('local_block', 'word_block_failed', error.message)
+        this.showCommentToast($r('app.string.comment_block_failed'))
+      })
+  }
+
+
   private handleCommentVote(comment: EhGalleryComment, vote: number): void {
     DiagnosticLogger.info(
       'gallery',
@@ -943,6 +1196,9 @@ export struct GalleryCommentsPage {
                     onEdit: (selectedComment: EhGalleryComment) => {
                       this.openEditComment(selectedComment)
                     },
+                    onBlock: (selectedComment: EhGalleryComment, action: string) => {
+                      this.handleCommentBlock(selectedComment, action)
+                    },
                     onTranslate: (selectedComment: EhGalleryComment, sourceText: string) => {
                       this.translateComment(selectedComment, sourceText, false)
                       return Promise.resolve('')
@@ -980,6 +1236,7 @@ export struct GalleryCommentsPage {
     }
     .titleBar(this.commentsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet(this.wordPanelShown, this.WordBlockPanel(), this.wordPanelSheetOptions())
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as GalleryCommentsParams
       if (p !== undefined) {
@@ -1123,5 +1380,158 @@ export struct GalleryCommentsPage {
       right: COMMENT_COMPOSER_OUTER_GAP,
       bottom: this.composerBottomPadding(),
     })
+  }
+
+  private wordPanelSheetOptions(): SheetOptions {
+    return appSheetOptions({
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      showClose: false,
+      onDisappear: () => {
+        if (this.wordPanelShown) {
+          this.closeWordPanel()
+        }
+      },
+    })
+  }
+
+  @Builder
+  private WordBlockPanel() {
+    AppModalScaffold({
+      title: $r('app.string.comment_word_panel_title'),
+      confirmText: this.wordConfirmText(),
+      confirmEnabled: this.wordSelectedCount() > 0 && !this.wordPanelSaving,
+      contentOwnsScrolling: true,
+      closeAction: () => {
+        this.closeWordPanel()
+      },
+      confirmAction: () => {
+        this.confirmWordBlock()
+      },
+    }) {
+      Scroll() {
+        Column({ space: ThemeConstants.SPACE_SM }) {
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            Text(AppStrings.get('comment_word_panel_selected')
+              .replace('%d', `${this.wordSelectedCount()}`))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+            Blank()
+            this.WordPanelAction($r('app.string.comment_word_panel_select_all'), () => {
+              this.selectAllWords()
+            })
+            this.WordPanelAction($r('app.string.comment_word_panel_clear'), () => {
+              this.clearWordSelection()
+            })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          Text($r('app.string.comment_word_panel_hint'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_tertiary'))
+            .width('100%')
+
+          if (this.wordPanelLoading) {
+            Row() {
+              LoadingProgress().width(24).height(24)
+            }
+            .width('100%')
+            .height(96)
+            .justifyContent(FlexAlign.Center)
+          } else if (this.wordTokens.length === 0) {
+            Text($r('app.string.comment_word_panel_empty'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_tertiary'))
+              .width('100%')
+          } else {
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(
+                this.wordTokens,
+                (word: CommentWordChoice, index: number) => {
+                  this.WordChip(word, index)
+                },
+                (word: CommentWordChoice) => `${word.start}_${word.end}`,
+              )
+            }
+            .width('100%')
+            .id('comment-word-flow')
+            .onTouch((event: TouchEvent) => {
+              this.beginWordTouch(event)
+            })
+            .gesture(
+              PanGesture({ direction: PanDirection.Horizontal })
+                .onActionStart((event: GestureEvent) => {
+                  this.paintWordDrag(event)
+                })
+                .onActionUpdate((event: GestureEvent) => {
+                  this.paintWordDrag(event)
+                })
+                .onActionEnd(() => {
+                  this.wordTouchLastIndex = -1
+                })
+                .onActionCancel(() => {
+                  this.wordTouchLastIndex = -1
+                }),
+            )
+          }
+          if (this.wordSelectedCount() > 0) {
+            Text(AppStrings.get('comment_word_panel_preview')
+              .replace('%s', this.wordBlockPhrases().join('；')))
+              .id('comment-word-preview')
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .padding({ top: ThemeConstants.SPACE_MD, bottom: ThemeConstants.SPACE_XL })
+      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.TopStart)
+    }
+  }
+
+  @Builder
+  private WordPanelAction(label: ResourceStr, action: () => void) {
+    Text(label)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontColor(ThemeConstants.BRAND_PRIMARY)
+      .padding({
+        left: ThemeConstants.SPACE_SM,
+        right: ThemeConstants.SPACE_SM,
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+      })
+      .onClick(action)
+  }
+
+  @Builder
+  private WordChip(word: CommentWordChoice, index: number) {
+    Text(word.text)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor(word.selected ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'))
+      .backgroundColor(word.selected
+        ? ThemeConstants.BRAND_PRIMARY
+        : Color.Transparent)
+      .border({ width: 1, color: word.selected ? ThemeConstants.BRAND_PRIMARY : ThemeConstants.TEXT_TERTIARY })
+      .borderRadius(ThemeConstants.RADIUS_ROUND)
+      .padding({
+        left: WORD_CHIP_PADDING_H,
+        right: WORD_CHIP_PADDING_H,
+        top: WORD_CHIP_PADDING_V,
+        bottom: WORD_CHIP_PADDING_V,
+      })
+      .margin({ right: WORD_CHIP_GAP, bottom: WORD_CHIP_GAP })
+      .constraintSize({ maxWidth: '100%' })
+      .id(`comment-word-${index}`)
+      .accessibilitySelected(word.selected)
+      .onClick(() => {
+        word.selected = !word.selected
+      })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.recordWordChipBounds(index, area)
+      })
   }
 }

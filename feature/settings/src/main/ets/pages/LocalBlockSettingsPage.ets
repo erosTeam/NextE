@@ -7,12 +7,15 @@ import {
   GroupedListSection,
   LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
   LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,
+  LOCAL_BLOCK_COMMENT_ID_PREFIX,
+  LOCAL_BLOCK_MEMBER_ID_PREFIX,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,
   LOCAL_BLOCK_TYPE_UPLOADER,
   LocalBlockRule,
   LocalBlockSettings,
+  LocalBlockService,
   LocalBlockState,
   SecondaryListScaffold,
   SettingsCheckedMenuItem,
@@ -260,7 +263,7 @@ export struct LocalBlockSettingsPage {
             this.rulesForType(type),
             (rule: LocalBlockRule, index: number) => {
               ConciseListRow({
-                title: rule.ruleText,
+                title: this.ruleTitle(rule),
                 subtitle: rule.enableRegex
                   ? $r('app.string.local_block_regex')
                   : $r('app.string.local_block_contains'),
@@ -438,5 +441,25 @@ export struct LocalBlockSettingsPage {
         }
       }
     }
+  }
+
+  /**
+   * Rule rows show a readable form of an identity rule: the raw stored text is `#uid:12345`, which is an
+   * implementation detail the user never typed, so it renders as the matched id with its kind.
+   */
+  private ruleTitle(rule: LocalBlockRule): string {
+    const text: string = rule.ruleText.trim()
+    if (!LocalBlockService.isIdentityRule(rule)) {
+      return text
+    }
+    if (rule.blockType === LOCAL_BLOCK_TYPE_COMMENTATOR && text.startsWith(LOCAL_BLOCK_MEMBER_ID_PREFIX)) {
+      return AppStrings.get('local_block_identity_member')
+        .replace('%s', text.substring(LOCAL_BLOCK_MEMBER_ID_PREFIX.length).trim())
+    }
+    if (rule.blockType === LOCAL_BLOCK_TYPE_COMMENT && text.startsWith(LOCAL_BLOCK_COMMENT_ID_PREFIX)) {
+      return AppStrings.get('local_block_identity_comment')
+        .replace('%s', text.substring(LOCAL_BLOCK_COMMENT_ID_PREFIX.length).trim())
+    }
+    return text
   }
 }

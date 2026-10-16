@@ -16,8 +16,13 @@ import {
   connectCommentTranslationSettings,
   connectNavStack,
   connectSiteMode,
+  appMenuOptions,
+  COMMENT_BLOCK_ACTION_AUTHOR,
+  COMMENT_BLOCK_ACTION_THIS,
+  COMMENT_BLOCK_ACTION_CONTENT,
   publishPendingEhUrl,
 } from 'shared'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { GalleryCommentRenderState } from '../model/GalleryCommentRenderState'
 
 const COMMENT_FOOTER_ACTION_SIZE: number = 30
@@ -168,6 +173,10 @@ export struct GalleryCommentsCard {
   ) => {};
   @Event onReply: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
   @Event onEdit: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
+  @Event onBlock: (comment: EhGalleryComment, action: string) => void = (
+    _comment: EhGalleryComment,
+    _action: string,
+  ) => {};
   @Event onTranslate: (comment: EhGalleryComment, sourceText: string) => Promise<string> = (
     _comment: EhGalleryComment,
     _sourceText: string,
@@ -189,6 +198,8 @@ export struct GalleryCommentsCard {
   ) => {};
   private stack: NavPathStack = connectNavStack().stack;
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
+  // One menu at a time; bound to the card's block icon so a tap opens the three block actions.
+  @Local blockMenuShown: boolean = false;
   @Local expandedBlockedCommentKeys: string[] = [];
   // Card-local mirror of the page-held render-state translation fields. The body/icon read THESE (in the
   // parentManaged path) and they are synced from renderState inside the card's OWN animateTo (see
@@ -1006,6 +1017,10 @@ export struct GalleryCommentsCard {
     this.onEdit(c)
   }
 
+  private publishBlock(c: EhGalleryComment, action: string): void {
+    this.onBlock(c, action)
+  }
+
   private publishTranslate(c: EhGalleryComment, sourceText: string): Promise<string> {
     return this.onTranslate(c, sourceText)
   }
@@ -1807,6 +1822,12 @@ export struct GalleryCommentsCard {
         if (this.max <= 0 && c.commentId.length > 0 && c.commentId !== '0') {
           this.ReplyAction(c)
         }
+        // Blocking is a full-comments-page action, like edit/vote/reply above: the detail peek renders several
+        // comments in one card and has no rule-writing owner, and one card-owned menu flag would open several
+        // menus at once there.
+        if (this.max <= 0) {
+          this.BlockAction(c)
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -2172,6 +2193,60 @@ export struct GalleryCommentsCard {
         this.publishReply(c)
       },
     )
+  }
+
+  @Builder
+  BlockAction(c: EhGalleryComment) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph($r('sys.symbol.eye_slash'))
+        .fontSize(COMMENT_FOOTER_ICON_SIZE)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .backgroundColor(Color.Transparent)
+    .width(COMMENT_FOOTER_ACTION_SIZE)
+    .height(COMMENT_FOOTER_ACTION_SIZE)
+    .onClick(() => {
+      this.blockMenuShown = true
+    })
+    .id('comment-block-action')
+    .bindMenu(this.blockMenuShown, this.BlockMenu(c), appMenuOptions({
+      placement: Placement.BottomRight,
+      onDisappear: () => {
+        this.blockMenuShown = false
+      },
+    }))
+  }
+
+  @Builder
+  BlockMenu(c: EhGalleryComment) {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.comment_block_author'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.person')),
+      })
+        .onClick(() => {
+          this.blockMenuShown = false
+          this.publishBlock(c, COMMENT_BLOCK_ACTION_AUTHOR)
+        })
+      MenuItem({
+        content: $r('app.string.comment_block_this'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.eye_slash')),
+      })
+        .onClick(() => {
+          this.blockMenuShown = false
+          this.publishBlock(c, COMMENT_BLOCK_ACTION_THIS)
+        })
+      MenuItem({
+        content: $r('app.string.comment_block_by_content'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.textformat')),
+      })
+        .onClick(() => {
+          this.blockMenuShown = false
+          this.publishBlock(c, COMMENT_BLOCK_ACTION_CONTENT)
+        })
+    }
+    .backgroundColor($r('app.color.card_background'))
   }
 
   @Builder
