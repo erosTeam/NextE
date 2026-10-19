@@ -20,7 +20,7 @@ import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderPage, ReaderAsset, ReaderCancellation } from '@reader-kit/core'
 import { ReaderEntryTransition, ReaderEntryTarget, ReaderEntryPhase,
   ReaderRootEntryHandoff, ReaderRootEntryHandoffHost } from '@reader-kit/ui'
-import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, readerEntryWindowReady, ReaderLabVisibilityState, connectReaderLabVisibility,
+import { ReaderLabSurface, ReaderSurface, ReaderTrialWindow, ReaderSystemBarController, readerEntryWindowReady, ReaderLabVisibilityState, connectReaderLabVisibility,
   ReaderLabAssetProbe, ReaderLabRequest, ReaderVolumeKeys } from '@reader-kit/ui'
 import { NextEReaderLabAdapter } from './NextEReaderLabAdapter'
 import { ReaderLabShareProbe } from '@reader-kit/ui'
@@ -94,7 +94,7 @@ export struct NextEReaderLabPage {
   /** A delegated destination consumes its sole Window owner's style. */
   @Param delegatedSystemBarStyle: window.SystemBarStyle | undefined = undefined
   @Param hostClosing: boolean = false
-  @Param prepareChrome: ((isCurrent: () => boolean) => Promise<boolean>) | null = null
+  @Param windowPresentation: ReaderSystemBarController | null = null
   /** A production Back can synchronously return the opening proxy to its source. */
   @Event onTryReverseOpening: (context: ReaderCloseContext | null, image: EhGalleryImage | null) => boolean =
     (): boolean => false
@@ -102,7 +102,6 @@ export struct NextEReaderLabPage {
   @Event onShown: () => void = () => {}
   @Event onDisappeared: () => void = () => {}
   @Event onEntrySettled: () => void = () => {}
-  @Event onStatusBarVisible: (visible: boolean) => void = () => {}
   @Local private session: ReaderPagedSession | null = null
   private adapter: NextEReaderLabAdapter | null = null
   private translationProviderRef: NextEReaderTranslationProvider | null = null
@@ -1028,30 +1027,7 @@ export struct NextEReaderLabPage {
     this.chromeRepublishToken += 1
   }
 
-  private syncChromeVisible(visible: boolean): void {
-    if (visible) {
-      // Foreground replay republishes the retained Surface's actual chrome.
-      // Reuse its Window gate without taking a new backup or replacing UI state.
-      if (this.managesTrialWindow) void this.trialWindow.prepareStatusBarVisible((): boolean =>
-        !this.volumeDisposed && !this.closeRequested && !this.hostClosing &&
-        this.routeActive && this.labVisibility.foreground)
-      return
-    }
-    const statusVisible = !connectReadMode().fullscreen || visible
-    if (this.managesTrialWindow) this.trialWindow.setStatusBarVisible(statusVisible, (): boolean =>
-      !this.volumeDisposed && !this.closeRequested && !this.hostClosing)
-    else this.onStatusBarVisible(statusVisible)
-  }
 
-  private async prepareChromeShow(isCurrent: () => boolean): Promise<boolean> {
-    const current = (): boolean => isCurrent() && !this.closeRequested && !this.hostClosing &&
-      this.routeActive && this.labVisibility.foreground
-    if (!current() || !this.entryWindowReady()) return false
-    if (!this.managesTrialWindow) return this.prepareChrome === null ? false : this.prepareChrome(current)
-    if (!await this.trialWindow.prepareStatusBarVisible(current) || !current()) return false
-    return ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
-      this.safeArea.topAvoidHeight > 0 ? `${this.safeArea.topAvoidHeight}:${this.safeArea.bottomAvoidHeight}` : '', current)
-  }
 
   private closeTrial(initializationFailed: boolean = false, suppliedContext: ReaderCloseContext | null = null): void {
     if (this.closeRequested) return
@@ -1192,12 +1168,13 @@ export struct NextEReaderLabPage {
               temporaryVariantActive: this.routeActive && this.labVisibility.foreground &&
                 !this.closeRequested && !this.hostClosing,
               closing: this.closeRequested || this.hostClosing,
-              beforeShowChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareChromeShow(isCurrent),
+              windowPresentation: this.managesTrialWindow ? this.trialWindow.presentation : this.windowPresentation,
+              windowFullscreen: this.readMode.fullscreen, windowCanvasDark: true,
               topInset: this.safeArea.topAvoidHeight, bottomInset: this.safeArea.bottomAvoidHeight,
               accent: ThemeConstants.BRAND_PRIMARY,
               onClose: (context: ReaderCloseContext | null): void => this.closeTrial(false, context),
               activitySink: new ReaderActivitySink(
-                (visible: boolean): void => this.syncChromeVisible(visible),
+                null,
                 (busy: boolean): void => { this.setEnhancementInteractionBusy(busy) }) })
           } else {
           ReaderLabSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,

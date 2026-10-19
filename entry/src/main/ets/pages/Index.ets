@@ -1024,19 +1024,6 @@ struct Index {
     return closing
   }
 
-  private async prepareReaderTrialChrome(isCurrent: () => boolean): Promise<boolean> {
-    const lease = this.readerTrialWindow
-    const request = this.readerTrialRequest
-    const epoch = this.readerTrialEpoch
-    const current = (): boolean => isCurrent() && !this.readerTrialCloseRequested &&
-      this.readerTrialHostAlive && this.readerTrialWindow === lease && this.readerTrialRequest === request &&
-      this.readerTrialEpoch === epoch && this.readerEntryVisibility.foreground
-    if (lease === null || request === null || !current()) return false
-    if (!await lease.prepareStatusBarVisible(current) || !current()) return false
-    return ReaderTrialLayoutCommit.wait(this.getUIContext(), (): string =>
-      this.layoutSafeArea.topAvoidHeight > 0 ?
-        `${this.layoutSafeArea.topAvoidHeight}:${this.layoutSafeArea.bottomAvoidHeight}` : '', current)
-  }
 
   private clearReaderTrial(): void {
     ReaderTrialEntryProbe.hostRemoved()
@@ -1161,10 +1148,7 @@ struct Index {
           this.syncReaderTrialWindow()
         },
         hostClosing: this.readerTrialCloseRequested,
-        prepareChrome: (isCurrent: () => boolean): Promise<boolean> => this.prepareReaderTrialChrome(isCurrent),
-        onStatusBarVisible: (visible: boolean): void => { this.readerTrialWindow?.setStatusBarVisible(visible, (): boolean =>
-          this.readerTrialRequest === _param && this.readerTrialHostAlive &&
-          !this.readerTrialCloseRequested) },
+        windowPresentation: this.readerTrialWindow?.presentation ?? null,
         entryTransition: this.readerEntryTransition,
         rootOwnedEntryTarget: this.readerEntryTransition !== null,
         entryDepartureGuard: (entryId: number): boolean => this.readerEntryClaim !== null &&
