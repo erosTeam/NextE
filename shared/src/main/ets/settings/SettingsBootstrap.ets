@@ -13,6 +13,7 @@ import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
 import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
+import { FabLayoutStyleSettings } from './FabLayoutStyleSettings'
 import { SubTabStyleSettings } from './SubTabStyleSettings'
 import { ScreenOrientationSettings } from './ScreenOrientationSettings'
 import { TabletLayoutSettings } from './TabletLayoutSettings'
@@ -103,6 +104,7 @@ export class SettingsBootstrap {
         CoverBackgroundSettings.restore(context),
         ActionAlignmentSettings.restore(context),
         ReadButtonStyleSettings.restore(context),
+        FabLayoutStyleSettings.restore(context),
         SearchFilterSettings.restore(context),
         FavcatListSettings.restore(context),
         SubtabSelectionSettings.restore(context),

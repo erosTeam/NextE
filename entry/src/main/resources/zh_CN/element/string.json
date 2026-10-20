@@ -737,6 +737,22 @@
       "value": "光感材质"
     },
     {
+      "name": "settings_fab_layout_style",
+      "value": "悬浮按钮布局"
+    },
+    {
+      "name": "settings_fab_layout_style_hint",
+      "value": "切换画廊详情页悬浮按钮的位置与形状"
+    },
+    {
+      "name": "fab_layout_style_bottom",
+      "value": "底部导轨"
+    },
+    {
+      "name": "fab_layout_style_centered",
+      "value": "居中纵向"
+    },
+    {
       "name": "smart_grip",
       "value": "智感握姿"
     },

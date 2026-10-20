@@ -1,4 +1,5 @@
-import { GalleryActionFabRail, GalleryActionStripRail } from '../components/GalleryActionRail'
+import { GalleryActionStripRail } from '../components/GalleryActionRail'
+import { GalleryDetailActionRail } from '../components/GalleryCenteredActionRail'
 import { appMenuOptions, ReaderTrialEntryRelay } from 'shared'
 import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
 import {
@@ -939,10 +940,11 @@ export struct GalleryDetailPage {
     )
   }
 
-  private readFabLabel(): ResourceStr {
+  private readFabLabel(vertical: boolean = false): Resource {
     const index: number = this.resumeIndex()
     if (index > 0) {
-      return $r('app.string.detail_read_resume', (index + 1).toString())
+      const page: string = (index + 1).toString()
+      return $r('app.string.detail_read_resume', vertical && page.length >= 4 ? '\n' + page : page)
     }
     return $r('app.string.detail_read')
   }
@@ -2892,11 +2894,12 @@ export struct GalleryDetailPage {
 
   @Builder
   private ReadFabRail() {
-    GalleryActionFabRail({
-      availableWidth: this.readFabAvailableWidth(),
+    GalleryDetailActionRail({
       usesHdsMaterial: this.readFabUsesHdsMaterial(),
       readButtonContent: () => { this.ReadFabButton() },
       favoriteButtonContent: () => { this.FavoriteFabButton() },
+      readLabel: this.readFabLabel(true),
+      onRead: () => { this.openReader(this.resumeIndex()) },
     })
   }
 

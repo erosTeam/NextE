@@ -1215,7 +1215,14 @@ export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'
 export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
+export { FabLayoutStyleSettings, FabLayoutStyleOption } from './settings/FabLayoutStyleSettings'
 export { SubTabStyleSettings, SubTabStyleOption } from './settings/SubTabStyleSettings'
+export {
+  FAB_LAYOUT_BOTTOM,
+  FAB_LAYOUT_CENTERED,
+  FabLayoutStyleState,
+  connectFabLayoutStyle,
+} from './state/FabLayoutStyleState'
 export { SubTabStyleState, connectSubTabStyle } from './state/SubTabStyleState'
 export { ScreenOrientationSettings, ScreenOrientationOption } from './settings/ScreenOrientationSettings'
 export { TabletLayoutSettings, TabletLayoutOption } from './settings/TabletLayoutSettings'

@@ -38,6 +38,10 @@ import {
   ReadButtonStyleOption,
   ReadButtonStyleState,
   connectReadButtonStyle,
+  FabLayoutStyleSettings,
+  FabLayoutStyleOption,
+  FabLayoutStyleState,
+  connectFabLayoutStyle,
   SubTabStyleSettings,
   SubTabStyleOption,
   SubTabStyleState,
@@ -88,6 +92,7 @@ export struct LayoutSettingsPage {
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
+  @Local fabLayout: FabLayoutStyleState = connectFabLayoutStyle();
   @Local subTabStyle: SubTabStyleState = connectSubTabStyle();
   @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
   @Local tabletLayout: TabletLayoutState = connectTabletLayout();
@@ -485,6 +490,10 @@ export struct LayoutSettingsPage {
     ReadButtonStyleSettings.setStyle(this.ctx(), style)
   }
 
+  private setFabLayoutStyle(style: string): void {
+    FabLayoutStyleSettings.setStyle(this.ctx(), style)
+  }
+
   private screenOrientationLabel(): ResourceStr {
     return ScreenOrientationSettings.label(this.screenOrientation.mode)
   }
@@ -624,6 +633,27 @@ export struct LayoutSettingsPage {
           })
         },
         (option: SubTabStyleOption) => option.style,
+      )
+    }
+  }
+
+  @Builder
+  FabLayoutStyleMenu(select: (action: () => void) => void) {
+    Menu() {
+      ForEach(
+        FabLayoutStyleSettings.options(),
+        (option: FabLayoutStyleOption) => {
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: FabLayoutStyleSettings.normalizeStyle(this.fabLayout.style) === option.style,
+            selectAction: () => {
+              select(() => {
+                this.setFabLayoutStyle(option.style)
+              })
+            },
+          })
+        },
+        (option: FabLayoutStyleOption) => option.style,
       )
     }
   }
@@ -905,6 +935,20 @@ export struct LayoutSettingsPage {
                   dropdownMenuEnabled: true,
                   dropdownMenuBuilder: (select: (action: () => void) => void) => {
                     this.ReadButtonStyleMenu(select)
+                  },
+                })
+              }
+              ListRowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_fab_layout_style'),
+                  subtitle: $r('app.string.settings_fab_layout_style_hint'),
+                  leadingIcon: $r('sys.symbol.arrow_up_circle'),
+                  trailingText: FabLayoutStyleSettings.label(this.fabLayout.style),
+                  trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuBuilder: (select: (action: () => void) => void) => {
+                    this.FabLayoutStyleMenu(select)
                   },
                 })
               }

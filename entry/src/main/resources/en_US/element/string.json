@@ -737,6 +737,22 @@
       "value": "HDS material"
     },
     {
+      "name": "settings_fab_layout_style",
+      "value": "Floating button layout"
+    },
+    {
+      "name": "settings_fab_layout_style_hint",
+      "value": "Change the position and shape of the floating buttons on gallery detail pages"
+    },
+    {
+      "name": "fab_layout_style_bottom",
+      "value": "Bottom rail"
+    },
+    {
+      "name": "fab_layout_style_centered",
+      "value": "Centered column"
+    },
+    {
       "name": "smart_grip",
       "value": "Smart grip"
     },

@@ -737,6 +737,22 @@
       "value": "HDSマテリアル"
     },
     {
+      "name": "settings_fab_layout_style",
+      "value": "フローティングボタン配置"
+    },
+    {
+      "name": "settings_fab_layout_style_hint",
+      "value": "ギャラリー詳細ページのフローティングボタンの位置と形状を変更"
+    },
+    {
+      "name": "fab_layout_style_bottom",
+      "value": "下部レール"
+    },
+    {
+      "name": "fab_layout_style_centered",
+      "value": "中央縦列"
+    },
+    {
       "name": "smart_grip",
       "value": "スマートグリップ"
     },
