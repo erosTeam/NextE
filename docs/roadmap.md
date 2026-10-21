@@ -8,6 +8,10 @@ The old milestone snapshot is archived at
 
 ## Current Maintained Sources
 
+- [Personal Library and AI Features](research/personal-library-and-ai-features.md) — product discussion draft
+  recorded on 2026-10-21: first-version scope for indexing remote favorites, searching them together with local
+  favorites, and creating/updating smart collections. Includes later AI feature ideas beyond favorites.
+  Documentation only; no implementation or UI changes are authorized by this draft.
 - [Manga Translation Design](manga-translation-design.md) — product definition reset is active. The non-negotiable
   current target is lightweight Reader translation whose result is a visual translated comic page, not a text panel.
   A later production/edit/export workflow may share the document and renderer but has separate scope and acceptance.
