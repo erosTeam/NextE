@@ -133,6 +133,16 @@ export struct NextEReaderLabPage {
   private input: ReaderInputPort = new ReaderInputPort()
   private volumeKeys: ReaderVolumeKeys = new ReaderVolumeKeys(this.input)
   private enhancementInteractionTimer: number = -1
+  private normalEntryGeometryLogged: boolean = false
+  private persistedObservedUnit: ReaderUnitKey | null = null
+  private persistedObservedSourceIndex: number = -1
+
+  private resetObservedSessionTracking(): void {
+    this.normalEntryGeometryLogged = false
+    this.persistedObservedUnit = null
+    this.persistedObservedSourceIndex = -1
+  }
+
   @Local private currentSourceIndex: number = -1
   @Local private translationRequestedPages: number[] = []
   @Local private translationReadyPages: number[] = []
@@ -152,6 +162,7 @@ export struct NextEReaderLabPage {
     if ((!context.applicationInfo.debug && !production) || (!production && lab === null)) return
     const forcedImageBlockSourceIndex = lab === null
       ? -1 : connectNextEReaderLabContextProbe().deliver(this.request.work, context)
+    this.resetObservedSessionTracking()
     this.volumeDisposed = false
     this.rootEntryHandoff.reset()
     this.keepScreenOn = new ReaderKeepScreenOn(context)
@@ -701,7 +712,10 @@ export struct NextEReaderLabPage {
   }
 
   private observeReaderPosition(position: ReaderObservedPosition): void {
-    this.logNormalEntryGeometry('content-ready')
+    if (!this.normalEntryGeometryLogged) {
+      this.logNormalEntryGeometry('content-ready')
+      this.normalEntryGeometryLogged = true
+    }
     const sourceIndex = position.anchor.sourceIndexHint
     if (!this.rootOwnedEntryTarget || this.entryTransition === null || !this.entryTransition.pending()) {
       ReaderThumbnailTransitionCoordinator.notifyReaderImageReady(
@@ -756,11 +770,15 @@ export struct NextEReaderLabPage {
     if (!this.request.progressReadWrite || !this.routeActive || !this.labVisibility.foreground ||
       this.closeRequested || this.hostClosing || position.anchor.unit.scope !== this.unitKey.scope ||
       position.anchor.unit.work !== this.unitKey.work || position.anchor.unit.unit !== this.unitKey.unit) return
+    if (this.persistedObservedUnit?.equals(position.anchor.unit) === true &&
+      this.persistedObservedSourceIndex === position.anchor.sourceIndexHint) return
     GalleryReadProgressSettings.setIndex(
       this.getUIContext().getHostContext() as common.UIAbilityContext,
       this.request.work,
       position.anchor.sourceIndexHint,
     )
+    this.persistedObservedUnit = position.anchor.unit.copy()
+    this.persistedObservedSourceIndex = position.anchor.sourceIndexHint
   }
 
   private persistRuntimePolicy(policy: ReaderDisplayPolicy, intent: ReaderRuntimePolicyIntent): void {
