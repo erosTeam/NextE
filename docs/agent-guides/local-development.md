@@ -24,6 +24,12 @@ worktree、任务队列或某次验证快照。所有易变化事实都必须实
 - 不清理、不复用、不覆盖旧 worktree 或其他任务的 WIP，除非用户明确给出路径和操作授权。
 - 全局 CI 门禁由 `scripts/run_ci_preflight.sh` 统一执行，`.github/workflows/build.yml` 必须调用同一
   脚本，避免本地与远端清单漂移。配置或旧日志里出现过某个工具，不等于当前环境已经执行它。
+- CI 的 API 兼容门禁读取完整、非缓存的 ArkTS 构建日志，对照
+  `scripts/api_compatibility_warnings.json` 拦截新增的 SDK 版本兼容告警。基线只记录待核查的
+  既有告警，不代表其安全；不得未经核查增加基线。按文件、API 和版本统计，同一类告警的移除与
+  新增可能互相抵消。门禁依赖编译器识别能力，不替代目标系统上的
+  启动和功能验证。需要本地运行时先完成非缓存构建并保留完整日志，再执行
+  `python3 scripts/check_api_compatibility_warnings.py <构建日志>`。
 
 ## 设备
 
