@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { uiMaterial } from '@kit.ArkUI'
-import { deviceInfo } from '@kit.BasicServicesKit'
+import { Available, deviceInfo } from '@kit.BasicServicesKit'
 import { hdsMaterial } from '@kit.UIDesignKit'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -160,17 +160,18 @@ export class ImmersiveMaterialSettings {
     interactive: boolean,
     applyShadow: boolean = true,
   ): uiMaterial.Material | undefined {
-    if (!deviceInfo.apiAvailable('26.0.0')) {
-      return undefined
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return new uiMaterial.ImmersiveMaterial({
+        style: ImmersiveMaterialSettings.systemMaterialStyle(level, adaptiveStyle),
+        colorInvert: true,
+        applyShadow: applyShadow,
+        interactive: interactive,
+      })
     }
-    return new uiMaterial.ImmersiveMaterial({
-      style: ImmersiveMaterialSettings.systemMaterialStyle(level, adaptiveStyle),
-      colorInvert: true,
-      applyShadow: applyShadow,
-      interactive: interactive,
-    })
+    return undefined
   }
 
+  @Available({ minApiVersion: '26.0.0' })
   private static systemMaterialStyle(
     level: string,
     adaptiveStyle: uiMaterial.ImmersiveStyle,

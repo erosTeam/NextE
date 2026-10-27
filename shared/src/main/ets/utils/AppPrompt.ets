@@ -12,34 +12,34 @@ export class AppPrompt {
   }
 
   static searchSystemMaterial(): uiMaterial.Material | undefined {
-    if (!AppPrompt.systemMaterialSupported()) {
-      return undefined
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return ImmersiveMaterialSettings.systemMaterial(
+        ImmersiveMaterialSettings.LEVEL_ADAPTIVE,
+        uiMaterial.ImmersiveStyle.ULTRA_THIN,
+        true,
+      )
     }
-    return ImmersiveMaterialSettings.systemMaterial(
-      ImmersiveMaterialSettings.LEVEL_ADAPTIVE,
-      uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      true,
-    )
+    return undefined
   }
 
   static surfaceSystemMaterial(): uiMaterial.Material | undefined {
-    if (!AppPrompt.systemMaterialSupported()) {
-      return undefined
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return new uiMaterial.ImmersiveMaterial({
+        style: uiMaterial.ImmersiveStyle.THICK,
+      })
     }
-    return new uiMaterial.ImmersiveMaterial({
-      style: uiMaterial.ImmersiveStyle.THICK,
-    })
+    return undefined
   }
 
   static modalSystemMaterial(): uiMaterial.Material | undefined {
-    if (!AppPrompt.systemMaterialSupported()) {
-      return undefined
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return ImmersiveMaterialSettings.systemMaterial(
+        ImmersiveMaterialSettings.LEVEL_ADAPTIVE,
+        uiMaterial.ImmersiveStyle.ULTRA_THICK,
+        false,
+      )
     }
-    return ImmersiveMaterialSettings.systemMaterial(
-      ImmersiveMaterialSettings.LEVEL_ADAPTIVE,
-      uiMaterial.ImmersiveStyle.ULTRA_THICK,
-      false,
-    )
+    return undefined
   }
 
   /**

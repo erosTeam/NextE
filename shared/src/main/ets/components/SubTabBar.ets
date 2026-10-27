@@ -102,9 +102,12 @@ export struct SubTabBar {
   }
 
   private inactiveMaterial(): uiMaterial.Material | undefined {
-    return ImmersiveMaterialSettings.systemMaterial(
-      this.immersiveMaterial.level, uiMaterial.ImmersiveStyle.ULTRA_THIN, false, false,
-    )
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return ImmersiveMaterialSettings.systemMaterial(
+        this.immersiveMaterial.level, uiMaterial.ImmersiveStyle.ULTRA_THIN, false, false,
+      )
+    }
+    return undefined
   }
 
   private tabFill(i: number): ResourceColor {

@@ -36,6 +36,10 @@ class ApiCompatibilityGateTest(unittest.TestCase):
                 self.assertEqual(gate.check(log, baseline), 2)
                 log.write_text(completion)
                 self.assertEqual(gate.check(log, baseline), 2)
+                baseline.write_text(json.dumps({"schema": 1, "warnings": []}))
+                self.assertEqual(gate.check(log, baseline), 0)
+                log.write_text(warning + completion)
+                self.assertEqual(gate.check(log, baseline), 1)
                 log.write_text("The unexpected API is supported since SDK version ???\n" + completion)
                 self.assertEqual(gate.check(log, baseline), 2)
 

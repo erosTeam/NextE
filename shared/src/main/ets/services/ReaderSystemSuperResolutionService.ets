@@ -95,12 +95,13 @@ export class ReaderSystemSuperResolutionService {
     if (ReaderSystemSuperResolutionService.analyzer !== null) {
       return ReaderSystemSuperResolutionService.analyzer
     }
-    if (deviceInfo.apiAvailable('26.0.0') &&
-      canIUse('SystemCapability.AI.Vision.VisionBase')) {
-      const analyzer: imageSuperResolution.ImageSRAnalyzer =
-        await imageSuperResolution.ImageSRAnalyzer.create()
-      ReaderSystemSuperResolutionService.analyzer = analyzer
-      return analyzer
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      if (canIUse('SystemCapability.AI.Vision.VisionBase')) {
+        const analyzer: imageSuperResolution.ImageSRAnalyzer =
+          await imageSuperResolution.ImageSRAnalyzer.create()
+        ReaderSystemSuperResolutionService.analyzer = analyzer
+        return analyzer
+      }
     }
     throw new Error('Reader system super-resolution is unsupported')
   }
