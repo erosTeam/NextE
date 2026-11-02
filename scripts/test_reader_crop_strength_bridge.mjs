@@ -108,3 +108,44 @@ await cropService.ReaderPageCropService.detectFile('/same-path.webp', 'strong')
 assert.equal(cropExecutions, 3)
 assert.equal(offsets.size, 0, 'all identity readers close their file handles')
 console.log('NextE content-addressed crop preprocessing runtime passed')
+
+// readPixelsToBuffer exports tightly packed rows even when the native PixelMap is DMA-aligned.
+// Issue #20 device counterexample: 171x256 RGBA, native stride 768, exported length 175104.
+const detectorExports = {}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,
+  'shared/src/main/ets/model/ReaderPageCropBounds.ets'), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, { exports: detectorExports })
+const packed = new Uint8Array(171 * 256 * 4).fill(255)
+for (let y = 37; y < 219; y++) for (let x = 24; x < 147; x++) {
+  const offset = (y * 171 + x) * 4
+  packed[offset] = 60; packed[offset + 1] = 90; packed[offset + 2] = 120
+}
+let nativeStride = 684, releasedPixelMaps = 0, releasedSources = 0
+const pixelExports = {}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,
+  'shared/src/main/ets/services/ReaderPageCropService.ets'), 'utf8').replace(/^@Concurrent\r?\n/gm, '') +
+  '\nexport { detectReaderPageCropFile }', {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, { exports: pixelExports, require: name => {
+  if (name === '../model/ReaderPageCropBounds') return detectorExports
+  if (name === '@kit.ImageKit') return { image: { PixelMapFormat: { RGBA_8888: 3 }, createImageSource() {
+    return { async getImageInfo() { return { size: { width: 1280, height: 1920 } } },
+      async createPixelMap() { return {
+        async getImageInfo() { return { size: { width: 171, height: 256 }, stride: nativeStride } },
+        getPixelBytesNumber() { return packed.byteLength },
+        async readPixelsToBuffer(buffer) { new Uint8Array(buffer).set(packed) },
+        async release() { releasedPixelMaps++ },
+      } }, async release() { releasedSources++ } }
+  } } }
+  return {}
+} })
+const tightCrop = detectorExports.ReaderPageCropBounds.parse(await pixelExports.detectReaderPageCropFile('/tight.png', 'standard'))
+nativeStride = 768
+const alignedCrop = detectorExports.ReaderPageCropBounds.parse(await pixelExports.detectReaderPageCropFile('/aligned.png', 'standard'))
+assert.equal(tightCrop.applied(), true)
+assert.equal(alignedCrop.applied(), true, 'native alignment must not reject a valid packed pixel export')
+assert.equal(alignedCrop.serialize(), tightCrop.serialize(), 'same exported pixels must produce the same crop')
+assert.equal(releasedPixelMaps, 2)
+assert.equal(releasedSources, 2)
+console.log('NextE crop packed pixel export runtime passed')

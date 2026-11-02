@@ -63,7 +63,10 @@ async function detectReaderPageCropFile(filePath: string, strength: string): Pro
     const info: image.ImageInfo = await pixelMap.getImageInfo()
     const width: number = Math.floor(info.size.width)
     const height: number = Math.floor(info.size.height)
-    const stride: number = Math.max(Math.floor(info.stride), width * 4)
+    // readPixelsToBuffer omits native row-alignment padding (ImageKit PixelMap contract).
+    // A DMA-backed 171px RGBA image may report stride=768 but export 684 bytes per row;
+    // passing the native stride would make the detector reject its valid packed buffer (#20).
+    const stride: number = width * 4
     const buffer: ArrayBuffer = new ArrayBuffer(pixelMap.getPixelBytesNumber())
     await pixelMap.readPixelsToBuffer(buffer)
     return ReaderPageCropDetector.detect(
