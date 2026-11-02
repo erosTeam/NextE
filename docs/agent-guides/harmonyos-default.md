@@ -63,6 +63,8 @@
   实际遮挡，而不是直接复用全窗口 avoid-area 数值。
 - Reader 图片手势、缩放、清晰度和缓存改动必须保留已确认行为，并用真实交互序列验证；构建和
   源码形状不能替代手势证据。
+- 旧 Reader 的 joined 双页在任一原图尺寸未知时保持视口等分，尺寸齐备后才按真实比例拼接；
+  未知尺寸不使用假定图片比例，避免加载期间改变两页的占位宽度。
 - Reader 裁切读取 `PixelMap.readPixelsToBuffer` 时，导出数据不含行对齐填充；RGBA_8888 按
   `width * 4` 解释每行，不得套用底层 `ImageInfo.stride`。否则 DMA 对齐图（含系统超分输出）会被
   误判为缓冲区不足而恢复白边。依据：[ImageKit PixelMap](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/arkts-apis-image-pixelmap#readpixelstobuffer7)。

@@ -5873,9 +5873,9 @@ struct ReaderSpreadSurface {
   private saneImageRatio(width: number, height: number): number {
     if (width > 0 && height > 0) {
       const ratio: number = width / height
-      return ratio > 0 && Number.isFinite(ratio) ? ratio : 0.75
+      return ratio > 0 && Number.isFinite(ratio) ? ratio : 0
     }
-    return 0.75
+    return 0
   }
 
   private imageRatioForPage(page: number): number {
@@ -5886,8 +5886,14 @@ struct ReaderSpreadSurface {
     if (!this.usesJoinedLayout()) {
       return this.saneImageRatio(this.compW, this.compH)
     }
-    const ratio: number = this.imageRatioForPage(this.first.page) + this.imageRatioForPage(this.second.page)
-    return ratio > 0 && Number.isFinite(ratio) ? ratio : 1.5
+    // Unknown dimensions are not an image ratio: keep equal viewport panes until both are known.
+    const firstRatio: number = this.imageRatioForPage(this.first.page)
+    const secondRatio: number = this.imageRatioForPage(this.second.page)
+    if (firstRatio <= 0 || secondRatio <= 0) {
+      return 0
+    }
+    const ratio: number = firstRatio + secondRatio
+    return Number.isFinite(ratio) ? ratio : 0
   }
 
   private joinedFrameH(): number {
@@ -5912,7 +5918,7 @@ struct ReaderSpreadSurface {
   }
 
   private paneWidthForPage(page: number): number {
-    if (!this.usesJoinedLayout()) {
+    if (!this.usesJoinedLayout() || this.joinedRatioBoth() <= 0) {
       return this.paneWidth()
     }
     const width: number = this.joinedFrameH() * this.imageRatioForPage(page)
