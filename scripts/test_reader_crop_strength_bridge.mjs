@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import vm from 'node:vm'
-import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
@@ -58,94 +57,7 @@ for (const file of [
 
 console.log('NextE shared-reader crop strength bridge passed')
 
-// Warm and displayed asset instances reuse crop work by content, while a reused
-// file path with different bytes and a new strength each require a fresh result.
-let bytes = Buffer.from('first image bytes')
-let handles = 0
-let cropExecutions = 0
-const offsets = new Map()
-class Bounds {
-  constructor(left = 0, top = 0, right = 0, bottom = 0) { Object.assign(this, { left, top, right, bottom }) }
-  static none() { return new Bounds() }
-  static parse(text) { const v = JSON.parse(text); return new Bounds(v.left, v.top, v.right, v.bottom) }
-}
-const cropService = {}
-const serviceContext = { exports: cropService, require: name => {
-  if (name === '@kit.ArkTS') return { taskpool: { async execute(fn, ...args) {
-    if (fn.name === 'hashReaderPageCropFile') return fn(...args)
-    cropExecutions++
-    return JSON.stringify({ left: .1, top: .2, right: .3, bottom: .4 })
-  } } }
-  if (name === '@kit.ImageKit') return {}
-  if (name === '@kit.CoreFileKit') return { fileIo: {
-    OpenMode: { READ_ONLY: 0 },
-    openSync() { const fd = ++handles; offsets.set(fd, 0); return { fd } },
-    readSync(fd, buffer) {
-      const offset = offsets.get(fd); const part = bytes.subarray(offset, offset + buffer.byteLength)
-      new Uint8Array(buffer).set(part); offsets.set(fd, offset + part.length); return part.length
-    },
-    closeSync(file) { offsets.delete(file.fd) },
-  } }
-  if (name === '@kit.CryptoArchitectureKit') return { cryptoFramework: { createMd() {
-    const digest = createHash('sha256')
-    return { updateSync(value) { digest.update(value.data) }, digestSync() { return { data: digest.digest() } } }
-  } } }
-  if (name === '../model/ReaderPageCropBounds') return { ReaderPageCropBounds: Bounds,
-    ReaderPageCropDetector: { normalizeStrength: value => value }, ReaderPageCropStrength: { STANDARD: 'standard' } }
-  throw new Error(`unexpected import ${name}`)
-} }
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,
-  'shared/src/main/ets/services/ReaderPageCropService.ets'), 'utf8').replace(/^@Concurrent\r?\n/gm, ''), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText, serviceContext)
-await cropService.ReaderPageCropService.detectFile('/same-path.webp', 'standard')
-await cropService.ReaderPageCropService.detectFile('/same-path.webp', 'standard')
-assert.equal(cropExecutions, 1, 'a displayed asset reuses the warmed bounds')
-bytes = Buffer.from('other image bytes')
-await cropService.ReaderPageCropService.detectFile('/same-path.webp', 'standard')
-assert.equal(cropExecutions, 2, 'changed bytes cannot reuse stale geometry')
-await cropService.ReaderPageCropService.detectFile('/same-path.webp', 'strong')
-assert.equal(cropExecutions, 3)
-assert.equal(offsets.size, 0, 'all identity readers close their file handles')
-console.log('NextE content-addressed crop preprocessing runtime passed')
-
-// readPixelsToBuffer exports tightly packed rows even when the native PixelMap is DMA-aligned.
-// Issue #20 device counterexample: 171x256 RGBA, native stride 768, exported length 175104.
-const detectorExports = {}
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,
-  'shared/src/main/ets/model/ReaderPageCropBounds.ets'), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText, { exports: detectorExports })
-const packed = new Uint8Array(171 * 256 * 4).fill(255)
-for (let y = 37; y < 219; y++) for (let x = 24; x < 147; x++) {
-  const offset = (y * 171 + x) * 4
-  packed[offset] = 60; packed[offset + 1] = 90; packed[offset + 2] = 120
-}
-let nativeStride = 684, releasedPixelMaps = 0, releasedSources = 0
-const pixelExports = {}
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,
-  'shared/src/main/ets/services/ReaderPageCropService.ets'), 'utf8').replace(/^@Concurrent\r?\n/gm, '') +
-  '\nexport { detectReaderPageCropFile }', {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText, { exports: pixelExports, require: name => {
-  if (name === '../model/ReaderPageCropBounds') return detectorExports
-  if (name === '@kit.ImageKit') return { image: { PixelMapFormat: { RGBA_8888: 3 }, createImageSource() {
-    return { async getImageInfo() { return { size: { width: 1280, height: 1920 } } },
-      async createPixelMap() { return {
-        async getImageInfo() { return { size: { width: 171, height: 256 }, stride: nativeStride } },
-        getPixelBytesNumber() { return packed.byteLength },
-        async readPixelsToBuffer(buffer) { new Uint8Array(buffer).set(packed) },
-        async release() { releasedPixelMaps++ },
-      } }, async release() { releasedSources++ } }
-  } } }
-  return {}
-} })
-const tightCrop = detectorExports.ReaderPageCropBounds.parse(await pixelExports.detectReaderPageCropFile('/tight.png', 'standard'))
-nativeStride = 768
-const alignedCrop = detectorExports.ReaderPageCropBounds.parse(await pixelExports.detectReaderPageCropFile('/aligned.png', 'standard'))
-assert.equal(tightCrop.applied(), true)
-assert.equal(alignedCrop.applied(), true, 'native alignment must not reject a valid packed pixel export')
-assert.equal(alignedCrop.serialize(), tightCrop.serialize(), 'same exported pixels must produce the same crop')
-assert.equal(releasedPixelMaps, 2)
-assert.equal(releasedSources, 2)
-console.log('NextE crop packed pixel export runtime passed')
+// Execute the shared owner rather than retaining a second host copy of its regression cases.
+const { execFileSync } = await import('node:child_process')
+execFileSync(process.execPath, ['--test', path.join(root,
+  'third_party/reader-kit/tests/reader-file-crop-service.test.cjs')], { stdio: 'inherit' })
