@@ -1,3 +1,4 @@
+import { connectReaderDisplay, ReaderDisplayState, readerImageEffects, ReaderBrightnessController } from 'shared'
 import { ReaderModeControl } from '../components/ReaderModeControl'
 import { readerSourceStatusBarVisible, ReaderTrialLayoutCommit, ReaderSystemImageSaveHost, ReaderKeepScreenOn, ReaderTapAction, ReaderTapPolicy, ReaderTapZonePreviewRegion,
   ReaderRuntimePolicyIntent, ReaderHostAction, ReaderCloseContext, ReaderMediaActions, ReaderHostStatus,
@@ -78,10 +79,12 @@ class NextERootEntryHandoffHost implements ReaderRootEntryHandoffHost {
 
 @ComponentV2
 export struct NextEReaderLabPage {
+  @Local private readerDisplay: ReaderDisplayState = connectReaderDisplay()
+  private readerBrightness: ReaderBrightnessController = new ReaderBrightnessController()
   @Require @Param request: NextEReaderHostRequest
   /** Present only for an explicit Debug Lab route; production requests never carry probe fields. */
   @Param labRequest: ReaderLabRequest | null = null
-  @BuilderParam settingsSheetContent: (dismiss: () => void) => void
+  @BuilderParam settingsSheetContent: () => void
   @Param entryTransition: ReaderEntryTransition | null = null
   @Param entryPhase: string = 'finished'
   /** The root proxy re-checks the exact live source before departure. */
@@ -156,6 +159,7 @@ export struct NextEReaderLabPage {
   @Local private imageBlockRuleSaving: boolean = false
 
   aboutToAppear(): void {
+    void this.readerDisplay.load(this.getUIContext().getHostContext() as common.UIAbilityContext)
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     const production = this.request.productionSources === true
     const lab = this.labRequest
@@ -975,7 +979,29 @@ export struct NextEReaderLabPage {
       this.readerThumbnailTransition.waitingReaderContent(), this.rootEntryHandoffHost(), this.session?.snapshot() ?? null)
   }
 
+
+  private filterPreviewActive(): boolean {
+    return this.readerSettingsSheetShown && this.readerDisplay.filterTabActive
+  }
+
+  private filterSheetDetent(): number | SheetSize {
+    return this.filterPreviewActive() && this.readerDisplay.filterSheetHeight > 0
+      ? this.readerDisplay.filterSheetHeight : SheetSize.MEDIUM
+  }
+
+  @Monitor('readerDisplay.settings', 'readerDisplay.preview', 'routeActive', 'labVisibility.foreground', 'closeRequested', 'hostClosing')
+  private syncReaderBrightness(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.readerBrightness.update(context, this.routeActive && this.labVisibility.foreground && this.request.readingChrome && !this.closeRequested && !this.hostClosing, this.readerDisplay.effective())
+  }
+
+  private restoreReaderBrightness(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.readerBrightness.update(context, false, this.readerDisplay.settings)
+  }
   aboutToDisappear(): void {
+    if (this.readerSettingsSheetShown) this.readerDisplay.closePreview()
+    this.restoreReaderBrightness()
     this.volumeDisposed = true
     this.clearSystemEntryWindowPresentation()
     this.translationAutoEnabled = false
@@ -1093,11 +1119,13 @@ export struct NextEReaderLabPage {
 
   private openHostSettings(): void {
     if (!this.request.preferencesReadWrite || this.closeRequested || this.hostClosing) return
+    this.readerDisplay.closePreview()
     this.readerSettingsSheetShown = true
   }
 
   private closeHostSettings(): void {
     this.readerSettingsSheetShown = false
+    this.readerDisplay.closePreview()
   }
 
   build() {
@@ -1106,6 +1134,8 @@ export struct NextEReaderLabPage {
         if (this.session !== null) {
           if (this.request.readingChrome) {
             ReaderSurface({ session: this.session, initialUnit: this.unitKey, initialIndex: this.request.pageIndex,
+              imageEffects: readerImageEffects(this.readerDisplay.effective()),
+              chromeSuppressed: this.filterPreviewActive(),
               modeControl: (params: ReaderModeControlParams): void => { this.HostModeControl(params) },
               imageInterpolation: this.readMode.imageScalingQuality === 'low' ? ImageInterpolation.Low :
                 this.readMode.imageScalingQuality === 'high' ? ImageInterpolation.High : ImageInterpolation.Medium,
@@ -1200,9 +1230,11 @@ export struct NextEReaderLabPage {
         bottom: this.request.readingChrome ? 0 : this.safeArea.bottomAvoidHeight })
       .bindSheet(
         $$this.readerSettingsSheetShown,
-        this.settingsSheetContent((): void => { this.closeHostSettings() }),
+        this.settingsSheetContent(),
         appSheetOptions({
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          detents: [this.filterSheetDetent(), SheetSize.LARGE],
+          detentSelection: this.filterSheetDetent(),
+          maskColor: this.filterPreviewActive() ? Color.Transparent : $r('sys.color.ohos_id_color_mask_thin'),
           showClose: false,
           onDisappear: (): void => { this.closeHostSettings() },
         }),

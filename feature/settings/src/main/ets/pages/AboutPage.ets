@@ -63,7 +63,7 @@ export struct AboutPage {
     if (this.appVersion.length > 0) {
       return this.appVersion
     }
-    return '1.3.7'
+    return '1.3.8'
   }
 
   private updateSubtitle(): string {

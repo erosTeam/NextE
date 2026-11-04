@@ -1135,7 +1135,7 @@ struct Index {
     if (this.readerTrialRequest !== null) {
       // The destination owns its launch request through teardown; the host clears its active pointer first.
       NextEReaderLabPage({ request: _param as ReaderLabRequest, labRequest: _param as ReaderLabRequest,
-        settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
+        settingsSheetContent: () => { this.ReaderSettingsSheet() },
         managesTrialWindow: false, entrySite: this.readerTrialSite,
         delegatedSystemBarStyle: this.readerTrialNavigationSystemBarStyle(),
         entryParams: this.readerEntryParams,
@@ -2202,7 +2202,7 @@ struct Index {
       Column() {}
     } else if (name === 'ReaderLab') {
       NextEReaderLabPage({ request: param as ReaderLabRequest, labRequest: param as ReaderLabRequest,
-        settingsSheetContent: (dismiss: () => void) => { this.ReaderSettingsSheet(dismiss) },
+        settingsSheetContent: () => { this.ReaderSettingsSheet() },
         onClose: (): void => { this.navStackHolder.stack.pop() } })
     } else {
       this.destinationContent(IndexRouteCoordinator.family(name))
@@ -2257,8 +2257,8 @@ struct Index {
         (): boolean => this.cancelPendingReaderPresentation())
     } else if (name === 'Reader') {
       ReaderPage({
-        settingsSheetContent: (dismiss: () => void) => {
-          this.ReaderSettingsSheet(dismiss)
+        settingsSheetContent: () => {
+          this.ReaderSettingsSheet()
         },
       })
     } else if (name === 'ReaderShared') {
@@ -2274,8 +2274,8 @@ struct Index {
         rootOwnedEntryTarget: this.productionReaderEntryMatches(param as ReaderOverlayRoute),
         entryPhase: this.productionReaderEntryMatches(param as ReaderOverlayRoute)
           ? this.productionReaderEntryTransition?.phase ?? 'finished' : 'finished',
-        settingsSheetContent: (dismiss: () => void) => {
-          this.ReaderSettingsSheet(dismiss)
+        settingsSheetContent: () => {
+          this.ReaderSettingsSheet()
         },
         onEntrySettled: (): void => { this.finishProductionReaderEntry() },
         onTryReverseOpening: (context: ReaderCloseContext | null, _image: EhGalleryImage | null): boolean => {
@@ -2312,12 +2312,9 @@ struct Index {
   }
 
   @Builder
-  private ReaderSettingsSheet(dismiss: () => void) {
+  private ReaderSettingsSheet() {
     ReaderSettingsPage({
       sheetPresentation: true,
-      closeSheet: () => {
-        dismiss()
-      },
     })
   }
 

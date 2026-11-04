@@ -32,6 +32,7 @@ Allowed `Sync` values:
 | StorageKeys.GALLERY_DETAIL_TRANSITION_MODE | setting | plaintext | excluded | Selected gallery-detail transition mode |
 | StorageKeys.READER_THUMBNAIL_TRANSITION_ENABLED | setting | plaintext | excluded | Reader thumbnail transition enabled |
 | StorageKeys.READER_IMPLEMENTATION | setting | plaintext | excluded | Reader implementation choice (shared default, legacy fallback) |
+| shared/src/main/ets/state/ReaderDisplayState.ets#KEY_DISPLAY_SETTINGS | setting | plaintext | excluded | Reader display filters and brightness; transient previews are not stored |
 | StorageKeys.LIST_ITEM_FIXED_HEIGHT | setting | plaintext | excluded | List-row height mode |
 | StorageKeys.GRID_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |
 | StorageKeys.WATERFALL_COLUMN_WIDTH | setting | plaintext | excluded | User layout override |

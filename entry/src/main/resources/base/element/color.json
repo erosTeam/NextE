@@ -195,6 +195,7 @@
     {
       "name": "rating_star_blue",
       "value": "#7E78FF"
-    }
+    },
+    { "name": "reader_filter_slider_track", "value": "#E4E4E4" }
   ]
 }

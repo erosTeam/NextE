@@ -5468,6 +5468,25 @@
     {
       "name": "comment_word_panel_preview",
       "value": "Will block: %s"
-    }
+    },
+    {"name": "reader_display_brightness_enabled", "value": "Custom brightness"},
+    {"name": "reader_display_brightness", "value": "Brightness"},
+    {"name": "reader_display_filter_enabled", "value": "Color filter"},
+    {"name": "reader_display_red", "value": "Red"},
+    {"name": "reader_display_green", "value": "Green"},
+    {"name": "reader_display_blue", "value": "Blue"},
+    {"name": "reader_display_alpha", "value": "Opacity"},
+    {"name": "reader_display_blend", "value": "Blend mode"},
+    {"name": "reader_display_blend_default", "value": "Default"},
+    {"name": "reader_display_blend_multiply", "value": "Multiply"},
+    {"name": "reader_display_blend_screen", "value": "Screen"},
+    {"name": "reader_display_blend_overlay", "value": "Overlay"},
+    {"name": "reader_display_blend_lighten", "value": "Lighten"},
+    {"name": "reader_display_blend_darken", "value": "Darken"},
+    {"name": "reader_display_grayscale", "value": "Grayscale"},
+    {"name": "reader_display_inverted", "value": "Invert colors"},
+    {"name": "reader_settings_tab_mode", "value": "Reading mode"},
+    {"name": "reader_settings_tab_general", "value": "General"},
+    {"name": "reader_settings_tab_filters", "value": "Filters"}
   ]
 }

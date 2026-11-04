@@ -1,3 +1,5 @@
+import { connectReaderDisplay, ReaderDisplayState, readerImageEffects, ReaderBrightnessController } from 'shared'
+import { ReaderImageEffectsLayer, ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
 import { readerSourceStatusBarVisible, writeReaderSystemBarVisibility } from '@reader-kit/ui'
 import { ReaderModeControl } from '../components/ReaderModeControl'
 import { appMenuOptions } from 'shared'
@@ -249,7 +251,10 @@ class ReaderSpreadResolver {
  */
 @ComponentV2
 export struct ReaderPage {
-  @BuilderParam settingsSheetContent: (dismiss: () => void) => void;
+  @Local private readerDisplay: ReaderDisplayState = connectReaderDisplay()
+  private readerBrightness: ReaderBrightnessController = new ReaderBrightnessController()
+  @Local private displayVisibility: ReaderLabVisibilityState = connectReaderLabVisibility()
+  @BuilderParam settingsSheetContent: () => void;
   @Local settingsSheetShown: boolean = false;
   @Local vm: ReaderViewModel = new ReaderViewModel();
   @Local params: ReaderParams = new ReaderParams();
@@ -356,7 +361,7 @@ export struct ReaderPage {
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
   private readerTapSuppressUntilMs: number = 0;
-  private readerRouteVisible: boolean = false;
+  @Local private readerRouteVisible: boolean = false;
   private superResolutionInteractionResumeTimer: number = -1;
   private superResolutionForegroundInteractionActive: boolean = false;
   private comicTranslationUiEpoch: number = 0;
@@ -504,7 +509,7 @@ export struct ReaderPage {
             this.ComicTranslationStatusOverlay()
           }
 
-          if (this.readerContentReady() && !this.showChrome &&
+          if (this.readerContentReady() && !this.showChrome && !this.filterPreviewActive() &&
             (this.readMode.showPageNumber || this.superResolutionIndicatorVisible())) {
             this.ReaderPersistentPageStatus()
           }
@@ -546,6 +551,7 @@ export struct ReaderPage {
     })
     .onShown(() => {
       this.readerRouteVisible = true
+      void this.readerDisplay.load(this.getUIContext().getHostContext() as common.UIAbilityContext)
       ReaderThumbnailTransitionCoordinator.startOpening(this.getUIContext(), this.params.gid)
       this.scheduleEntryStatusBarVisibility()
       this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
@@ -3017,7 +3023,30 @@ export struct ReaderPage {
   }
 
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
+
+  private filterPreviewActive(): boolean {
+    return this.settingsSheetShown && this.readerDisplay.filterTabActive
+  }
+
+  private filterSheetDetent(): number | SheetSize {
+    return this.filterPreviewActive() && this.readerDisplay.filterSheetHeight > 0
+      ? this.readerDisplay.filterSheetHeight : SheetSize.MEDIUM
+  }
+
+  @Monitor('readerDisplay.settings', 'readerDisplay.preview', 'readerRouteVisible', 'displayVisibility.foreground')
+  private syncReaderBrightness(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.readerBrightness.update(context, this.readerRouteVisible && this.displayVisibility.foreground, this.readerDisplay.effective())
+  }
+
+  private restoreReaderBrightness(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.readerBrightness.update(context, false, this.readerDisplay.settings)
+  }
   aboutToDisappear(): void {
+    this.readerRouteVisible = false
+    if (this.settingsSheetShown) this.readerDisplay.closePreview()
+    this.restoreReaderBrightness()
     this.releaseAllSuperResolutionPrefetches()
     this.resetComicTranslationAutoSession()
     this.resetComicTranslationPresentation()
@@ -4175,12 +4204,14 @@ export struct ReaderPage {
 
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
+    this.readerDisplay.closePreview()
     this.settingsSheetShown = true
     this.pauseSuperResolutionForForegroundInteraction()
   }
 
   private closeReaderSettings(): void {
     this.settingsSheetShown = false
+    this.readerDisplay.closePreview()
     this.pauseSuperResolutionForForegroundInteraction()
     this.scheduleSuperResolutionInteractionResume(READER_SUPER_RESOLUTION_TOUCH_SETTLE_MS)
   }
@@ -4463,11 +4494,11 @@ export struct ReaderPage {
           })
           .bindSheet(
             $$this.settingsSheetShown,
-            this.settingsSheetContent(() => {
-              this.closeReaderSettings()
-            }),
+            this.settingsSheetContent(),
             appSheetOptions({
-              detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+              detents: [this.filterSheetDetent(), SheetSize.LARGE],
+              detentSelection: this.filterSheetDetent(),
+              maskColor: this.filterPreviewActive() ? Color.Transparent : $r('sys.color.ohos_id_color_mask_thin'),
               showClose: false,
               onDisappear: () => {
                 this.closeReaderSettings()
@@ -4526,6 +4557,8 @@ export struct ReaderPage {
     .backgroundColor('#CC000000')
     .position({ x: 0, y: 0 })
     .hitTestBehavior(HitTestMode.Default)
+    .opacity(this.filterPreviewActive() ? 0 : 1)
+    .hitTestBehavior(this.filterPreviewActive() ? HitTestMode.None : HitTestMode.Default)
   }
 
   // Bottom chrome bar: progress first, then one coherent toolbar family. FE keeps save / double /
@@ -4720,6 +4753,8 @@ export struct ReaderPage {
     .height(this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT +
       (this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0))
     .hitTestBehavior(HitTestMode.Default)
+    .opacity(this.filterPreviewActive() ? 0 : 1)
+    .hitTestBehavior(this.filterPreviewActive() ? HitTestMode.None : HitTestMode.Default)
   }
 
   @Builder
@@ -5334,6 +5369,7 @@ function readerCropDisplayHeight(height: number, bounds: ReaderPageCropBounds): 
 
 @ComponentV2
 struct ReaderInterpolatedImage {
+  @Local private readerDisplay: ReaderDisplayState = connectReaderDisplay()
   @Param src: string = '';
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
@@ -5383,52 +5419,55 @@ struct ReaderInterpolatedImage {
   }
 
   build() {
-    if (this.cropBounds.applied()) {
-      Stack({ alignContent: Alignment.Center }) {
-        if (this.cropReady()) {
+    Stack() {
+      ReaderImageEffectsLayer({ effects: readerImageEffects(this.readerDisplay.effective()) }) {
+        if (this.cropBounds.applied()) {
           Stack({ alignContent: Alignment.Center }) {
-            // Keep the cached source untouched. The full image is enlarged and translated behind a
-            // clipped viewport whose aspect ratio is the detected content rectangle.
-            Image(this.src)
-              .objectFit(ImageFit.Fill)
-              .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
-              .width(this.sourceRenderW())
-              .height(this.sourceRenderH())
-              .translate({ x: this.sourceOffsetX(), y: this.sourceOffsetY() })
-              .draggable(false)
-              .onComplete((event?: ReaderImageLoadEvent) => {
-                this.onComplete(event)
-              })
-              .onError(() => {
-                this.onError()
-              })
+            if (this.cropReady()) {
+              Stack({ alignContent: Alignment.Center }) {
+                // Keep the cached source untouched. The full image is enlarged and translated behind a
+                // clipped viewport whose aspect ratio is the detected content rectangle.
+                Image(this.src)
+                  .objectFit(ImageFit.Fill)
+                  .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+                  .width(this.sourceRenderW())
+                  .height(this.sourceRenderH())
+                  .translate({ x: this.sourceOffsetX(), y: this.sourceOffsetY() })
+                  .draggable(false)
+                  .onComplete((event?: ReaderImageLoadEvent) => {
+                    this.onComplete(event)
+                  })
+                  .onError(() => {
+                    this.onError()
+                  })
+              }
+              .width(this.cropFrameW())
+              .height(this.cropFrameH())
+              .clip(true)
+            }
           }
-          .width(this.cropFrameW())
-          .height(this.cropFrameH())
-          .clip(true)
+          .width(this.widthValue)
+          .height(this.heightValue)
+          .onAreaChange((_oldArea: Area, newArea: Area) => {
+            this.componentW = newArea.width as number
+            this.componentH = newArea.height as number
+          })
+        } else {
+            Image(this.src)
+            .objectFit(ImageFit.Contain)
+            .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
+            .width(this.widthValue)
+            .height(this.heightValue)
+            .draggable(false)
+            .onComplete((event?: ReaderImageLoadEvent) => {
+              this.onComplete(event)
+            })
+            .onError(() => {
+              this.onError()
+            })
         }
       }
-      .width(this.widthValue)
-      .height(this.heightValue)
-      .onAreaChange((_oldArea: Area, newArea: Area) => {
-        this.componentW = newArea.width as number
-        this.componentH = newArea.height as number
-      })
-    } else {
-      // Keep the disabled/default path byte-for-byte equivalent to the established Reader render.
-      Image(this.src)
-        .objectFit(ImageFit.Contain)
-        .interpolation(readerImageInterpolation(this.readMode.imageScalingQuality))
-        .width(this.widthValue)
-        .height(this.heightValue)
-        .draggable(false)
-        .onComplete((event?: ReaderImageLoadEvent) => {
-          this.onComplete(event)
-        })
-        .onError(() => {
-          this.onError()
-        })
-    }
+    }.width(this.widthValue).height(this.heightValue)
   }
 }
 

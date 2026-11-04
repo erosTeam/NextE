@@ -1,3 +1,4 @@
+import { ReaderSettingsTabs, ReaderDisplaySettingsContent } from 'shared'
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -45,7 +46,6 @@ import {
 @ComponentV2
 export struct ReaderSettingsPage {
   @Param sheetPresentation: boolean = false;
-  @Event closeSheet?: () => void;
   @Local readMode: ReadModeState = connectReadMode();
   @Local installedSuperResolutionModels: string[] = [];
   @Local superResolutionModelsPanelShown: boolean = false;
@@ -995,7 +995,7 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
-  private SettingsListItems() {
+  private ModeSettingsListItems() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_layout') })
@@ -1019,7 +1019,10 @@ export struct ReaderSettingsPage {
     if (!this.sheetPresentation || this.continuousModeSelected()) {
       this.ContinuousModeSettingsGroup()
     }
+  }
 
+  @Builder
+  private GeneralSettingsListItems() {
     ListItem() {
       Column({ space: ThemeConstants.SPACE_XS }) {
         SectionHeader({ title: $r('app.string.settings_reader_group_display') })
@@ -1195,18 +1198,23 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
+  private SettingsListItems() {
+    this.ModeSettingsListItems()
+    this.GeneralSettingsListItems()
+  }
+
+  @Builder
   private ReaderSettingsSheetPage() {
-    AppModalScaffold({
-      title: $r('app.string.settings_reader'),
-      showConfirmAction: false,
-      closeAction: () => {
-        if (this.closeSheet) {
-          this.closeSheet()
-        }
-      },
-    }) {
-      this.SettingsListItems()
-    }
+    ReaderSettingsTabs({
+      modeItems: (): void => { this.ModeSettingsListItems() },
+      generalItems: (): void => { this.GeneralSettingsListItems() },
+      filterContent: (): void => { this.ReaderFilterControls() },
+    })
+  }
+
+  @Builder
+  private ReaderFilterControls() {
+    ReaderDisplaySettingsContent()
   }
 
   @Builder

@@ -1284,3 +1284,8 @@ export { ImageSaveUtil } from './utils/ImageSaveUtil'
 export { ResponsiveGrid } from './utils/ResponsiveGrid'
 export { RootRefreshRegistry } from './utils/RootRefreshRegistry'
 export { galleryWaterfallColumnCount, clampColumnWidth } from './utils/GalleryColumns'
+
+export { ReaderSettingsTabs } from './components/ReaderSettingsTabs'
+export { ReaderDisplaySettingsContent } from './components/ReaderDisplaySettingsContent'
+export { ReaderDisplayState, connectReaderDisplay, readerImageEffects } from './state/ReaderDisplayState'
+export { ReaderBrightnessController } from './model/ReaderBrightnessController'

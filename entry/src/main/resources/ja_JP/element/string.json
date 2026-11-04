@@ -5468,6 +5468,25 @@
     {
       "name": "comment_word_panel_preview",
       "value": "ブロック対象：%s"
-    }
+    },
+    {"name": "reader_display_brightness_enabled", "value": "明るさを個別に調整"},
+    {"name": "reader_display_brightness", "value": "明るさ"},
+    {"name": "reader_display_filter_enabled", "value": "カラーフィルター"},
+    {"name": "reader_display_red", "value": "赤"},
+    {"name": "reader_display_green", "value": "緑"},
+    {"name": "reader_display_blue", "value": "青"},
+    {"name": "reader_display_alpha", "value": "不透明度"},
+    {"name": "reader_display_blend", "value": "合成モード"},
+    {"name": "reader_display_blend_default", "value": "標準"},
+    {"name": "reader_display_blend_multiply", "value": "乗算"},
+    {"name": "reader_display_blend_screen", "value": "スクリーン"},
+    {"name": "reader_display_blend_overlay", "value": "オーバーレイ"},
+    {"name": "reader_display_blend_lighten", "value": "比較（明）"},
+    {"name": "reader_display_blend_darken", "value": "比較（暗）"},
+    {"name": "reader_display_grayscale", "value": "グレースケール"},
+    {"name": "reader_display_inverted", "value": "色反転"},
+    {"name": "reader_settings_tab_mode", "value": "閲覧モード"},
+    {"name": "reader_settings_tab_general", "value": "一般"},
+    {"name": "reader_settings_tab_filters", "value": "フィルター"}
   ]
 }

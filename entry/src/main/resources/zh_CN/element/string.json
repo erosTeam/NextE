@@ -5468,6 +5468,25 @@
     {
       "name": "comment_word_panel_preview",
       "value": "将屏蔽：%s"
-    }
+    },
+    {"name": "reader_display_brightness_enabled", "value": "独立亮度"},
+    {"name": "reader_display_brightness", "value": "亮度"},
+    {"name": "reader_display_filter_enabled", "value": "颜色滤镜"},
+    {"name": "reader_display_red", "value": "红色"},
+    {"name": "reader_display_green", "value": "绿色"},
+    {"name": "reader_display_blue", "value": "蓝色"},
+    {"name": "reader_display_alpha", "value": "不透明度"},
+    {"name": "reader_display_blend", "value": "混合模式"},
+    {"name": "reader_display_blend_default", "value": "默认"},
+    {"name": "reader_display_blend_multiply", "value": "正片叠底"},
+    {"name": "reader_display_blend_screen", "value": "滤色"},
+    {"name": "reader_display_blend_overlay", "value": "叠加"},
+    {"name": "reader_display_blend_lighten", "value": "变亮"},
+    {"name": "reader_display_blend_darken", "value": "变暗"},
+    {"name": "reader_display_grayscale", "value": "灰度"},
+    {"name": "reader_display_inverted", "value": "反色"},
+    {"name": "reader_settings_tab_mode", "value": "阅读模式"},
+    {"name": "reader_settings_tab_general", "value": "常规"},
+    {"name": "reader_settings_tab_filters", "value": "滤镜"}
   ]
 }
