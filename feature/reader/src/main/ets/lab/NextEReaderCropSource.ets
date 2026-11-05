@@ -1,5 +1,5 @@
 import { ReaderImageCropBounds, ReaderImageCropSource } from '@reader-kit/core'
-import { DiagnosticLogger, ReaderPageCropService } from 'shared'
+import { DiagnosticLogger, ReaderPageCropBounds, ReaderPageCropService } from 'shared'
 
 /** NextE owns detector policy; reader-kit consumes only normalized crop bounds. */
 export class NextEReaderCropSource implements ReaderImageCropSource {
@@ -17,7 +17,7 @@ export class NextEReaderCropSource implements ReaderImageCropSource {
   async read(): Promise<ReaderImageCropBounds> {
     const strength = this.strength()
     DiagnosticLogger.info('reader-crop', 'shared_detect', `identity=${this.identity} strength=${strength}`)
-    const bounds = await ReaderPageCropService.detectFile(this.path, strength)
+    const bounds: ReaderPageCropBounds = await ReaderPageCropService.detectFile(this.path, strength)
     return new ReaderImageCropBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
   }
 }
