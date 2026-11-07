@@ -77,6 +77,9 @@ export struct AppModalScaffold {
           .width('100%')
           .padding({ left: this.contentHorizontalPadding, right: this.contentHorizontalPadding })
           .scrollBar(BarState.Off)
+          // Keep outgoing rows visible beneath the native HDS title gradient.
+          .clip(false)
+          .cachedCount(3, true)
           .edgeEffect(EdgeEffect.None)
           .nestedScroll({
             scrollForward: NestedScrollMode.SELF_FIRST,
