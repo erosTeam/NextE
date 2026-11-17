@@ -38,8 +38,8 @@ import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 import { DownloadSettings } from './DownloadSettings'
 import { DownloadQueueRestoreReconciler } from './DownloadQueueRestoreReconciler'
 
-const MAX_GALLERY_TASKS: number = 200
-const MAX_ARCHIVER_TASKS: number = 100
+// Download tasks are user data: never evict or truncate them merely because the queue grows.
+// The per-task sidecars are also the recovery source for entries evicted by older versions.
 const DOWNLOAD_GALLERY_DIR: string = 'download-gallery'
 const DOWNLOAD_ARCHIVER_DIR: string = 'download-archiver'
 const DOWNLOAD_EXPORT_DIR: string = 'download-exports'
@@ -616,7 +616,6 @@ export class DownloadQueueSettings {
     }
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
-    const evicted: DownloadGalleryTask[] = []
     let existed: boolean = false
     task.queuedAt = Date.now()
     task.status = DownloadGalleryTaskStatus.QUEUED
@@ -663,14 +662,10 @@ export class DownloadQueueSettings {
         refreshed.syncProgressCounts()
         return
       }
-      if (next.length < MAX_GALLERY_TASKS) {
-        next.push(it.copy())
-      } else {
-        evicted.push(it.copy())
-      }
+      next.push(it.copy())
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persistGalleryTask(context, refreshed, evicted)
+    await DownloadQueueSettings.persistGalleryTask(context, refreshed)
     DiagnosticLogger.info(
       'download',
       existed ? 'gallery_enqueue_duplicate' : 'gallery_enqueue_added',
@@ -772,7 +767,6 @@ export class DownloadQueueSettings {
     }
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
-    const evicted: DownloadArchiverTask[] = []
     let shouldDownload: boolean = true
     const refreshed: DownloadArchiverTask = task.copy()
     DownloadQueueSettings.fillArchiverTaskFromGalleryTask(
@@ -821,14 +815,10 @@ export class DownloadQueueSettings {
         }
         return
       }
-      if (next.length < MAX_ARCHIVER_TASKS) {
-        next.push(it.copy())
-      } else {
-        evicted.push(it.copy())
-      }
+      next.push(it.copy())
     })
     DownloadQueueSettings.setArchiverTasks(state, next)
-    await DownloadQueueSettings.persistArchiverTask(context, refreshed, evicted)
+    await DownloadQueueSettings.persistArchiverTask(context, refreshed)
     return shouldDownload
   }
 
@@ -2253,16 +2243,11 @@ export class DownloadQueueSettings {
   private static async persistGalleryTask(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
-    removed: DownloadGalleryTask[] = [],
   ): Promise<void> {
     const startedAt: number = Date.now()
     try {
       await DownloadQueueSettings.writeGalleryRdb(context, async (): Promise<void> => {
-        if (removed.length > 0) {
-          await DownloadQueueRepository.replaceGalleryTaskAndRemove(context, task, removed)
-        } else {
-          await DownloadQueueRepository.replaceGalleryTask(context, task)
-        }
+        await DownloadQueueRepository.replaceGalleryTask(context, task)
       })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_save_failed', (error as Error).message)
@@ -2397,15 +2382,10 @@ export class DownloadQueueSettings {
   private static async persistArchiverTask(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
-    removed: DownloadArchiverTask[] = [],
   ): Promise<void> {
     try {
       await DownloadQueueSettings.writeArchiverRdb(context, async (): Promise<void> => {
-        if (removed.length > 0) {
-          await DownloadQueueRepository.replaceArchiverTaskAndRemove(context, task, removed)
-        } else {
-          await DownloadQueueRepository.replaceArchiverTask(context, task)
-        }
+        await DownloadQueueRepository.replaceArchiverTask(context, task)
       })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_archiver_task_save_failed', (error as Error).message)
@@ -2910,7 +2890,7 @@ export class DownloadQueueSettings {
   private static loadGalleryMetadataTasks(): DownloadGalleryTask[] {
     const out: DownloadGalleryTask[] = []
     const roots: string[] = DownloadQueueSettings.galleryRootDirs()
-    for (let r: number = 0; r < roots.length && out.length < MAX_GALLERY_TASKS; r++) {
+    for (let r: number = 0; r < roots.length; r++) {
       const root: string = roots[r]
       let names: string[] = []
       try {
@@ -2922,7 +2902,7 @@ export class DownloadQueueSettings {
         DiagnosticLogger.warn('download', 'gallery_metadata_root_restore_failed', (error as Error).message)
         continue
       }
-      for (let i: number = 0; i < names.length && out.length < MAX_GALLERY_TASKS; i++) {
+      for (let i: number = 0; i < names.length; i++) {
         try {
           const dir: string = DownloadQueueSettings.joinPath(root, names[i])
           const stat: fs.Stat = fs.statSync(dir)
@@ -2935,9 +2915,7 @@ export class DownloadQueueSettings {
           }
           const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(path))
           tasks.forEach((task: DownloadGalleryTask) => {
-            if (out.length < MAX_GALLERY_TASKS) {
-              out.push(task)
-            }
+            out.push(task)
           })
         } catch (error) {
           DiagnosticLogger.warn(
@@ -2954,27 +2932,35 @@ export class DownloadQueueSettings {
   private static loadArchiverMetadataTasks(): DownloadArchiverTask[] {
     const out: DownloadArchiverTask[] = []
     const roots: string[] = DownloadQueueSettings.archiverRootDirs()
-    try {
-      for (let r: number = 0; r < roots.length && out.length < MAX_ARCHIVER_TASKS; r++) {
-        const root: string = roots[r]
+    for (let r: number = 0; r < roots.length; r++) {
+      const root: string = roots[r]
+      let names: string[] = []
+      try {
         if (!fs.accessSync(root)) {
           continue
         }
-        const names: string[] = fs.listFileSync(root)
-        for (let i: number = 0; i < names.length && out.length < MAX_ARCHIVER_TASKS; i++) {
+        names = fs.listFileSync(root)
+      } catch (error) {
+        DiagnosticLogger.warn('download', 'archiver_metadata_root_restore_failed', (error as Error).message)
+        continue
+      }
+      for (let i: number = 0; i < names.length; i++) {
+        try {
           if (!names[i].endsWith(ARCHIVER_METADATA_SUFFIX)) {
             continue
           }
           const tasks: DownloadArchiverTask[] = DownloadQueueSettings.parseArchiver(fs.readTextSync(`${root}/${names[i]}`))
           tasks.forEach((task: DownloadArchiverTask) => {
-            if (out.length < MAX_ARCHIVER_TASKS) {
-              out.push(task)
-            }
+            out.push(task)
           })
+        } catch (error) {
+          DiagnosticLogger.warn(
+            'download',
+            'archiver_metadata_entry_restore_failed',
+            `entryHash=${DiagnosticLogger.ownerHash(names[i])} error=${(error as Error).message}`,
+          )
         }
       }
-    } catch (error) {
-      DiagnosticLogger.warn('download', 'archiver_metadata_restore_failed', (error as Error).message)
     }
     return out
   }
@@ -2988,7 +2974,7 @@ export class DownloadQueueSettings {
       const exists: boolean = out.some((it: DownloadGalleryTask) => {
         return DownloadQueueSettings.sameGalleryTask(it, task.gid, task.token, task.preferOriginal)
       })
-      if (!exists && out.length < MAX_GALLERY_TASKS) {
+      if (!exists) {
         out.push(task.copy())
       }
     })
@@ -3002,7 +2988,7 @@ export class DownloadQueueSettings {
     const out: DownloadArchiverTask[] = primary.map((task: DownloadArchiverTask) => task.copy())
     fallback.forEach((task: DownloadArchiverTask) => {
       const exists: boolean = out.some((it: DownloadArchiverTask) => it.tag === task.tag)
-      if (!exists && out.length < MAX_ARCHIVER_TASKS) {
+      if (!exists) {
         out.push(task.copy())
       }
     })
@@ -4115,9 +4101,7 @@ export class DownloadQueueSettings {
             task.prepareError = typeof rec.prepareError === 'string' ? rec.prepareError : ''
             task.preferOriginal = typeof rec.preferOriginal === 'boolean' ? rec.preferOriginal : false
             task.status = DownloadQueueSettings.normalizeStatus(rec.status)
-            if (out.length < MAX_GALLERY_TASKS) {
-              out.push(task)
-            }
+            out.push(task)
           }
         })
       }
@@ -4158,9 +4142,7 @@ export class DownloadQueueSettings {
             task.progress = typeof rec.progress === 'number' ? rec.progress : 0
             task.error = typeof rec.error === 'string' ? rec.error : ''
             task.status = DownloadQueueSettings.normalizeStatus(rec.status)
-            if (out.length < MAX_ARCHIVER_TASKS) {
-              out.push(task)
-            }
+            out.push(task)
           }
         })
       }

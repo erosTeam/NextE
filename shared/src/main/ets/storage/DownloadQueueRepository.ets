@@ -67,8 +67,7 @@ export class DownloadQueueRepository {
     } finally {
       taskResultSet.close()
     }
-    // The normal queue has at most a few hundred task headers. Hydrate their seeds in one query
-    // after closing the header cursor instead of serially awaiting one query per task on startup.
+    // Hydrate seeds in one query after closing the header cursor instead of one query per task.
     if (out.length === 0) {
       return out
     }
@@ -130,32 +129,6 @@ export class DownloadQueueRepository {
     store.beginTransaction()
     try {
       await DownloadQueueRepository.replaceGalleryTaskWithStore(store, task)
-      store.commit()
-    } catch (error) {
-      store.rollBack()
-      throw error as Error
-    }
-  }
-
-  /** Ordinary enqueue refreshes one task and removes only the queue entries displaced by its cap. */
-  static async replaceGalleryTaskAndRemove(
-    context: common.UIAbilityContext,
-    task: DownloadGalleryTask,
-    removed: DownloadGalleryTask[],
-  ): Promise<void> {
-    if (task.gid.length === 0) {
-      return
-    }
-    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    store.beginTransaction()
-    try {
-      await DownloadQueueRepository.replaceGalleryTaskWithStore(store, task)
-      for (let i: number = 0; i < removed.length; i++) {
-        const displaced: DownloadGalleryTask = removed[i]
-        if (!DownloadQueueRepository.sameGalleryTask(displaced, task)) {
-          await DownloadQueueRepository.removeGalleryTaskWithStore(store, displaced)
-        }
-      }
       store.commit()
     } catch (error) {
       store.rollBack()
@@ -256,32 +229,6 @@ export class DownloadQueueRepository {
     await DownloadQueueRepository.upsertArchiverTask(store, task)
   }
 
-  /** Ordinary enqueue refreshes one archiver task and removes only entries displaced by its cap. */
-  static async replaceArchiverTaskAndRemove(
-    context: common.UIAbilityContext,
-    task: DownloadArchiverTask,
-    removed: DownloadArchiverTask[],
-  ): Promise<void> {
-    if (task.tag.length === 0) {
-      return
-    }
-    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    store.beginTransaction()
-    try {
-      await DownloadQueueRepository.upsertArchiverTask(store, task)
-      for (let i: number = 0; i < removed.length; i++) {
-        const displaced: DownloadArchiverTask = removed[i]
-        if (displaced.tag !== task.tag && displaced.tag.length > 0) {
-          await store.executeSql(SQL_DELETE_ARCHIVER_TASK, [SCOPE_GLOBAL, displaced.tag])
-        }
-      }
-      store.commit()
-    } catch (error) {
-      store.rollBack()
-      throw error as Error
-    }
-  }
-
   /** Ordinary explicit removal deletes one archiver task without rewriting its queue peers. */
   static async removeArchiverTask(context: common.UIAbilityContext, tag: string): Promise<void> {
     if (tag.length === 0) {
@@ -320,21 +267,6 @@ export class DownloadQueueRepository {
     await DownloadQueueRepository.upsertTask(store, task)
   }
 
-  private static async removeGalleryTaskWithStore(
-    store: relationalStore.RdbStore,
-    task: DownloadGalleryTask,
-  ): Promise<void> {
-    if (task.gid.length === 0) {
-      return
-    }
-    await DownloadQueueRepository.removeGalleryTaskByKeyWithStore(
-      store,
-      task.gid,
-      task.token,
-      task.preferOriginal,
-    )
-  }
-
   private static async removeGalleryTaskByKeyWithStore(
     store: relationalStore.RdbStore,
     gid: string,
@@ -353,10 +285,6 @@ export class DownloadQueueRepository {
       token,
       preferOriginal ? 1 : 0,
     ])
-  }
-
-  private static sameGalleryTask(a: DownloadGalleryTask, b: DownloadGalleryTask): boolean {
-    return a.gid === b.gid && a.token === b.token && a.preferOriginal === b.preferOriginal
   }
 
   /** Collision-free in-memory key for the same composite identity used by the seed table. */

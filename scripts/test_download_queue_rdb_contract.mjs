@@ -395,32 +395,10 @@ ok('duplicate archiver submit only suppresses download for a valid completed pac
     /static isArchiverTaskComplete\(task: DownloadArchiverTask\): boolean \{[\s\S]*task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.bytesWritten > 0[\s\S]*downloadedFileSize\(task\.filePath\) > 0/.test(settings) &&
     /it\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*refreshed\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /return shouldDownload/.test(settings))
-const enqueueGalleryBody = settings.match(/static async enqueueGallery[\s\S]*?\n  static async removeGallery/)?.[0] ?? ''
-const removeGalleryBody = settings.match(/static async removeGallery[\s\S]*?\n  static async pauseGalleryDownload/)?.[0] ?? ''
-const enqueueArchiverBody = settings.match(/static async enqueueArchiver[\s\S]*?\n  static async removeArchiver/)?.[0] ?? ''
-const removeArchiverBody = settings.match(/static async removeArchiver[\s\S]*?\n  static async switchArchiverToBot/)?.[0] ?? ''
-const galleryEnqueueRepositoryBody = repo.match(/static async replaceGalleryTaskAndRemove[\s\S]*?\n  \}/)?.[0] ?? ''
-const archiverEnqueueRepositoryBody = repo.match(/static async replaceArchiverTaskAndRemove[\s\S]*?\n  \}/)?.[0] ?? ''
 const galleryRdbWriteBody = settings.match(/private static async writeGalleryRdb[\s\S]*?\n  \}/)?.[0] ?? ''
 const archiverRdbWriteBody = settings.match(/private static async writeArchiverRdb[\s\S]*?\n  \}/)?.[0] ?? ''
-ok('ordinary enqueue and removal touch only their changed queue rows plus cap evictions',
-  /const evicted: DownloadGalleryTask\[\] = \[\]/.test(enqueueGalleryBody) &&
-    /persistGalleryTask\(context, refreshed, evicted\)/.test(enqueueGalleryBody) &&
-    !/persist\(context, next\)/.test(enqueueGalleryBody) &&
-    /persistGalleryRemoval\(context, gid, token, preferOriginal\)/.test(removeGalleryBody) &&
-    !/persist\(context, next\)/.test(removeGalleryBody) &&
-    /const evicted: DownloadArchiverTask\[\] = \[\]/.test(enqueueArchiverBody) &&
-    /persistArchiverTask\(context, refreshed, evicted\)/.test(enqueueArchiverBody) &&
-    !/persistArchiver\(context, next\)/.test(enqueueArchiverBody) &&
-    /persistArchiverRemoval\(context, tag\)/.test(removeArchiverBody) &&
-    !/persistArchiver\(context, next\)/.test(removeArchiverBody))
-ok('targeted enqueue and cap eviction commit together without clearing unrelated queue rows',
-  /store\.beginTransaction\(\)[\s\S]*replaceGalleryTaskWithStore[\s\S]*removeGalleryTaskWithStore[\s\S]*store\.commit\(\)[\s\S]*store\.rollBack\(\)/.test(galleryEnqueueRepositoryBody) &&
-    !/SQL_DELETE_SEEDS\b|SQL_DELETE_TASKS\b/.test(galleryEnqueueRepositoryBody) &&
-    /store\.beginTransaction\(\)[\s\S]*upsertArchiverTask[\s\S]*SQL_DELETE_ARCHIVER_TASK[\s\S]*store\.commit\(\)[\s\S]*store\.rollBack\(\)/.test(archiverEnqueueRepositoryBody) &&
-    !/SQL_DELETE_ARCHIVER_TASKS\b/.test(archiverEnqueueRepositoryBody) &&
-    /static async removeGalleryTask[\s\S]*removeGalleryTaskByKeyWithStore/.test(repo) &&
-    /static async removeArchiverTask[\s\S]*SQL_DELETE_ARCHIVER_TASK/.test(repo))
+// The old cap-eviction checks were removed: users require all tasks to survive enqueue.
+// scripts/test_download_queue_recovery.mjs executes enqueue and recovery with real fixtures.
 ok('a failed targeted queue write reconciles the live state through one serialized RDB tail',
   /rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settings) &&
     /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void> \{[\s\S]*rdbWriteTail\.then\([\s\S]*\(\): Promise<void> => work\(\),[\s\S]*\(\): Promise<void> => work\(\),[\s\S]*rdbWriteTail = next/.test(settings) &&
