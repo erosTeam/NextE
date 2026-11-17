@@ -82,12 +82,9 @@ export class ViewedHistoryRepository {
   /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): boolean => {
       return resultSet.goToNextRow()
-    } finally {
-      resultSet.close()
-    }
+    })
   }
 
   static async loadAll(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
@@ -226,19 +223,16 @@ export class ViewedHistoryRepository {
     requestedTime: number,
   ): Promise<number> {
     let latest: number = 0
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_EFFECTIVE_TIME, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_MAX_EFFECTIVE_TIME, [
       SCOPE_GLOBAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         const index: number = resultSet.getColumnIndex('effective_at')
         if (!resultSet.isColumnNull(index)) {
           latest = Math.max(0, Math.floor(resultSet.getDouble(index)))
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return Math.max(Date.now(), Math.max(0, Math.floor(requestedTime)), latest + 1)
   }
 

@@ -193,8 +193,7 @@ export class ImageBlockRepository {
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
     const out: ImageBlockFeed[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SUBSCRIPTIONS, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_SUBSCRIPTIONS, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const feed: ImageBlockFeed = new ImageBlockFeed()
         feed.id = ImageBlockRepository.stringColumn(resultSet, 'feed_id')
@@ -213,62 +212,53 @@ export class ImageBlockRepository {
           out.push(feed)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
   static async loadEnabledRules(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_ENABLED_RULES, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_ENABLED_RULES, [
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
         if (rule.hash.length > 0) {
           out.push(rule)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
   static async loadWhitelist(context: common.UIAbilityContext): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_WHITELIST, [
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_ALLOW,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const hash: string = PHashService.normalizeHex64(ImageBlockRepository.stringColumn(resultSet, 'hash'))
         if (hash.length > 0) {
           out.push(hash)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
   static async loadWhitelistItems(context: common.UIAbilityContext): Promise<ImageBlockWhitelistItem[]> {
     const out: ImageBlockWhitelistItem[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST_ITEMS, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_WHITELIST_ITEMS, [
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_ALLOW,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const item: ImageBlockWhitelistItem = new ImageBlockWhitelistItem()
         item.hash = PHashService.normalizeHex64(ImageBlockRepository.stringColumn(resultSet, 'hash'))
@@ -278,9 +268,7 @@ export class ImageBlockRepository {
           out.push(item)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -303,28 +291,24 @@ export class ImageBlockRepository {
   static async loadLocalRules(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_RULES, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_LOCAL_RULES, [
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_LOCAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
         if (rule.hash.length > 0) {
           out.push(rule)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
   static async loadUserRulesForBackup(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_USER_RULES_FOR_BACKUP, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_USER_RULES_FOR_BACKUP, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
         if (rule.id.length > 0 && rule.hash.length > 0) {
@@ -332,9 +316,7 @@ export class ImageBlockRepository {
           out.push(rule)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -392,21 +374,18 @@ export class ImageBlockRepository {
       return out
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SUBSCRIPTION_RULES, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_SUBSCRIPTION_RULES, [
       SCOPE_GLOBAL,
       feedId,
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
         if (rule.hash.length > 0) {
           out.push(rule)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -930,16 +909,13 @@ export class ImageBlockRepository {
     requestedTime: number,
   ): Promise<number> {
     let latest: number = 0
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_USER_RULE_EFFECTIVE_TIME, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_MAX_USER_RULE_EFFECTIVE_TIME, [
       SCOPE_GLOBAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         latest = Math.max(0, Math.floor(ImageBlockRepository.numberColumn(resultSet, 'effective_at')))
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     const requested: number = requestedTime > 0 ? Math.floor(requestedTime) : 0
     return Math.max(Date.now(), requested, latest + 1)
   }

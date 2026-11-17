@@ -332,36 +332,38 @@ export class TagTranslationService {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const args: relationalStore.ValueType[] = [ns, tagKey]
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TAG_INFO, args)
-    try {
-      if (!resultSet.goToFirstRow()) {
-        return null
-      }
-      const info: TagTranslationInfo = new TagTranslationInfo()
-      info.namespace = ns
-      info.key = tagKey
-      info.name = TagTranslationService.stripNameMarkdown(
-        TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
-      )
-      const rawIntro: string = TagTranslationService.readNullableString(
-        resultSet,
-        resultSet.getColumnIndex('intro'),
-      )
-      const rawLinks: string = TagTranslationService.readNullableString(
-        resultSet,
-        resultSet.getColumnIndex('links'),
-      )
-      const filteredIntro: string = TagTranslationService.filterIntroImages(
-        await TagTranslationService.translateInlineCodeTags(context, rawIntro),
-        introImageLevel,
-      )
-      info.intro = filteredIntro.trim()
-      info.images = TagTranslationService.extractMarkdownImageUrls(filteredIntro)
-      info.links = rawLinks.trim()
-      return info
-    } finally {
-      resultSet.close()
+    const info: TagTranslationInfo | null = await LocalDataStore.readQuery<TagTranslationInfo | null>(store, SQL_SELECT_TAG_INFO, args,
+      (resultSet: relationalStore.ResultSet): TagTranslationInfo | null => {
+        if (!resultSet.goToFirstRow()) {
+          return null
+        }
+        const info: TagTranslationInfo = new TagTranslationInfo()
+        info.namespace = ns
+        info.key = tagKey
+        info.name = TagTranslationService.stripNameMarkdown(
+          TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
+        )
+        info.intro = TagTranslationService.readNullableString(
+          resultSet,
+          resultSet.getColumnIndex('intro'),
+        )
+        info.links = TagTranslationService.readNullableString(
+          resultSet,
+          resultSet.getColumnIndex('links'),
+        ).trim()
+        return info
+      },
+    )
+    if (info === null) {
+      return null
     }
+    const filteredIntro: string = TagTranslationService.filterIntroImages(
+      await TagTranslationService.translateInlineCodeTags(context, info.intro),
+      introImageLevel,
+    )
+    info.intro = filteredIntro.trim()
+    info.images = TagTranslationService.extractMarkdownImageUrls(filteredIntro)
+    return info
   }
 
   static async clearTranslations(context: common.UIAbilityContext): Promise<void> {
@@ -635,8 +637,7 @@ export class TagTranslationService {
       args.push(keys[i])
     }
     const sql: string = `${SQL_SELECT_TAG_TRANSLATIONS_BY_KEYS_PREFIX}${placeholders.join(',')})`
-    const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
-    try {
+    await LocalDataStore.readQuery<void>(store, sql, args, (resultSet: relationalStore.ResultSet): void => {
       const nsIndex: number = resultSet.getColumnIndex('namespace')
       const keyIndex: number = resultSet.getColumnIndex('key')
       const nameIndex: number = resultSet.getColumnIndex('name')
@@ -650,9 +651,7 @@ export class TagTranslationService {
           translations.set(`${ns}:${key}`, name)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
   }
 
   private static applyCachedTagTranslation(
@@ -673,15 +672,12 @@ export class TagTranslationService {
 
   private static async hasRows(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_COUNT_TAG_TRANSLATIONS)
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_COUNT_TAG_TRANSLATIONS, [], (resultSet: relationalStore.ResultSet): boolean => {
       if (!resultSet.goToFirstRow()) {
         return false
       }
       return resultSet.getLong(resultSet.getColumnIndex('c')) > 0
-    } finally {
-      resultSet.close()
-    }
+    })
   }
 
   private static async queryRdbSuggestions(

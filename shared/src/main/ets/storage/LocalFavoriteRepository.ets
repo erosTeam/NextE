@@ -57,28 +57,22 @@ export class LocalFavoriteRepository {
   /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): boolean => {
       return resultSet.goToNextRow()
-    } finally {
-      resultSet.close()
-    }
+    })
   }
 
   static async load(context: common.UIAbilityContext): Promise<EhGallery[]> {
     const out: EhGallery[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_ACTIVE, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_ACTIVE, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const item: EhGallery = LocalFavoriteRepository.readGallery(resultSet)
         if (item.gid.length > 0) {
           out.push(item)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -162,19 +156,16 @@ export class LocalFavoriteRepository {
     requestedTime: number,
   ): Promise<number> {
     let latest: number = 0
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_EFFECTIVE_TIME, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_MAX_EFFECTIVE_TIME, [
       SCOPE_GLOBAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         const index: number = resultSet.getColumnIndex('effective_at')
         if (!resultSet.isColumnNull(index)) {
           latest = Math.max(0, Math.floor(resultSet.getDouble(index)))
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     const requested: number = requestedTime > 0 ? Math.floor(requestedTime) : 0
     return Math.max(Date.now(), requested, latest + 1)
   }

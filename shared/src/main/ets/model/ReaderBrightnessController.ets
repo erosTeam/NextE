@@ -38,6 +38,7 @@ export class ReaderBrightnessController {
     })
   }
 
+  /** @throws Window API failures are handled by the queued update in start. */
   private async drain(context: common.UIAbilityContext): Promise<void> {
     while (true) {
       const desired = this.requested

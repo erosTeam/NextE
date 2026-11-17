@@ -541,15 +541,12 @@ export class RdbComicTranslationRepository implements ComicTranslationRepository
   async stat(): Promise<CacheStat> {
     const result: CacheStat = new CacheStat()
     const store: relationalStore.RdbStore = await LocalDataStore.open(this.context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_STAT_ALL, [])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_STAT_ALL, [], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToFirstRow()) {
         result.count = resultSet.getDouble(resultSet.getColumnIndex('c'))
         result.bytes = resultSet.getDouble(resultSet.getColumnIndex('b'))
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return result
   }
 

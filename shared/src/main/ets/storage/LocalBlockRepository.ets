@@ -101,19 +101,15 @@ export class LocalBlockRepository {
     } finally {
       settings.close()
     }
-    const rules: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_RULES, [SCOPE_GLOBAL])
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_HAS_PERSISTED_RULES, [SCOPE_GLOBAL], (rules: relationalStore.ResultSet): boolean => {
       return rules.goToNextRow()
-    } finally {
-      rules.close()
-    }
+    })
   }
 
   static async load(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const snapshot: LocalBlockSettingsSnapshot = new LocalBlockSettingsSnapshot()
-    const settings: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SETTINGS, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_SETTINGS, [SCOPE_GLOBAL], (settings: relationalStore.ResultSet): void => {
       if (settings.goToNextRow()) {
         snapshot.filterCommentsByScore =
           LocalBlockRepository.numberColumn(settings, 'filter_comments_by_score') > 0
@@ -121,9 +117,7 @@ export class LocalBlockRepository {
           Math.floor(LocalBlockRepository.numberColumn(settings, 'score_filtering_threshold'))
         snapshot.commentDisplayMode = LocalBlockRepository.stringColumn(settings, 'comment_display_mode')
       }
-    } finally {
-      settings.close()
-    }
+    })
     if (snapshot.commentDisplayMode.length === 0) {
       snapshot.commentDisplayMode = LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
     }
@@ -264,20 +258,17 @@ export class LocalBlockRepository {
     requestedTime: number,
   ): Promise<number> {
     let latest: number = 0
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_EFFECTIVE_TIME, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_MAX_EFFECTIVE_TIME, [
       SCOPE_GLOBAL,
       SCOPE_GLOBAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         const index: number = resultSet.getColumnIndex('effective_at')
         if (!resultSet.isColumnNull(index)) {
           latest = Math.max(0, Math.floor(resultSet.getDouble(index)))
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     const requested: number = requestedTime > 0 ? Math.floor(requestedTime) : 0
     return Math.max(Date.now(), requested, latest + 1)
   }
@@ -353,8 +344,7 @@ export class LocalBlockRepository {
 
   private static async loadRules(store: relationalStore.RdbStore): Promise<LocalBlockRuleSnapshot[]> {
     const out: LocalBlockRuleSnapshot[] = []
-    const rules: relationalStore.ResultSet = await store.querySql(SQL_SELECT_RULES, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_RULES, [SCOPE_GLOBAL], (rules: relationalStore.ResultSet): void => {
       while (rules.goToNextRow()) {
         const rule: LocalBlockRuleSnapshot = new LocalBlockRuleSnapshot()
         rule.id = LocalBlockRepository.stringColumn(rules, 'rule_id')
@@ -366,9 +356,7 @@ export class LocalBlockRepository {
           out.push(rule)
         }
       }
-    } finally {
-      rules.close()
-    }
+    })
     return out
   }
 

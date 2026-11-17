@@ -295,8 +295,7 @@ export class SyncLocalDataAdapter {
 
   private static async readProgress(store: relationalStore.RdbStore): Promise<SyncReadProgressRecord[]> {
     const out: SyncReadProgressRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_READ_PROGRESS)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_READ_PROGRESS, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncReadProgressRecord = new SyncReadProgressRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -309,16 +308,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readViewedHistory(store: relationalStore.RdbStore): Promise<SyncViewedHistoryRecord[]> {
     const out: SyncViewedHistoryRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_VIEWED_HISTORY)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_VIEWED_HISTORY, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncViewedHistoryRecord = new SyncViewedHistoryRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -342,16 +338,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readLocalFavorites(store: relationalStore.RdbStore): Promise<SyncLocalFavoriteRecord[]> {
     const out: SyncLocalFavoriteRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_FAVORITES)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_LOCAL_FAVORITES, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncLocalFavoriteRecord = new SyncLocalFavoriteRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -380,16 +373,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readSearchHistory(store: relationalStore.RdbStore): Promise<SyncSearchHistoryRecord[]> {
     const out: SyncSearchHistoryRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEARCH_HISTORY)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_SEARCH_HISTORY, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncSearchHistoryRecord = new SyncSearchHistoryRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -401,16 +391,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readLocalBlockSettings(store: relationalStore.RdbStore): Promise<SyncLocalBlockSettingsRecord[]> {
     const out: SyncLocalBlockSettingsRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_BLOCK_SETTINGS)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_LOCAL_BLOCK_SETTINGS, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncLocalBlockSettingsRecord = new SyncLocalBlockSettingsRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -423,16 +410,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readLocalBlockRules(store: relationalStore.RdbStore): Promise<SyncLocalBlockRuleRecord[]> {
     const out: SyncLocalBlockRuleRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_BLOCK_RULES)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_LOCAL_BLOCK_RULES, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncLocalBlockRuleRecord = new SyncLocalBlockRuleRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -448,16 +432,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readImageBlockSubscriptions(store: relationalStore.RdbStore): Promise<SyncImageBlockSubscriptionRecord[]> {
     const out: SyncImageBlockSubscriptionRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncImageBlockSubscriptionRecord = new SyncImageBlockSubscriptionRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -476,16 +457,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readImageBlockRules(store: relationalStore.RdbStore): Promise<SyncImageBlockRuleRecord[]> {
     const out: SyncImageBlockRuleRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_RULES)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_IMAGE_BLOCK_RULES, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncImageBlockRuleRecord = new SyncImageBlockRuleRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -506,16 +484,13 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 
   private static async readCustomProfiles(store: relationalStore.RdbStore): Promise<SyncCustomProfileRecord[]> {
     const out: SyncCustomProfileRecord[] = []
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_CUSTOM_PROFILES)
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_CUSTOM_PROFILES, [], (rs: relationalStore.ResultSet): void => {
       while (rs.goToNextRow()) {
         const r: SyncCustomProfileRecord = new SyncCustomProfileRecord()
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
@@ -545,9 +520,7 @@ export class SyncLocalDataAdapter {
           out.push(r)
         }
       }
-    } finally {
-      rs.close()
-    }
+    })
     return out
   }
 

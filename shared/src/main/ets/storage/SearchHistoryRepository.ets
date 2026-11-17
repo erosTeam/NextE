@@ -46,22 +46,18 @@ export class SearchHistoryRepository {
   /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
   static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): boolean => {
       return resultSet.goToNextRow()
-    } finally {
-      resultSet.close()
-    }
+    })
   }
 
   static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_ACTIVE, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_ACTIVE, [
       SCOPE_GLOBAL,
       limit,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const index: number = resultSet.getColumnIndex('query_text')
         const query: string = resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
@@ -69,9 +65,7 @@ export class SearchHistoryRepository {
           out.push(query)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -160,19 +154,16 @@ export class SearchHistoryRepository {
     requestedTime: number,
   ): Promise<number> {
     let latest: number = 0
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_EFFECTIVE_TIME, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_MAX_EFFECTIVE_TIME, [
       SCOPE_GLOBAL,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         const index: number = resultSet.getColumnIndex('effective_at')
         if (!resultSet.isColumnNull(index)) {
           latest = Math.max(0, Math.floor(resultSet.getDouble(index)))
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     const requested: number = requestedTime > 0 ? Math.floor(requestedTime) : 0
     return Math.max(Date.now(), requested, latest + 1)
   }

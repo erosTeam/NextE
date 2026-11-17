@@ -106,12 +106,9 @@ export class CustomProfilesRepository {
   /** Caller owns the transaction, including WebDAV conflict resolution. */
   static async repairResourceNamesWithStore(store: relationalStore.RdbStore): Promise<boolean> {
     const rows: CustomProfile[] = []
-    const result: relationalStore.ResultSet = await store.querySql(SQL_SELECT_PROFILES, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_PROFILES, [SCOPE_GLOBAL], (result: relationalStore.ResultSet): void => {
       while (result.goToNextRow()) rows.push(CustomProfilesRepository.readProfile(result))
-    } finally {
-      result.close()
-    }
+    })
     let repaired: boolean = false
     for (let i: number = 0; i < rows.length; i++) {
       const row: CustomProfile = rows[i]
@@ -140,28 +137,22 @@ export class CustomProfilesRepository {
     } finally {
       profiles.close()
     }
-    const selection: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_SELECTION, [SCOPE_GLOBAL])
-    try {
+    return LocalDataStore.readQuery<boolean>(store, SQL_HAS_PERSISTED_SELECTION, [SCOPE_GLOBAL], (selection: relationalStore.ResultSet): boolean => {
       return selection.goToNextRow()
-    } finally {
-      selection.close()
-    }
+    })
   }
 
   static async loadProfiles(context: common.UIAbilityContext): Promise<CustomProfile[]> {
     const out: CustomProfile[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_PROFILES, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_PROFILES, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): void => {
       while (resultSet.goToNextRow()) {
         const profile: CustomProfile = CustomProfilesRepository.readProfile(resultSet)
         if (profile.uuid.length > 0) {
           out.push(profile)
         }
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return out
   }
 
@@ -335,20 +326,17 @@ export class CustomProfilesRepository {
     uuid: string,
   ): Promise<CustomProfileClock> {
     const clock: CustomProfileClock = new CustomProfileClock()
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_PROFILE_CLOCK, [
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_PROFILE_CLOCK, [
       SCOPE_GLOBAL,
       uuid,
-    ])
-    try {
+    ], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         clock.lastEditTime = Math.floor(
           CustomProfilesRepository.numberColumn(resultSet, 'last_edit_time'),
         )
         clock.deletedAt = Math.floor(CustomProfilesRepository.numberColumn(resultSet, 'deleted_at'))
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return clock
   }
 
@@ -381,17 +369,14 @@ export class CustomProfilesRepository {
     store: relationalStore.RdbStore,
   ): Promise<CustomProfileSelectionState> {
     const state: CustomProfileSelectionState = new CustomProfileSelectionState()
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SELECTED_STATE, [SCOPE_GLOBAL])
-    try {
+    await LocalDataStore.readQuery<void>(store, SQL_SELECT_SELECTED_STATE, [SCOPE_GLOBAL], (resultSet: relationalStore.ResultSet): void => {
       if (resultSet.goToNextRow()) {
         state.exists = true
         state.selectedUuid = CustomProfilesRepository.stringColumn(resultSet, 'selected_uuid')
         state.updatedAt = Math.floor(CustomProfilesRepository.numberColumn(resultSet, 'updated_at'))
         state.deletedAt = Math.floor(CustomProfilesRepository.numberColumn(resultSet, 'deleted_at'))
       }
-    } finally {
-      resultSet.close()
-    }
+    })
     return state
   }
 

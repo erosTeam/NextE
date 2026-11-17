@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
 export const LOCAL_DATA_SCHEMA_VERSION: number = 25
@@ -596,10 +597,35 @@ export class LocalDataStore {
   private static schemaInitialization: Promise<void> | null = null
 
   static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
-    const store: relationalStore.RdbStore =
-      await relationalStore.getRdbStore(context, LOCAL_DATA_STORE_CONFIG)
+    let store: relationalStore.RdbStore
+    try {
+      store = await relationalStore.getRdbStore(context, LOCAL_DATA_STORE_CONFIG)
+    } catch (error) {
+      DiagnosticLogger.error('local_data', 'open_failed', (error as Error).message)
+      throw error as Error
+    }
     await LocalDataStore.ensureSchema(store)
     return store
+  }
+
+  /** Keep the cursor inside the read and propagate failures to the caller's recovery path. */
+  static async readQuery<T>(
+    store: relationalStore.RdbStore,
+    sql: string,
+    args: relationalStore.ValueType[],
+    read: (result: relationalStore.ResultSet) => T,
+  ): Promise<T> {
+    try {
+      const result: relationalStore.ResultSet = await store.querySql(sql, args)
+      try {
+        return read(result)
+      } finally {
+        result.close()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('local_data', 'query_failed', (error as Error).message)
+      throw error as Error
+    }
   }
 
   private static async ensureSchema(store: relationalStore.RdbStore): Promise<void> {
@@ -611,17 +637,21 @@ export class LocalDataStore {
       await pending
       return
     }
-    const task: Promise<void> = LocalDataStore.initializeSchema(store)
-    LocalDataStore.schemaInitialization = task
     try {
+      const task: Promise<void> = LocalDataStore.initializeSchema(store)
+      LocalDataStore.schemaInitialization = task
       await task
       LocalDataStore.schemaInitialized = true
+    } catch (error) {
+      DiagnosticLogger.error('local_data', 'schema_initialization_failed', (error as Error).message)
+      throw error as Error
     } finally {
       // Keep failure retryable: a partially created/migrated store is rechecked on the next open.
       LocalDataStore.schemaInitialization = null
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
     // v25 adds the bounded, regenerable comic-translation document cache. Only a current, intact store may skip the
     // cold-start DDL sweep; every earlier install runs this complete idempotent migration once.
@@ -694,6 +724,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateCustomProfilesUuidColumn(store: relationalStore.RdbStore): Promise<void> {
     const hasOldUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'uuid')
     const hasProfileUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'profile_uuid')
@@ -715,6 +746,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateGalleryReadProgressColumnMode(store: relationalStore.RdbStore): Promise<void> {
     const hasColumnMode: boolean = await LocalDataStore.hasColumn(
       store,
@@ -727,6 +759,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_GALLERY_READ_PROGRESS_COLUMN_MODE)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateViewedHistorySnapshotColumns(store: relationalStore.RdbStore): Promise<void> {
     if (!await LocalDataStore.hasColumn(store, 'viewed_history', 'post_time')) {
       await store.executeSql(SQL_ADD_VIEWED_HISTORY_POST_TIME)
@@ -745,6 +778,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadGalleryPreferOriginal(store: relationalStore.RdbStore): Promise<void> {
     const hasPreferOriginal: boolean = await LocalDataStore.hasColumn(
       store,
@@ -757,6 +791,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateImageBlockRuleSourceMetadata(store: relationalStore.RdbStore): Promise<void> {
     const hasSourceUrl: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'source_url')
     if (!hasSourceUrl) {
@@ -772,6 +807,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateImageBlockLegacyTables(store: relationalStore.RdbStore): Promise<void> {
     const hasWhitelist: boolean = await LocalDataStore.hasTable(store, 'image_block_whitelist')
     const hasOverrides: boolean = await LocalDataStore.hasTable(store, 'image_block_rule_overrides')
@@ -815,6 +851,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateImageBlockUserRuleColumnOrder(store: relationalStore.RdbStore): Promise<void> {
     const columns: string[] = await LocalDataStore.tableColumns(store, 'image_block_user_rules')
     if (LocalDataStore.sameColumns(columns, IMAGE_BLOCK_USER_RULE_COLUMNS)) {
@@ -867,6 +904,7 @@ export class LocalDataStore {
     return '\'\''
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadGalleryUpgradeFromGid(store: relationalStore.RdbStore): Promise<void> {
     const hasUpgradeFromGid: boolean = await LocalDataStore.hasColumn(
       store,
@@ -879,6 +917,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadGalleryCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
     const hasImgWidth: boolean = await LocalDataStore.hasColumn(
       store,
@@ -898,6 +937,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadGalleryTaskQualityKey(store: relationalStore.RdbStore): Promise<void> {
     const tasksUsePreferOriginalKey: boolean = await LocalDataStore.hasPrimaryKeyColumn(
       store,
@@ -930,6 +970,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async hasPrimaryKeyColumn(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -951,6 +992,7 @@ export class LocalDataStore {
     return false
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadArchiverToken(store: relationalStore.RdbStore): Promise<void> {
     const hasToken: boolean = await LocalDataStore.hasColumn(
       store,
@@ -963,6 +1005,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_TOKEN)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadArchiverThumbUrl(store: relationalStore.RdbStore): Promise<void> {
     const hasThumbUrl: boolean = await LocalDataStore.hasColumn(
       store,
@@ -975,6 +1018,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadArchiverCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
     const hasImgWidth: boolean = await LocalDataStore.hasColumn(
       store,
@@ -994,6 +1038,7 @@ export class LocalDataStore {
     }
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async migrateDownloadArchiverParseSource(store: relationalStore.RdbStore): Promise<void> {
     const hasParseSource: boolean = await LocalDataStore.hasColumn(
       store,
@@ -1006,6 +1051,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_PARSE_SOURCE)
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async hasColumn(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -1025,6 +1071,7 @@ export class LocalDataStore {
     return false
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async tableColumns(
     store: relationalStore.RdbStore,
     tableName: string,
@@ -1044,6 +1091,7 @@ export class LocalDataStore {
     return columns
   }
 
+  /** @throws Database errors abort schema initialization so the next open can retry. */
   private static async hasTable(
     store: relationalStore.RdbStore,
     tableName: string,
