@@ -21,6 +21,8 @@ oh-package-lock.json5
 local.properties
 # Signing config is injected by dev.sh/sign.py at build time, never committed
 scripts/dev.env
+# Local device lock-screen PINs for the harmony-run-device-diagnostics runner; never commit.
+/.device-local/
 # Captured EH pages and real-image QA fixtures for local parser/visual checks
 # (site content, not committed or packaged into ohosTest).
 # Committed gates must use owned/synthetic fixtures under tracked test resources.

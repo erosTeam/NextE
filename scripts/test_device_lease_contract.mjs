@@ -59,6 +59,8 @@ ok(doc.includes('不得要求用户重复提供 IP 和端口'), 'docs forbid ask
 ok(doc.includes('零匹配或多匹配'), 'docs stop only when shorthand resolution is not unique')
 ok(doc.includes('获取 lease 不构成用户对任意设备操作的许可'), 'docs separate lease from authorization')
 ok(doc.includes('`--force` 仅能在用户明确批准后使用'), 'docs forbid unapproved force takeover')
+ok(read(path.join(root, '.gitignore')).includes('/.device-local/'), 'lock-screen PIN file stays git-ignored')
+ok(doc.includes('.device-local/lockscreen.json'), 'docs name the project-local PIN file consumed by the runner')
 
 const tmpLeaseRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nexte-device-lease-contract-'))
 try {

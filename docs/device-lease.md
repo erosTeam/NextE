@@ -135,6 +135,27 @@ runner 自动保存的 `protocol-manifest.json` / `recording-manifest.json` 是�
 源 manifest 和运行快照均留在忽略产物目录，不提交。清理重复 manifest 不授权按日期删除截图、
 录像、trace 或其他历史证据；证据清理必须另有明确范围。
 
+## 锁屏与系统 PIN 自动化
+
+锁屏不是“设备不可用”。唤醒、滑开、输 PIN、超时写入与读回是一个连续恢复边界，必须写进同一份
+manifest 交给 runner 完成，不拆成零散命令，也不在中间插入源码检查或重新发现。参考场景见
+`docs/device-protocols/nexte-secure-unlock-237.json`。
+
+- preflight 命名动作加 `"screenUnlock": {"swipe": [...]}`：swipe 是当前设备与方向已确认的
+  中性区域滑动手势（不得落在通知、快捷操作或系统控件上）。runner 唤醒设备、必要时滑开锁屏、
+  出现系统密码提示时输入 PIN，并读回解锁状态与生效的 AWAKE 超时。项目可用数值 `timeoutMs`
+  覆盖超时；验收要求真实出现密码提示并输入时加 `"requirePin": true`。
+- `screenUnlock` 必须配对 postflight 命名动作 `"restoreScreenTimeout": true`，恢复原 override
+  或默认值并读回验证。
+- 导航后的系统级再认证（如密码管理器提示）用 preflight 的
+  `"systemPin": {"window": ..., "bundle": ...}`，window/bundle 先从真实系统提示确认。
+- 密码保存在项目根 `.device-local/lockscreen.json`（Git 忽略，权限 0600），按设备别名索引
+  `model` 与 `password`；`password` 用 JSON 字符串保留前导零，空串表示未配置。runner 只在
+  确认系统密码提示后读取，用 `context.deviceAlias` 匹配文件条目、`context.deviceModel` 匹配
+  实时型号，任一不符即失败；执行回执对密码输入整体脱敏，不落 PIN、位数、键位坐标。
+- `scripts/run-device-protocol` 固定从项目根启动 runner，密码文件因此解析到本项目的
+  `.device-local/lockscreen.json`；不得把密码写进 manifest、命令行、日志或提交。
+
 ## 哪些命令需要 lease
 
 - `hdc tconn` / `hdc install` / 卸载 / 清应用数据；
