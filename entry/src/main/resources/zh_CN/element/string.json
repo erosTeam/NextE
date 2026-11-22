@@ -5485,6 +5485,7 @@
     {"name": "reader_display_blend_darken", "value": "变暗"},
     {"name": "reader_display_grayscale", "value": "灰度"},
     {"name": "reader_display_inverted", "value": "反色"},
+    {"name": "reader_display_hdr", "value": "自动HDR提亮"},
     {"name": "reader_settings_tab_mode", "value": "阅读模式"},
     {"name": "reader_settings_tab_general", "value": "常规"},
     {"name": "reader_settings_tab_filters", "value": "滤镜"}

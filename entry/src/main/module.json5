@@ -8,6 +8,7 @@
       { "name": "ohos.permission.GET_NETWORK_INFO" },
       { "name": "ohos.permission.VIBRATE" },
       { "name": "ohos.permission.DETECT_GESTURE" },
+      { "name": "ohos.permission.HDR_BRIGHTNESS" },
       {
         "name": "ohos.permission.ACCESS_BIOMETRIC",
         "reason": "$string:perm_access_biometric_reason",

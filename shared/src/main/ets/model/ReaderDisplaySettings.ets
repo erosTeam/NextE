@@ -12,6 +12,8 @@ export class ReaderDisplaySettings {
   blendMode: ReaderFilterBlendMode = 'default'
   grayscale: boolean = false
   inverted: boolean = false
+  /** Shared-reader kit auto HDR brightening (opt-in, paged/continuous leaves). */
+  hdrBrightness: boolean = false
 }
 
 function bounded(value: number, min: number, max: number): number {
@@ -32,6 +34,7 @@ export function normalizeReaderDisplaySettings(value?: ReaderDisplaySettings): R
     ? value.blendMode : 'default'
   next.grayscale = value.grayscale === true
   next.inverted = value.inverted === true
+  next.hdrBrightness = value.hdrBrightness === true
   return next
 }
 

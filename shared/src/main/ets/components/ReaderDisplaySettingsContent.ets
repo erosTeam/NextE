@@ -1,5 +1,6 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
+import { readerHdrBrightnessAvailable } from '@reader-kit/ui'
 import { ReaderDisplaySettings, ReaderFilterBlendMode, normalizeReaderDisplaySettings } from '../model/ReaderDisplaySettings'
 import { connectReaderDisplay, ReaderDisplayState } from '../state/ReaderDisplayState'
 import { AppStrings } from '../i18n/AppStrings'
@@ -11,6 +12,13 @@ import { ListRowDivider } from './ListRowDivider'
 @ComponentV2
 export struct ReaderDisplaySettingsContent {
   @Local private display: ReaderDisplayState = connectReaderDisplay()
+  /** The kit gate covers API level, permission grant and screen HDR headroom;
+   * on unsupported devices the row is absent entirely. */
+  @Local private hdrAvailable: boolean = false
+
+  aboutToAppear(): void {
+    this.hdrAvailable = readerHdrBrightnessAvailable(this.getUIContext().getHostContext() as common.UIAbilityContext)
+  }
 
   private change(edit: (settings: ReaderDisplaySettings) => void, commit: boolean = true): void {
     const next = normalizeReaderDisplaySettings(this.display.effective())
@@ -80,6 +88,12 @@ export struct ReaderDisplaySettingsContent {
         ConciseListRow({ title: AppStrings.get('reader_display_inverted'), hasSwitch: true,
           checked: this.display.effective().inverted, showChevron: false,
           switchAction: (value: boolean): void => { this.change((next): void => { next.inverted = value }) } })
+        if (this.hdrAvailable) {
+          ListRowDivider()
+          ConciseListRow({ title: AppStrings.get('reader_display_hdr'), hasSwitch: true,
+            checked: this.display.effective().hdrBrightness, showChevron: false,
+            switchAction: (value: boolean): void => { this.change((next): void => { next.hdrBrightness = value }) } })
+        }
       }
     }.width('100%')
   }

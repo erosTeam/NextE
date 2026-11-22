@@ -57,6 +57,13 @@
       "since": "26.0.0",
       "compatible": "6.1.0(23)",
       "count": 2
+    },
+    {
+      "file": "third_party/reader-kit/reader-ui/src/main/ets/ReaderHdrImage.ets",
+      "api": "hdrBrightnessRatio",
+      "since": "24",
+      "compatible": "6.1.0(23)",
+      "count": 1
     }
   ]
 }

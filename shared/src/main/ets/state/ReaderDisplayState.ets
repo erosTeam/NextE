@@ -62,6 +62,7 @@ export function readerImageEffects(settings: ReaderDisplaySettings): ReaderImage
   const effects = new ReaderImageEffects()
   effects.grayscale = settings.grayscale
   effects.inverted = settings.inverted
+  effects.hdrBrightness = settings.hdrBrightness
   effects.tint = settings.filterEnabled && settings.alpha > 0
   effects.tintColor = `rgba(${settings.red},${settings.green},${settings.blue},${settings.alpha / 255})`
   effects.blendMode = settings.blendMode === 'multiply' ? BlendMode.MODULATE :

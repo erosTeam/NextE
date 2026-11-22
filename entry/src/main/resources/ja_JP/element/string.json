@@ -5485,6 +5485,7 @@
     {"name": "reader_display_blend_darken", "value": "比較（暗）"},
     {"name": "reader_display_grayscale", "value": "グレースケール"},
     {"name": "reader_display_inverted", "value": "色反転"},
+    {"name": "reader_display_hdr", "value": "自動HDR輝度"},
     {"name": "reader_settings_tab_mode", "value": "閲覧モード"},
     {"name": "reader_settings_tab_general", "value": "一般"},
     {"name": "reader_settings_tab_filters", "value": "フィルター"}
