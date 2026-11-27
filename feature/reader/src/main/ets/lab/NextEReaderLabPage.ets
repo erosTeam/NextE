@@ -10,11 +10,11 @@ import { window } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { connectSiteMode, connectReadMode, ReadModeState, connectLayoutSafeArea, LayoutSafeAreaState,
   connectThemeDisplay, ReaderBackgroundMode, ThemeDisplayState, ThemeConstants, immersiveTitleBar,
-  GalleryReadProgressSettings, ReadMode, ReadSpreadLayout, readerSuperResolutionSetInteractionPaused, AppStrings,
+  GalleryReadProgressSettings, isContinuousReadMode, ReadSpreadLayout, readerSuperResolutionSetInteractionPaused, AppStrings,
   CommentTranslationService, ComicVisualProviderSettings, ImageBlockSettingsState,
   ReaderThumbnailTransitionCoordinator, connectReaderThumbnailTransition, ReaderThumbnailTransitionState,
   connectImageBlockSettings, DiagnosticLogger, EhGalleryImage, ReaderParams, ReaderSuperResolutionModel } from 'shared'
-import { appSheetOptions } from 'shared'
+import { appSheetOptions, showReaderEntryDirection } from 'shared'
 import { ReaderPagedSession, ReaderUnitKey, ReaderInputPort,
   ReaderLayout, ReaderObservedPosition, ReaderDisplayPolicy, ReaderVariantPreference, ReaderPagedFrame,
   ReaderAssetProvider, ReaderImageInformation,
@@ -130,6 +130,7 @@ export struct NextEReaderLabPage {
   @Local private readerSettingsSheetShown: boolean = false
   private volumeDisposed: boolean = false
   private entrySettledNotified: boolean = false
+  private entryDirectionShown: boolean = false
   private rootEntryHandoff: ReaderRootEntryHandoff = new ReaderRootEntryHandoff()
   private rootEntryGateLoggedKey: string = ''
   private rootEntryPartLoggedKey: string = ''
@@ -804,36 +805,21 @@ export struct NextEReaderLabPage {
     if (!this.request.productionSources || this.session === null || this.closeRequested || this.hostClosing ||
       this.labRequest?.entryLayoutOverride || this.labRequest?.entryDirectionOverride) return
     const current = this.session.snapshot().policy
-    const mode = this.readMode.mode
-    const horizontal = mode === ReadMode.LTR || mode === ReadMode.RTL
-    const layout = mode === ReadMode.VERTICAL ? 'continuous' :
-      horizontal && this.readMode.doublePageEnabled ? 'spread' : 'single'
-    const axis = mode === ReadMode.TOP_TO_BOTTOM ? 'vertical' : 'horizontal'
-    const direction = mode === ReadMode.RTL ? 'rtl' : 'ltr'
-    const spreadLayout = this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT ? 'split' : 'joined'
-    if (current.layout === layout && current.pagingAxis === axis && current.direction === direction &&
-      current.spreadLayout === spreadLayout) return
     const next = current.copy()
-    next.layout = layout
-    next.pagingAxis = axis
-    next.direction = direction
-    next.spreadLayout = spreadLayout
-    this.session.setPolicy(next)
+    NextEReaderInitialPolicy.applyMode(next, this.readMode.mode, this.readMode.doublePageEnabled)
+    next.spreadLayout = this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT ? 'split' : 'joined'
+    if (!current.equals(next)) this.session.setPolicy(next)
   }
 
   @Builder
   private HostModeControl(params: ReaderModeControlParams) {
     ReaderModeControl({
-      readerMode: params.policy.layout === 'continuous' ? ReadMode.VERTICAL :
-        params.policy.pagingAxis === 'vertical' ? ReadMode.TOP_TO_BOTTOM :
-          params.policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR,
+      readerMode: NextEReaderInitialPolicy.modeForPolicy(params.policy),
       controlEnabled: params.enabled,
+      supportsHorizontalContinuous: true,
       onModeChange: (mode: string): void => {
         const policy = params.policy.copy()
-        policy.layout = mode === ReadMode.VERTICAL ? 'continuous' :
-          mode === ReadMode.TOP_TO_BOTTOM ? 'single' : this.readMode.doublePageEnabled ? 'spread' : 'single'
-        policy.pagingAxis = mode === ReadMode.TOP_TO_BOTTOM ? 'vertical' : 'horizontal'
-        policy.direction = mode === ReadMode.RTL ? 'rtl' : 'ltr'
+        NextEReaderInitialPolicy.applyMode(policy, mode, this.readMode.doublePageEnabled)
         params.onChange(policy)
       },
       onMenuVisible: (visible: boolean): void => { params.onMenuVisible(visible) },
@@ -853,13 +839,13 @@ export struct NextEReaderLabPage {
   private initialCropBorders(): boolean {
     if (this.labRequest?.cropBorders === true) return true
     if (!this.request.preferencesReadWrite) return false
-    return this.readMode.mode === ReadMode.VERTICAL
+    return isContinuousReadMode(this.readMode.mode)
       ? this.readMode.cropBordersContinuous
       : this.readMode.cropBordersPaged
   }
 
   private cropStrength(): string {
-    return this.readMode.mode === ReadMode.VERTICAL
+    return isContinuousReadMode(this.readMode.mode)
       ? this.readMode.cropStrengthContinuous
       : this.readMode.cropStrengthPaged
   }
@@ -1060,6 +1046,10 @@ export struct NextEReaderLabPage {
     // ReaderSurface retains the authoritative chrome state while entry owns
     // the source window; reuse its existing event instead of copying state.
     this.chromeRepublishToken += 1
+    if (this.request.productionSources && !this.entryDirectionShown && this.session !== null) {
+      this.entryDirectionShown = true
+      showReaderEntryDirection(this.getUIContext(), NextEReaderInitialPolicy.modeForPolicy(this.session.snapshot().policy))
+    }
   }
 
 

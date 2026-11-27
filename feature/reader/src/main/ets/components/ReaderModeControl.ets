@@ -1,45 +1,20 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { ReadMode, appMenuOptions } from 'shared'
+import { ReadMode, appMenuOptions, readerModeLabel, readerModeSymbol } from 'shared'
 
 /** The native NextE direction control is reused by both reader backends. */
 @ComponentV2
 export struct ReaderModeControl {
   @Param readerMode: string = ReadMode.LTR
   @Param controlEnabled: boolean = true
+  @Param supportsHorizontalContinuous: boolean = false
   @Event onModeChange: (mode: string) => void = (_mode: string): void => {}
   @Event onMenuVisible: (visible: boolean) => void = (_visible: boolean): void => {}
   @Local private modeShown: boolean = false
 
   private choose(mode: string): void { this.onModeChange(mode); this.modeShown = false }
 
-  private modeLabel(): Resource {
-    if (this.readerMode === ReadMode.RTL) {
-      return $r('app.string.read_mode_rtl')
-    }
-    if (this.readerMode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('app.string.read_mode_ttb')
-    }
-    if (this.readerMode === ReadMode.VERTICAL) {
-      return $r('app.string.read_mode_vertical')
-    }
-    return $r('app.string.read_mode_ltr')
-  }
-
   private modeIconFor(mode: string): Resource {
-    if (mode === ReadMode.RTL) {
-      return $r('sys.symbol.arrow_left_and_square')
-    }
-    if (mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('sys.symbol.square_and_arrow_down_1')
-    }
-    if (mode === ReadMode.VERTICAL) {
-      return $r('sys.symbol.scroll_vertical')
-    }
-    return $r('sys.symbol.arrow_right_and_square')
-  }
-
-  private modeIcon(): Resource {
-    return this.modeIconFor(this.readerMode)
+    return readerModeSymbol(mode, $r('sys.symbol.square_and_arrow_down_1'))
   }
 
   @Builder
@@ -85,12 +60,30 @@ export struct ReaderModeControl {
       }).onClick(() => {
         this.choose(ReadMode.VERTICAL)
       })
+      if (this.supportsHorizontalContinuous) {
+        MenuItem({
+          content: $r('app.string.read_mode_horizontal_continuous_ltr'),
+          symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.HORIZONTAL_CONTINUOUS_LTR)),
+          symbolEndIcon: this.readerMode === ReadMode.HORIZONTAL_CONTINUOUS_LTR
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark')) : undefined,
+        }).onClick(() => {
+          this.choose(ReadMode.HORIZONTAL_CONTINUOUS_LTR)
+        })
+        MenuItem({
+          content: $r('app.string.read_mode_horizontal_continuous_rtl'),
+          symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.HORIZONTAL_CONTINUOUS_RTL)),
+          symbolEndIcon: this.readerMode === ReadMode.HORIZONTAL_CONTINUOUS_RTL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark')) : undefined,
+        }).onClick(() => {
+          this.choose(ReadMode.HORIZONTAL_CONTINUOUS_RTL)
+        })
+      }
     }
   }
 
   build() {
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph(this.modeIcon())
+            SymbolGlyph(this.modeIconFor(this.readerMode))
               .fontSize(22)
               .fontColor([Color.White])
           }
@@ -98,7 +91,7 @@ export struct ReaderModeControl {
           .height(44)
           .backgroundColor(Color.Transparent)
           .enabled(this.controlEnabled)
-          .accessibilityText(this.modeLabel())
+          .accessibilityText(readerModeLabel(this.readerMode))
           .onClick(() => {
             this.modeShown = true
           })

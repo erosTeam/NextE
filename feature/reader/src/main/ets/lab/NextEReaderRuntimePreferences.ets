@@ -4,20 +4,16 @@ import {
   connectReadMode,
   GalleryReadProgressSettings,
   ReadColumnMode,
-  ReadMode,
   ReadModeSettings,
   ReadSpreadLayout,
 } from 'shared'
+import { NextEReaderInitialPolicy } from './NextEReaderInitialPolicy'
 
 /** Maps neutral reader-kit menu intents onto NextE-owned persistence. */
 export class NextEReaderRuntimePreferences {
   static async applyLayout(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
     const current = connectReadMode()
-    let mode: string
-    if (policy.layout === 'continuous') mode = ReadMode.VERTICAL
-    else if (policy.layout === 'single' && policy.pagingAxis === 'vertical') mode = ReadMode.TOP_TO_BOTTOM
-    else mode = policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR
-    if (current.mode !== mode) await ReadModeSettings.setMode(context, mode)
+    await NextEReaderRuntimePreferences.applyReadingMode(context, policy)
     if (policy.layout === 'single' && policy.pagingAxis === 'horizontal' && current.doublePageEnabled) {
       await ReadModeSettings.setDoublePageEnabled(context, false)
     } else if (policy.layout === 'spread' && !current.doublePageEnabled) {
@@ -26,16 +22,13 @@ export class NextEReaderRuntimePreferences {
   }
 
   static async applyDirection(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
-    if (policy.layout === 'continuous' || policy.pagingAxis === 'vertical') return
-    const mode = policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR
-    if (connectReadMode().mode !== mode) await ReadModeSettings.setMode(context, mode)
+    if (policy.layout === 'continuous' ? policy.continuousAxis === 'vertical' : policy.pagingAxis === 'vertical') return
+    await NextEReaderRuntimePreferences.applyReadingMode(context, policy)
   }
 
   /** A direction choice never changes the independent double-page preference. */
   static async applyReadingMode(context: common.UIAbilityContext, policy: ReaderDisplayPolicy): Promise<void> {
-    const mode = policy.layout === 'continuous' ? ReadMode.VERTICAL :
-      policy.pagingAxis === 'vertical' ? ReadMode.TOP_TO_BOTTOM :
-        policy.direction === 'rtl' ? ReadMode.RTL : ReadMode.LTR
+    const mode = NextEReaderInitialPolicy.modeForPolicy(policy)
     if (connectReadMode().mode !== mode) await ReadModeSettings.setMode(context, mode)
   }
 

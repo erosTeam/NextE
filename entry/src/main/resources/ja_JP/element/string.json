@@ -3429,6 +3429,14 @@
       "value": "縦スクロール"
     },
     {
+      "name": "read_mode_horizontal_continuous_ltr",
+      "value": "横スクロール（左から右）"
+    },
+    {
+      "name": "read_mode_horizontal_continuous_rtl",
+      "value": "横スクロール（右から左）"
+    },
+    {
       "name": "search_history",
       "value": "検索履歴"
     },

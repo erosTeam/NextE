@@ -8,6 +8,16 @@ export enum ReadMode {
   RTL = 'rtl', // horizontal, page 1 on the right (manga)
   TOP_TO_BOTTOM = 'topToBottom', // vertical page-by-page
   VERTICAL = 'vertical', // top-to-bottom continuous scroll (webtoon)
+  HORIZONTAL_CONTINUOUS_LTR = 'horizontalContinuousLtr',
+  HORIZONTAL_CONTINUOUS_RTL = 'horizontalContinuousRtl',
+}
+
+export function isHorizontalContinuousReadMode(mode: string): boolean {
+  return mode === ReadMode.HORIZONTAL_CONTINUOUS_LTR || mode === ReadMode.HORIZONTAL_CONTINUOUS_RTL
+}
+
+export function isContinuousReadMode(mode: string): boolean {
+  return mode === ReadMode.VERTICAL || isHorizontalContinuousReadMode(mode)
 }
 
 /** Which reader implementation opens the ordinary production Reader route. */
@@ -65,9 +75,7 @@ export enum ReaderSuperResolutionBackend {
 export const READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT: number = 2000
 
 /**
- * Reactive reader direction + horizontal double-page mode. Restored from preferences at startup; the
- * ReaderPage reads it to switch between paged Swiper (LTR/RTL/top-to-bottom), continuous vertical
- * List, and horizontal single/double-page spread.
+ * Reactive reader direction and double-page preference, restored from local settings at startup.
  */
 @ObservedV2
 export class ReadModeState {
@@ -101,6 +109,13 @@ export class ReadModeState {
   @Trace readerImplementation: ReaderImplementation = ReaderImplementation.SHARED
   @Trace keepScreenOn: boolean = true
   @Trace pageTurnAnimation: boolean = true
+
+  /** Legacy projects horizontal continuous to matching pagination without replacing the saved choice. */
+  get legacyMode(): string {
+    if (this.mode === ReadMode.HORIZONTAL_CONTINUOUS_LTR) return ReadMode.LTR
+    if (this.mode === ReadMode.HORIZONTAL_CONTINUOUS_RTL) return ReadMode.RTL
+    return this.mode
+  }
 }
 
 const READ_MODE_KEY: string = 'v2_readMode'

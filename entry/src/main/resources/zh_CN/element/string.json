@@ -3429,6 +3429,14 @@
       "value": "连续纵向"
     },
     {
+      "name": "read_mode_horizontal_continuous_ltr",
+      "value": "连续从左到右"
+    },
+    {
+      "name": "read_mode_horizontal_continuous_rtl",
+      "value": "连续从右到左"
+    },
+    {
       "name": "search_history",
       "value": "搜索历史"
     },

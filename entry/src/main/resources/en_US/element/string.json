@@ -3429,6 +3429,14 @@
       "value": "Continuous vertical"
     },
     {
+      "name": "read_mode_horizontal_continuous_ltr",
+      "value": "Continuous left to right"
+    },
+    {
+      "name": "read_mode_horizontal_continuous_rtl",
+      "value": "Continuous right to left"
+    },
+    {
       "name": "search_history",
       "value": "Recent"
     },

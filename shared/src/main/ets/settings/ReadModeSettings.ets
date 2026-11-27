@@ -4,6 +4,7 @@ import {
   connectReadMode,
   ReadColumnMode,
   ReadMode,
+  isContinuousReadMode,
   ReaderBackgroundMode,
   ReaderImplementation,
   ReaderImageScalingQuality,
@@ -27,7 +28,7 @@ export class ReadModeSettings {
     if (mode === ReadMode.LTR ||
       mode === ReadMode.RTL ||
       mode === ReadMode.TOP_TO_BOTTOM ||
-      mode === ReadMode.VERTICAL) {
+      isContinuousReadMode(mode)) {
       return mode
     }
     return ReadMode.LTR
@@ -276,6 +277,8 @@ export class ReadModeSettings {
         context,
         StorageKeys.STORE_SETTINGS,
       )
+      // Rapid mode picks can await the same store. Only the current selection may persist.
+      if (connectReadMode().mode !== normalized) return
       store.putSync(StorageKeys.READING_DIRECTION, normalized)
       store.flushSync()
     } catch (error) {

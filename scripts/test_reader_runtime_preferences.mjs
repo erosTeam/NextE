@@ -9,22 +9,26 @@ const require = createRequire(import.meta.url)
 const ts = require('/Applications/DevEco-Studio.app/Contents/tools/hvigor/hvigor/node_modules/typescript')
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const core = require(path.join(root, 'third_party/reader-kit/tests/load-core.cjs'))('ReaderDisplayMap')
-const enums = {
-  ReadMode: { LTR: 'ltr', RTL: 'rtl', TOP_TO_BOTTOM: 'topToBottom', VERTICAL: 'vertical' },
-  ReadColumnMode: { ODD_LEFT: 'oddLeft', EVEN_LEFT: 'evenLeft' },
-  ReadSpreadLayout: { JOINED: 'joined', SPLIT: 'split' },
-}
-
 function compile(source, deps) {
   const out = {}
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: {
-    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
-  } }).outputText, { exports: out, require: name => {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, experimentalDecorators: true,
+  } }).outputText, { exports: out, ObservedV2: value => value, Trace() {}, require: name => {
     assert.ok(name in deps, name)
     return deps[name]
   } })
   return out
 }
+
+const modes = compile(fs.readFileSync(path.join(root, 'shared/src/main/ets/state/ReadModeState.ets'), 'utf8'), {
+  '@kit.ArkUI': {},
+  '../utils/ReaderTapZoneResolver': { ReaderTapZoneInvert: { NONE: 'none' }, ReaderTapZoneLayout: { RIGHT_LEFT: 'rightLeft' } },
+  '../model/ReaderPageCropBounds': { ReaderPageCropStrength: { STANDARD: 'standard' } },
+})
+const initial = compile(fs.readFileSync(path.join(root,
+  'feature/reader/src/main/ets/lab/NextEReaderInitialPolicy.ets'), 'utf8'), {
+  '@reader-kit/core': core, shared: modes,
+})
 
 let state, events
 const settings = {
@@ -41,8 +45,9 @@ const source = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderRuntimePreferences.ets'), 'utf8')
 const Runtime = compile(source, {
   '@kit.AbilityKit': {}, '@reader-kit/core': core,
-  shared: { ...enums, connectReadMode: () => state, ReadModeSettings: settings,
+  shared: { ...modes, connectReadMode: () => state, ReadModeSettings: settings,
     GalleryReadProgressSettings: progress },
+  './NextEReaderInitialPolicy': initial,
 }).NextEReaderRuntimePreferences
 
 function reset(extra = {}) {
@@ -102,6 +107,8 @@ for (const doublePageEnabled of [true, false]) {
     [{ layout: 'single', direction: 'rtl' }, 'rtl'],
     [{ layout: 'single', pagingAxis: 'vertical' }, 'topToBottom'],
     [{ layout: 'continuous' }, 'vertical'],
+    [{ layout: 'continuous', continuousAxis: 'horizontal', direction: 'ltr' }, 'horizontalContinuousLtr'],
+    [{ layout: 'continuous', continuousAxis: 'horizontal', direction: 'rtl' }, 'horizontalContinuousRtl'],
     [{ layout: 'single', direction: 'ltr' }, 'ltr'],
   ]) {
     events = []
@@ -112,6 +119,22 @@ for (const doublePageEnabled of [true, false]) {
     await Runtime.applyReadingMode({}, policy(choice))
     assert.deepEqual(events, [])
   }
+}
+
+for (const [mode, direction] of [
+  [modes.ReadMode.HORIZONTAL_CONTINUOUS_LTR, 'ltr'],
+  [modes.ReadMode.HORIZONTAL_CONTINUOUS_RTL, 'rtl'],
+]) {
+  const stored = new modes.ReadModeState()
+  stored.mode = mode
+  stored.doublePageEnabled = true
+  const opened = initial.NextEReaderInitialPolicy.resolve(stored, modes.ReadColumnMode.EVEN_LEFT)
+  assert.deepEqual([opened.layout, opened.continuousAxis, opened.direction], ['continuous', 'horizontal', direction])
+  assert.equal(initial.NextEReaderInitialPolicy.modeForPolicy(opened), mode)
+  assert.equal(stored.legacyMode, direction)
+  assert.equal(stored.mode, mode)
+  initial.NextEReaderInitialPolicy.applyMode(opened, modes.ReadMode.VERTICAL, true)
+  assert.deepEqual([opened.layout, opened.continuousAxis, opened.direction], ['continuous', 'vertical', 'ltr'])
 }
 
 reset()

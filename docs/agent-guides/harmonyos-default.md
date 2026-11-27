@@ -69,6 +69,10 @@
   [ArkUI systemMaterial](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-universal-attributes-image-effect#systemmaterial)。
 - Reader 图片手势、缩放、清晰度和缓存改动必须保留已确认行为，并用真实交互序列验证；构建和
   源码形状不能替代手势证据。
+- 阅读方向由 NextE 本地设置保存。共享 Reader 的横向连续左右两个选项沿用连续模式的裁切和点按偏好，
+  双页开关独立保留。旧 Reader 按同方向分页，原横向连续选择在切回共享 Reader 时生效。
+  两种横向连续使用带终止线的方向箭头，分页沿用带方框的方向箭头。入场 Toast 在阅读页接管展示后提示实际
+  生效的模式，每次打开显示一次。
 - 旧 Reader 的 joined 双页在任一原图尺寸未知时保持视口等分，尺寸齐备后才按真实比例拼接；
   未知尺寸不使用假定图片比例，避免加载期间改变两页的占位宽度。
 - Reader 裁切读取 `PixelMap.readPixelsToBuffer` 时，导出数据不含行对齐填充；RGBA_8888 按

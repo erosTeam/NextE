@@ -39,7 +39,28 @@ assert.equal(calls[0].filePath, '/cache/page.webp')
 
 const page = fs.readFileSync(path.join(root,
   'feature/reader/src/main/ets/lab/NextEReaderLabPage.ets'), 'utf8')
-assert.match(page, /private cropStrength\(\): string[\s\S]*?ReadMode\.VERTICAL[\s\S]*?cropStrengthContinuous[\s\S]*?cropStrengthPaged/)
+const modeSource = fs.readFileSync(path.join(root, 'shared/src/main/ets/state/ReadModeState.ets'), 'utf8')
+const modeContext = { exports: {}, require: () => ({}), ObservedV2: value => value, Trace() {} }
+vm.runInNewContext(ts.transpileModule(modeSource, { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, experimentalDecorators: true,
+} }).outputText, modeContext)
+const { ReadMode, isContinuousReadMode } = modeContext.exports
+const pageTree = ts.createSourceFile('reader.ts', page.replace(/\bstruct /g, 'class '), ts.ScriptTarget.Latest, true)
+const pageClass = pageTree.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'NextEReaderLabPage')
+const strengthMethod = pageClass.members.find(member => member.name?.text === 'cropStrength')
+const strengthContext = { exports: {}, isContinuousReadMode }
+vm.runInNewContext(ts.transpileModule(`export class Reader { ${strengthMethod.getText(pageTree)} }`, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, strengthContext)
+const reader = new strengthContext.exports.Reader()
+reader.readMode = { cropStrengthContinuous: 'strong', cropStrengthPaged: 'conservative' }
+// The two horizontal continuous choices share the established continuous crop settings.
+for (const mode of [ReadMode.VERTICAL, ReadMode.HORIZONTAL_CONTINUOUS_LTR, ReadMode.HORIZONTAL_CONTINUOUS_RTL]) {
+  reader.readMode.mode = mode
+  assert.equal(reader.cropStrength(), 'strong')
+}
+reader.readMode.mode = ReadMode.LTR
+assert.equal(reader.cropStrength(), 'conservative')
 assert.match(page, /new ReaderCropPolicy\([\s\S]*?this\.cropSourceRevision\(\)\)/)
 assert.match(page, /new NextEReaderLabAdapter\([\s\S]*?\(\): string => this\.cropStrength\(\)\)/)
 assert.match(page, /new NextEReaderSuperResolutionProvider\([\s\S]*?\(\): string => this\.cropStrength\(\)(?:\)|,)/)

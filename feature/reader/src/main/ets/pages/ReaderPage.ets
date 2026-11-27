@@ -2,7 +2,7 @@ import { connectReaderDisplay, ReaderDisplayState, readerImageEffects, ReaderBri
 import { ReaderImageEffectsLayer, ReaderLabVisibilityState, connectReaderLabVisibility } from '@reader-kit/ui'
 import { readerSourceStatusBarVisible, writeReaderSystemBarVisibility } from '@reader-kit/ui'
 import { ReaderModeControl } from '../components/ReaderModeControl'
-import { appMenuOptions } from 'shared'
+import { appMenuOptions, showReaderEntryDirection } from 'shared'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { LengthMetrics, SymbolGlyphModifier, window } from '@kit.ArkUI'
@@ -356,6 +356,7 @@ export struct ReaderPage {
   private lastPublishedProgressIndex: number = -1;
   private readerStatusBarHideTimerId: number = -1;
   private readerRouteEpoch: number = 0;
+  private entryDirectionShown: boolean = false;
   private readerSnapshotScope: string = ReaderThumbnailTransitionCoordinator.allocateScope('reader-surface');
   private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
@@ -596,6 +597,7 @@ export struct ReaderPage {
       if (p !== undefined && p.gid.length > 0) {
         this.clearPendingEntryStatusBarHide()
         this.readerClosing = false
+        this.entryDirectionShown = false
         this.lastPublishedProgressIndex = -1
         this.readerReady = false
         this.stopAutoRead()
@@ -2292,15 +2294,15 @@ export struct ReaderPage {
   }
 
   private isContinuousVerticalMode(): boolean {
-    return this.readMode.mode === ReadMode.VERTICAL
+    return this.readMode.legacyMode === ReadMode.VERTICAL
   }
 
   private isPagedVerticalMode(): boolean {
-    return this.readMode.mode === ReadMode.TOP_TO_BOTTOM
+    return this.readMode.legacyMode === ReadMode.TOP_TO_BOTTOM
   }
 
   private isHorizontalPagedMode(): boolean {
-    return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
+    return this.readMode.legacyMode === ReadMode.LTR || this.readMode.legacyMode === ReadMode.RTL
   }
 
   private cacheWarmImageIndexes(): number[] {
@@ -2900,6 +2902,17 @@ export struct ReaderPage {
     }
   }
 
+  @Monitor('readerRouteVisible', 'displayVisibility.foreground', 'readerThumbnailTransition.presentationEpoch',
+    'readMode.restoreResult')
+  private showEntryDirection(): void {
+    if (this.entryDirectionShown || !this.readerRouteVisible || !this.displayVisibility.foreground ||
+      this.readerClosing || this.params.gid.length === 0 || this.readMode.restoreResult !== 'applied') return
+    if (this.readerThumbnailTransition.galleryId === this.params.gid && this.readerThumbnailTransition.active() &&
+      !this.readerThumbnailTransition.presentationSettledFor(this.params.gid)) return
+    this.entryDirectionShown = true
+    showReaderEntryDirection(this.getUIContext(), this.readMode.legacyMode)
+  }
+
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
     this.clearTemporarySuperResolutionOverride()
@@ -3302,12 +3315,12 @@ export struct ReaderPage {
   }
 
   private doublePageEnabled(): boolean {
-    return ReaderSpreadResolver.isDoublePage(this.readMode.mode, this.readMode.doublePageEnabled)
+    return ReaderSpreadResolver.isDoublePage(this.readMode.legacyMode, this.readMode.doublePageEnabled)
   }
 
   // Left-third tap: LTR / vertical → previous page; RTL (manga) → next (eros_fe tapLeft inverts on RTL).
   private tapLeft(): void {
-    if (this.readMode.mode === ReadMode.RTL) {
+    if (this.readMode.legacyMode === ReadMode.RTL) {
       this.toNext()
     } else {
       this.toPrev()
@@ -3316,7 +3329,7 @@ export struct ReaderPage {
 
   // Right-third tap: LTR / vertical → next page; RTL (manga) → previous.
   private tapRight(): void {
-    if (this.readMode.mode === ReadMode.RTL) {
+    if (this.readMode.legacyMode === ReadMode.RTL) {
       this.toPrev()
     } else {
       this.toNext()
@@ -3519,7 +3532,7 @@ export struct ReaderPage {
       )
     }
     .index(this.readerPagerIndex)
-    .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .direction(this.readMode.legacyMode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .vertical(this.isPagedVerticalMode())
     .loop(false)
     .cachedCount(this.readerPreloadPages())
@@ -3539,7 +3552,7 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
-      DiagnosticLogger.info('reader', 'paged_swipe_change', `index ${i} mode ${this.readMode.mode} hasPreview ${this.vm.hasPreviewAt(i)}`)
+      DiagnosticLogger.info('reader', 'paged_swipe_change', `index ${i} mode ${this.readMode.legacyMode} hasPreview ${this.vm.hasPreviewAt(i)}`)
       this.vm.onPageChange(i)
     })
   }
@@ -3672,7 +3685,7 @@ export struct ReaderPage {
   }
 
   private spreadRowReversed(): boolean {
-    return this.readMode.mode === ReadMode.RTL
+    return this.readMode.legacyMode === ReadMode.RTL
   }
 
   @Builder
@@ -3746,7 +3759,7 @@ export struct ReaderPage {
       )
     }
     .index(this.readerPagerIndex)
-    .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .direction(this.readMode.legacyMode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .vertical(false)
     .loop(false)
     .cachedCount(this.readerPreloadPages())
@@ -4585,7 +4598,7 @@ export struct ReaderPage {
 
       Column({ space: ThemeConstants.SPACE_XS }) {
         Row({ space: READER_PROGRESS_SLIDER_GAP }) {
-          Text(`${this.readMode.mode === ReadMode.RTL ? this.vm.totalPages() :
+          Text(`${this.readMode.legacyMode === ReadMode.RTL ? this.vm.totalPages() :
             (this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue)}`)
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor(Color.White)
@@ -4598,7 +4611,7 @@ export struct ReaderPage {
             max: this.vm.totalPages() > 1 ? this.vm.totalPages() : 1,
             step: 1,
             style: SliderStyle.InSet,
-            reverse: this.readMode.mode === ReadMode.RTL,
+            reverse: this.readMode.legacyMode === ReadMode.RTL,
           })
             .layoutWeight(1)
             .trackColor(READER_CHROME_TRACK_BG)
@@ -4620,7 +4633,7 @@ export struct ReaderPage {
                 this.scrollThumbStripTo(targetIndex, true)
               }
             })
-          Text(`${this.readMode.mode === ReadMode.RTL ?
+          Text(`${this.readMode.legacyMode === ReadMode.RTL ?
             (this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue) : this.vm.totalPages()}`)
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor(Color.White)
@@ -4732,7 +4745,7 @@ export struct ReaderPage {
           .onClick(() => {
             this.toggleDoublePage()
           })
-          ReaderModeControl({ readerMode: this.readMode.mode,
+          ReaderModeControl({ readerMode: this.readMode.legacyMode,
             onModeChange: (mode: string): void => { this.setReaderMode(mode) },
           })
         }
@@ -4771,10 +4784,10 @@ export struct ReaderPage {
             this.ReaderThumbItem(index)
           }
           .margin({
-            left: (this.readMode.mode === ReadMode.RTL
+            left: (this.readMode.legacyMode === ReadMode.RTL
               ? index === this.vm.totalPages() - 1
               : index === 0) ? ThemeConstants.SPACE_LG : 0,
-            right: (this.readMode.mode === ReadMode.RTL
+            right: (this.readMode.legacyMode === ReadMode.RTL
               ? index === 0
               : index === this.vm.totalPages() - 1) ? ThemeConstants.SPACE_LG : 0,
           })
@@ -4783,7 +4796,7 @@ export struct ReaderPage {
       )
     }
     .listDirection(Axis.Horizontal)
-    .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .direction(this.readMode.legacyMode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .scrollBar(BarState.Off)
     .height(READER_THUMB_STRIP_HEIGHT)
     .width('100%')

@@ -209,6 +209,7 @@ export { appSheetOptions } from './components/AppSheetOptions'
 export { AppColorPicker } from './components/AppColorPicker'
 export { HdsCapsuleBarButton } from './components/HdsCapsuleBarButton'
 export { AppPrompt } from './utils/AppPrompt'
+export { readerModeLabel, readerModeSymbol, showReaderEntryDirection } from './theme/ReaderModePresentation'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
@@ -1003,6 +1004,8 @@ export {
   READER_SUPER_RESOLUTION_MAX_SOURCE_HEIGHT,
   ReadModeState,
   connectReadMode,
+  isHorizontalContinuousReadMode,
+  isContinuousReadMode,
 } from './state/ReadModeState'
 export {
   ReaderTapZoneAction,

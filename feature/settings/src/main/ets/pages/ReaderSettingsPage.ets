@@ -9,6 +9,9 @@ import {
   connectReadMode,
   ReadModeState,
   ReadMode,
+  isContinuousReadMode,
+  readerModeLabel,
+  readerModeSymbol,
   ReaderBackgroundMode,
   ReaderImplementation,
   ReaderImageScalingQuality,
@@ -34,6 +37,7 @@ import {
   NextEReaderBackend,
   NextEReaderBackendSelectionState,
   connectNextEReaderBackendSelection,
+  resolveNextEReaderBackendSelection,
 } from 'shared'
 
 /**
@@ -231,41 +235,28 @@ export struct ReaderSettingsPage {
     ReadModeSettings.setPageTurnAnimation(ctx, enabled)
   }
 
-  private modeLabel(): Resource {
-    if (this.readMode.mode === ReadMode.RTL) {
-      return $r('app.string.read_mode_rtl')
-    }
-    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('app.string.read_mode_ttb')
-    }
-    if (this.readMode.mode === ReadMode.VERTICAL) {
-      return $r('app.string.read_mode_vertical')
-    }
-    return $r('app.string.read_mode_ltr')
+  private supportsHorizontalContinuous(): boolean {
+    return resolveNextEReaderBackendSelection() === NextEReaderBackend.SHARED
+  }
+
+  private selectedMode(): string {
+    return this.supportsHorizontalContinuous() ? this.readMode.mode : this.readMode.legacyMode
   }
 
   private modeIconFor(mode: string): Resource {
-    if (mode === ReadMode.RTL) {
-      return $r('sys.symbol.arrow_left_and_square')
-    }
-    if (mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('sys.symbol.single_page_flipping')
-    }
-    if (mode === ReadMode.VERTICAL) {
-      return $r('sys.symbol.scroll_vertical')
-    }
-    return $r('sys.symbol.arrow_right_and_square')
+    return readerModeSymbol(mode, $r('sys.symbol.single_page_flipping'))
   }
 
   private doublePageAvailable(): boolean {
     if (!this.sheetPresentation) {
       return true
     }
-    return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
+    const mode = this.selectedMode()
+    return mode === ReadMode.LTR || mode === ReadMode.RTL
   }
 
   private continuousModeSelected(): boolean {
-    return this.readMode.mode === ReadMode.VERTICAL
+    return isContinuousReadMode(this.selectedMode())
   }
 
   private spreadLayoutLabel(): Resource {
@@ -400,7 +391,7 @@ export struct ReaderSettingsPage {
     Menu() {
       SettingsCheckedMenuItem({
         label: $r('app.string.read_mode_ltr'),
-        selected: this.readMode.mode === ReadMode.LTR,
+        selected: this.selectedMode() === ReadMode.LTR,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.LTR)),
         selectAction: () => {
           select(() => {
@@ -410,7 +401,7 @@ export struct ReaderSettingsPage {
       })
       SettingsCheckedMenuItem({
         label: $r('app.string.read_mode_rtl'),
-        selected: this.readMode.mode === ReadMode.RTL,
+        selected: this.selectedMode() === ReadMode.RTL,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.RTL)),
         selectAction: () => {
           select(() => {
@@ -420,7 +411,7 @@ export struct ReaderSettingsPage {
       })
       SettingsCheckedMenuItem({
         label: $r('app.string.read_mode_ttb'),
-        selected: this.readMode.mode === ReadMode.TOP_TO_BOTTOM,
+        selected: this.selectedMode() === ReadMode.TOP_TO_BOTTOM,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.TOP_TO_BOTTOM)),
         selectAction: () => {
           select(() => {
@@ -430,7 +421,7 @@ export struct ReaderSettingsPage {
       })
       SettingsCheckedMenuItem({
         label: $r('app.string.read_mode_vertical'),
-        selected: this.readMode.mode === ReadMode.VERTICAL,
+        selected: this.selectedMode() === ReadMode.VERTICAL,
         symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.VERTICAL)),
         selectAction: () => {
           select(() => {
@@ -438,6 +429,24 @@ export struct ReaderSettingsPage {
           })
         },
       })
+      if (this.supportsHorizontalContinuous()) {
+        SettingsCheckedMenuItem({
+          label: $r('app.string.read_mode_horizontal_continuous_ltr'),
+          selected: this.readMode.mode === ReadMode.HORIZONTAL_CONTINUOUS_LTR,
+          symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.HORIZONTAL_CONTINUOUS_LTR)),
+          selectAction: () => {
+            select(() => { this.setMode(ReadMode.HORIZONTAL_CONTINUOUS_LTR) })
+          },
+        })
+        SettingsCheckedMenuItem({
+          label: $r('app.string.read_mode_horizontal_continuous_rtl'),
+          selected: this.readMode.mode === ReadMode.HORIZONTAL_CONTINUOUS_RTL,
+          symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.HORIZONTAL_CONTINUOUS_RTL)),
+          selectAction: () => {
+            select(() => { this.setMode(ReadMode.HORIZONTAL_CONTINUOUS_RTL) })
+          },
+        })
+      }
     }
   }
 
@@ -1002,7 +1011,7 @@ export struct ReaderSettingsPage {
         GroupedListSection() {
           ConciseListRow({
             title: $r('app.string.settings_reader_direction'),
-            trailingText: this.modeLabel(),
+            trailingText: readerModeLabel(this.selectedMode()),
             trailingDropdown: true,
             dropdownMenuEnabled: true,
             dropdownMenuBuilder: (select: (action: () => void) => void) => {
