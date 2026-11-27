@@ -62,6 +62,11 @@
   末尾 `Blank`、spacer 或 content inset 机械改成父容器固定 padding，从而永久缩小可视区域。
   系统半模态已经处理的键盘或安全区也不得在内层重复占用；局部 inset 必须对应当前容器仍然存在的
   实际遮挡，而不是直接复用全窗口 avoid-area 数值。
+- 评论输入栏的系统材质放在独立的 `Navigation` 标题栏背景层中，跟随输入区域同次布局，避免展开和收起时
+  残留旧轮廓。整个输入栏保留原有外阴影和深色描边，让收起态在纯色背景上仍有层次。设备不支持系统材质时
+  使用原有模糊背景。输入、焦点和键盘避让继续由评论页持有。
+  材质挂载范围见
+  [ArkUI systemMaterial](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-universal-attributes-image-effect#systemmaterial)。
 - Reader 图片手势、缩放、清晰度和缓存改动必须保留已确认行为，并用真实交互序列验证；构建和
   源码形状不能替代手势证据。
 - 旧 Reader 的 joined 双页在任一原图尺寸未知时保持视口等分，尺寸齐备后才按真实比例拼接；

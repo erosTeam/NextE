@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit'
+import { deviceInfo } from '@kit.BasicServicesKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   CommentStructuredTranslation,
@@ -48,7 +49,7 @@ import {
 } from 'shared'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 import { GalleryCommentRenderState } from '../model/GalleryCommentRenderState'
-import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode, SymbolGlyphModifier, uiMaterial } from '@kit.ArkUI'
 
 // Word-panel chips: snug padding so a short token hugs its text instead of becoming a wide pill, and a
 // small gap so a wrapped run reads as one sentence rather than a spaced-out list.
@@ -130,6 +131,7 @@ export struct GalleryCommentsPage {
   @Local commentEditOriginal: string = '';
   @Local commentSubmitting: boolean = false;
   @Local commentError: string = '';
+  private commentComposerMaterial: uiMaterial.Material | undefined = this.createCommentComposerMaterial();
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   // LazyForEach virtualizes the comment list: only visible cards mount (so only visible comments
   // auto-translate) and the source reloads ONLY on refresh / filter change — never on a translation
@@ -1351,19 +1353,64 @@ export struct GalleryCommentsPage {
   }
 
   @Builder
+  private CommentComposerMaterialRow() {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      Row()
+        .width('100%')
+        .height('100%')
+        .borderRadius(COMMENT_COMPOSER_RADIUS)
+        .backgroundColor(Color.Transparent)
+        .systemMaterial(this.commentComposerMaterial)
+    }
+  }
+
+  private createCommentComposerMaterial(): uiMaterial.Material | undefined {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      if (uiMaterial.isImmersiveMaterialSupported() &&
+        uiMaterial.getMaterialInfo().state !== uiMaterial.MaterialState.DISABLE) {
+        return new uiMaterial.ImmersiveMaterial({ style: uiMaterial.ImmersiveStyle.REGULAR, applyShadow: false })
+      }
+    }
+    return undefined
+  }
+
+  @Builder
   private CommentComposerSurface() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      this.CommentComposerFields()
+    Stack() {
+      // ArkUI applies systemMaterial to ordinary containers only inside system bars.
+      // Match the foreground in the same layout pass so its previous glass outline is never drawn.
+      if (deviceInfo.apiAvailable('26.0.0')) {
+        if (this.commentComposerMaterial !== undefined) {
+          Navigation() {}
+            .title({ builder: this.CommentComposerMaterialRow, height: '100%' }, {
+              barStyle: BarStyle.STACK,
+              backgroundColor: Color.Transparent,
+              backgroundBlurStyle: BlurStyle.NONE,
+              systemMaterial: uiMaterial.Material.empty,
+            })
+            .mode(NavigationMode.Stack)
+            .hideBackButton(true)
+            .hideToolBar(true)
+            .width('100%')
+            .height(LayoutPolicy.matchParent)
+            .backgroundColor(Color.Transparent)
+            .borderRadius(COMMENT_COMPOSER_RADIUS)
+            .clip(true)
+            .hitTestBehavior(HitTestMode.None)
+            .accessibilityLevel('no-hide-descendants')
+        }
+      }
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        this.CommentComposerFields()
+      }
+      .width('100%')
+      .padding(COMMENT_COMPOSER_INNER_GAP)
+      .backdropBlur(this.commentComposerMaterial === undefined ? ThemeConstants.FROSTED_SURFACE_BLUR_RADIUS : 0)
+      .backgroundColor(this.commentComposerMaterial === undefined ? this.composerBlurTint() : Color.Transparent)
+      .borderRadius(COMMENT_COMPOSER_RADIUS)
     }
     .width('100%')
-    .padding({
-      left: COMMENT_COMPOSER_INNER_GAP,
-      right: COMMENT_COMPOSER_INNER_GAP,
-      top: COMMENT_COMPOSER_INNER_GAP,
-      bottom: COMMENT_COMPOSER_INNER_GAP,
-    })
-    .backdropBlur(ThemeConstants.FROSTED_SURFACE_BLUR_RADIUS)
-    .backgroundColor(this.composerBlurTint())
+    // Keep the collapsed surface distinct on a flat background, outside the clipped material layer.
     .border({ width: this.composerBorderWidth(), color: this.composerBorderColor() })
     .borderRadius(COMMENT_COMPOSER_RADIUS)
     .shadow(ShadowStyle.OUTER_DEFAULT_MD)
