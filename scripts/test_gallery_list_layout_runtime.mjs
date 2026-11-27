@@ -156,8 +156,21 @@ test('display detection tolerates option attribute order and quoting, and distin
 })
 
 test('still-unsupported response fails once instead of returning truncated rows or retrying indefinitely', async () => {
-  const { api, calls } = fixture(() => body('e'))
-  await assert.rejects(api.getGalleryList(query), error => error.kind === errors.EhErrorKind.ParseFailure)
+  for (const html of [body('t'), body('e').replace(/<tr>[\s\S]*/, '</table>'), body('e').slice(0, -'</table>'.length)]) {
+    const { api, calls } = fixture(() => html)
+    await assert.rejects(api.getGalleryList(query), error => error.kind === errors.EhErrorKind.ParseFailure)
+    assert.deepEqual(calls.map(call => call.once), [false, true])
+  }
+})
+
+test('Extended lists with single-quoted classes still show all galleries when EH ignores Compact correction', async () => {
+  const html = body('e').replace('class="itg glte"', "class='glte itg'") +
+    '<a id="unext" href="/?next=222-2">Next</a>'
+  const { api, calls } = fixture(() => html)
+  const list = await api.getGalleryList({ ...query, isEx: false })
+  assertTwoCovers(list)
+  assert.deepEqual(Array.from(list.gallerys, gallery => gallery.englishTitle), ['Neutral fixture 111', 'Neutral fixture 222'])
+  assert.equal(list.nextGid, '222-2')
   assert.deepEqual(calls.map(call => call.once), [false, true])
 })
 

@@ -498,10 +498,22 @@ export class EhApiService {
     // inline_set changes an EH preference even though it is exposed as GET. Send once;
     // a lost response must not blindly repeat the mutation.
     const corrected: EhTextResponse = await this.fetch(compactUrl, isEx, 'list', true)
-    if (EhGalleryListParser.needsCompactLayout(corrected.body)) {
+    if (EhGalleryListParser.needsCompactLayout(corrected.body) &&
+      !EhGalleryListParser.isExtendedLayout(corrected.body)) {
       throw new EhError(EhErrorKind.ParseFailure, 'gallery list still uses an unsupported display mode')
     }
     return corrected.body
+  }
+
+  private async parseGalleryList(body: string): Promise<GalleryList> {
+    const list: GalleryList = await EhGalleryListParseTask.parse(body)
+    // An identifiable Extended page may still be malformed. Keep a parse failure distinct from
+    // a real empty result so refresh does not silently replace the last good list with nothing.
+    if (list.gallerys.length === 0 && EhGalleryListParser.isExtendedLayout(body) &&
+      !EhErrorClassifier.looksListNoResults(body)) {
+      throw new EhError(EhErrorKind.ParseFailure, 'extended gallery list has no readable rows')
+    }
+    return list
   }
 
   async getGalleryList(query: GalleryListQuery): Promise<GalleryList> {
@@ -521,7 +533,7 @@ export class EhApiService {
       const body: string = await this.fetchCompactListBody(url, query.isEx, userTagRequest)
       return this.filterLocalBlocked(
         this.filterHidden(
-          this.registerInlineTagColors(await EhGalleryListParseTask.parse(body), userTagRequest),
+          this.registerInlineTagColors(await this.parseGalleryList(body), userTagRequest),
           userTagRequest,
         ),
       )
@@ -534,7 +546,7 @@ export class EhApiService {
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const body: string = await this.fetchCompactListBody(url, false, userTagRequest)
       const list: GalleryList = this.registerInlineTagColors(
-        await EhGalleryListParseTask.parse(body),
+        await this.parseGalleryList(body),
         userTagRequest,
       )
       return this.filterLocalBlocked(
@@ -599,7 +611,7 @@ export class EhApiService {
     const url: string = `${base}${path}${queryStr}`
     const body: string = await this.fetchCompactListBody(url, query.isEx, userTagRequest)
     const list: GalleryList = this.registerInlineTagColors(
-      await EhGalleryListParseTask.parse(body),
+      await this.parseGalleryList(body),
       userTagRequest,
     )
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
@@ -629,7 +641,7 @@ export class EhApiService {
       body = await this.fetchFavoritesBody(base, query, query.order, userTagRequest)
     }
     const list: GalleryList = this.registerInlineTagColors(
-      await EhGalleryListParseTask.parse(body),
+      await this.parseGalleryList(body),
       userTagRequest,
     )
     list.favList = EhFavcatListParser.parse(body)

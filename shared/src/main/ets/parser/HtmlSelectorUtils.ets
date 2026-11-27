@@ -4,6 +4,20 @@
  * block is reliable; heavy whole-page parses run on a TaskPool worker.
  */
 export class HtmlSelectorUtils {
+  /** EH marks its result container with the `itg` class in both table and thumbnail layouts. */
+  static galleryListContainer(html: string, tableOnly: boolean = false): RegExpExecArray | null {
+    const re: RegExp = /<(table|div)\b[^>]*\sclass\s*=\s*(["'])([^"']*)\2[^>]*>/gi
+    let match: RegExpExecArray | null = re.exec(html)
+    while (match !== null) {
+      if ((!tableOnly || match[1].toLowerCase() === 'table') &&
+        match[3].toLowerCase().split(/\s+/).includes('itg')) {
+        return match
+      }
+      match = re.exec(html)
+    }
+    return null
+  }
+
   /** First capture group of `re` in `text`, or '' if no match. */
   static group1(text: string, re: RegExp): string {
     const m: RegExpMatchArray | null = text.match(re)

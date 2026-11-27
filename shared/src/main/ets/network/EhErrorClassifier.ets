@@ -1,5 +1,6 @@
 import { EhTextResponse } from './EhHttpClient'
 import { EhError, EhErrorKind } from './EhError'
+import { HtmlSelectorUtils } from '../parser/HtmlSelectorUtils'
 
 /**
  * Turns a raw EH response (or a transport throw) into a TRUTHFUL typed failure. The transport layer
@@ -202,7 +203,7 @@ export class EhErrorClassifier {
     )
   }
 
-  private static looksListNoResults(body: string): boolean {
+  static looksListNoResults(body: string): boolean {
     const b: string = body.toLowerCase()
     return (
       b.indexOf('no hits found') >= 0 ||
@@ -233,7 +234,7 @@ export class EhErrorClassifier {
       return true
     }
     if (page === 'list') {
-      return body.indexOf('class="itg') >= 0
+      return HtmlSelectorUtils.galleryListContainer(body) !== null
     }
     // 'detail' (a /g/{gid}/{token} page, incl. ?p= preview pages)
     return (

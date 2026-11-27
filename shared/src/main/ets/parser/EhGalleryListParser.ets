@@ -8,11 +8,10 @@ import { HtmlSelectorUtils } from './HtmlSelectorUtils'
 const LANG_PREFIX_LEN: number = 9
 
 /**
- * Parses an EH gallery-list page (compact table layout `itg gltc`, the default —
- * eros_fe's gallery_list_parser target) into a GalleryList.
+ * Parses EH's Compact list table and the Extended response allowed by the list request fallback.
  *
- * Regexes are validated against a real e-hentai.org fixture and MUST stay in sync with
- * scripts/test_gallery_list_parser_contract.mjs (identical patterns). Fragile, verify-live
+ * The Compact fixture contract covers row fields, and test_gallery_list_layout_runtime.mjs
+ * runs this parser through the list service. Fragile, verify-live
  * bits: the rating CSS-sprite math `(80-x)/16 - (y==21?0.5:0)` and the favcat border-color
  * → slot map (EhConstants.favCat). Run on a TaskPool worker for large pages (pass the HTML
  * string in, get a serializable GalleryList out).
@@ -20,8 +19,8 @@ const LANG_PREFIX_LEN: number = 9
 export class EhGalleryListParser {
   // EH category class is `cn ct1`..`ct9`,`cta`,`ctb`… (NOT only digits).
   private static readonly RE_URL: RegExp =
-    /href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)"/
-  private static readonly RE_TITLE: RegExp = /<div class="glink">([\s\S]*?)<\/div>/
+    /\shref\s*=\s*["'](https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)["']/i
+  private static readonly RE_TITLE: RegExp = /<div\s+class\s*=\s*["']glink["'][^>]*>([\s\S]*?)<\/div>/i
   private static readonly RE_CAT: RegExp =
     /<td class="gl1c glcat"[^>]*>\s*<div class="cn ct\w+"[^>]*>([^<]+)<\/div>/
   // EH lazy-loads list thumbnails: below-fold rows put a `data:image/gif` placeholder in
@@ -33,6 +32,8 @@ export class EhGalleryListParser {
     /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*?\ssrc="([^"]+)"/
   private static readonly RE_THUMB_DIM: RegExp =
     /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*style="[^"]*height:(\d+)px;width:(\d+)px/
+  private static readonly RE_EXTENDED_THUMB: RegExp =
+    /<td\b[^>]*\sclass\s*=\s*["'][^"']*\bgl1e\b[^"']*["'][^>]*>(?:(?!<\/td>)[\s\S])*?(<img\b[^>]*>)/i
   // `ir` plus an optional personal-vote variant (`ir irr|irg|irb`); a personally-rated gallery's
   // class is e.g. `ir irb`, which the old `class="ir"` (exact) failed to match → its rating parsed
   // as 0. `ir[^"]*` matches both. The variant (when present) is captured into colorRating.
@@ -65,6 +66,10 @@ export class EhGalleryListParser {
 
   /** Match eros_fe's selected display-mode check; retain the old thumbnail-layout recovery. */
   static needsCompactLayout(html: string): boolean {
+    const container: RegExpExecArray | null = HtmlSelectorUtils.galleryListContainer(html)
+    if (container !== null && /(?:^|\s)(?:gltm|glte|gld)(?:\s|$)/i.test(container[3])) {
+      return true
+    }
     const selectRe: RegExp = /<select\b[^>]*>([\s\S]*?)<\/select>/gi
     let select: RegExpExecArray | null = selectRe.exec(html)
     while (select !== null) {
@@ -94,18 +99,16 @@ export class EhGalleryListParser {
       }
       select = selectRe.exec(html)
     }
-    // Some pages omit the selector. Known non-Compact containers still need correction;
-    // no result table or an unknown structure alone is not evidence of a layout mismatch.
-    const containerRe: RegExp = /<(?:table|div)\b[^>]*\bclass\s*=\s*["']([^"']*)["'][^>]*>/gi
-    let container: RegExpExecArray | null = containerRe.exec(html)
-    while (container !== null) {
-      const classes: string = container[1] !== undefined ? container[1] : ''
-      if (/\bitg\b/i.test(classes) && /\b(?:gltm|glte|gld)\b/i.test(classes)) {
-        return true
-      }
-      container = containerRe.exec(html)
-    }
     return false
+  }
+
+  static isExtendedLayout(html: string): boolean {
+    const container: RegExpExecArray | null = HtmlSelectorUtils.galleryListContainer(html, true)
+    return container !== null && EhGalleryListParser.isExtendedTable(container)
+  }
+
+  private static isExtendedTable(container: RegExpExecArray): boolean {
+    return /(?:^|\s)glte(?:\s|$)/i.test(container[3])
   }
 
   static parse(html: string): GalleryList {
@@ -139,24 +142,41 @@ export class EhGalleryListParser {
       list.maxPage = max
       EhGalleryListParser.parsePttNeighbors(pttBlock, list)
     }
-    // toplist.php renders `<table class="itg gltc" style="max-width:1250px">` — the front/watched
-    // page omits the style attr, so a regex that demanded `">` straight after the class silently
-    // missed the toplist table (→ empty list). `[^>]*>` tolerates any extra attributes.
-    const tableM: RegExpMatchArray | null = html.match(
-      /<table class="itg[^"]*"[^>]*>([\s\S]*?)<\/table>/,
-    )
-    if (tableM === null || tableM[1] === undefined) {
+    const table: RegExpExecArray | null = HtmlSelectorUtils.galleryListContainer(html, true)
+    if (table === null) {
       return list
     }
-    const gals: EhGallery[] = []
-    HtmlSelectorUtils.rows(tableM[1]).forEach((row: string) => {
-      const g: EhGallery | null = EhGalleryListParser.parseRow(row)
-      if (g !== null) {
-        gals.push(g)
-      }
-    })
-    list.gallerys = gals
+    const extended: boolean = EhGalleryListParser.isExtendedTable(table)
+    list.gallerys = EhGalleryListParser.parseTable(html, table.index + table[0].length, extended)
     return list
+  }
+
+  /** Extended rows can contain tag tables. Only the result table's own rows are galleries. */
+  private static parseTable(html: string, start: number, extended: boolean): EhGallery[] {
+    const galleries: EhGallery[] = []
+    const tags: RegExp = /<(\/?)(table|tr)\b[^>]*>/gi
+    tags.lastIndex = start
+    let depth: number = 1
+    let rowStart: number = -1
+    let tag: RegExpExecArray | null = tags.exec(html)
+    while (tag !== null && depth > 0) {
+      const closing: boolean = tag[1] === '/'
+      if (tag[2].toLowerCase() === 'table') {
+        depth += closing ? -1 : 1
+      } else if (depth === 1) {
+        if (!closing) {
+          rowStart = tag.index
+        } else if (rowStart >= 0) {
+          const gallery: EhGallery | null = EhGalleryListParser.parseRow(html.substring(rowStart, tag.index), extended)
+          if (gallery !== null) {
+            galleries.push(gallery)
+          }
+          rowStart = -1
+        }
+      }
+      tag = tags.exec(html)
+    }
+    return depth === 0 ? galleries : []
   }
 
   private static navCursor(html: string, idFirst: RegExp, hrefFirst: RegExp): string {
@@ -202,7 +222,7 @@ export class EhGalleryListParser {
     return hrefPage.length > 0 ? Number.parseInt(hrefPage, 10) : -1
   }
 
-  private static parseRow(row: string): EhGallery | null {
+  private static parseRow(row: string, extended: boolean): EhGallery | null {
     const urlM: RegExpMatchArray | null = row.match(EhGalleryListParser.RE_URL)
     if (urlM === null || urlM[2] === undefined || urlM[3] === undefined) {
       return null // header row or non-gallery row
@@ -212,11 +232,28 @@ export class EhGalleryListParser {
     g.englishTitle = HtmlSelectorUtils.htmlUnescape(
       HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_TITLE).trim(),
     )
+    if (extended && g.englishTitle.length === 0) {
+      return null
+    }
     g.category = HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_CAT).trim()
     let thumb: string = HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_THUMB_DATASRC)
     if (thumb.length === 0) {
       const src: string = HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_THUMB_SRC)
       thumb = src.startsWith('data:') ? '' : src
+    }
+    let extendedThumb: string = ''
+    if (extended) {
+      if (g.category.length === 0) {
+        g.category = HtmlSelectorUtils.group1(row, /<div class="cn ct\w+"[^>]*>([^<]+)<\/div>/).trim()
+      }
+      if (thumb.length === 0) {
+        extendedThumb = HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_EXTENDED_THUMB)
+        thumb = HtmlSelectorUtils.group1(extendedThumb, /\sdata-src\s*=\s*["']([^"']+)["']/i)
+        if (thumb.length === 0) {
+          const src: string = HtmlSelectorUtils.group1(extendedThumb, /\ssrc\s*=\s*["']([^"']+)["']/i)
+          thumb = src.startsWith('data:') ? '' : src
+        }
+      }
     }
     g.thumbUrl = thumb
     // Posted div may wrap an expunged gallery's timestamp in a child tag (e.g. `<s>`): a child tag
@@ -229,7 +266,9 @@ export class EhGalleryListParser {
       HtmlSelectorUtils.group1(row, EhGalleryListParser.RE_UPLOADER),
     )
 
-    const dimM: RegExpMatchArray | null = row.match(EhGalleryListParser.RE_THUMB_DIM)
+    const dimM: RegExpMatchArray | null = extendedThumb.length === 0
+      ? row.match(EhGalleryListParser.RE_THUMB_DIM)
+      : extendedThumb.match(/height:\s*(\d+)px;\s*width:\s*(\d+)px/i)
     if (dimM !== null && dimM[1] !== undefined && dimM[2] !== undefined) {
       g.imgHeight = Number.parseInt(dimM[1], 10)
       g.imgWidth = Number.parseInt(dimM[2], 10)

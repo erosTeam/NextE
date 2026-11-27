@@ -79,7 +79,8 @@ const looksBanned = (body) => {
 }
 const hasMarker = (body, page) => {
   if (page === 'generic') return true
-  if (page === 'list') return body.includes('class="itg')
+  if (page === 'list') return [...body.matchAll(/<(table|div)\b[^>]*\sclass\s*=\s*(["'])([^"']*)\2[^>]*>/gi)]
+    .some(match => match[3].toLowerCase().split(/\s+/).includes('itg'))
   return body.includes('<h1 id="gn"') || body.includes('<h1 id="gj"') || body.includes('id="gdt"')
 }
 const looksListNoResults = (body) => {

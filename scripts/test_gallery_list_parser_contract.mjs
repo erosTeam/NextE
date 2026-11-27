@@ -2,9 +2,8 @@
 /**
  * Contract test for EhGalleryListParser (compact `itg gltc` layout).
  *
- * The regexes below MUST stay identical to shared/src/main/ets/parser/EhGalleryListParser.ets
- * (ArkTS and JS share RegExp syntax, so the patterns are copy-equal — this test genuinely
- * exercises the parser's logic). Two layers:
+ * This Compact fixture uses a mirror of the row fields in EhGalleryListParser. The layout runtime
+ * suite runs the actual service and parser. Two fixture layers here:
  *   1. an inline SYNTHETIC fixture → exact, deterministic assertions on the fragile bits
  *      (rating sprite math, `cta` category class, favcat border-color map). Always runs;
  *      a failure here fails the gate.
@@ -20,12 +19,12 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PARSER_SRC = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryListParser.ets'), 'utf8')
 
-// ── parser mirror (patterns copied verbatim from EhGalleryListParser.ets) ──
+// ── Compact fixture parser ──
 const RE = {
   table: /<table class="itg[^"]*"[^>]*>([\s\S]*?)<\/table>/,
   row: /<tr[^>]*>[\s\S]*?<\/tr>/g,
-  url: /href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)"/,
-  title: /<div class="glink">([\s\S]*?)<\/div>/,
+  url: /\shref\s*=\s*["'](https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)["']/i,
+  title: /<div\s+class\s*=\s*["']glink["'][^>]*>([\s\S]*?)<\/div>/i,
   cat: /<td class="gl1c glcat"[^>]*>\s*<div class="cn ct\w+"[^>]*>([^<]+)<\/div>/,
   thumbDataSrc: /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*?\sdata-src="([^"]+)"/,
   thumbSrc: /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*?\ssrc="([^"]+)"/,
